@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { startTestDb, type TestDb } from "../helpers/testcontainers.js";
 import {
+  createPersonInDb,
   csrfCookie,
   csrfHeader,
   getCookie,
@@ -95,6 +96,58 @@ describe("auth", () => {
 
     expect(res.statusCode).toBe(401);
     expect(res.json().code).toBe("AUTH_INVALID_CREDENTIALS");
+  });
+
+  it("login for a non-existent user still runs a password verification (timing equalization)", async () => {
+    const real = await vi.importActual<typeof import("../../src/utils/argon2.js")>(
+      "../../src/utils/argon2.js",
+    );
+    const dummyVerify = vi.fn(real.verifyAgainstDummyHash);
+    vi.doMock("../../src/utils/argon2.js", () => ({
+      ...real,
+      verifyAgainstDummyHash: dummyVerify,
+    }));
+    vi.resetModules();
+
+    const { bootstrapAdmin } = await import("../../src/services/bootstrap-service.js");
+    await bootstrapAdmin();
+    const { buildApp } = await import("../../src/app.js");
+    if (app) await app.close();
+    app = await buildApp();
+    await app.ready();
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      cookies: csrfCookie,
+      headers: csrfHeader,
+      payload: { username: "ghost-user", password: "Whatever123!" },
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(res.json().code).toBe("AUTH_INVALID_CREDENTIALS");
+    expect(dummyVerify).toHaveBeenCalledWith("Whatever123!");
+    vi.doUnmock("../../src/utils/argon2.js");
+  });
+
+  it("login with a legacy sub-12-char password still succeeds", async () => {
+    // Passwords created before the 12-char policy must keep authenticating
+    // (ADR-099 — the minimum applies to set paths only).
+    const { hashPassword } = await import("../../src/utils/argon2.js");
+    await createPersonInDb(testDb!.db, {
+      username: "legacyuser",
+      passwordHash: await hashPassword("Legacy9pw!"),
+    });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      cookies: csrfCookie,
+      headers: csrfHeader,
+      payload: { username: "legacyuser", password: "Legacy9pw!" },
+    });
+
+    expect(res.statusCode).toBe(200);
   });
 
   it("GET /auth/session with a valid cookie returns 200", async () => {

@@ -1,6 +1,8 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # Pinned to a tested minor release — the supported range is PostgreSQL
+    # >=14, with 16 recommended (enforced by a startup preflight check).
+    image: postgres:16.11-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

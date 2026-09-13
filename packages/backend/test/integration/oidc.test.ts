@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { generateKeyPair, exportJWK, SignJWT, type KeyLike, type JWK } from "jose";
 import { startTestDb, type TestDb } from "../helpers/testcontainers.js";
 import {
   csrfCookie,
@@ -10,11 +11,32 @@ import {
 const ADMIN_USERNAME = "admin";
 const ADMIN_PASSWORD = "AdminPassword123!";
 const ISSUER = "https://idp.example.com";
+const CLIENT_ID = "componode-client";
+const KID = "test-key-1";
 
-function makeIdToken(claims: Record<string, unknown>): string {
+let privateKey: KeyLike;
+let publicJwk: JWK;
+let attackerPrivateKey: KeyLike;
+let lastNonce: string | null = null;
+
+function makeUnsignedIdToken(claims: Record<string, unknown>): string {
   const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
   const payload = Buffer.from(JSON.stringify(claims)).toString("base64url");
   return `${header}.${payload}.`;
+}
+
+async function signIdToken(
+  claims: Record<string, unknown>,
+  opts: { iss?: string; aud?: string; nonce?: string | null; exp?: number; key?: KeyLike } = {},
+): Promise<string> {
+  const payload = { ...claims, nonce: opts.nonce === undefined ? lastNonce : opts.nonce };
+  let jwt = new SignJWT(payload)
+    .setProtectedHeader({ alg: "RS256", kid: KID })
+    .setIssuer(opts.iss ?? ISSUER)
+    .setAudience(opts.aud ?? CLIENT_ID)
+    .setIssuedAt()
+    .setExpirationTime(opts.exp ?? Math.floor(Date.now() / 1000) + 300);
+  return jwt.sign(opts.key ?? privateKey);
 }
 
 function discoveryResponse() {
@@ -23,20 +45,36 @@ function discoveryResponse() {
       issuer: ISSUER,
       authorization_endpoint: `${ISSUER}/authorize`,
       token_endpoint: `${ISSUER}/oauth/token`,
+      jwks_uri: `${ISSUER}/jwks`,
     }),
     { status: 200, headers: { "Content-Type": "application/json" } },
   );
 }
 
-function tokenResponse(claims: Record<string, unknown>) {
+function jwksResponse() {
+  return new Response(JSON.stringify({ keys: [publicJwk] }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function tokenResponse(idToken: string) {
   return new Response(
     JSON.stringify({
-      id_token: makeIdToken(claims),
+      id_token: idToken,
       access_token: "mock-access-token",
+      token_type: "Bearer",
     }),
     { status: 200, headers: { "Content-Type": "application/json" } },
   );
 }
+
+const BASE_CLAIMS = {
+  sub: "existing-oidc-sub",
+  preferred_username: "oidcuser",
+  email: "oidc@example.com",
+  name: "OIDC User",
+};
 
 describe("OIDC", () => {
   let testDb: TestDb | null = null;
@@ -47,6 +85,7 @@ describe("OIDC", () => {
   let originalBootstrapUsername: string | undefined;
   let originalBootstrapPassword: string | undefined;
   let originalClientSecret: string | undefined;
+  let originalPublicUrl: string | undefined;
   let fetchSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
@@ -55,6 +94,16 @@ describe("OIDC", () => {
     originalBootstrapUsername = process.env.BOOTSTRAP_ADMIN_USERNAME;
     originalBootstrapPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD;
     originalClientSecret = process.env.MOCK_CLIENT_SECRET;
+    originalPublicUrl = process.env.PUBLIC_URL;
+
+    const pair = await generateKeyPair("RS256", { extractable: true });
+    privateKey = pair.privateKey;
+    publicJwk = await exportJWK(pair.publicKey);
+    publicJwk.kid = KID;
+    publicJwk.alg = "RS256";
+    publicJwk.use = "sig";
+    attackerPrivateKey = (await generateKeyPair("RS256")).privateKey;
+    lastNonce = null;
 
     testDb = await startTestDb();
     process.env.DATABASE_URL = testDb.container.getConnectionUri();
@@ -62,34 +111,54 @@ describe("OIDC", () => {
     process.env.BOOTSTRAP_ADMIN_USERNAME = ADMIN_USERNAME;
     process.env.BOOTSTRAP_ADMIN_PASSWORD = ADMIN_PASSWORD;
     process.env.MOCK_CLIENT_SECRET = "mock-client-secret";
+    process.env.PUBLIC_URL = "https://app.example.com";
     vi.resetModules();
 
     fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = new URL(String(input));
+      const url = new URL(String(input instanceof Request ? input.url : input));
       if (url.pathname === "/.well-known/openid-configuration") {
         return discoveryResponse();
+      }
+      if (url.pathname === "/jwks") {
+        return jwksResponse();
       }
       if (url.pathname === "/oauth/token") {
         const bodyText = init?.body ? String(init.body) : "";
         const body = new URLSearchParams(bodyText);
         const code = body.get("code");
-        if (code === "invalid-code") {
-          return new Response("Unauthorized", { status: 401 });
+        switch (code) {
+          case "invalid-code":
+            return new Response(JSON.stringify({ error: "invalid_grant" }), {
+              status: 401,
+              headers: { "Content-Type": "application/json" },
+            });
+          case "mock-code-new-user":
+            return tokenResponse(await signIdToken({
+              sub: "new-oidc-sub",
+              preferred_username: "newoidcuser",
+              email: "new@example.com",
+              name: "New OIDC User",
+            }));
+          case "code-alg-none":
+            return tokenResponse(makeUnsignedIdToken({ ...BASE_CLAIMS, nonce: lastNonce }));
+          case "code-wrong-iss":
+            return tokenResponse(await signIdToken(BASE_CLAIMS, { iss: "https://evil.example.com" }));
+          case "code-wrong-aud":
+            return tokenResponse(await signIdToken(BASE_CLAIMS, { aud: "attacker-client" }));
+          case "code-expired":
+            return tokenResponse(await signIdToken(BASE_CLAIMS, { exp: Math.floor(Date.now() / 1000) - 3600 }));
+          case "code-bad-sig":
+            return tokenResponse(await signIdToken(BASE_CLAIMS, { key: attackerPrivateKey }));
+          case "code-wrong-nonce":
+            return tokenResponse(await signIdToken(BASE_CLAIMS, { nonce: "attacker-nonce" }));
+          case "mock-code":
+            return tokenResponse(await signIdToken(BASE_CLAIMS));
+          default:
+            return new Response(JSON.stringify({ error: "invalid_grant" }), {
+              status: 401,
+              headers: { "Content-Type": "application/json" },
+            });
         }
-        if (code === "mock-code-new-user") {
-          return tokenResponse({
-            sub: "new-oidc-sub",
-            preferred_username: "newoidcuser",
-            email: "new@example.com",
-            name: "New OIDC User",
-          });
-        }
-        return tokenResponse({
-          sub: "existing-oidc-sub",
-          preferred_username: "oidcuser",
-          email: "oidc@example.com",
-          name: "OIDC User",
-        });
       }
       return new Response("Not Found", { status: 404 });
     });
@@ -118,6 +187,8 @@ describe("OIDC", () => {
     else delete process.env.BOOTSTRAP_ADMIN_PASSWORD;
     if (originalClientSecret !== undefined) process.env.MOCK_CLIENT_SECRET = originalClientSecret;
     else delete process.env.MOCK_CLIENT_SECRET;
+    if (originalPublicUrl !== undefined) process.env.PUBLIC_URL = originalPublicUrl;
+    else delete process.env.PUBLIC_URL;
     vi.resetModules();
   });
 
@@ -130,7 +201,7 @@ describe("OIDC", () => {
       payload: {
         enabled: true,
         issuer: ISSUER,
-        clientId: "componode-client",
+        clientId: CLIENT_ID,
         clientSecretRef: "MOCK_CLIENT_SECRET",
         roleClaimPath: "groups",
         claimValueField: "name",
@@ -152,7 +223,17 @@ describe("OIDC", () => {
     expect(res.statusCode).toBe(302);
     const location = res.headers["location"];
     expect(typeof location).toBe("string");
-    return new URL(location as string).searchParams.get("state") ?? "";
+    const url = new URL(location as string);
+    lastNonce = url.searchParams.get("nonce");
+    expect(lastNonce).toBeTruthy();
+    return url.searchParams.get("state") ?? "";
+  }
+
+  async function runCallback(code: string, state: string) {
+    return app.inject({
+      method: "GET",
+      url: `/api/v1/auth/oidc/callback?code=${code}&state=${state}`,
+    });
   }
 
   it("admin configures OIDC via PUT /api/v1/settings/oidc → 200", async () => {
@@ -167,14 +248,11 @@ describe("OIDC", () => {
     expect(state).toBeTruthy();
   });
 
-  it("callback with a mock code+state returns 302 and sets a session cookie", async () => {
+  it("callback with a valid signed code+state returns 302 and sets a session cookie", async () => {
     await configureOidc();
     const state = await initiateLogin();
 
-    const res = await app.inject({
-      method: "GET",
-      url: `/api/v1/auth/oidc/callback?code=mock-code&state=${state}`,
-    });
+    const res = await runCallback("mock-code", state);
 
     expect(res.statusCode).toBe(302);
     const setCookie = res.headers["set-cookie"];
@@ -186,10 +264,7 @@ describe("OIDC", () => {
     await configureOidc();
     const state = await initiateLogin();
 
-    const res = await app.inject({
-      method: "GET",
-      url: `/api/v1/auth/oidc/callback?code=mock-code-new-user&state=${state}`,
-    });
+    const res = await runCallback("mock-code-new-user", state);
     expect(res.statusCode).toBe(302);
 
     const persons = await testDb!.db
@@ -234,10 +309,23 @@ describe("OIDC", () => {
     await configureOidc();
     const state = await initiateLogin();
 
-    const res = await app.inject({
-      method: "GET",
-      url: `/api/v1/auth/oidc/callback?code=invalid-code&state=${state}`,
-    });
+    const res = await runCallback("invalid-code", state);
     expect(res.statusCode).toBe(400);
+  });
+
+  it.each([
+    ["alg:none token", "code-alg-none"],
+    ["wrong issuer", "code-wrong-iss"],
+    ["wrong audience", "code-wrong-aud"],
+    ["expired token", "code-expired"],
+    ["signature from unknown key", "code-bad-sig"],
+    ["mismatched nonce", "code-wrong-nonce"],
+  ])("rejects a forged ID token (%s) → 401 OIDC_TOKEN_VERIFICATION_FAILED", async (_label, code) => {
+    await configureOidc();
+    const state = await initiateLogin();
+
+    const res = await runCallback(code as string, state);
+    expect(res.statusCode).toBe(401);
+    expect(res.json().code).toBe("OIDC_TOKEN_VERIFICATION_FAILED");
   });
 });

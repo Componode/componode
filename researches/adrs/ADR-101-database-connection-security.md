@@ -25,3 +25,12 @@ Compose deployment has Postgres on the same Docker network (low MITM risk).
 enforceable artifact (not just documentation). The migration-privilege
 split is deferred to v1.1 (adds complexity for a hardened-deployment
 minority).
+
+**Amendment (2026-09-10 security assessment)**: (a) The `require`-in-
+production default is now implemented — previously the code defaulted to
+`disable` in every environment. The bundled Compose Postgres has no TLS, so
+`docker-compose.yml` and `.env.example` set `DATABASE_SSL_MODE=disable`
+explicitly. (b) Startup platform preflight: before migrations, the backend
+verifies `server_version_num >= 140000` (PostgreSQL 14+) and that the
+`pgcrypto` extension exists, creating it when the database user has the
+privilege. `init-db.sql` pre-creates it for the bundled Compose database.

@@ -152,6 +152,7 @@
 | [ADR-102](./adrs/ADR-102-content-injection-in-jsonb-fields.md) | Content injection in JSONB fields |
 | [ADR-103](./adrs/ADR-103-ux-ui-reference-adoption.md) | UX/UI reference adoption (`docs/ux.md` normative) |
 | [ADR-104](./adrs/ADR-104-api-documentation-sync.md) | API documentation sync (`docs/openapi.yaml` + `docs/api.md` normative) |
+| [ADR-106](./adrs/ADR-106-security-hardening-2026-09-assessment.md) | Security hardening from the 2026-09-10 assessment |
 
 ### Frontend & SPA
 

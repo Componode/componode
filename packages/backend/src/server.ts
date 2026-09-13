@@ -1,8 +1,9 @@
-import { Migrator, type MigrationProvider, type Migration } from "kysely";
+import { Migrator, type MigrationProvider, type Migration } from "kysely/migration";
 import { promises as fs } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { db } from "./db/connection.js";
+import { assertDatabasePlatform } from "./db/platform-check.js";
 import { buildApp } from "./app.js";
 import { bootstrapAdmin } from "./services/bootstrap-service.js";
 import { recoverRuns } from "./services/recovery-service.js";
@@ -47,19 +48,22 @@ async function runMigrations(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  // 1. Run migrations
+  // 1. Verify database platform prerequisites before migrations
+  await assertDatabasePlatform();
+
+  // 2. Run migrations
   await runMigrations();
 
-  // 2. Recover any stale import runs from a previous crash
+  // 3. Recover any stale import runs from a previous crash
   await recoverRuns();
 
-  // 3. Bootstrap admin (if DB is empty)
+  // 4. Bootstrap admin (if DB is empty)
   await bootstrapAdmin();
 
-  // 4. Initialize scheduled importers
+  // 5. Initialize scheduled importers
   await initScheduler();
 
-  // 5. Build and start the server
+  // 6. Build and start the server
   const app = await buildApp();
   const port = parseInt(process.env.PORT ?? "3000", 10);
 

@@ -88,7 +88,7 @@ describe("password change & reset", () => {
     expect(res.json().code).toBe("AUTH_INVALID_CREDENTIALS");
   });
 
-  it("password change with new password < 8 chars → 400", async () => {
+  it("password change with new password < 12 chars → 400 (ADR-099)", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/auth/password/change",
@@ -96,10 +96,38 @@ describe("password change & reset", () => {
       headers: csrfHeader,
       payload: {
         currentPassword: ADMIN_PASSWORD,
-        newPassword: "short",
+        // 9 characters — valid under the old 8-char policy, rejected now
+        newPassword: "ShortPwd9!",
       },
     });
 
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("VALIDATION_FAILED");
+  });
+
+  it("password reset confirm with new password < 12 chars → 400 (ADR-099)", async () => {
+    const { hashPassword } = await import("../../src/utils/argon2.js");
+    const userId = await createPersonInDb(testDb!.db, {
+      username: "shortreset",
+      passwordHash: await hashPassword("OldPassword123!"),
+    });
+
+    const genRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/password/reset",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession!, ...csrfCookie },
+      headers: csrfHeader,
+      payload: { userId },
+    });
+    const token = genRes.json().token;
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/password/reset/confirm",
+      cookies: csrfCookie,
+      headers: csrfHeader,
+      payload: { token, newPassword: "TooShort9!" },
+    });
     expect(res.statusCode).toBe(400);
     expect(res.json().code).toBe("VALIDATION_FAILED");
   });

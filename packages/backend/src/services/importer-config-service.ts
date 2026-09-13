@@ -44,8 +44,14 @@ function maskSecretRefs(
   return secretRefs.map((ref) => ({ key: ref.key }));
 }
 
+/** Strip env/file locations from a config row's secretRefs (response-only —
+ *  the stored value is unchanged). */
+function maskRowSecretRefs<T extends { secretRefs?: Array<{ key: string; env?: string; file?: string }> | null }>(row: T): T {
+  return { ...row, secretRefs: maskSecretRefs(row.secretRefs ?? undefined) ?? [] };
+}
+
 export async function listImporterConfigs() {
-  return db
+  const rows = await db
     .selectFrom("importer_configs")
     .select([
       "id",
@@ -60,14 +66,16 @@ export async function listImporterConfigs() {
     ])
     .orderBy("createdAt", "desc")
     .execute();
+  return rows.map(maskRowSecretRefs);
 }
 
 export async function getImporterConfig(id: string) {
-  return db
+  const row = await db
     .selectFrom("importer_configs")
     .selectAll()
     .where("id", "=", id)
     .executeTakeFirst();
+  return row ? maskRowSecretRefs(row) : row;
 }
 
 export async function createImporterConfig(
@@ -214,9 +222,10 @@ async function getImporterConfigWithTrx(
   trx: import("kysely").Transaction<import("../db/types.js").DB> | typeof db,
   id: string,
 ) {
-  return trx
+  const row = await trx
     .selectFrom("importer_configs")
     .selectAll()
     .where("id", "=", id)
     .executeTakeFirst();
+  return row ? maskRowSecretRefs(row) : row;
 }

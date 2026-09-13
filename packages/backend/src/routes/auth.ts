@@ -159,9 +159,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const defaultRole = String(await getSetting("defaultUserRole") ?? "VIEWER");
+    // Self-registration must never provision ADMIN. Settings validation
+    // rejects the combination, but env overrides can still force it — clamp.
+    const safeRole = defaultRole === "ADMIN" ? "VIEWER" : defaultRole;
+    if (safeRole !== defaultRole) {
+      req.log.warn("defaultUserRole=ADMIN is not permitted for self-registration; clamped to VIEWER");
+    }
     const userInput: CreateUserInput = {
       ...parsed.data,
-      role: defaultRole as CreateUserInput["role"],
+      role: safeRole as CreateUserInput["role"],
     };
 
     try {
@@ -204,7 +210,8 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post("/auth/oidc/login", async (req: FastifyRequest, reply: FastifyReply) => {
     const query = req.query as { redirect_uri?: string };
     try {
-      const redirectUrl = await initiateLogin(query.redirect_uri ?? "/");
+      const baseUrl = process.env.PUBLIC_URL ?? `${req.protocol}://${req.host}`;
+      const redirectUrl = await initiateLogin(query.redirect_uri ?? "/", baseUrl);
       return reply.status(302).redirect(redirectUrl);
     } catch (err) {
       const error = err as { statusCode?: number; code?: string; message?: string };
@@ -228,7 +235,9 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
-      const { sessionToken, redirectUri } = await handleCallback(query.code, query.state);
+      const baseUrl = process.env.PUBLIC_URL ?? `${req.protocol}://${req.host}`;
+      const callbackUrl = new URL(req.url, baseUrl);
+      const { sessionToken, redirectUri } = await handleCallback(callbackUrl);
       reply.setCookie(SESSION_COOKIE_NAME, sessionToken, SESSION_COOKIE_OPTIONS);
       const csrfToken = (reply as unknown as { setCsrfCookie: () => string }).setCsrfCookie();
       // Pass CSRF token as query param for the frontend to store (since this is a redirect, not JSON)

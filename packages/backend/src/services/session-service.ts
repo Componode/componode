@@ -1,5 +1,5 @@
 import { db } from "../db/connection.js";
-import { generateSessionToken } from "../utils/crypto.js";
+import { generateSessionToken, hashToken } from "../utils/crypto.js";
 import { uuidv7 } from "uuidv7";
 import { getSetting } from "./settings-service.js";
 import { writeAuthEvent, type Actor } from "./audit-service.js";
@@ -10,12 +10,16 @@ export async function createSession(userId: string): Promise<string> {
   const absoluteTimeoutMs = Number(await getSetting("sessionAbsoluteTimeoutMs"));
   const expiresAt = new Date(now.getTime() + absoluteTimeoutMs);
 
+  // `id` stores SHA-256(token); the plaintext token never touches the DB.
+  // `tokenLast4` is kept for display so users can match a session to the
+  // cookie shown in their browser devtools.
   await db
     .insertInto("sessions")
     .values({
-      id: sessionToken,
+      id: hashToken(sessionToken),
       publicId: uuidv7(),
       userId,
+      tokenLast4: sessionToken.slice(-4),
       createdAt: now.toISOString(),
       lastSeenAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
@@ -28,13 +32,34 @@ export async function createSession(userId: string): Promise<string> {
 /**
  * Revoke a session by its non-secret publicId (never by the token — the
  * token is a credential and is not exposed to clients).
+ *
+ * Authorization: a user may revoke their own sessions; only ADMINs may
+ * revoke another user's session.
  */
-export async function revokeSession(publicId: string, actor: Actor): Promise<void> {
+export async function revokeSession(
+  publicId: string,
+  caller: { id: string; role: string },
+  actor: Actor,
+): Promise<void> {
   const session = await db
     .selectFrom("sessions")
     .select(["id", "userId"])
     .where("sessions.publicId", "=", publicId)
     .executeTakeFirst();
+
+  if (!session) {
+    throw Object.assign(new Error("Session not found"), {
+      statusCode: 404,
+      code: "NOT_FOUND",
+    });
+  }
+
+  if (caller.role !== "ADMIN" && session.userId !== caller.id) {
+    throw Object.assign(new Error("Cannot revoke another user's session"), {
+      statusCode: 403,
+      code: "AUTH_FORBIDDEN",
+    });
+  }
 
   const now = new Date().toISOString();
   await db
@@ -43,9 +68,7 @@ export async function revokeSession(publicId: string, actor: Actor): Promise<voi
     .where("sessions.publicId", "=", publicId)
     .execute();
 
-  if (session) {
-    await writeAuthEvent("revoked", null, { id: session.userId, name: actor.name ?? actor.id });
-  }
+  await writeAuthEvent("revoked", null, { id: session.userId, name: actor.name ?? actor.id });
 }
 
 export async function revokeUserSessions(userId: string, actor: Actor): Promise<void> {
@@ -70,7 +93,7 @@ export async function listUserSessions(userId: string) {
     .selectFrom("sessions")
     .select([
       "sessions.publicId",
-      "sessions.id",
+      "sessions.tokenLast4",
       "sessions.createdAt",
       "sessions.lastSeenAt",
       "sessions.expiresAt",
@@ -82,7 +105,7 @@ export async function listUserSessions(userId: string) {
 
   return rows.map((row) => ({
     id: row.publicId,
-    tokenLast4: row.id.slice(-4),
+    tokenLast4: row.tokenLast4,
     createdAt: row.createdAt,
     lastSeenAt: row.lastSeenAt,
     expiresAt: row.expiresAt,

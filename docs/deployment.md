@@ -8,6 +8,18 @@ Componode is self-hosted with Docker Compose. One deployment serves one organiza
 - Docker Compose v2
 - A Linux or Windows host with an internet connection for the first build
 
+## Database requirements
+
+The bundled Compose stack provides PostgreSQL 16 with `pgcrypto` preinstalled.
+For an **external database**, Componode requires:
+
+- **PostgreSQL 14 or newer**, and
+- the **`pgcrypto`** extension (a trusted extension; the database owner can
+  create it without superuser, or run `init-db.sql` as a superuser).
+
+The application verifies both at startup and exits with a clear error before
+running migrations when the database does not meet the requirements.
+
 ## Quick start
 
 1. Clone the repository:
@@ -64,7 +76,10 @@ its purpose.
 |---|---|---|---|
 | `PORT` | no | `3000` | Host port mapped to the application container. |
 | `DATABASE_URL` | no | `postgres://componode:componode_pw@postgres:5432/componode` | PostgreSQL connection string. |
-| `DATABASE_SSL_MODE` | no | `disable` | Database SSL mode. Use `require` for external Postgres. |
+| `DATABASE_SSL_MODE` | no | `require` in production | `disable`, `require`, or `verify-full`. The bundled Compose Postgres has no TLS, so the deployment sets `disable` explicitly. For a remote Postgres, keep `require` or use `verify-full` with `DATABASE_SSL_CA`. |
+| `DATABASE_SSL_CA` | no | — | Path to a CA certificate file for `verify-full` mode. |
+| `TRUSTED_PROXY_IP` | no | — (unset: headers ignored) | Reverse-proxy trust. `X-Forwarded-*` headers are ignored unless set. Accepts one proxy IP, a comma-separated list, or an integer hop count. See ADR-093. |
+| `SECRETS_DIR` | no | `/run/secrets` | Directory `file:` secret references are allowed to resolve in. Absolute paths and traversal outside it are rejected. |
 | `MAX_DB_CONNECTIONS` | no | `10` | Connection pool size. |
 | `BOOTSTRAP_ADMIN_USERNAME` | yes | — | First admin username. |
 | `BOOTSTRAP_ADMIN_PASSWORD` | yes | — | First admin password. |

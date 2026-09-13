@@ -45,6 +45,24 @@ describe("WebUrlImporter", () => {
     expect(fetchSpy).toHaveBeenCalledWith("https://example.com", { signal: expect.any(AbortSignal) });
   });
 
+  it.each([
+    "http://localhost/",
+    "http://127.0.0.1/admin",
+    "http://10.0.0.1/internal",
+    "http://192.168.1.1/",
+    "http://169.254.169.254/latest/meta-data",
+    "http://[::1]/",
+    "ftp://example.com/",
+  ])("refuses internal/unsafe URL %s without fetching", async (url) => {
+    const importer = new WebUrlImporter();
+    await expect(async () => {
+      for await (const _asset of importer.run({ url }, {}, makeContext())) {
+        // never reached
+      }
+    }).rejects.toThrow(/not allowed/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("does not access process.env and yields no component-to-component edges", async () => {
     const envSpy = vi.fn();
     const original = process.env;

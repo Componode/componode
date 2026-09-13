@@ -15,8 +15,21 @@ export class EnvSecretResolver {
     }
 
     if (ref.file !== undefined) {
+      // File secrets are confined to SECRETS_DIR (default /run/secrets, the
+      // conventional container secrets mount). Absolute paths and traversal
+      // outside the directory are rejected.
       const { readFile } = await import("node:fs/promises");
-      return (await readFile(ref.file, "utf8")).trim();
+      const { resolve, isAbsolute, relative } = await import("node:path");
+      const secretsDir = resolve(process.env.SECRETS_DIR ?? "/run/secrets");
+      if (isAbsolute(ref.file)) {
+        throw new Error("Secret file reference must be relative to SECRETS_DIR");
+      }
+      const resolved = resolve(secretsDir, ref.file);
+      const rel = relative(secretsDir, resolved);
+      if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
+        throw new Error("Secret file reference escapes SECRETS_DIR");
+      }
+      return (await readFile(resolved, "utf8")).trim();
     }
 
     throw new Error("Secret ref must include env or file");

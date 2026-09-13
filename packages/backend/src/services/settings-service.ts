@@ -81,6 +81,24 @@ export async function getSetting(key: keyof typeof DEFAULT_SETTINGS): Promise<un
 }
 
 export async function updateSettings(input: UpdateSettingsInput, actor: Actor) {
+  // Refuse the unsafe combination before persisting: public self-registration
+  // must never provision new accounts as ADMIN (2026-09-10 assessment). The
+  // effective state is defaults + stored + patch, with env overrides winning.
+  const effective: Record<string, unknown> = { ...(await getSettings()) };
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined) continue;
+    const envName = ENV_OVERRIDE_NAMES[key];
+    const envRaw = envName ? process.env[envName] : undefined;
+    const envParsed = envRaw !== undefined ? parseEnvValue(key, envRaw) : undefined;
+    effective[key] = envParsed !== undefined ? envParsed : value;
+  }
+  if (effective.allowSelfRegistration === true && effective.defaultUserRole === "ADMIN") {
+    throw Object.assign(
+      new Error("allowSelfRegistration cannot be enabled while defaultUserRole is ADMIN"),
+      { statusCode: 400, code: "VALIDATION_FAILED" },
+    );
+  }
+
   const now = new Date().toISOString();
   const changes: Record<string, unknown> = {};
 

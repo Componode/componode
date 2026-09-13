@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/connection.js";
+import { hashToken } from "../utils/crypto.js";
 import { getSetting } from "../services/settings-service.js";
 
 const SESSION_COOKIE_NAME = "componode_session";
@@ -24,6 +25,9 @@ export async function sessionPlugin(app: FastifyInstance): Promise<void> {
       return reply.status(401).send({ code: "AUTH_NO_SESSION", message: "No session cookie" });
     }
 
+    // Sessions are looked up by the SHA-256 of the bearer token — the
+    // plaintext token is never stored (ADR-099).
+    const sessionHash = hashToken(sessionToken);
     const session = await db
       .selectFrom("sessions")
       .select([
@@ -34,7 +38,7 @@ export async function sessionPlugin(app: FastifyInstance): Promise<void> {
         "sessions.expiresAt",
         "sessions.revokedAt",
       ])
-      .where("sessions.id", "=", sessionToken)
+      .where("sessions.id", "=", sessionHash)
       .executeTakeFirst();
 
     if (!session) {
@@ -82,14 +86,14 @@ export async function sessionPlugin(app: FastifyInstance): Promise<void> {
       role: user.role,
       displayName: user.displayName,
     };
-    req.sessionId = sessionToken;
+    req.sessionId = sessionHash;
 
     // Throttled lastSeenAt update
     if (idleMs > LAST_SEEN_UPDATE_INTERVAL_MS) {
       await db
         .updateTable("sessions")
         .set({ lastSeenAt: now.toISOString() })
-        .where("sessions.id", "=", sessionToken)
+        .where("sessions.id", "=", sessionHash)
         .execute();
     }
   });

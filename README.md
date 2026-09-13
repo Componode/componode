@@ -308,8 +308,15 @@ v1 is split into sequential spec-kit features:
    errors, `application/problem+json` responses, backward-compatible
    `code`/`message`/`details`, `invalid-params` for validation, OpenAPI and
    docs updates. (Complete)
-9. **Next** — v1.1 features (Kubernetes/Helm packaging, E2E tests, additional
-   importers).
+9. **`009-bugfix-spa-csrf`** ✅ — SPA fallback for direct navigation + CSRF
+   double-submit protection. (Complete)
+10. **`010-security-hardening`** ✅ — consolidated fixes for all critical,
+    high, and medium findings from the 2026-09-10 security assessment:
+    verified OIDC login, hashed session tokens, session-revocation ownership,
+    proxy trust, importer SSRF guard, secret masking, DB TLS defaults, Node
+    24 + PostgreSQL 14+ floor (ADR-106).
+11. **Next** — v1.1 features (Kubernetes/Helm packaging, E2E tests, additional
+    importers).
 
 Dependencies: 001 → 002 → 003 → 004 → 005 → 006 → 007; later features build on
 the hierarchy and org-level entities (`Person`, `Team`, `LineOfBusiness`).

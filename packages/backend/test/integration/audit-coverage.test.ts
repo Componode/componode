@@ -182,10 +182,10 @@ describe("audit coverage for consequential mutations", () => {
       url: "/api/v1/auth/password/change",
       cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
       headers: csrfHeader,
-      payload: { currentPassword: viewerPassword, newPassword: "NewPass123!" },
+      payload: { currentPassword: viewerPassword, newPassword: "NewPassword123!" },
     });
     expect(res.statusCode).toBe(204);
-    viewerPassword = "NewPass123!";
+    viewerPassword = "NewPassword123!";
     const after = await authEventCount(testDb.db, "password_change");
     expect(after).toBe(before + 1);
   });

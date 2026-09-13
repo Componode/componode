@@ -28,8 +28,19 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
     // Users can revoke their own sessions; admins can revoke any.
     // :id is the session's non-secret publicId (UUID), not the token.
 
-    await revokeSession(id, toActor(req));
-    return reply.status(204).send();
+    try {
+      await revokeSession(id, { id: req.user.id, role: req.user.role }, toActor(req));
+      return reply.status(204).send();
+    } catch (err) {
+      const error = err as { statusCode?: number; code?: string; message?: string };
+      if (error.statusCode === 404) {
+        return reply.status(404).send({ code: error.code ?? "NOT_FOUND", message: error.message ?? "Session not found" });
+      }
+      if (error.statusCode === 403) {
+        return reply.status(403).send({ code: error.code ?? "AUTH_FORBIDDEN", message: error.message ?? "Forbidden" });
+      }
+      throw err;
+    }
   });
 
   // GET /users/:id/sessions — admin only, list a user's sessions

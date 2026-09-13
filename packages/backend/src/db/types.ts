@@ -21,8 +21,9 @@ export interface PersonRow {
 }
 
 export interface SessionRow {
-  id: string; // bearer token — never expose via the API
+  id: string; // SHA-256 of the bearer token — never expose via the API
   publicId: string; // non-secret identifier safe to return to clients
+  tokenLast4: string; // last 4 chars of the token, for display only
   userId: string;
   createdAt: Generated<string>;
   lastSeenAt: Generated<string>;

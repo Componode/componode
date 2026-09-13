@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance, type FastifyLoggerOptions } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyLoggerOptions, type FastifyServerOptions } from "fastify";
 import cookie from "@fastify/cookie";
 import staticPlugin from "@fastify/static";
 import { fileURLToPath } from "url";
@@ -30,12 +30,28 @@ import { auditRoutes } from "./routes/audit.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/**
+ * Resolve the Fastify `trustProxy` option from TRUSTED_PROXY_IP (ADR-093).
+ * Accepts a single IP, a comma-separated IP list, or an integer hop count.
+ * Defaults to `false` — X-Forwarded-* headers are only honored when an
+ * operator explicitly configures trusted proxies.
+ */
+export function resolveTrustProxy(): FastifyServerOptions["trustProxy"] {
+  const raw = process.env.TRUSTED_PROXY_IP?.trim();
+  if (!raw) return false;
+  // proxy-addr (Fastify's trustProxy implementation) accepts a numeric hop
+  // count, but the FastifyServerOptions type omits `number` — cast it.
+  if (/^\d+$/.test(raw)) return Number.parseInt(raw, 10) as unknown as boolean;
+  const parts = raw.split(",").map((p) => p.trim()).filter(Boolean);
+  return parts.length === 1 ? parts[0]! : parts;
+}
+
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     // Pass Pino options so Fastify creates a compatible internal logger.
     // The exported `logger` instance is used by services outside of Fastify.
     logger: loggerOptions as unknown as FastifyLoggerOptions,
-    trustProxy: true,
+    trustProxy: resolveTrustProxy(),
     bodyLimit: 1024 * 1024, // 1MB max request body (FR-022)
   });
 

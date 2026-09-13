@@ -7,3 +7,8 @@ CREATE DATABASE componode OWNER componode;
 
 -- Grant necessary privileges for migrations + runtime
 GRANT ALL PRIVILEGES ON DATABASE componode TO componode;
+
+-- pgcrypto is required by the application (verified at startup). It must be
+-- created inside the componode database, not the bootstrap database.
+\connect componode
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
