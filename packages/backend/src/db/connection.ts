@@ -23,7 +23,16 @@ function getEnvInt(key: string, fallback: number): number {
 
 const databaseUrl = getEnv("DATABASE_URL");
 const maxConnections = getEnvInt("MAX_DB_CONNECTIONS", 10);
-const sslMode = getEnv("DATABASE_SSL_MODE", "disable");
+// ADR-101: production defaults to TLS-required; the bundled Compose Postgres
+// has no TLS so it sets DATABASE_SSL_MODE=disable explicitly.
+const sslMode = getEnv(
+  "DATABASE_SSL_MODE",
+  process.env.NODE_ENV === "production" ? "require" : "disable",
+);
+
+if (!["disable", "require", "verify-full"].includes(sslMode)) {
+  throw new Error(`Invalid DATABASE_SSL_MODE: ${sslMode} (expected disable|require|verify-full)`);
+}
 
 const sslConfig =
   sslMode === "disable"

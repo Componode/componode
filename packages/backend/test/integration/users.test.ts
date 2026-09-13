@@ -79,6 +79,23 @@ describe("users CRUD", () => {
     expect(body.user.id).toBeDefined();
   });
 
+  it("admin create user with password < 12 chars → 400 (ADR-099)", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/users",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession!, ...csrfCookie },
+      headers: csrfHeader,
+      payload: {
+        username: "shortpwuser",
+        password: "ShortPwd9!",
+        role: "VIEWER",
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("VALIDATION_FAILED");
+  });
+
   it("admin lists users via GET /api/v1/users → 200 + array", async () => {
     // Create a user first
     await app.inject({
@@ -134,7 +151,7 @@ describe("users CRUD", () => {
   it("duplicate username returns 409", async () => {
     const payload = {
       username: "dupuser",
-      password: "DupUser123!",
+      password: "DupUser12345!",
       role: "VIEWER",
     };
     const first = await app.inject({

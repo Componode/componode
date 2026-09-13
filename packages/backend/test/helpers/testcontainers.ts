@@ -1,6 +1,6 @@
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { Pool } from "pg";
-import { Kysely, PostgresDialect, type Migration } from "kysely";
+import { Kysely, PostgresDialect } from "kysely";
 import { promises as fs } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -28,7 +28,7 @@ export interface TestDb {
 }
 
 export async function startTestDb(): Promise<TestDb> {
-  const container = await new PostgreSqlContainer("postgres:16-alpine").start();
+  const container = await new PostgreSqlContainer("postgres:16.11-alpine").start();
 
   const pool = new Pool({
     connectionString: container.getConnectionUri(),

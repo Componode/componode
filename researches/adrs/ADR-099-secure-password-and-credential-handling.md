@@ -25,3 +25,14 @@ session tokens (256-bit crypto-random is). The token-based reset flow is
 more secure than "Admin sets temp password" (the Admin never knows the new
 password). The timing-attack mitigation (dummy hash) prevents user
 enumeration via response time differences.
+
+**Amendment (2026-09-10 security assessment)**: (a) Session tokens are now
+stored **SHA-256 hashed at rest** — `sessions.id` holds `sha256(token)` and a
+non-secret `tokenLast4` column keeps the last four token characters for
+display matching. A database leak therefore no longer exposes usable session
+credentials. Migration `009_session_token_hash` revokes all pre-existing
+sessions (one forced re-login). Client-facing session operations use the
+separate non-secret `publicId` (UUID v7), never the bearer token. (b) The
+12-character minimum is enforced on all *password-setting* paths (register,
+change, reset-confirm, admin create) but **not** on `POST /auth/login`, which
+stays lenient so legacy shorter passwords keep working until rotated.

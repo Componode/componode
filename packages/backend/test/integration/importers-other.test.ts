@@ -185,6 +185,34 @@ describe("importers other", () => {
     expect(components.length).toBeGreaterThanOrEqual(1);
   });
 
+  it.each(["web-url", "api-url"])(
+    "rejects a %s config targeting an internal address",
+    async (importerName) => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      for (const url of [
+        "http://127.0.0.1/admin",
+        "http://169.254.169.254/latest/meta-data",
+        "http://10.0.0.1/internal",
+      ]) {
+        const res = await app.inject({
+          method: "POST",
+          url: "/api/v1/importer-configs",
+          cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
+          headers: csrfHeader,
+          payload: {
+            importerName,
+            label: importerName,
+            scope: { url },
+            secretRefs: [],
+          },
+        });
+        expect(res.statusCode).toBe(400);
+      }
+      expect(fetchSpy).not.toHaveBeenCalled();
+      fetchSpy.mockRestore();
+    },
+  );
+
   it("imports MCP server components", async () => {
     const { configId, runId } = await createConfigAndRun("mcp-server", { resourceTypes: ["tools/list"] });
     const run = await waitForRun(configId, runId);

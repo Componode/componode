@@ -458,11 +458,16 @@ paths:
     post:
       tags: [Sessions]
       summary: Revoke a session by ID
+      description: >-
+        Users may revoke their own sessions; only Admin may revoke another
+        user's session. The `id` is the session's non-secret `publicId`.
       parameters:
         - { $ref: '#/components/parameters/Id' }
       responses:
         '204': { description: Session revoked }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   # -------------------------------------------------------------- Settings
   /settings:
@@ -486,7 +491,11 @@ paths:
       tags: [Settings]
       summary: Update application settings
       x-permission: "settings:update"
-      description: Requires the `settings:update` role (Admin).
+      description: >-
+        Requires the `settings:update` role (Admin). Returns 400 if the
+        effective merged configuration (stored + env overrides + patch) would
+        enable `allowSelfRegistration` while `defaultUserRole` is `ADMIN` —
+        public registration must never provision admins.
       requestBody:
         required: true
         content:
@@ -2010,12 +2019,14 @@ components:
         secretRefs:
           type: array
           nullable: true
+          description: >-
+            Masked secret references — only the logical `key` is returned.
+            `env`/`file` locations are accepted on write but never exposed
+            by the API.
           items:
             type: object
             properties:
               key: { type: string }
-              env: { type: string }
-              file: { type: string }
         schedule: { type: string, nullable: true }
         enabled: { type: boolean }
         createdBy: { type: string, format: uuid, nullable: true }

@@ -133,4 +133,108 @@ describe("sessions", () => {
     });
     expect(authRes.statusCode).toBe(401);
   });
+
+  it("a user revokes their own session via publicId → 204", async () => {
+    const userId = await createPersonInDb(testDb!.db, { username: "self-revoker" });
+    const { token, publicId } = await createSessionInDb(testDb!.db, userId);
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/v1/sessions/${publicId}/revoke`,
+      cookies: { [SESSION_COOKIE_NAME]: token, ...csrfCookie },
+      headers: csrfHeader,
+    });
+    expect(res.statusCode).toBe(204);
+  });
+
+  it("a non-admin cannot revoke another user's session → 403", async () => {
+    const victimId = await createPersonInDb(testDb!.db, { username: "victim-user" });
+    const { publicId: victimPublicId, token: victimToken } = await createSessionInDb(testDb!.db, victimId);
+    const attackerId = await createPersonInDb(testDb!.db, { username: "other-user" });
+    const { token: attackerToken } = await createSessionInDb(testDb!.db, attackerId);
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/v1/sessions/${victimPublicId}/revoke`,
+      cookies: { [SESSION_COOKIE_NAME]: attackerToken, ...csrfCookie },
+      headers: csrfHeader,
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().code).toBe("AUTH_FORBIDDEN");
+
+    // Victim session must remain valid
+    const authRes = await app.inject({
+      method: "GET",
+      url: "/api/v1/auth/session",
+      cookies: { [SESSION_COOKIE_NAME]: victimToken },
+    });
+    expect(authRes.statusCode).toBe(200);
+  });
+
+  it("revoking an unknown session publicId → 404", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/v1/sessions/${crypto.randomUUID()}/revoke`,
+      cookies: { [SESSION_COOKIE_NAME]: adminSession!, ...csrfCookie },
+      headers: csrfHeader,
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("stores sessions.id as a SHA-256 hash, not the bearer token (ADR-099)", async () => {
+    const rows = await testDb!.db
+      .selectFrom("sessions")
+      .select(["id", "tokenLast4", "userId"])
+      .execute();
+    const adminRow = rows.find((r) => r.id.length === 64);
+    expect(adminRow).toBeDefined();
+    // The stored id must not equal the cookie token
+    for (const row of rows) {
+      expect(row.id).not.toBe(adminSession);
+      expect(row.id).toMatch(/^[0-9a-f]{64}$/);
+      expect(adminSession!.endsWith(row.tokenLast4)).toBe(true);
+    }
+  });
+
+  it("GET /sessions returns tokenLast4 for display", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/sessions",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession! },
+    });
+    expect(res.statusCode).toBe(200);
+    const sessions = res.json().sessions;
+    expect(sessions.length).toBeGreaterThan(0);
+    const mine = sessions.find((s: { tokenLast4?: string }) => adminSession!.endsWith(s.tokenLast4 ?? ""));
+    expect(mine).toBeDefined();
+  });
+
+  it("a pre-migration plaintext-token session row cannot authenticate", async () => {
+    // Rows created before migration 009 stored the raw token in `id`; the
+    // migration revoked them. A fresh plaintext-id row must never match.
+    const userId = await createPersonInDb(testDb!.db, { username: "plaintext-sess" });
+    const { randomBytes } = await import("crypto");
+    const { uuidv7 } = await import("uuidv7");
+    const rawToken = randomBytes(32).toString("base64url");
+    const now = new Date();
+    await testDb!.db
+      .insertInto("sessions")
+      .values({
+        id: rawToken, // plaintext — the old, vulnerable format
+        publicId: uuidv7(),
+        tokenLast4: rawToken.slice(-4),
+        userId,
+        createdAt: now.toISOString(),
+        lastSeenAt: now.toISOString(),
+        expiresAt: new Date(now.getTime() + 3600_000).toISOString(),
+      })
+      .execute();
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/auth/session",
+      cookies: { [SESSION_COOKIE_NAME]: rawToken },
+    });
+    expect(res.statusCode).toBe(401);
+  });
 });

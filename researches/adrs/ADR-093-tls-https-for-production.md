@@ -19,3 +19,9 @@ out Caddy service. Dev runs over HTTP (no TLS required).
 (the proxy's job). `trustProxy` to proxy IP (not `true`) prevents client
 spoofing of `X-Forwarded-Proto`. Two proxy options documented (neutral, not
 opinionated). Dev is HTTP (localhost is not a sniffing risk).
+
+**Amendment (2026-09-10 security assessment)**: Implemented. `TRUSTED_PROXY_IP`
+accepts a single proxy IP, a comma-separated list of proxy IPs, or an integer
+hop count; unset means `trustProxy: false` and `X-Forwarded-*` headers are
+ignored entirely. Previously the code unconditionally set `trustProxy: true`,
+which let any client spoof `X-Forwarded-For` to bypass IP-keyed rate limiting.

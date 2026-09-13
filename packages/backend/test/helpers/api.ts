@@ -55,7 +55,7 @@ export async function createSessionInDb(
   db: import("kysely").Kysely<unknown>,
   userId: string,
 ): Promise<{ token: string; publicId: string }> {
-  const { randomBytes } = await import("crypto");
+  const { randomBytes, createHash } = await import("crypto");
   const token = randomBytes(32).toString("base64url");
   const publicId = uuidv7();
   const now = new Date();
@@ -63,8 +63,9 @@ export async function createSessionInDb(
   await db
     .insertInto("sessions")
     .values({
-      id: token,
+      id: createHash("sha256").update(token).digest("hex"),
       publicId,
+      tokenLast4: token.slice(-4),
       userId,
       createdAt: now.toISOString(),
       lastSeenAt: now.toISOString(),

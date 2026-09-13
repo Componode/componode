@@ -1,5 +1,5 @@
 import { uuidv7 } from "uuidv7";
-import { createHash } from "crypto";
+import * as client from "openid-client";
 import { db } from "../db/connection.js";
 import { EnvSecretResolver } from "../utils/secret-resolver.js";
 import { createSession } from "./session-service.js";
@@ -10,35 +10,15 @@ import type { Role } from "@componode/core";
 interface OidcState {
   redirectUri: string;
   pkceVerifier: string;
-}
-
-interface IdTokenClaims {
-  sub?: string;
-  name?: string | null;
-  email?: string | null;
-  preferred_username?: string | null;
-  [key: string]: unknown;
+  nonce: string;
 }
 
 // In-memory state store (v1 single-instance). Keyed by state token.
 const stateStore = new Map<string, OidcState>();
 
-function generateState(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Buffer.from(bytes).toString("base64url");
-}
-
-function generatePkceVerifier(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Buffer.from(bytes).toString("base64url");
-}
-
-function pkceChallenge(verifier: string): string {
-  const hash = createHash("sha256").update(verifier).digest();
-  return Buffer.from(hash).toString("base64url");
-}
+// Cached openid-client Configuration per issuer/client tuple. The key includes
+// the row's updatedAt so an OIDC settings change refreshes discovery.
+let configCache: { key: string; config: client.Configuration } | null = null;
 
 async function getOidcConfig() {
   const config = await db
@@ -49,9 +29,33 @@ async function getOidcConfig() {
   return config;
 }
 
+async function getClientConfig(config: {
+  issuer: string;
+  clientId: string;
+  clientSecretRef: string | null;
+  updatedAt: string;
+}): Promise<client.Configuration> {
+  const key = `${config.issuer}|${config.clientId}|${config.clientSecretRef ?? ""}|${config.updatedAt}`;
+  if (configCache?.key === key) return configCache.config;
 
+  const clientAuth = config.clientSecretRef
+    ? client.ClientSecretPost(await resolveSecret(config.clientSecretRef))
+    : client.None();
 
-export async function initiateLogin(redirectUri: string = "/"): Promise<string> {
+  // discovery() fetches {issuer}/.well-known/openid-configuration and verifies
+  // that the document's `issuer` matches the configured issuer URL.
+  const discovered = await client.discovery(new URL(config.issuer), config.clientId, undefined, clientAuth);
+
+  // Enforce ID-token signature verification against the issuer JWKS even for
+  // tokens received from the token endpoint over TLS (OIDC Core allows relying
+  // on TLS alone there — we require the JWS signature regardless).
+  client.enableNonRepudiationChecks(discovered);
+
+  configCache = { key, config: discovered };
+  return discovered;
+}
+
+export async function initiateLogin(redirectUri: string = "/", callbackBaseUrl: string): Promise<string> {
   const config = await getOidcConfig();
   if (!config || !config.enabled || !config.issuer || !config.clientId) {
     throw Object.assign(new Error("OIDC not configured"), {
@@ -60,34 +64,43 @@ export async function initiateLogin(redirectUri: string = "/"): Promise<string> 
     });
   }
 
-  const state = generateState();
-  const pkceVerifier = generatePkceVerifier();
-  const challenge = pkceChallenge(pkceVerifier);
-
-  stateStore.set(state, { redirectUri, pkceVerifier });
-
-  const params = new URLSearchParams({
-    response_type: "code",
-    client_id: config.clientId,
-    redirect_uri: `${process.env.PUBLIC_URL ?? ""}/api/v1/auth/oidc/callback`,
-    state,
-    code_challenge: challenge,
-    code_challenge_method: "S256",
-    scope: "openid profile email",
+  const clientConfig = await getClientConfig({
+    issuer: config.issuer,
+    clientId: config.clientId,
+    clientSecretRef: config.clientSecretRef,
+    updatedAt: config.updatedAt,
   });
 
-  return `${config.issuer!.replace(/\/$/, "")}/authorize?${params.toString()}`;
+  const state = client.randomState();
+  const nonce = client.randomNonce();
+  const pkceVerifier = client.randomPKCECodeVerifier();
+  const challenge = await client.calculatePKCECodeChallenge(pkceVerifier);
+
+  stateStore.set(state, { redirectUri, pkceVerifier, nonce });
+
+  const callbackUri = `${callbackBaseUrl.replace(/\/$/, "")}/api/v1/auth/oidc/callback`;
+  const authorizationUrl = client.buildAuthorizationUrl(clientConfig, {
+    redirect_uri: callbackUri,
+    scope: "openid profile email",
+    state,
+    nonce,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+  });
+
+  return authorizationUrl.href;
 }
 
-export async function handleCallback(code: string, state: string): Promise<{ sessionToken: string; redirectUri: string }> {
+export async function handleCallback(callbackUrl: URL): Promise<{ sessionToken: string; redirectUri: string }> {
   const config = await getOidcConfig();
-  if (!config || !config.enabled) {
+  if (!config || !config.enabled || !config.issuer || !config.clientId) {
     throw Object.assign(new Error("OIDC not configured"), {
       statusCode: 503,
       code: "OIDC_NOT_CONFIGURED",
     });
   }
 
+  const state = callbackUrl.searchParams.get("state") ?? "";
   const storedState = stateStore.get(state);
   if (!storedState) {
     throw Object.assign(new Error("Invalid state parameter"), {
@@ -97,49 +110,39 @@ export async function handleCallback(code: string, state: string): Promise<{ ses
   }
   stateStore.delete(state);
 
-  // Exchange code for tokens
-  let tokens: { id_token?: string; access_token?: string };
-  try {
-    const tokenResponse = await fetch(`${config.issuer!.replace(/\/$/, "")}/oauth/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: `${process.env.PUBLIC_URL ?? ""}/api/v1/auth/oidc/callback`,
-        client_id: config.clientId!,
-        code_verifier: storedState.pkceVerifier,
-        ...(config.clientSecretRef ? { client_secret: await resolveSecret(config.clientSecretRef) } : {}),
-      }),
-    });
+  const clientConfig = await getClientConfig({
+    issuer: config.issuer,
+    clientId: config.clientId,
+    clientSecretRef: config.clientSecretRef,
+    updatedAt: config.updatedAt,
+  });
 
-    if (!tokenResponse.ok) {
+  // authorizationCodeGrant() validates state, exchanges the code at the
+  // discovered token endpoint, and verifies the ID token signature (JWKS),
+  // issuer, audience, expiry, issued-at, and nonce.
+  let tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers;
+  try {
+    tokens = await client.authorizationCodeGrant(clientConfig, callbackUrl, {
+      expectedState: state,
+      expectedNonce: storedState.nonce,
+      pkceCodeVerifier: storedState.pkceVerifier,
+      idTokenExpected: true,
+    });
+  } catch (err) {
+    if (err instanceof client.AuthorizationResponseError || err instanceof client.ResponseBodyError) {
       throw Object.assign(new Error("Code exchange failed"), {
         statusCode: 400,
         code: "OIDC_INVALID_CODE",
       });
     }
-
-    tokens = await tokenResponse.json() as { id_token?: string; access_token?: string };
-  } catch (err) {
-    if (err instanceof Error && (err as { code?: string }).code) throw err;
-    throw Object.assign(new Error("Code exchange failed"), {
-      statusCode: 400,
-      code: "OIDC_INVALID_CODE",
-    });
-  }
-
-  if (!tokens.id_token) {
-    throw Object.assign(new Error("ID token missing"), {
+    throw Object.assign(new Error("ID token verification failed"), {
       statusCode: 401,
       code: "OIDC_TOKEN_VERIFICATION_FAILED",
     });
   }
 
-  // Decode ID token (JWT) — verify signature in production via issuer JWKS
-  // For v1, we decode and trust the token (TLS + state + PKCE provide transport security)
-  const claims = decodeJwtPayload(tokens.id_token);
-  const oidcSubject = claims.sub;
+  const claims = tokens.claims();
+  const oidcSubject = claims?.sub;
   if (!oidcSubject) {
     throw Object.assign(new Error("ID token missing sub claim"), {
       statusCode: 401,
@@ -171,8 +174,8 @@ export async function handleCallback(code: string, state: string): Promise<{ ses
             username,
             oidcSubject,
             role: defaultRole,
-            displayName: claims.name ?? null,
-            email: claims.email ?? null,
+            displayName: (claims.name as string | null | undefined) ?? null,
+            email: (claims.email as string | null | undefined) ?? null,
             slug: username.replace(/[^a-z0-9_-]/g, "-"),
             isActive: true,
             createdAt: now,
@@ -219,18 +222,6 @@ export async function handleCallback(code: string, state: string): Promise<{ ses
 async function resolveSecret(ref: string): Promise<string> {
   const resolver = new EnvSecretResolver();
   return resolver.resolve({ key: "clientSecret", env: ref });
-}
-
-function decodeJwtPayload(jwt: string): IdTokenClaims {
-  const parts = jwt.split(".");
-  if (parts.length !== 3) {
-    throw Object.assign(new Error("Invalid JWT format"), {
-      statusCode: 401,
-      code: "OIDC_TOKEN_VERIFICATION_FAILED",
-    });
-  }
-  const payload = Buffer.from(parts[1]!, "base64url").toString("utf-8");
-  return JSON.parse(payload) as IdTokenClaims;
 }
 
 /**

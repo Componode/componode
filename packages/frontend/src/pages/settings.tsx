@@ -215,11 +215,20 @@ function AppSettingsCard({ settings, saving, onSave }: AppSettingsCardProps) {
               }
             >
               {ROLES.map((r) => (
-                <option key={r} value={r}>
+                <option
+                  key={r}
+                  value={r}
+                  disabled={r === "ADMIN" && form.allowSelfRegistration}
+                >
                   {r}
                 </option>
               ))}
             </Select>
+            {form.allowSelfRegistration && (
+              <p className="text-xs text-muted-foreground">
+                Admin cannot be the default role while self-registration is enabled.
+              </p>
+            )}
           </div>
 
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

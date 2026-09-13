@@ -27,3 +27,5 @@ export type { ImportRunStatus } from "./import-run-status.js";
 
 export { ERROR_CODES } from "./error-codes.js";
 export type { ErrorCode } from "./error-codes.js";
+
+export { PASSWORD_MIN_LENGTH } from "./passwords.js";

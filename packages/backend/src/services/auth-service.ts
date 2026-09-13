@@ -1,5 +1,6 @@
 import { db } from "../db/connection.js";
-import { verifyPassword, hashPassword } from "../utils/argon2.js";
+import { verifyPassword, hashPassword, verifyAgainstDummyHash } from "../utils/argon2.js";
+import { hashToken } from "../utils/crypto.js";
 import { metrics } from "../plugins/metrics.js";
 import { createSession } from "./session-service.js";
 import { writeAuthEvent, type Actor } from "./audit-service.js";
@@ -29,6 +30,9 @@ export async function login(
     .executeTakeFirst();
 
   if (!user || !user.isActive || !user.passwordHash) {
+    // Timing equalization: run the same Argon2 verification work so the
+    // missing-user path is not distinguishable from a wrong password.
+    await verifyAgainstDummyHash(password);
     metrics.authEventsTotal.inc({ event: "login", outcome: "failure" });
     await writeAuthEvent("login_failed", username, { id: null, name: username });
     throw Object.assign(new Error("Invalid credentials"), { statusCode: 401, code: "AUTH_INVALID_CREDENTIALS" });
@@ -62,7 +66,7 @@ export async function logout(sessionToken: string, actor: Actor): Promise<void> 
   await db
     .updateTable("sessions")
     .set({ revokedAt: now })
-    .where("sessions.id", "=", sessionToken)
+    .where("sessions.id", "=", hashToken(sessionToken))
     .execute();
 
   metrics.authEventsTotal.inc({ event: "logout", outcome: "success" });

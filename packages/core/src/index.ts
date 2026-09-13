@@ -19,6 +19,7 @@ export { IMPORT_RUN_STATUS, IMPORT_RUN_STATUS_META } from "./constants/import-ru
 export type { ImportRunStatus } from "./constants/import-run-status.js";
 export { ERROR_CODES } from "./constants/error-codes.js";
 export type { ErrorCode } from "./constants/error-codes.js";
+export { PASSWORD_MIN_LENGTH } from "./constants/passwords.js";
 export { ERROR_TYPES, getErrorType, isErrorCode } from "./constants/error-types.js";
 export type { ErrorType } from "./constants/error-types.js";
 export { createProblem, buildProblemTypeUri } from "./errors/problem.js";
@@ -122,3 +123,4 @@ export type {
 // Validation
 export { validateDiscoveredAsset, validateDiscoveredAssetDetailed } from "./validation/discovered-asset.js";
 export type { ValidationResult } from "./validation/discovered-asset.js";
+export { isUrlAllowedForImport, assertUrlAllowedForImport, urlSafetyError } from "./validation/url-safety.js";

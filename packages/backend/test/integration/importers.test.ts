@@ -171,6 +171,55 @@ describe("importers", () => {
     expect(JSON.parse(patchRes.payload).config.label).toBe("Updated GitHub");
   });
 
+  it("masks secretRefs env/file locations in config API responses", async () => {
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/importer-configs",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
+      headers: csrfHeader,
+      payload: {
+        importerName: "github",
+        label: "Secret masking",
+        scope: { org: "testorg" },
+        secretRefs: [
+          { key: "token", env: "GITHUB_TOKEN" },
+          { key: "cert", file: "certs/github.pem" },
+        ],
+      },
+    });
+    expect(createRes.statusCode).toBe(201);
+    const created = JSON.parse(createRes.payload).config;
+    expect(created.secretRefs).toEqual([{ key: "token" }, { key: "cert" }]);
+
+    const getRes = await app.inject({
+      method: "GET",
+      url: `/api/v1/importer-configs/${created.id}`,
+      cookies: { [SESSION_COOKIE_NAME]: adminSession },
+    });
+    expect(getRes.statusCode).toBe(200);
+    expect(JSON.parse(getRes.payload).config.secretRefs).toEqual([{ key: "token" }, { key: "cert" }]);
+
+    const listRes = await app.inject({
+      method: "GET",
+      url: "/api/v1/importer-configs",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession },
+    });
+    const listed = JSON.parse(listRes.payload).configs.find((c: { id: string }) => c.id === created.id);
+    expect(listed.secretRefs).toEqual([{ key: "token" }, { key: "cert" }]);
+    expect(JSON.stringify(listed)).not.toContain("GITHUB_TOKEN");
+
+    // Stored row is unchanged — secrets still resolve at run time.
+    const stored = await testDb!.db
+      .selectFrom("importer_configs")
+      .select("secretRefs")
+      .where("id", "=", created.id)
+      .executeTakeFirstOrThrow();
+    expect(stored.secretRefs).toEqual([
+      { key: "token", env: "GITHUB_TOKEN" },
+      { key: "cert", file: "certs/github.pem" },
+    ]);
+  });
+
   it("triggers a run and upserts components and instances", async () => {
     (getImporter as ReturnType<typeof vi.fn>).mockResolvedValue(
       makeImporter([makeRepoAsset("testorg/repo-a"), makeRepoAsset("testorg/repo-b")]),

@@ -229,4 +229,51 @@ describe("settings enforcement", () => {
     expect(body.settings.sessionAbsoluteTimeoutMs).toBe(5678);
     expect(body.settings.defaultUserRole).toBe("ADMIN");
   });
+
+  it("PATCH defaultUserRole=ADMIN while self-registration is enabled → 400", async () => {
+    await patchSettings({ allowSelfRegistration: true });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/settings",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession!, ...csrfCookie },
+      headers: csrfHeader,
+      payload: { defaultUserRole: "ADMIN" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("VALIDATION_FAILED");
+  });
+
+  it("PATCH allowSelfRegistration=true while defaultUserRole=ADMIN is stored → 400", async () => {
+    await patchSettings({ defaultUserRole: "ADMIN" });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/settings",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession!, ...csrfCookie },
+      headers: csrfHeader,
+      payload: { allowSelfRegistration: true },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("VALIDATION_FAILED");
+  });
+
+  it("env-forced self-registration + ADMIN combo still registers as VIEWER", async () => {
+    process.env.ALLOW_SELF_REGISTRATION = "true";
+    process.env.DEFAULT_USER_ROLE = "ADMIN";
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/register",
+      cookies: csrfCookie,
+      headers: csrfHeader,
+      payload: {
+        username: "env-forced-user",
+        password: "Password123!",
+        displayName: "Env Forced",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().user.role).toBe("VIEWER");
+  });
 });

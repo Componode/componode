@@ -1,6 +1,7 @@
 # AGENTS.md — Project Context for AI Coding Agents
 
-> **Last updated**: 2026-09-09 (feature 007 deployment, CI/CD, and docs)
+> **Last updated**: 2026-09-10 (010-security-hardening: Node 24, OIDC
+> verification, hashed session tokens, proxy trust, SSRF guard)
 > **Project**: Componode — open-source Digital Product Asset Management
 > **License**: Apache 2.0
 > **Repository**: https://github.com/estevanalex/componode
