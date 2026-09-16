@@ -37,7 +37,7 @@ meaning layer (what it means).
 Run Componode on your own server with Docker Compose:
 
 ```bash
-git clone https://github.com/estevanalex/componode.git
+git clone https://github.com/Componode/componode.git
 cd componode
 cp .env.example .env
 # Edit .env and set COOKIE_SECRET, CSRF_SECRET, and BOOTSTRAP_ADMIN_PASSWORD
@@ -196,7 +196,7 @@ Componode is governed by seven constitution principles recorded in
 ### Development
 
 ```bash
-git clone https://github.com/estevanalex/componode.git
+git clone https://github.com/Componode/componode.git
 cd componode
 pnpm install
 cp .env.example .env
