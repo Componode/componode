@@ -4,7 +4,7 @@
 > verification, hashed session tokens, proxy trust, SSRF guard)
 > **Project**: Componode — open-source Digital Product Asset Management
 > **License**: Apache 2.0
-> **Repository**: https://github.com/estevanalex/componode
+> **Repository**: https://github.com/Componode/componode
 > **Primary language**: English (all documentation, specs, and comments)
 
 ---

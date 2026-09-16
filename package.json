@@ -46,12 +46,12 @@
   "main": "eslint.config.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/estevanalex/componode.git"
+    "url": "git+https://github.com/Componode/componode.git"
   },
   "keywords": [],
   "author": "",
   "bugs": {
-    "url": "https://github.com/estevanalex/componode/issues"
+    "url": "https://github.com/Componode/componode/issues"
   },
-  "homepage": "https://github.com/estevanalex/componode#readme"
+  "homepage": "https://github.com/Componode/componode#readme"
 }

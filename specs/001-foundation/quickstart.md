@@ -20,7 +20,7 @@ and the test scenarios that map to the spec's acceptance criteria.
 ### 1. Clone and install dependencies
 
 ```bash
-git clone https://github.com/estevanalex/componode.git
+git clone https://github.com/Componode/componode.git
 cd componode
 pnpm install
 ```

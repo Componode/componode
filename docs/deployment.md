@@ -24,7 +24,7 @@ running migrations when the database does not meet the requirements.
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/estevanalex/componode.git
+   git clone https://github.com/Componode/componode.git
    cd componode
    ```
 
