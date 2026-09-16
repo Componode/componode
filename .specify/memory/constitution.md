@@ -36,7 +36,8 @@ principle.
 
 ### III. Two-Level Taxonomy
 
-Components are classified by a controlled `category` enum (24 values) + a
+Components are classified by a controlled `category` enum (25 values, including
+`ACCOUNT` for provider-level billing/administrative containers) + a
 controlled `provider` enum (with `OTHER` escape hatch) + a free-form
 `resourceType` string carrying the provider-native type. A flat single-enum
 classification is prohibited. New categories or providers require updating the
@@ -243,4 +244,4 @@ development guidance and ADR history.
   Cloudflare, OpenShift, Docker/Podman) — contributor-welcome issues.
 - Importer-declared candidate product edges (v2: staged, human-confirmed).
 
-**Version**: 1.0.3 | **Ratified**: 2026-08-16 | **Last Amended**: 2026-09-09
+**Version**: 1.0.4 | **Ratified**: 2026-08-16 | **Last Amended**: 2026-09-16

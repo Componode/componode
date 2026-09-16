@@ -315,7 +315,11 @@ v1 is split into sequential spec-kit features:
     verified OIDC login, hashed session tokens, session-revocation ownership,
     proxy trust, importer SSRF guard, secret masking, DB TLS defaults, Node
     24 + PostgreSQL 14+ floor (ADR-106).
-11. **Next** — v1.1 features (Kubernetes/Helm packaging, E2E tests, additional
+11. **`011-github-importer-expansion`** ✅ — GitHub org `ACCOUNT` component,
+    billing/usage snapshot with per-repo attribution, mapping-classified branch
+    + deployment-environment instances, optional workflows/runners/packages,
+    GHES `baseUrl` support, new `ACCOUNT` taxonomy category (ADR-013 amendment).
+12. **Next** — v1.1 features (Kubernetes/Helm packaging, E2E tests, additional
     importers).
 
 Dependencies: 001 → 002 → 003 → 004 → 005 → 006 → 007; later features build on

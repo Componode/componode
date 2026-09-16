@@ -124,9 +124,28 @@ export interface DiscoveredAssetInstance {
 }
 ```
 
-- `category` must be one of the 24 `COMPONENT_CATEGORIES` values in `packages/core`.
-- `externalId` must be stable across runs for the same source asset.
+- `category` must be one of the `COMPONENT_CATEGORIES` values in `packages/core`.
+- `externalId` must be stable across runs for the same source asset — prefer the provider's immutable numeric ID over names that can change on rename/transfer.
 - `instances` represents environment-specific deployments of the same logical component.
+
+## Credential permissions
+
+Document the minimum token/credential scopes your importer needs and which
+sections degrade without them. For the GitHub importer: `read:org` is the
+minimum for org profile, repos, and teams; billing, self-hosted runners, and
+packages additionally require org-admin (`admin:org`) scope. Missing
+permissions surface as `FORBIDDEN` capability markers (below), never as run
+failures.
+
+## Optional capabilities (best-effort sections)
+
+Sections whose availability depends on the credential's permissions or the
+provider version must degrade gracefully: wrap each optional call in a
+capability guard (see `withCapability` in `packages/importer-github/src/capabilities.ts`),
+record `{status: "OK"|"FORBIDDEN"|"UNAVAILABLE"|"ERROR", message?}` on the owning
+component's `details.capabilities`, and continue the run. A 403 on a billing
+endpoint must not fail the whole import. Fatal capabilities (e.g. the resource
+listing itself) may still throw.
 
 ---
 

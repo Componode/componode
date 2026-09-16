@@ -1,11 +1,22 @@
-import { Octokit } from "octokit";
+import type { Octokit } from "octokit";
 import type { DiscoveredAsset, Importer, ImporterContext } from "@componode/core";
-import type { GithubConfig } from "./config.js";
+import { githubConfigSchema, type GithubConfig } from "./config.js";
+import { buildOctokit } from "./client.js";
+import { fetchOrganizationAsset } from "./github-org.js";
+import { fetchBillingSnapshot, type RepoBilling } from "./github-billing.js";
+import { buildRepoInstances, type RepoLike } from "./github-repos.js";
+import {
+  fetchWorkflowAssets,
+  fetchRunnerAssets,
+  fetchPackageAssets,
+} from "./github-extras.js";
+import { withCapability, warnIfDegraded, type CapabilityMap, type CapabilityMarker } from "./capabilities.js";
 
 interface GithubRepo {
   id: number;
   full_name: string;
   name: string;
+  owner: { login: string };
   html_url: string;
   fork: boolean;
   archived: boolean;
@@ -60,54 +71,130 @@ async function* listOrgRepos(
   }
 }
 
-function buildDiscoveredAsset(repo: GithubRepo): DiscoveredAsset {
-  const defaultBranch = repo.default_branch ?? "main";
-  const pushedAt = repo.pushed_at ?? repo.updated_at ?? null;
-
+function buildDiscoveredAsset(
+  repo: GithubRepo,
+  instances: DiscoveredAsset["instances"],
+  repoBilling: RepoBilling | undefined,
+): DiscoveredAsset {
   return {
     category: "REPOSITORY",
     provider: "GITHUB",
     resourceType: "github:repository",
     name: repo.full_name,
-    externalId: repo.full_name,
+    externalId: String(repo.id),
     slug: generateComponentSlug(repo.name),
     details: {
       language: repo.language,
       topics: repo.topics ?? [],
       visibility: repo.visibility,
       htmlUrl: repo.html_url,
+      ...(repoBilling ? { billing: repoBilling } : {}),
     },
-    instances: [
-      {
-        environment: "PRODUCTION",
-        externalId: defaultBranch,
-        url: repo.html_url,
-        status: "RUNNING",
-        version: defaultBranch,
-        deployedAt: pushedAt,
-        rawConfig: {
-          defaultBranch,
-          visibility: repo.visibility,
-        },
-      },
-    ],
+    instances,
   };
 }
 
 export class GithubImporter implements Importer {
   readonly name = "github";
-  readonly version = "1.0.0";
+  readonly version = "1.1.0";
 
   async *run(
     config: Record<string, unknown>,
     secrets: Record<string, string>,
     context: ImporterContext,
   ): AsyncGenerator<DiscoveredAsset> {
-    const parsed = config as GithubConfig;
+    const parsed = githubConfigSchema.parse(config);
     context.reportPhase("Authenticating");
 
-    const token = secrets.token;
-    const octokit = new Octokit({ auth: token });
+    const octokit = buildOctokit(parsed, secrets);
+
+    const logRateLimit = async () => {
+      const rateLimit = await withCapability(() =>
+        octokit.rest.rateLimit.get({ signal: context.signal }),
+      );
+      if (rateLimit.status === "OK" && rateLimit.data) {
+        const core = (rateLimit.data.data as {
+          resources?: { core?: { limit?: number; remaining?: number; used?: number } };
+        }).resources?.core;
+        context.logger.info("GitHub rate limit", {
+          limit: core?.limit ?? null,
+          remaining: core?.remaining ?? null,
+          used: core?.used ?? null,
+        });
+      } else {
+        context.logger.debug("GitHub rate limit check unavailable", {
+          status: rateLimit.status,
+          message: rateLimit.message ?? null,
+        });
+      }
+    };
+
+    await logRateLimit();
+
+    const capabilities: CapabilityMap = {};
+
+    if (context.signal.aborted) return;
+
+    if (parsed.includeBilling) {
+      context.reportPhase("Fetching billing usage");
+    }
+    const billing = parsed.includeBilling
+      ? await fetchBillingSnapshot(octokit, parsed.org, parsed.billingPeriod, context.signal, context.logger)
+      : null;
+    if (billing) {
+      capabilities.billing = {
+        status: billing.billing.status,
+        ...(billing.billing.message ? { message: billing.billing.message } : {}),
+      };
+    }
+
+    const runnerAssets: DiscoveredAsset[] = [];
+    if (parsed.includeRunners && !context.signal.aborted) {
+      context.reportPhase("Listing organization runners");
+      const marker: CapabilityMarker = { status: "OK" };
+      try {
+        for await (const asset of fetchRunnerAssets(octokit, parsed.org, context.signal)) {
+          if (context.signal.aborted) return;
+          runnerAssets.push(asset);
+        }
+      } catch (err) {
+        marker.status = "ERROR";
+        marker.message = err instanceof Error ? err.message : String(err);
+      }
+      capabilities.runners = marker;
+      warnIfDegraded(context.logger, "runners", marker);
+    }
+
+    const packageAssets: DiscoveredAsset[] = [];
+    if (parsed.includePackages && !context.signal.aborted) {
+      context.reportPhase("Listing organization packages");
+      const marker: CapabilityMarker = { status: "OK" };
+      try {
+        for await (const asset of fetchPackageAssets(octokit, parsed.org, context.signal)) {
+          if (context.signal.aborted) return;
+          packageAssets.push(asset);
+        }
+      } catch (err) {
+        marker.status = "ERROR";
+        marker.message = err instanceof Error ? err.message : String(err);
+      }
+      capabilities.packages = marker;
+      warnIfDegraded(context.logger, "packages", marker);
+    }
+
+    if (parsed.includeOrganization && !context.signal.aborted) {
+      context.reportPhase("Fetching organization");
+      const orgAsset = await fetchOrganizationAsset(octokit, parsed, capabilities, context.signal, context.logger);
+      if (billing) {
+        (orgAsset.details as Record<string, unknown>).billing = billing.billing;
+      }
+      (orgAsset.details as Record<string, unknown>).capabilities = capabilities;
+      yield orgAsset;
+    }
+
+    for (const asset of [...runnerAssets, ...packageAssets]) {
+      yield asset;
+    }
 
     context.reportPhase("Listing repositories");
 
@@ -120,7 +207,21 @@ export class GithubImporter implements Importer {
       if (!parsed.includeArchived && repo.archived) continue;
 
       context.reportPhase(`Processing ${repo.full_name}`);
-      yield buildDiscoveredAsset(repo);
+
+      const instances = await buildRepoInstances(octokit, repo as RepoLike, parsed, context.signal);
+      const repoBilling = billing?.repoBilling.get(repo.full_name);
+      yield buildDiscoveredAsset(repo, instances, repoBilling);
+
+      if (parsed.includeWorkflows) {
+        for await (const asset of fetchWorkflowAssets(octokit, repo, context.signal)) {
+          if (context.signal.aborted) return;
+          yield asset;
+        }
+      }
+    }
+
+    if (!context.signal.aborted) {
+      await logRateLimit();
     }
 
     context.reportPhase("Completed");

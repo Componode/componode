@@ -40,3 +40,9 @@ Humanitec (`type` + `driver_type`). The `CONTAINER`/`CONTAINER_ORCHESTRATION`
 split mirrors the Kubernetes API's own workload-vs-scope distinction. MCP_SERVER
 is a genuinely new asset class (Port ships `_mcp_server`; MCP spec defines
 servers by tools/resources/prompts capabilities).
+
+**Amendment (011-github-importer-expansion)**: `ACCOUNT` added as a 25th
+category — provider-level billing/administrative containers that own assets
+(GitHub organization, AWS account, Azure subscription). Emitted by importers as
+a component with `instances: []`; organizational sub-resources (teams, members)
+are details on the component, not pseudo-components.
