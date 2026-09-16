@@ -68,6 +68,43 @@ describe("migrations", () => {
     ).rejects.toThrow();
   });
 
+  it("accepts ACCOUNT as a component category", async () => {
+    testDb = await startTestDb();
+    const now = new Date().toISOString();
+
+    await testDb.db
+      .insertInto("components")
+      .values({
+        id: uuidv7(),
+        name: "GitHub Org",
+        slug: "github-org",
+        category: "ACCOUNT",
+        provider: "GITHUB",
+        resourceType: "github:organization",
+        lifecycle: "ACTIVE",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+
+    await expect(
+      testDb.db
+        .insertInto("components")
+        .values({
+          id: uuidv7(),
+          name: "Bad",
+          slug: "bad",
+          category: "NOT_A_CATEGORY" as never,
+          provider: "GITHUB",
+          resourceType: "github:organization",
+          lifecycle: "ACTIVE",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .execute(),
+    ).rejects.toThrow();
+  });
+
   it("enforces append-only on entity_changes", async () => {
     testDb = await startTestDb();
     // Insert a row

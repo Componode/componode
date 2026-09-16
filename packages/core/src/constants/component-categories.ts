@@ -1,4 +1,5 @@
 export const COMPONENT_CATEGORIES = [
+  "ACCOUNT",
   "COMPUTE",
   "SERVERLESS",
   "CONTAINER",
@@ -31,6 +32,11 @@ export const COMPONENT_CATEGORY_META: Record<
   ComponentCategory,
   { label: string; description: string }
 > = {
+  ACCOUNT: {
+    label: "Account",
+    description:
+      "Provider-level billing and administrative container that owns assets (e.g. GitHub organization, AWS account, Azure subscription)",
+  },
   COMPUTE: {
     label: "Compute",
     description: "Virtual machines, bare-metal hosts, and general compute resources",

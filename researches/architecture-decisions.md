@@ -35,7 +35,7 @@
 
 | ADR | Title |
 |---|---|
-| [ADR-013](./adrs/ADR-013-component-taxonomy-24-categories-provider-resourcetype.md) | Component taxonomy: 24 categories + provider + resourceType |
+| [ADR-013](./adrs/ADR-013-component-taxonomy-24-categories-provider-resourcetype.md) | Component taxonomy: 25 categories + provider + resourceType |
 | [ADR-014](./adrs/ADR-014-environment-separate-componentinstance-entity.md) | Environment: separate ComponentInstance entity |
 | [ADR-015](./adrs/ADR-015-product-component-dependency-logical-env-agnostic.md) | Product→Component dependency: logical, env-agnostic |
 | [ADR-016](./adrs/ADR-016-component-component-relationships.md) | Component→Component relationships |
@@ -191,7 +191,7 @@
 - Fastify backend with RBAC, server-side sessions, login rate limiting
 - Built-in local auth + optional OIDC (JIT provisioning, claim-based role mapping)
 - React + Vite + TanStack Query + Tailwind + shadcn/ui frontend
-- 24-category component taxonomy + provider enum + free-form `resourceType`
+- 25-category component taxonomy (incl. `ACCOUNT`) + provider enum + free-form `resourceType`
 - `ComponentInstance` entity for environment-specific deployments
 - Composable Product Model: `DigitalProduct` (BUSINESS_CAPABILITY / PLATFORM /
   CUSTOMER_FACING) with `COMPOSES` / `CONSUMES_FROM` / `DEPENDS_ON`

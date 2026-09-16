@@ -31,6 +31,8 @@ interface ImporterConfigFormProps {
   onCancel: () => void;
 }
 
+const GITHUB_ENVIRONMENTS = ["DEV", "TEST", "STAGING", "DEMO", "PRODUCTION", "OTHER"];
+
 function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
@@ -55,6 +57,16 @@ export function ImporterConfigForm({
   const [includeForks, setIncludeForks] = useState<boolean>(false);
   const [includeArchived, setIncludeArchived] = useState<boolean>(false);
   const [token, setToken] = useState<string>("");
+  const [baseUrl, setBaseUrl] = useState<string>("");
+  const [billingPeriod, setBillingPeriod] = useState<string>("current");
+  const [includeOrganization, setIncludeOrganization] = useState<boolean>(true);
+  const [includeBilling, setIncludeBilling] = useState<boolean>(true);
+  const [includeEnvironments, setIncludeEnvironments] = useState<boolean>(true);
+  const [includeReleases, setIncludeReleases] = useState<boolean>(true);
+  const [includeWorkflows, setIncludeWorkflows] = useState<boolean>(false);
+  const [includeRunners, setIncludeRunners] = useState<boolean>(false);
+  const [includePackages, setIncludePackages] = useState<boolean>(false);
+  const [environmentMapping, setEnvironmentMapping] = useState<string>("");
 
   // Fallback JSON fields (for non-github importers until we have per-importer schema rendering)
   const [scopeJson, setScopeJson] = useState(
@@ -83,6 +95,22 @@ export function ImporterConfigForm({
         setRepos(Array.isArray(scope.repos) ? (scope.repos as string[]).join(", ") : "");
         setIncludeForks(Boolean(scope.includeForks));
         setIncludeArchived(Boolean(scope.includeArchived));
+        setBaseUrl((scope.baseUrl as string) ?? "");
+        setBillingPeriod((scope.billingPeriod as string) ?? "current");
+        setIncludeOrganization(scope.includeOrganization !== false);
+        setIncludeBilling(scope.includeBilling !== false);
+        setIncludeEnvironments(scope.includeEnvironments !== false);
+        setIncludeReleases(scope.includeReleases !== false);
+        setIncludeWorkflows(Boolean(scope.includeWorkflows));
+        setIncludeRunners(Boolean(scope.includeRunners));
+        setIncludePackages(Boolean(scope.includePackages));
+        setEnvironmentMapping(
+          scope.environmentMapping && typeof scope.environmentMapping === "object"
+            ? Object.entries(scope.environmentMapping as Record<string, string>)
+                .map(([k, v]) => `${k}=${v}`)
+                .join(", ")
+            : "",
+        );
       } else {
         setScopeJson(JSON.stringify(config.scope, null, 2));
       }
@@ -101,6 +129,24 @@ export function ImporterConfigForm({
     let secretRefs: SecretRef[];
 
     if (isGithub) {
+      const mapping: Record<string, string> = {};
+      for (const pair of environmentMapping.split(",")) {
+        const trimmed = pair.trim();
+        if (!trimmed) continue;
+        const eq = trimmed.indexOf("=");
+        if (eq <= 0) {
+          setError(`Invalid environment mapping entry "${trimmed}" — expected name=ENVIRONMENT`);
+          return;
+        }
+        const key = trimmed.slice(0, eq).trim();
+        const value = trimmed.slice(eq + 1).trim().toUpperCase();
+        if (!GITHUB_ENVIRONMENTS.includes(value)) {
+          setError(`Unknown environment "${value}" — allowed: ${GITHUB_ENVIRONMENTS.join(", ")}`);
+          return;
+        }
+        mapping[key] = value;
+      }
+
       scope = {
         org: org.trim(),
         repos: repos
@@ -109,6 +155,16 @@ export function ImporterConfigForm({
           .filter((r) => r.length > 0),
         includeForks,
         includeArchived,
+        includeOrganization,
+        includeBilling,
+        billingPeriod,
+        includeEnvironments,
+        includeReleases,
+        includeWorkflows,
+        includeRunners,
+        includePackages,
+        ...(baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
+        ...(Object.keys(mapping).length > 0 ? { environmentMapping: mapping } : {}),
       };
       secretRefs = [{ key: "token", env: token.trim() || undefined }].filter(
         (r) => r.env,
@@ -246,6 +302,43 @@ export function ImporterConfigForm({
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor={`${baseId}-baseUrl`}>API base URL (GHES only, optional)</Label>
+            <Input
+              id={`${baseId}-baseUrl`}
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder="https://ghes.example.com/api/v3"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`${baseId}-billingPeriod`}>Billing period</Label>
+            <Select
+              id={`${baseId}-billingPeriod`}
+              value={billingPeriod}
+              onChange={(e) => setBillingPeriod(e.target.value)}
+            >
+              <option value="current">Current month</option>
+              <option value="previous">Previous month</option>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`${baseId}-envMapping`}>
+              Environment mapping (optional, name=ENV comma pairs)
+            </Label>
+            <Input
+              id={`${baseId}-envMapping`}
+              value={environmentMapping}
+              onChange={(e) => setEnvironmentMapping(e.target.value)}
+              placeholder="main=PRODUCTION, develop=DEV"
+            />
+            <p className="text-xs text-muted-foreground">
+              Classifies branches and GitHub environments. Allowed: {GITHUB_ENVIRONMENTS.join(", ")}
+            </p>
+          </div>
+
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
               <Switch
@@ -262,6 +355,62 @@ export function ImporterConfigForm({
                 onCheckedChange={setIncludeArchived}
               />
               <Label htmlFor={`${baseId}-archived`}>Include archived</Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                id={`${baseId}-orgSwitch`}
+                checked={includeOrganization}
+                onCheckedChange={setIncludeOrganization}
+              />
+              <Label htmlFor={`${baseId}-orgSwitch`}>Import organization (profile, plan, teams)</Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                id={`${baseId}-billing`}
+                checked={includeBilling}
+                onCheckedChange={setIncludeBilling}
+              />
+              <Label htmlFor={`${baseId}-billing`}>Import billing/usage</Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                id={`${baseId}-envs`}
+                checked={includeEnvironments}
+                onCheckedChange={setIncludeEnvironments}
+              />
+              <Label htmlFor={`${baseId}-envs`}>Import deployment environments</Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                id={`${baseId}-releases`}
+                checked={includeReleases}
+                onCheckedChange={setIncludeReleases}
+              />
+              <Label htmlFor={`${baseId}-releases`}>Use releases for version fallback</Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                id={`${baseId}-workflows`}
+                checked={includeWorkflows}
+                onCheckedChange={setIncludeWorkflows}
+              />
+              <Label htmlFor={`${baseId}-workflows`}>Import workflows</Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                id={`${baseId}-runners`}
+                checked={includeRunners}
+                onCheckedChange={setIncludeRunners}
+              />
+              <Label htmlFor={`${baseId}-runners`}>Import self-hosted runners</Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                id={`${baseId}-packages`}
+                checked={includePackages}
+                onCheckedChange={setIncludePackages}
+              />
+              <Label htmlFor={`${baseId}-packages`}>Import packages</Label>
             </div>
           </div>
         </div>

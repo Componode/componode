@@ -21,6 +21,7 @@ function makeRepo(overrides: Partial<Record<string, unknown>> = {}) {
     id: 123,
     full_name: "testorg/repo",
     name: "repo",
+    owner: { login: "testorg" },
     html_url: "https://github.com/testorg/repo",
     fork: false,
     archived: false,
@@ -31,6 +32,16 @@ function makeRepo(overrides: Partial<Record<string, unknown>> = {}) {
     updated_at: "2024-01-01T00:00:00Z",
     pushed_at: "2024-01-01T00:00:00Z",
     ...overrides,
+  };
+}
+
+function makeOrg() {
+  return {
+    id: 42,
+    login: "testorg",
+    name: "Test Org",
+    html_url: "https://github.com/testorg",
+    plan: { name: "team", seats: 10, filled_seats: 7 },
   };
 }
 
@@ -72,13 +83,28 @@ describe("importer-github end-to-end", () => {
 
     fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
-      if (url.pathname === "/orgs/testorg/repos") {
-        return new Response(JSON.stringify([makeRepo()]), {
-          status: 200,
+      const json = (body: unknown, status = 200) =>
+        new Response(JSON.stringify(body), {
+          status,
           headers: { "Content-Type": "application/json" },
         });
+      switch (url.pathname) {
+        case "/orgs/testorg":
+          return json(makeOrg());
+        case "/orgs/testorg/teams":
+          return json([]);
+        case "/orgs/testorg/repos":
+          return json([makeRepo()]);
+        case "/repos/testorg/repo/branches":
+          return json([{ name: "main" }]);
+        case "/repos/testorg/repo/branches/main":
+          return json({
+            name: "main",
+            commit: { commit: { committer: { date: "2024-07-01T00:00:00Z" } } },
+          });
+        default:
+          return new Response("Not Found", { status: 404 });
       }
-      return new Response("Not Found", { status: 404 });
     });
 
     (getImporter as ReturnType<typeof vi.fn>).mockResolvedValue(new GithubImporter());
@@ -126,7 +152,11 @@ describe("importer-github end-to-end", () => {
       payload: {
         importerName: "github",
         label: "GitHub",
-        scope: { org: "testorg" },
+        scope: {
+          org: "testorg",
+          includeBilling: false,
+          environmentMapping: { main: "PRODUCTION" },
+        },
         secretRefs: [{ key: "token", env: "GITHUB_TOKEN" }],
       },
     });
@@ -144,13 +174,23 @@ describe("importer-github end-to-end", () => {
 
     const run = await waitForRun(config.id, runId);
     expect(run.status).toBe("COMPLETED");
-    expect(run.assetsProcessed).toBe(1);
+    expect(run.assetsProcessed).toBe(2);
+
+    const orgComponent = await testDb!.db
+      .selectFrom("components")
+      .selectAll()
+      .where("provider", "=", "GITHUB")
+      .where("externalId", "=", "42")
+      .executeTakeFirst();
+
+    expect(orgComponent).toBeDefined();
+    expect(orgComponent?.category).toBe("ACCOUNT");
 
     const component = await testDb!.db
       .selectFrom("components")
       .selectAll()
       .where("provider", "=", "GITHUB")
-      .where("externalId", "=", "testorg/repo")
+      .where("externalId", "=", "123")
       .executeTakeFirst();
 
     expect(component).toBeDefined();
@@ -164,6 +204,7 @@ describe("importer-github end-to-end", () => {
       .executeTakeFirst();
 
     expect(instance).toBeDefined();
+    expect(instance?.externalId).toBe("branch:main");
     expect(instance?.environment).toBe("PRODUCTION");
     expect(instance?.status).toBe("RUNNING");
 
