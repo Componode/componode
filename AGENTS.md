@@ -203,6 +203,28 @@ constitution.
   `requireRole`, and `security: []` vs `verifySession` are enforced by a
   backend contract test — drift fails CI. See `ADR-104`.
 
+### Dependency & supply chain
+
+- Add dependencies with `pnpm add` inside the owning workspace package; use
+  `^x.y.z` ranges, prefer releases published at least 7 days ago, and never
+  use `latest`, `*`, or unbounded ranges.
+- Commit `pnpm-lock.yaml` together with every manifest change, and run
+  `pnpm lint && pnpm typecheck && pnpm test && pnpm build` before opening a
+  PR that touches dependencies.
+- `pnpm audit --prod --audit-level=high` must stay clean; CI enforces it.
+- Ship major version upgrades in their own PR — never bundled into feature
+  or bugfix work. Review the release notes' breaking changes against actual
+  usage first (removed config keys, peer ranges, Node version floors).
+- Dependabot and security-update PRs: read the advisory severity, verify CI,
+  check peer compatibility, then merge or adapt. If the complete fix needs a
+  major bump, merge the interim security patch and open a follow-up — do not
+  dismiss a security alert without a documented reason.
+- For transitive vulnerabilities, prefer upgrading the parent package; fall
+  back to a `pnpm.overrides` entry and explain it in the PR body.
+- CodeQL and dependency-review findings introduced by a change block that
+  change. Never weaken audit levels, CodeQL, or review gates to make CI pass
+  — escalate instead.
+
 ### Testing
 
 - Test-first is non-negotiable: failing test → implement → refactor. See

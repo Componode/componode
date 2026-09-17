@@ -35,7 +35,7 @@ export async function scheduleConfig(config: {
     } catch {
       // Scheduled runs should not throw to the scheduler; errors are persisted on the run row.
     }
-  }, { scheduled: true });
+  });
 
   scheduledJobs.set(config.id, { configId: config.id, task });
 }
