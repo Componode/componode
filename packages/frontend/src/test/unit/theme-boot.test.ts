@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "fs";
-import { join } from "path";
+import html from "../../../index.html?raw";
 
 /**
  * The no-flash boot contract (T031): index.html must apply the stored/system
@@ -8,7 +7,6 @@ import { join } from "path";
  * the bottom of <body> would flash the wrong theme.
  */
 describe("theme boot script", () => {
-  const html = readFileSync(join(__dirname, "..", "..", "..", "index.html"), "utf-8");
 
   it("has an inline script in <head> before the module entry", () => {
     const headEnd = html.indexOf("</head>");
