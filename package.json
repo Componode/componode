@@ -28,7 +28,7 @@
     "turbo": "^2.3.3",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.1",
-    "vite": "^7.3.5",
+    "vite": "^7.3.6",
     "vitepress": "^1.6.4",
     "vitepress-openapi": "^0.2.4",
     "vitest": "^5.0.1"
@@ -38,7 +38,10 @@
     "overrides": {
       "fast-uri@^3": "^3.1.7",
       "fast-uri@^4": "^4.1.4",
-      "js-yaml@^4": "^4.3.2"
+      "js-yaml@^4": "^4.3.2",
+      "vitepress>vite": "^7.3.6",
+      "vitepress>@vitejs/plugin-vue": "^6.0.9",
+      "vite@^7>esbuild": "^0.28.1"
     }
   },
   "engines": {
