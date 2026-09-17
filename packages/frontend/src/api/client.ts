@@ -19,7 +19,9 @@ export async function apiFetch<T>(
   const isStateChanging = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(options.body !== undefined
+      ? { "Content-Type": "application/json" }
+      : {}),
     ...((options.headers as Record<string, string>) ?? {}),
   };
 
