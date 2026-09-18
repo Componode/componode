@@ -9,8 +9,13 @@ import {
 } from "@componode/core";
 import { db } from "../db/connection.js";
 import { logger as appLogger } from "../plugins/logging.js";
-import { getImporter } from "./importer-registry.js";
-import { resolveSecrets } from "../utils/secret-resolver.js";
+import { getImporter, getManifest } from "./importer-registry.js";
+import {
+  assertRequiredSecrets,
+  resolveImportSecrets,
+  type CredentialRecord,
+} from "../utils/secret-resolver.js";
+import { loadKeyring } from "../utils/credential-crypto.js";
 import { generateUniqueSlug, generateComponentSlug, generateInstanceSlug } from "../utils/slug.js";
 import { metrics } from "../plugins/metrics.js";
 import { traceDbQuery } from "../plugins/tracing.js";
@@ -424,7 +429,53 @@ async function worker(runId: string): Promise<void> {
       currentPhase: "Initializing",
     });
 
-    const secrets = await resolveSecrets(config.secretRefs);
+    // Resolve the config's secrets: stored credentials (junction-linked)
+    // merged with any legacy env/file refs (deprecation window). Collisions,
+    // revoked/missing credentials, and uncovered required keys fail fast —
+    // before the importer starts (spec 013 FR-007/008/009/010).
+    const runLogger = createRunLogger(runId);
+    const junctionRows = await db
+      .selectFrom("importer_config_credentials")
+      .select("credentialId")
+      .where("configId", "=", config.id)
+      .execute();
+    const keyring = await loadKeyring();
+    const resolution = await resolveImportSecrets(
+      { secretRefs: config.secretRefs, credentialIds: junctionRows.map((r) => r.credentialId) },
+      {
+        keyring,
+        loadCredential: async (credentialId): Promise<CredentialRecord | null> => {
+          const row = await db
+            .selectFrom("credentials")
+            .select(["id", "label", "status", "encryptedPayload", "keyVersion", "expiresAt"])
+            .where("id", "=", credentialId)
+            .executeTakeFirst();
+          return row ?? null;
+        },
+      },
+    );
+
+    const manifest = await getManifest(config.importerName);
+    assertRequiredSecrets(resolution.secrets, manifest.secrets ?? [], resolution.credentialLabels);
+
+    const secrets = resolution.secrets;
+    if (resolution.credentialIds.length > 0) {
+      await updateRun(runId, {
+        credentialIds: JSON.stringify(resolution.credentialIds) as unknown as string[],
+      });
+      await db
+        .updateTable("credentials")
+        .set({ lastUsedAt: new Date().toISOString() })
+        .where("id", "in", resolution.credentialIds)
+        .execute();
+    }
+    for (const warning of resolution.warnings) {
+      runLogger.warn(warning);
+    }
+    if (resolution.legacyRefsUsed) {
+      runLogger.warn("Importer config uses deprecated env/file secret refs — migrate to stored credentials");
+    }
+
     const importer = await getImporter(config.importerName);
 
     const reportPhase = async (name: string) => {
@@ -434,7 +485,7 @@ async function worker(runId: string): Promise<void> {
 
     const context = {
       runId,
-      logger: createRunLogger(runId),
+      logger: runLogger,
       signal: controller.signal,
       reportPhase,
       tracer: NOOP_TRACER,

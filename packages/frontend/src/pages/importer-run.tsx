@@ -5,6 +5,7 @@ import {
   useCancelImportRun,
   useImportRunErrors,
 } from "@/api/hooks/importers";
+import { useCredentials } from "@/api/hooks/credentials";
 import { useRunChanges } from "@/api/hooks/audit";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,8 +55,12 @@ export function ImporterRunPage() {
     refetch: refetchChanges,
   } = useRunChanges(configId ?? "", runId ?? "");
   const cancel = useCancelImportRun();
+  const { data: credentialsData } = useCredentials();
 
   const run = data?.run;
+  const usedCredentials = (run?.credentialIds ?? [])
+    .map((id) => credentialsData?.credentials.find((c) => c.id === id))
+    .filter((c) => c !== undefined);
   const errors = errorsData?.errors ?? [];
   const changes = changesData?.changes ?? [];
   useSetCrumbLabel(runId ? `run-${runId.slice(-8)}` : null);
@@ -149,6 +154,27 @@ export function ImporterRunPage() {
                   <DateField label="Started" value={run.startedAt} />
                   <DateField label="Completed" value={run.completedAt} />
                 </div>
+
+                {(run.credentialIds?.length ?? 0) > 0 && (
+                  <div className="flex items-center gap-2 text-sm pt-2 border-t">
+                    <span className="text-muted-foreground">Credentials used:</span>
+                    {usedCredentials.length > 0 ? (
+                      <span className="flex flex-wrap gap-1">
+                        {usedCredentials.map((cred) => (
+                          <Link
+                            key={cred.id}
+                            to="/credentials"
+                            className="rounded-md border px-2 py-0.5 text-xs hover:bg-accent"
+                          >
+                            {cred.label}
+                          </Link>
+                        ))}
+                      </span>
+                    ) : (
+                      <span>{run.credentialIds!.length} credential(s)</span>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 

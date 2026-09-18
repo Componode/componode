@@ -48,6 +48,15 @@ const CODE_MEANINGS: Record<string, string> = {
   RUN_IN_PROGRESS: "An import run is already in progress for this config (409)",
   RUN_NOT_ACTIVE: "Run is not PENDING/RUNNING and cannot be cancelled (409)",
   INTERNAL_ERROR: "Unhandled server error",
+  CREDENTIAL_NOT_FOUND: "Credential not found (404)",
+  CREDENTIAL_IN_USE: "Credential delete/update blocked by existing references (409)",
+  CREDENTIAL_REVOKED: "Revoked credential cannot be resolved (409)",
+  CREDENTIAL_MISSING_KEY: "Required secret key not covered by referenced credentials (400)",
+  CREDENTIAL_KEY_COLLISION: "Same secret key provided by more than one source (400)",
+  CREDENTIAL_KEY_UNAVAILABLE: "Credential store master key unavailable (503)",
+  MANIFEST_NO_TEST: "Importer does not support credential testing (400)",
+  CONVERSION_NOTHING_TO_CONVERT: "Config has no legacy env/file secret refs to convert (400)",
+  LEGACY_SECRET_UNRESOLVABLE: "Legacy env/file secret reference could not be resolved (502)",
 };
 
 interface Operation {

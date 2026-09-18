@@ -6,6 +6,10 @@ import type { DiscoveredAsset, Importer, ImporterContext } from "@componode/core
 const ADMIN_USERNAME = "admin";
 const ADMIN_PASSWORD = "AdminPassword123!";
 
+// github configs need a resolvable secret source under save-time
+// coverage validation (spec 013); a legacy env ref keeps fixtures working.
+process.env.COMPONODE_TEST_GITHUB_TOKEN ??= "test-github-token";
+
 vi.mock("../../src/services/importer-registry.js", async () => {
   const actual = await vi.importActual("../../src/services/importer-registry.js");
   return {
@@ -126,7 +130,7 @@ describe("import-reconciliation", () => {
         importerName: "github",
         label: "GitHub",
         scope: { org: "testorg" },
-        secretRefs: [],
+        secretRefs: [{ key: "token", env: "COMPONODE_TEST_GITHUB_TOKEN" }],
       },
     });
     expect(res.statusCode).toBe(201);

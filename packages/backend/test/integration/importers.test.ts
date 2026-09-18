@@ -7,6 +7,10 @@ import type { DiscoveredAsset, Importer, ImporterContext } from "@componode/core
 const ADMIN_USERNAME = "admin";
 const ADMIN_PASSWORD = "AdminPassword123!";
 
+// github configs need a resolvable secret source under save-time
+// coverage validation (spec 013); a legacy env ref keeps fixtures working.
+process.env.COMPONODE_TEST_GITHUB_TOKEN ??= "test-github-token";
+
 // Mock the importer registry so we can inject a fake importer without network calls.
 vi.mock("../../src/services/importer-registry.js", async () => {
   const actual = await vi.importActual("../../src/services/importer-registry.js");
@@ -151,7 +155,7 @@ describe("importers", () => {
         importerName: "github",
         label: "My GitHub",
         scope: { org: "testorg" },
-        secretRefs: [],
+        secretRefs: [{ key: "token", env: "COMPONODE_TEST_GITHUB_TOKEN" }],
         schedule: "0 0 * * *",
       },
     });
@@ -234,7 +238,7 @@ describe("importers", () => {
         importerName: "github",
         label: "GitHub",
         scope: { org: "testorg" },
-        secretRefs: [],
+        secretRefs: [{ key: "token", env: "COMPONODE_TEST_GITHUB_TOKEN" }],
       },
     });
     const config = JSON.parse(createRes.payload).config;
@@ -277,7 +281,7 @@ describe("importers", () => {
         importerName: "github",
         label: "GitHub",
         scope: { org: "testorg" },
-        secretRefs: [],
+        secretRefs: [{ key: "token", env: "COMPONODE_TEST_GITHUB_TOKEN" }],
       },
     });
     const config = JSON.parse(createRes.payload).config;

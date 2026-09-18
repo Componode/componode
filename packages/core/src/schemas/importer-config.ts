@@ -14,6 +14,9 @@ export const createImporterConfigSchema = z.object({
   label: z.string().min(1, "Label is required").max(100, "Label must be 100 characters or less"),
   scope: z.record(z.unknown()).default({}),
   secretRefs: z.array(secretRefSchema).default([]),
+  // Stored-credential references (junction-linked). Legacy `secretRefs`
+  // (env/file) still resolve during the deprecation window (spec 013).
+  credentialIds: z.array(z.string().uuid()).default([]),
   schedule: z.string().optional(),
   enabled: z.boolean().default(true),
 });

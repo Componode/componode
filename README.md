@@ -319,7 +319,14 @@ v1 is split into sequential spec-kit features:
     billing/usage snapshot with per-repo attribution, mapping-classified branch
     + deployment-environment instances, optional workflows/runners/packages,
     GHES `baseUrl` support, new `ACCOUNT` taxonomy category (ADR-013 amendment).
-12. **Next** — v1.1 features (Kubernetes/Helm packaging, E2E tests, additional
+12. **`013-credential-store`** ✅ — application-managed credential store for
+    integration secrets: AES-256-GCM encrypted credential bundles, managed
+    master key with dual-key rotation, write-only API, lifecycle (rotate /
+    revoke / delete with dependent protection), importer credential
+    resolution + manifest `secrets` declarations, credential testing,
+    OIDC client-secret migration, deprecated env/file ref conversion
+    (ADR-107).
+13. **Next** — v1.1 features (Kubernetes/Helm packaging, E2E tests, additional
     importers).
 
 Dependencies: 001 → 002 → 003 → 004 → 005 → 006 → 007; later features build on

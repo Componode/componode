@@ -7,4 +7,5 @@ export const manifest = {
   version: "1.0.0",
   implPath: "@componode/importer-aws/importer",
   configSchema: awsConfigSchema,
+  secrets: [],
 };

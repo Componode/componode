@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { type ApiError } from "@/api/client";
 import { useSettings, useUpdateSettings } from "@/api/hooks/settings";
 import { useOidcConfig, useUpdateOidcConfig } from "@/api/hooks/settings";
+import { useCredentials } from "@/api/hooks/credentials";
 import { useChangePassword } from "@/api/hooks/password";
 import type { AppSettings, OidcConfig, UserRole } from "@/api/types";
 import { Button } from "@/components/ui/button";
@@ -254,6 +255,8 @@ interface OidcConfigCardProps {
 }
 
 function OidcConfigCard({ config, saving, onSave }: OidcConfigCardProps) {
+  const credentialsQuery = useCredentials();
+  const credentials = credentialsQuery.data?.credentials ?? [];
   const [form, setForm] = useState<OidcConfig | null>(null);
   const [mappingText, setMappingText] = useState("{}");
   const [mappingError, setMappingError] = useState<string | null>(null);
@@ -329,13 +332,46 @@ function OidcConfigCard({ config, saving, onSave }: OidcConfigCardProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="oidcClientSecretRef">Client secret ref</Label>
+            <Label htmlFor="oidcClientSecretCredential">Client secret credential</Label>
+            <Select
+              id="oidcClientSecretCredential"
+              value={form.clientSecretCredentialId ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, clientSecretCredentialId: e.target.value || null })
+              }
+            >
+              <option value="">None — use env ref below</option>
+              {credentials
+                .filter((c) => c.status === "ACTIVE")
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label} ({Object.keys(c.keyHints).join(", ")})
+                  </option>
+                ))}
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Encrypted in the credential store — preferred. Create credentials
+              on the Credentials page.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="oidcClientSecretRef">Client secret env ref (legacy)</Label>
+              <span className="rounded bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground">
+                DEPRECATED
+              </span>
+            </div>
             <Input
               id="oidcClientSecretRef"
               type="text"
               value={form.clientSecretRef}
               onChange={(e) => setForm({ ...form, clientSecretRef: e.target.value })}
             />
+            <p className="text-xs text-muted-foreground">
+              Environment variable holding the client secret. Ignored when a
+              credential is selected above.
+            </p>
           </div>
 
           <div className="space-y-2">

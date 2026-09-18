@@ -226,4 +226,28 @@ export class GithubImporter implements Importer {
 
     context.reportPhase("Completed");
   }
+
+  // Credential test action (spec 013 US3): a minimal authenticated probe —
+  // GET /rate_limit is cheap and always available. The error message is
+  // status-only so it can never carry secret material.
+  async testSecrets(
+    secrets: Record<string, string>,
+    config?: Record<string, unknown>,
+  ) {
+    const parsed = githubConfigSchema.partial().parse(config ?? {});
+    const octokit = buildOctokit(parsed as GithubConfig, secrets);
+    try {
+      await octokit.rest.rateLimit.get();
+      return { ok: true };
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      return {
+        ok: false,
+        error:
+          status === 401
+            ? "Authentication failed (401): check the token"
+            : `GitHub request failed${status ? ` (${status})` : ""}`,
+      };
+    }
+  }
 }

@@ -29,4 +29,22 @@ describe("importer registry", () => {
   it("getImporter throws for unknown importers", async () => {
     await expect(getImporter("unknown")).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
+
+  // spec 013 FR-009: manifests declare the secret keys they consume so
+  // save-time coverage validation and credential forms can name them.
+  it("github declares the required token secret", async () => {
+    const manifest = await getManifest("github");
+    expect(manifest.secrets).toEqual([
+      { key: "token", label: "Personal access token", required: true },
+    ]);
+  });
+
+  it("ambient-credential importers declare no required secrets", async () => {
+    const manifests = await getManifests();
+    for (const name of ["aws", "azure", "kubernetes", "web-url", "api-url", "mcp-server"]) {
+      const manifest = manifests.find((m) => m.name === name);
+      expect(manifest, name).toBeDefined();
+      expect(manifest?.secrets ?? [], name).toEqual([]);
+    }
+  });
 });

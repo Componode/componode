@@ -23,6 +23,9 @@ export const updateOidcConfigSchema = z.object({
   issuer: z.string().url().optional().nullable(),
   clientId: z.string().optional().nullable(),
   clientSecretRef: z.string().optional().nullable(),
+  // Credential-store reference for the client secret (spec 013 US7).
+  // Preferred over the deprecated env `clientSecretRef`.
+  clientSecretCredentialId: z.string().uuid().optional().nullable(),
   roleClaimPath: z.string().optional().nullable(),
   claimValueField: z.string().optional().nullable(),
   roleMapping: z.record(z.string(), z.enum(["ADMIN", "EDITOR", "VIEWER"])).optional().nullable(),

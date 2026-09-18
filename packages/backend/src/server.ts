@@ -6,6 +6,7 @@ import { db } from "./db/connection.js";
 import { assertDatabasePlatform } from "./db/platform-check.js";
 import { buildApp } from "./app.js";
 import { bootstrapAdmin } from "./services/bootstrap-service.js";
+import { bootstrapCredentialStore } from "./services/credential-boot.js";
 import { recoverRuns } from "./services/recovery-service.js";
 import { initScheduler } from "./services/scheduler-service.js";
 
@@ -53,6 +54,11 @@ async function main(): Promise<void> {
 
   // 2. Run migrations
   await runMigrations();
+
+  // 2.5. Credential store: load the master keyring, re-encrypt payloads under
+  // the current key during dual-key rotation, fail when stored credentials
+  // are unreadable, or run degraded when the store is empty and keyless.
+  await bootstrapCredentialStore(console);
 
   // 3. Recover any stale import runs from a previous crash
   await recoverRuns();

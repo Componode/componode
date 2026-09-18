@@ -125,6 +125,8 @@ export async function truncateImportTables(db: import("kysely").Kysely<unknown>)
       component_instances,
       components,
       component_groups,
+      importer_config_credentials,
+      credentials,
       importer_configs
     RESTART IDENTITY CASCADE
   `.execute(db);

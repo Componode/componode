@@ -25,6 +25,9 @@ export type { RelationshipType } from "./relationship-types.js";
 export { IMPORT_RUN_STATUS, IMPORT_RUN_STATUS_META } from "./import-run-status.js";
 export type { ImportRunStatus } from "./import-run-status.js";
 
+export { CREDENTIAL_STATUSES, CREDENTIAL_STATUS_META } from "./credential-status.js";
+export type { CredentialStatus } from "./credential-status.js";
+
 export { ERROR_CODES } from "./error-codes.js";
 export type { ErrorCode } from "./error-codes.js";
 

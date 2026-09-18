@@ -17,3 +17,8 @@ The core enforces the allow-list (only declared `secretRefs` are resolved).
 Secrets are resolved once, not per-importer-call. Avoids string parsing
 (fragile on Windows paths). Extends cleanly (a future `vault` resolver adds a
 `vault` field).
+---
+
+**Amended by ADR-107**: importer configs gain `credentialIds` (stored
+credential references) beside `secretRefs`; both resolve through the unified
+`resolveSecrets` path. Importer manifests may declare required `secrets` keys.

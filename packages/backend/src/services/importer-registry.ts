@@ -1,4 +1,4 @@
-import type { Importer } from "@componode/core";
+import type { Importer, ImporterSecretDeclaration } from "@componode/core";
 
 export interface ImporterManifest {
   name: string;
@@ -7,6 +7,10 @@ export interface ImporterManifest {
   version: string;
   implPath: string;
   configSchema: unknown;
+  // Named secret keys the importer consumes from the resolved `secrets`
+  // record; drives save-time coverage validation. Declare only keys the
+  // importer actually reads (contracts/credentials-api.md).
+  secrets?: ImporterSecretDeclaration[];
 }
 
 const IMPORTER_PACKAGES = [

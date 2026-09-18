@@ -12,6 +12,7 @@ import {
   createImporterConfig,
   updateImporterConfig,
   deleteImporterConfig,
+  convertLegacySecrets,
 } from "../services/importer-config-service.js";
 import { toActor } from "../services/actor.js";
 import {
@@ -104,6 +105,19 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(404).send({ code: "NOT_FOUND", message: "Importer config not found" });
     }
     return reply.status(204).send();
+  });
+
+  // One-click legacy migration (spec 013 US5): converts env/file secretRefs
+  // into a stored credential, links it, and clears the refs.
+  app.post("/importer-configs/:id/convert-secrets", {
+    preHandler: [app.verifySession, requireRole("importer:config:update")],
+  }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
+    const { id } = req.params as { id: string };
+    const result = await convertLegacySecrets(id, toActor(req));
+    if (!result) {
+      return reply.status(404).send({ code: "NOT_FOUND", message: "Importer config not found" });
+    }
+    return reply.status(201).send(result);
   });
 
   // Runs

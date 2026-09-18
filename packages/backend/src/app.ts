@@ -19,6 +19,7 @@ import { userRoutes } from "./routes/users.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { sessionRoutes } from "./routes/sessions.js";
 import { importerRoutes } from "./routes/importers.js";
+import { credentialRoutes } from "./routes/credentials.js";
 import { componentRoutes } from "./routes/components.js";
 import { componentGroupRoutes } from "./routes/component-groups.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
@@ -83,6 +84,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(settingsRoutes, { prefix: "/api/v1" });
   await app.register(sessionRoutes, { prefix: "/api/v1" });
   await app.register(importerRoutes, { prefix: "/api/v1" });
+  await app.register(credentialRoutes, { prefix: "/api/v1" });
   await app.register(componentRoutes, { prefix: "/api/v1" });
   await app.register(componentGroupRoutes, { prefix: "/api/v1" });
   await app.register(dashboardRoutes, { prefix: "/api/v1" });

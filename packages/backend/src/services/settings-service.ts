@@ -148,6 +148,7 @@ export async function getOidcConfig() {
       issuer: null,
       clientId: null,
       clientSecretRef: null,
+      clientSecretCredentialId: null,
       roleClaimPath: null,
       claimValueField: null,
       roleMapping: null,
@@ -190,12 +191,35 @@ export async function updateOidcConfig(input: UpdateOidcConfigInput, actor: Acto
     }
   }
 
+  // Credential-store reference wins when set — the legacy env ref is kept
+  // as stored for the deprecation window but ignored at resolution.
+  if (input.clientSecretCredentialId) {
+    const credential = await db
+      .selectFrom("credentials")
+      .select(["id", "label", "status"])
+      .where("id", "=", input.clientSecretCredentialId)
+      .executeTakeFirst();
+    if (!credential) {
+      throw Object.assign(new Error("Credential not found"), {
+        statusCode: 404,
+        code: "CREDENTIAL_NOT_FOUND",
+      });
+    }
+    if (credential.status === "REVOKED") {
+      throw Object.assign(
+        new Error(`Credential "${credential.label}" is revoked and cannot be used`),
+        { statusCode: 409, code: "CREDENTIAL_REVOKED" },
+      );
+    }
+  }
+
   const values = {
     id: 1,
     enabled: input.enabled,
     issuer: input.issuer ?? null,
     clientId: input.clientId ?? null,
     clientSecretRef: input.clientSecretRef ?? null,
+    clientSecretCredentialId: input.clientSecretCredentialId ?? null,
     roleClaimPath: input.roleClaimPath ?? null,
     claimValueField: input.claimValueField ?? null,
     roleMapping: input.roleMapping ?? null,
@@ -217,6 +241,7 @@ export async function updateOidcConfig(input: UpdateOidcConfigInput, actor: Acto
           issuer: values.issuer,
           clientId: values.clientId,
           clientSecretRef: values.clientSecretRef,
+          clientSecretCredentialId: values.clientSecretCredentialId,
           roleClaimPath: values.roleClaimPath,
           claimValueField: values.claimValueField,
           roleMapping: values.roleMapping,

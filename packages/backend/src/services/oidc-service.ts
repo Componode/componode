@@ -2,6 +2,7 @@ import { uuidv7 } from "uuidv7";
 import * as client from "openid-client";
 import { db } from "../db/connection.js";
 import { EnvSecretResolver } from "../utils/secret-resolver.js";
+import { decryptSecrets, loadKeyring } from "../utils/credential-crypto.js";
 import { createSession } from "./session-service.js";
 import { getSetting } from "./settings-service.js";
 import { writeAuthEvent, writeEntityChange } from "./audit-service.js";
@@ -33,13 +34,15 @@ async function getClientConfig(config: {
   issuer: string;
   clientId: string;
   clientSecretRef: string | null;
+  clientSecretCredentialId: string | null;
   updatedAt: string;
 }): Promise<client.Configuration> {
-  const key = `${config.issuer}|${config.clientId}|${config.clientSecretRef ?? ""}|${config.updatedAt}`;
+  const key = `${config.issuer}|${config.clientId}|${config.clientSecretCredentialId ?? config.clientSecretRef ?? ""}|${config.updatedAt}`;
   if (configCache?.key === key) return configCache.config;
 
-  const clientAuth = config.clientSecretRef
-    ? client.ClientSecretPost(await resolveSecret(config.clientSecretRef))
+  const secret = await resolveClientSecret(config);
+  const clientAuth = secret
+    ? client.ClientSecretPost(secret)
     : client.None();
 
   // discovery() fetches {issuer}/.well-known/openid-configuration and verifies
@@ -68,6 +71,7 @@ export async function initiateLogin(redirectUri: string = "/", callbackBaseUrl: 
     issuer: config.issuer,
     clientId: config.clientId,
     clientSecretRef: config.clientSecretRef,
+    clientSecretCredentialId: config.clientSecretCredentialId,
     updatedAt: config.updatedAt,
   });
 
@@ -114,6 +118,7 @@ export async function handleCallback(callbackUrl: URL): Promise<{ sessionToken: 
     issuer: config.issuer,
     clientId: config.clientId,
     clientSecretRef: config.clientSecretRef,
+    clientSecretCredentialId: config.clientSecretCredentialId,
     updatedAt: config.updatedAt,
   });
 
@@ -219,9 +224,64 @@ export async function handleCallback(callbackUrl: URL): Promise<{ sessionToken: 
   return { sessionToken, redirectUri: storedState.redirectUri };
 }
 
-async function resolveSecret(ref: string): Promise<string> {
-  const resolver = new EnvSecretResolver();
-  return resolver.resolve({ key: "clientSecret", env: ref });
+let legacySecretWarned = false;
+
+// Resolve the OIDC client secret (spec 013 US7): a stored credential wins
+// over the deprecated env `clientSecretRef`, which still works during the
+// deprecation window and logs a warning once per process.
+export async function resolveClientSecret(config: {
+  clientSecretCredentialId: string | null;
+  clientSecretRef: string | null;
+}): Promise<string | null> {
+  if (config.clientSecretCredentialId) {
+    const keyring = await loadKeyring();
+    if (!keyring) {
+      throw Object.assign(
+        new Error("Credential store is unavailable: no master key configured"),
+        { statusCode: 503, code: "CREDENTIAL_KEY_UNAVAILABLE" },
+      );
+    }
+    const credential = await db
+      .selectFrom("credentials")
+      .select(["id", "label", "status", "encryptedPayload"])
+      .where("id", "=", config.clientSecretCredentialId)
+      .executeTakeFirst();
+    if (!credential) {
+      throw Object.assign(new Error("Credential not found"), {
+        statusCode: 404,
+        code: "CREDENTIAL_NOT_FOUND",
+      });
+    }
+    if (credential.status === "REVOKED") {
+      throw Object.assign(
+        new Error(`Credential "${credential.label}" is revoked and cannot be used`),
+        { statusCode: 409, code: "CREDENTIAL_REVOKED" },
+      );
+    }
+    const payload = decryptSecrets(credential.encryptedPayload, keyring);
+    const secret = payload.clientSecret ?? Object.values(payload)[0];
+    if (!secret) {
+      throw Object.assign(
+        new Error(`Credential "${credential.label}" has no usable secret value`),
+        { statusCode: 400, code: "CREDENTIAL_MISSING_KEY" },
+      );
+    }
+    return secret;
+  }
+
+  if (config.clientSecretRef) {
+    if (!legacySecretWarned) {
+      legacySecretWarned = true;
+      console.warn(
+        "OIDC clientSecretRef (env) is deprecated — store the client secret " +
+          "as a credential and set clientSecretCredentialId instead",
+      );
+    }
+    const resolver = new EnvSecretResolver();
+    return resolver.resolve({ key: "clientSecret", env: config.clientSecretRef });
+  }
+
+  return null;
 }
 
 /**

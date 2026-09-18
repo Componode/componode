@@ -10,6 +10,7 @@ const redactPaths = [
   "secretRefs",
   "secrets",
   "secrets.*",
+  "encryptedPayload",
   "sessionToken",
   "sessionId",
   "authorization",
@@ -20,6 +21,9 @@ const redactPaths = [
   "*.passwordHash",
   "*.clientSecret",
   "*.secretRefs",
+  "*.secrets",
+  "*.secrets.*",
+  "*.encryptedPayload",
   "*.sessionToken",
   "*.authorization",
 ];

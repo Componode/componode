@@ -182,6 +182,10 @@ constitution.
   See `ADR-085`.
 - No secrets, credentials, or sensitive config in logs or commits. See
   `ADR-090`, `ADR-091`.
+- Integration secrets (importer credentials, OIDC client secrets) live in the
+  `credentials` table, AES-256-GCM encrypted, write-only over the API. Legacy
+  `env`/`file` `secretRefs` are deprecated. Infrastructure-only secrets stay
+  external. See `ADR-107`.
 - `GET`/`HEAD` routes must be side-effect-free on domain state. See `ADR-094`.
 - Validate all inputs with Zod at the route boundary; reject unknown fields.
   See `ADR-095`.
