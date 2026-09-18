@@ -66,6 +66,15 @@ exception is `GET /metrics`, which is served at the root.
 | `RUN_IN_PROGRESS` | An import run is already in progress for this config (409) |
 | `RUN_NOT_ACTIVE` | Run is not PENDING/RUNNING and cannot be cancelled (409) |
 | `INTERNAL_ERROR` | Unhandled server error |
+| `CREDENTIAL_NOT_FOUND` | Credential not found (404) |
+| `CREDENTIAL_IN_USE` | Credential delete/update blocked by existing references (409) |
+| `CREDENTIAL_REVOKED` | Revoked credential cannot be resolved (409) |
+| `CREDENTIAL_MISSING_KEY` | Required secret key not covered by referenced credentials (400) |
+| `CREDENTIAL_KEY_COLLISION` | Same secret key provided by more than one source (400) |
+| `CREDENTIAL_KEY_UNAVAILABLE` | Credential store master key unavailable (503) |
+| `MANIFEST_NO_TEST` | Importer does not support credential testing (400) |
+| `CONVERSION_NOTHING_TO_CONVERT` | Config has no legacy env/file secret refs to convert (400) |
+| `LEGACY_SECRET_UNRESOLVABLE` | Legacy env/file secret reference could not be resolved (502) |
 <!-- /GENERATED:error-codes -->
 
 ---
@@ -236,6 +245,7 @@ same fields plus `lifecycle`.
 | GET | `/api/v1/importer-configs/:id` | Get an importer configuration | Authenticated |
 | PATCH | `/api/v1/importer-configs/:id` | Update an importer configuration | `importer:config:update` |
 | DELETE | `/api/v1/importer-configs/:id` | Delete an importer configuration | `importer:config:delete` |
+| POST | `/api/v1/importer-configs/:id/convert-secrets` | Convert legacy secret refs to a stored credential | `importer:config:update` |
 | POST | `/api/v1/importer-configs/:id/trigger` | Trigger an import run | `importer:run:trigger` |
 | GET | `/api/v1/importer-configs/:id/runs` | List runs for an importer configuration | Authenticated |
 | GET | `/api/v1/importer-configs/:configId/runs/:runId` | Get an import run | Authenticated |
@@ -253,6 +263,26 @@ Notes:
 - Run statuses: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED`,
   `INTERRUPTED`. Cancelling a non-active run returns `409 RUN_NOT_ACTIVE`;
   triggering while a run is in progress returns `409 RUN_IN_PROGRESS`.
+
+## Credentials
+
+<!-- GENERATED:table:Credentials -->
+| Method | Path | Description | Access |
+|---|---|---|---|
+| GET | `/api/v1/credentials` | List credentials | `credential:read` |
+| POST | `/api/v1/credentials` | Create a credential | `credential:create` |
+| GET | `/api/v1/credentials/:id` | Get credential detail | `credential:read` |
+| PATCH | `/api/v1/credentials/:id` | Update, rotate, or revoke a credential | `credential:update` |
+| DELETE | `/api/v1/credentials/:id` | Delete a credential | `credential:delete` |
+| POST | `/api/v1/credentials/:id/test` | Test a credential | `credential:update` |
+<!-- /GENERATED:table:Credentials -->
+
+Notes:
+
+- Credential secret values are **write-only**: they are encrypted at rest
+  (AES-256-GCM) and never returned by any endpoint. `keyHints` shows the
+  last 4 characters of each stored key for identification.
+- `POST /credentials` accepts `{ label, expiresAt?, secrets: { key: value } }`.
 
 ## Organization
 

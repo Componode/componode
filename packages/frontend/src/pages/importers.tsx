@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Plus, Play, Trash2, Edit, Eye, ChevronDown, ChevronUp, Import } from "lucide-react";
+import { Plus, Play, Trash2, Edit, Eye, ChevronDown, ChevronUp, Import, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { useSession } from "@/api/hooks/auth";
 import {
   useImporters,
@@ -8,6 +9,7 @@ import {
   useCreateImporterConfig,
   useUpdateImporterConfig,
   useDeleteImporterConfig,
+  useConvertSecrets,
   useTriggerImportRun,
   useImporterRuns,
 } from "@/api/hooks/importers";
@@ -31,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { CardGridSkeleton, TableSkeleton } from "@/components/states/skeletons";
 import { EmptyState } from "@/components/states/empty-state";
 import { ErrorState } from "@/components/states/error-state";
@@ -65,7 +68,8 @@ interface ConfigDialogProps {
 function ConfigDialog({ mode, config, manifests, onClose }: ConfigDialogProps) {
   const create = useCreateImporterConfig();
   const update = useUpdateImporterConfig();
-  const isPending = create.isPending || update.isPending;
+  const convertSecrets = useConvertSecrets();
+  const isPending = create.isPending || update.isPending || convertSecrets.isPending;
 
   async function handleSubmit(values: ImporterConfigFormOutput) {
     if (mode === "edit" && config) {
@@ -73,6 +77,13 @@ function ConfigDialog({ mode, config, manifests, onClose }: ConfigDialogProps) {
     } else {
       await create.mutateAsync(values);
     }
+    onClose();
+  }
+
+  async function handleConvert() {
+    if (!config) return;
+    const res = await convertSecrets.mutateAsync(config.id);
+    toast.success(`Secrets moved to credential "${res.credential.label}"`);
     onClose();
   }
 
@@ -92,6 +103,7 @@ function ConfigDialog({ mode, config, manifests, onClose }: ConfigDialogProps) {
           isPending={isPending}
           onSubmit={handleSubmit}
           onCancel={onClose}
+          onConvertSecrets={config?.secretRefsDeprecated ? handleConvert : undefined}
         />
       </DialogContent>
     </Dialog>
@@ -213,6 +225,7 @@ export function ImportersPage() {
 
   const trigger = useTriggerImportRun();
   const deleteConfig = useDeleteImporterConfig();
+  const convertSecrets = useConvertSecrets();
 
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | null>(null);
   const [editingConfig, setEditingConfig] = useState<ImporterConfig | null>(null);
@@ -255,6 +268,15 @@ export function ImportersPage() {
       await deleteConfig.mutateAsync(config.id);
     } catch {
       // ignore
+    }
+  }
+
+  async function handleConvert(config: ImporterConfig) {
+    try {
+      const res = await convertSecrets.mutateAsync(config.id);
+      toast.success(`Secrets moved to credential "${res.credential.label}"`);
+    } catch (err) {
+      toast.error((err as ApiError).message ?? "Conversion failed");
     }
   }
 
@@ -313,7 +335,12 @@ export function ImportersPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle>{config.label}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle>{config.label}</CardTitle>
+                        {config.secretRefsDeprecated && (
+                          <Badge variant="secondary">DEPRECATED SECRETS</Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground mt-1">
                         {config.importerName} · {config.enabled ? "Enabled" : "Disabled"}
                         {config.schedule ? ` · ${config.schedule}` : ""}
@@ -333,6 +360,17 @@ export function ImportersPage() {
                       )}
                       {hasRole(userRole, "ADMIN") && (
                         <>
+                          {config.secretRefsDeprecated && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleConvert(config)}
+                              disabled={convertSecrets.isPending}
+                            >
+                              <KeyRound className="w-4 h-4 mr-1" />
+                              Convert secrets
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"

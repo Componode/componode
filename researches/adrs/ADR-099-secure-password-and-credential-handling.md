@@ -36,3 +36,8 @@ separate non-secret `publicId` (UUID v7), never the bearer token. (b) The
 12-character minimum is enforced on all *password-setting* paths (register,
 change, reset-confirm, admin create) but **not** on `POST /auth/login`, which
 stays lenient so legacy shorter passwords keep working until rotated.
+---
+
+**Amended by ADR-107**: integration secret values may persist, encrypted, in
+the `credentials` table. Password-handling rules (Argon2id, no plaintext user
+passwords) are unchanged.

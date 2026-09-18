@@ -34,6 +34,15 @@ export const ERROR_TYPES: Record<ErrorCode, ErrorType> = {
   RUN_IN_PROGRESS: { code: "RUN_IN_PROGRESS", status: 409, title: "Run already in progress" },
   RUN_NOT_ACTIVE: { code: "RUN_NOT_ACTIVE", status: 409, title: "Run is not active" },
   INTERNAL_ERROR: { code: "INTERNAL_ERROR", status: 500, title: "Internal server error" },
+  CREDENTIAL_NOT_FOUND: { code: "CREDENTIAL_NOT_FOUND", status: 404, title: "Credential not found" },
+  CREDENTIAL_IN_USE: { code: "CREDENTIAL_IN_USE", status: 409, title: "Credential is in use" },
+  CREDENTIAL_REVOKED: { code: "CREDENTIAL_REVOKED", status: 409, title: "Credential is revoked" },
+  CREDENTIAL_MISSING_KEY: { code: "CREDENTIAL_MISSING_KEY", status: 400, title: "Missing required secret key" },
+  CREDENTIAL_KEY_COLLISION: { code: "CREDENTIAL_KEY_COLLISION", status: 400, title: "Duplicate secret key across sources" },
+  CREDENTIAL_KEY_UNAVAILABLE: { code: "CREDENTIAL_KEY_UNAVAILABLE", status: 503, title: "Credential store key unavailable" },
+  MANIFEST_NO_TEST: { code: "MANIFEST_NO_TEST", status: 400, title: "Importer does not support credential testing" },
+  CONVERSION_NOTHING_TO_CONVERT: { code: "CONVERSION_NOTHING_TO_CONVERT", status: 400, title: "No legacy secret references to convert" },
+  LEGACY_SECRET_UNRESOLVABLE: { code: "LEGACY_SECRET_UNRESOLVABLE", status: 502, title: "Legacy secret reference could not be resolved" },
 };
 
 export function getErrorType(code: ErrorCode): ErrorType {

@@ -79,7 +79,9 @@ its purpose.
 | `DATABASE_SSL_MODE` | no | `require` in production | `disable`, `require`, or `verify-full`. The bundled Compose Postgres has no TLS, so the deployment sets `disable` explicitly. For a remote Postgres, keep `require` or use `verify-full` with `DATABASE_SSL_CA`. |
 | `DATABASE_SSL_CA` | no | — | Path to a CA certificate file for `verify-full` mode. |
 | `TRUSTED_PROXY_IP` | no | — (unset: headers ignored) | Reverse-proxy trust. `X-Forwarded-*` headers are ignored unless set. Accepts one proxy IP, a comma-separated list, or an integer hop count. See ADR-093. |
-| `SECRETS_DIR` | no | `/run/secrets` | Directory `file:` secret references are allowed to resolve in. Absolute paths and traversal outside it are rejected. |
+| `SECRETS_DIR` | no | `/run/secrets` | Directory `file:` secret references are allowed to resolve in, and the fallback location of the credential master key (`master.key`). Absolute paths and traversal outside it are rejected. |
+| `COMPONODE_SECRETS_KEY` | no | — | Credential-store master key (32 bytes, base64 or 64-char hex). Encrypts all stored integration credentials (AES-256-GCM). Preferred over `SECRETS_DIR/master.key`. |
+| `COMPONODE_SECRETS_KEY_PREVIOUS` | no | — | Retiring master key during rotation. See *Credential store* below. |
 | `MAX_DB_CONNECTIONS` | no | `10` | Connection pool size. |
 | `BOOTSTRAP_ADMIN_USERNAME` | yes | — | First admin username. |
 | `BOOTSTRAP_ADMIN_PASSWORD` | yes | — | First admin password. |
@@ -111,6 +113,41 @@ volume preserves all data across upgrades.
 Never commit `.env` or any file containing `COOKIE_SECRET`, `CSRF_SECRET`,
 `DATABASE_URL` with real credentials, or `OIDC_CLIENT_SECRET`. All sensitive
 values are read from the environment at runtime.
+
+## Credential store
+
+Integration credentials (GitHub PATs, OIDC client secrets, API keys) created
+in the app are stored **encrypted in PostgreSQL** with AES-256-GCM. The master
+key lives outside the database, resolved in this order at boot:
+
+1. `COMPONODE_SECRETS_KEY` (recommended — base64 or hex, 32 bytes;
+   `openssl rand -base64 32` generates one).
+2. `SECRETS_DIR/master.key` — read if present; otherwise auto-generated on
+   first boot **only if `SECRETS_DIR` already exists** (a mounted
+   directory/volume). The app never creates `SECRETS_DIR` itself: writing the
+   key into the container's ephemeral layer would lose it on recreate.
+3. No key source → the app starts **degraded** (`credentialsAvailable: false`
+   on `GET /api/v1/health`) when the store is empty, or **refuses to start**
+   when credentials already exist — silently generating a new key would make
+   them unrecoverable.
+
+**Backup unit**: the database **plus** the master key together. A DB backup
+without the key restores ciphertext; a key without the DB restores nothing.
+Back up `master.key` (or the `COMPONODE_SECRETS_KEY` value) with the same care
+as `DATABASE_URL` credentials — store it in your secret manager, never in git.
+
+**Rotation** (dual-key): set `COMPONODE_SECRETS_KEY` to the **new** key and
+`COMPONODE_SECRETS_KEY_PREVIOUS` to the **old** key, then restart. Boot
+re-encrypts every stored payload under the new key (`keyVersion` bumps) and
+logs the count. Once all credentials report the current version, unset
+`COMPONODE_SECRETS_KEY_PREVIOUS` and restart again. If `master.key` is the
+key source, rotate by copying the old file aside and setting both env vars for
+one boot.
+
+**Degraded mode**: with no key and an empty store the app runs normally —
+credential API calls return `503 CREDENTIAL_KEY_UNAVAILABLE` and importer
+configs using stored credentials cannot run. Configure a key and restart to
+enable the store; no data migration is needed.
 
 ## Troubleshooting
 

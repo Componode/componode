@@ -92,13 +92,17 @@ export async function errorHandler(app: FastifyInstance): Promise<void> {
       status = 403;
       message = err.message || "Insufficient permissions";
     } else if (err.statusCode === 404) {
-      code = "NOT_FOUND";
+      code = err.code && isErrorCode(err.code) ? err.code : "NOT_FOUND";
       status = 404;
       message = err.message || "Resource not found";
     } else if (err.statusCode === 409) {
       code = toErrorCode(err);
       status = 409;
       message = err.message || "Conflict";
+      // Domain conflicts may carry safe structured details (e.g.
+      // CREDENTIAL_IN_USE lists the dependent entities blocking deletion).
+      const conflictDetails = (err as { details?: unknown }).details;
+      if (conflictDetails !== undefined) details = conflictDetails;
     } else if (err.statusCode === 422) {
       code = toErrorCode(err);
       status = 422;

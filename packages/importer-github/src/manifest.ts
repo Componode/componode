@@ -8,4 +8,7 @@ export const manifest = {
   version: "1.0.0",
   implPath: "@componode/importer-github/importer",
   configSchema: githubConfigSchema,
+  secrets: [
+    { key: "token", label: "Personal access token", required: true },
+  ],
 };

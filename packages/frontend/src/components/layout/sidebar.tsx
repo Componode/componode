@@ -11,6 +11,7 @@ import {
   Users,
   Settings,
   KeyRound,
+  LockKeyhole,
   Activity,
   PanelLeftClose,
   PanelLeftOpen,
@@ -57,6 +58,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { to: "/users", label: "Users", icon: Users },
       { to: "/sessions", label: "Sessions", icon: KeyRound },
+      { to: "/credentials", label: "Credentials", icon: LockKeyhole },
       { to: "/activity", label: "Activity", icon: Activity },
       { to: "/settings", label: "Settings", icon: Settings },
     ],

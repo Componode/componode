@@ -7,4 +7,5 @@ export const manifest = {
   version: "1.0.0",
   implPath: "@componode/importer-api-url/importer",
   configSchema: apiUrlConfigSchema,
+  secrets: [],
 };

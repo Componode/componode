@@ -7,4 +7,5 @@ export const manifest = {
   version: "1.0.0",
   implPath: "@componode/importer-kubernetes/importer",
   configSchema: kubernetesConfigSchema,
+  secrets: [],
 };

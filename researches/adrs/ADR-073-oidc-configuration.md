@@ -19,3 +19,8 @@ pattern). Role mapping is UI-editable (the part that changes as the deployer's
 IdP groups evolve); env-var-only would require a restart for every mapping
 change. The `oidc_config` table is structured (not key-value) because
 `roleMapping` is JSONB and the shape is fixed.
+---
+
+**Amended by ADR-107**: `clientSecretRef` (env-only) is superseded by
+`clientSecretCredentialId` referencing the credential store; the env ref is
+kept as a deprecated fallback that logs a deprecation warning.

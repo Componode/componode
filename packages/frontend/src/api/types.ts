@@ -31,6 +31,9 @@ export interface OidcConfig {
   issuer: string;
   clientId: string;
   clientSecretRef: string;
+  // Stored credential holding the client secret (spec 013 US7) — preferred
+  // over the deprecated env clientSecretRef.
+  clientSecretCredentialId?: string | null;
   roleClaimPath: string;
   claimValueField: string;
   roleMapping: Record<string, string>;
@@ -62,6 +65,7 @@ export interface ImporterManifest {
   label: string;
   description: string;
   configSchema: Record<string, unknown>;
+  secrets?: Array<{ key: string; label: string; required: boolean }>;
 }
 
 export interface ImporterConfig {
@@ -70,10 +74,43 @@ export interface ImporterConfig {
   label: string;
   scope: Record<string, unknown>;
   secretRefs: Array<{ key: string; env?: string; file?: string }>;
+  credentialIds: string[];
+  secretRefsDeprecated: boolean;
   schedule: string | null;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export type CredentialStatus = "ACTIVE" | "REVOKED";
+
+export interface Credential {
+  id: string;
+  slug: string;
+  label: string;
+  status: CredentialStatus;
+  keyHints: Record<string, string>;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  createdBy: string | null;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CredentialDependents {
+  importerConfigs: Array<{ id: string; label: string }>;
+  oidc: boolean;
+}
+
+export interface CredentialDetail {
+  credential: Credential;
+  dependents: CredentialDependents;
+}
+
+export interface CredentialTestResult {
+  ok: boolean;
+  error?: string;
 }
 
 export interface ImportRun {
@@ -93,6 +130,8 @@ export interface ImportRun {
   errorMessage: string | null;
   errorStack: string | null;
   errorType: string | null;
+  // Credentials resolved for this run (spec 013 US4 run→credential linkage).
+  credentialIds: string[] | null;
   createdAt: string;
 }
 

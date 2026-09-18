@@ -26,6 +26,7 @@ export interface CreateImporterConfigInput {
   label: string;
   scope: Record<string, unknown>;
   secretRefs: Array<{ key: string; env?: string; file?: string }>;
+  credentialIds?: string[];
   schedule?: string | null;
   enabled: boolean;
 }
@@ -35,6 +36,7 @@ export interface UpdateImporterConfigInput {
   label?: string;
   scope?: Record<string, unknown>;
   secretRefs?: Array<{ key: string; env?: string; file?: string }>;
+  credentialIds?: string[];
   schedule?: string | null;
   enabled?: boolean;
 }
@@ -74,6 +76,23 @@ export function useDeleteImporterConfig() {
       api<undefined>(`/importer-configs/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["importer-configs"] });
+    },
+  });
+}
+
+// One-click migration (spec 013 US5): converts a config's legacy env/file
+// secretRefs into a stored credential and links it.
+export function useConvertSecrets() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (configId: string) =>
+      api<{ credential: { id: string; label: string }; config: ImporterConfig }>(
+        `/importer-configs/${configId}/convert-secrets`,
+        { method: "POST" },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["importer-configs"] });
+      qc.invalidateQueries({ queryKey: ["credentials"] });
     },
   });
 }

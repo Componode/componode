@@ -4,7 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useCredentials, useCreateCredential } from "@/api/hooks/credentials";
+import { CredentialForm } from "@/components/credential-form";
 import type { ImporterConfig, ImporterManifest } from "@/api/types";
 
 interface SecretRef {
@@ -18,6 +21,7 @@ export interface ImporterConfigFormOutput {
   label: string;
   scope: Record<string, unknown>;
   secretRefs: SecretRef[];
+  credentialIds: string[];
   schedule: string | null;
   enabled: boolean;
 }
@@ -29,6 +33,9 @@ interface ImporterConfigFormProps {
   isPending: boolean;
   onSubmit: (values: ImporterConfigFormOutput) => Promise<void>;
   onCancel: () => void;
+  // Shown next to the DEPRECATED badge when the config still has legacy
+  // env/file secret refs — one-click migration to a stored credential.
+  onConvertSecrets?: () => Promise<void>;
 }
 
 const GITHUB_ENVIRONMENTS = ["DEV", "TEST", "STAGING", "DEMO", "PRODUCTION", "OTHER"];
@@ -44,12 +51,20 @@ export function ImporterConfigForm({
   isPending,
   onSubmit,
   onCancel,
+  onConvertSecrets,
 }: ImporterConfigFormProps) {
   const [importerName, setImporterName] = useState(config?.importerName ?? "");
   const [label, setLabel] = useState(config?.label ?? "");
   const [schedule, setSchedule] = useState(config?.schedule ?? "");
   const [enabled, setEnabled] = useState(config?.enabled ?? true);
   const [error, setError] = useState<string | null>(null);
+
+  // Stored credential (spec 013): one credential per config in v1 UI.
+  const [credentialId, setCredentialId] = useState<string>(config?.credentialIds?.[0] ?? "");
+  const [showNewCredential, setShowNewCredential] = useState(false);
+  const credentialsQuery = useCredentials();
+  const createCredential = useCreateCredential();
+  const credentials = credentialsQuery.data?.credentials ?? [];
 
   // GitHub scope fields
   const [org, setOrg] = useState<string>("");
@@ -88,6 +103,7 @@ export function ImporterConfigForm({
       const refs = (config.secretRefs ?? []) as SecretRef[];
       const tokenRef = refs.find((r) => r.key === "token");
       setToken(tokenRef?.env ?? tokenRef?.file ?? "");
+      setCredentialId(config.credentialIds?.[0] ?? "");
 
       if (config.importerName === "github" && config.scope && typeof config.scope === "object") {
         const scope = config.scope as Record<string, unknown>;
@@ -166,9 +182,13 @@ export function ImporterConfigForm({
         ...(baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
         ...(Object.keys(mapping).length > 0 ? { environmentMapping: mapping } : {}),
       };
-      secretRefs = [{ key: "token", env: token.trim() || undefined }].filter(
-        (r) => r.env,
-      ) as SecretRef[];
+      // A stored credential supersedes the legacy env token ref — providing
+      // both would collide on the required "token" key.
+      secretRefs = credentialId
+        ? []
+        : ([{ key: "token", env: token.trim() || undefined }].filter(
+            (r) => r.env,
+          ) as SecretRef[]);
 
       if (!org.trim()) {
         setError("GitHub organization is required");
@@ -207,6 +227,7 @@ export function ImporterConfigForm({
       label: label.trim(),
       scope,
       secretRefs,
+      credentialIds: credentialId ? [credentialId] : [],
       schedule: schedule.trim() || null,
       enabled,
     };
@@ -257,6 +278,76 @@ export function ImporterConfigForm({
       </div>
 
       <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Label htmlFor={`${baseId}-credential`}>Stored credential</Label>
+          {config?.secretRefsDeprecated && (
+            <>
+              <Badge variant="secondary" title="This config still uses legacy env/file secret refs">
+                DEPRECATED
+              </Badge>
+              {onConvertSecrets && (
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  disabled={isPending}
+                  onClick={async () => {
+                    setError(null);
+                    try {
+                      await onConvertSecrets();
+                    } catch (err) {
+                      setError(errMessage(err));
+                    }
+                  }}
+                >
+                  Migrate to credential store
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+        <Select
+          id={`${baseId}-credential`}
+          value={credentialId}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === "__new__") {
+              setShowNewCredential(true);
+              return;
+            }
+            setCredentialId(v);
+          }}
+        >
+          <option value="">None</option>
+          {credentials.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label} ({Object.keys(c.keyHints).join(", ")})
+            </option>
+          ))}
+          <option value="__new__">+ Store new credential…</option>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Encrypted in the credential store — preferred over env/file refs.
+        </p>
+      </div>
+
+      {showNewCredential && (
+        <div className="space-y-2 rounded-md border p-4 bg-muted/30">
+          <p className="text-sm font-medium">Store new credential</p>
+          <CredentialForm
+            submitting={createCredential.isPending}
+            onCancel={() => setShowNewCredential(false)}
+            onSubmit={async (input) => {
+              const res = await createCredential.mutateAsync(input);
+              setCredentialId(res.credential.id);
+              setShowNewCredential(false);
+            }}
+          />
+        </div>
+      )}
+
+      <div className="space-y-2">
         <Label htmlFor={`${baseId}-schedule`}>Schedule (cron)</Label>
         <Input
           id={`${baseId}-schedule`}
@@ -293,13 +384,22 @@ export function ImporterConfigForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${baseId}-token`}>Token secret ref</Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor={`${baseId}-token`}>Token env ref (legacy)</Label>
+              <Badge variant="secondary">DEPRECATED</Badge>
+            </div>
             <Input
               id={`${baseId}-token`}
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="env:GITHUB_TOKEN"
+              placeholder="GITHUB_TOKEN"
+              disabled={!!credentialId}
             />
+            <p className="text-xs text-muted-foreground">
+              {credentialId
+                ? "Ignored — the stored credential above supplies the token."
+                : "Environment variable name resolved on the server. Prefer a stored credential."}
+            </p>
           </div>
 
           <div className="space-y-2">

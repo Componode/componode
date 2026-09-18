@@ -17,6 +17,7 @@ import { ImporterRunPage } from "@/pages/importer-run";
 import { UsersPage } from "@/pages/users";
 import { SettingsPage } from "@/pages/settings";
 import { SessionsPage } from "@/pages/sessions";
+import { CredentialsPage } from "@/pages/credentials";
 import { ActivityPage } from "@/pages/activity";
 import { NotFoundPage } from "@/pages/not-found";
 
@@ -49,6 +50,7 @@ export const routes: RouteObject[] = [
       { path: "users", element: authed(<UsersPage />, "ADMIN") },
       { path: "settings", element: authed(<SettingsPage />, "ADMIN") },
       { path: "sessions", element: authed(<SessionsPage />) },
+      { path: "credentials", element: authed(<CredentialsPage />, "ADMIN") },
       { path: "activity", element: authed(<ActivityPage />, "ADMIN") },
       { path: "*", element: authed(<NotFoundPage />) },
     ],

@@ -45,6 +45,7 @@ tags:
   - name: Components
   - name: ComponentGroups
   - name: Importers
+  - name: Credentials
   - name: Organization
   - name: Dashboard
   - name: Search
@@ -552,7 +553,12 @@ paths:
                 enabled: { type: boolean }
                 issuer: { type: string, format: uri, nullable: true }
                 clientId: { type: string, nullable: true }
-                clientSecretRef: { type: string, nullable: true }
+                clientSecretRef:
+                  type: string
+                  nullable: true
+                  deprecated: true
+                  description: Legacy environment variable reference — prefer clientSecretCredentialId.
+                clientSecretCredentialId: { type: string, format: uuid, nullable: true }
                 roleClaimPath: { type: string, nullable: true }
                 claimValueField: { type: string, nullable: true }
                 roleMapping:
@@ -1171,7 +1177,14 @@ paths:
                       key: { type: string, minLength: 1 }
                       env: { type: string }
                       file: { type: string }
-                    description: Either `env` or `file` must be provided.
+                    description: >-
+                      Either `env` or `file` must be provided. Deprecated —
+                      resolves during the migration window; prefer `credentialIds`.
+                credentialIds:
+                  type: array
+                  default: []
+                  items: { type: string, format: uuid }
+                  description: Stored credentials to resolve at run time
                 schedule: { type: string, description: Cron schedule }
                 enabled: { type: boolean, default: true }
       responses:
@@ -1229,6 +1242,11 @@ paths:
                       key: { type: string, minLength: 1 }
                       env: { type: string }
                       file: { type: string }
+                    description: Deprecated — prefer `credentialIds`
+                credentialIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                  description: Full replacement of the config's credential references
                 schedule: { type: string }
                 enabled: { type: boolean }
       responses:
@@ -1256,6 +1274,41 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /importer-configs/{id}/convert-secrets:
+    post:
+      tags: [Importers]
+      summary: Convert legacy secret refs to a stored credential
+      x-permission: "importer:config:update"
+      description: >-
+        One-click migration for the deprecation window: resolves the config's
+        env/file `secretRefs`, stores them as a new credential bundle,
+        junction-links it to the config, and clears `secretRefs`. Both the
+        credential creation and the config update are audited.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '201':
+          description: Created credential and updated config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  credential: { $ref: '#/components/schemas/Credential' }
+                  config: { $ref: '#/components/schemas/ImporterConfig' }
+        '400':
+          description: No legacy refs to convert (`CONVERSION_NOTHING_TO_CONVERT`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502':
+          description: A referenced env var/file could not be resolved (`LEGACY_SECRET_UNRESOLVABLE`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
   /importer-configs/{id}/trigger:
     post:
       tags: [Importers]
@@ -1732,6 +1785,203 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  # ------------------------------------------------- Credentials
+  /credentials:
+    get:
+      tags: [Credentials]
+      summary: List credentials
+      x-permission: "credential:read"
+      description: >-
+        Returns credential metadata only. Secret values are write-only and are
+        never exposed by any endpoint — `keyHints` carries the last 4
+        characters of each stored key for identification.
+      responses:
+        '200':
+          description: Credentials
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  credentials:
+                    type: array
+                    items: { $ref: '#/components/schemas/Credential' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Credentials]
+      summary: Create a credential
+      x-permission: "credential:create"
+      description: >-
+        Requires the `credential:create` role (Admin). The `secrets` bundle is
+        encrypted at rest (AES-256-GCM) and never returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label, secrets]
+              properties:
+                label: { type: string, minLength: 1, maxLength: 200 }
+                expiresAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: Advisory expiry — warns near/past the date, never blocks
+                secrets:
+                  type: object
+                  additionalProperties: { type: string }
+                  minProperties: 1
+                  description: 'Key/value bundle (e.g. `{ "token": "ghp_…" }`)'
+      responses:
+        '201':
+          description: Credential created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  credential: { $ref: '#/components/schemas/Credential' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503':
+          description: Credential store key unavailable (`CREDENTIAL_KEY_UNAVAILABLE`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /credentials/{id}:
+    get:
+      tags: [Credentials]
+      summary: Get credential detail
+      x-permission: "credential:read"
+      description: Returns credential metadata plus its dependents (referencing importer configs, OIDC usage).
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Credential detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  credential: { $ref: '#/components/schemas/Credential' }
+                  dependents: { $ref: '#/components/schemas/CredentialDependents' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Credentials]
+      summary: Update, rotate, or revoke a credential
+      x-permission: "credential:update"
+      description: >-
+        Lifecycle update. Passing `secrets` rotates the stored bundle in
+        place — the credential id and all importer-config links are
+        preserved and a `rotated` audit entry is written. Passing
+        `status: "REVOKED"` revokes permanently (one-way; re-activation
+        requires a new credential).
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label: { type: string, minLength: 1, maxLength: 100 }
+                expiresAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+                secrets:
+                  type: object
+                  additionalProperties: { type: string }
+                  minProperties: 1
+                  description: Present = rotate the bundle in place
+                status:
+                  type: string
+                  enum: [REVOKED]
+      responses:
+        '200':
+          description: Updated credential metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  credential: { $ref: '#/components/schemas/Credential' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Credentials]
+      summary: Delete a credential
+      x-permission: "credential:delete"
+      description: >-
+        Permanently deletes the credential and its stored secrets. Returns
+        `409 CREDENTIAL_IN_USE` while any importer config or the OIDC
+        configuration references it — the problem `details` lists the
+        dependents.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '204': { description: Credential deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Credential is referenced (`CREDENTIAL_IN_USE`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /credentials/{id}/test:
+    post:
+      tags: [Credentials]
+      summary: Test a credential
+      x-permission: "credential:update"
+      description: >-
+        Dry-runs the credential against an importer's `testSecrets` hook — a
+        minimal authenticated probe, no data is imported. Returns `400
+        MANIFEST_NO_TEST` when the importer does not implement the hook and
+        `400 CREDENTIAL_REVOKED` for revoked credentials. An upstream auth
+        failure is reported in the body, never as a 4xx.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [importerName]
+              properties:
+                importerName:
+                  type: string
+                  description: Importer manifest name (e.g. `github`)
+                scope:
+                  type: object
+                  additionalProperties: true
+                  description: Optional importer config overrides for the probe
+      responses:
+        '200':
+          description: Probe result — never carries secret material
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CredentialTestResult' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503':
+          description: Credential store key unavailable (`CREDENTIAL_KEY_UNAVAILABLE`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
   # ------------------------------------------------- Metrics (outside v1)
   /metrics:
     get:
@@ -1839,6 +2089,15 @@ components:
             - RUN_IN_PROGRESS
             - RUN_NOT_ACTIVE
             - INTERNAL_ERROR
+            - CREDENTIAL_NOT_FOUND
+            - CREDENTIAL_IN_USE
+            - CREDENTIAL_REVOKED
+            - CREDENTIAL_MISSING_KEY
+            - CREDENTIAL_KEY_COLLISION
+            - CREDENTIAL_KEY_UNAVAILABLE
+            - MANIFEST_NO_TEST
+            - CONVERSION_NOTHING_TO_CONVERT
+            - LEGACY_SECRET_UNRESOLVABLE
         message: { type: string }
         details: { type: object, nullable: true, description: Optional machine-readable context (e.g. Zod issues, retryAfter). }
         invalid-params:
@@ -1917,7 +2176,11 @@ components:
         enabled: { type: boolean }
         issuer: { type: string, nullable: true }
         clientId: { type: string, nullable: true }
-        clientSecretRef: { type: string, nullable: true }
+        clientSecretRef:
+          type: string
+          nullable: true
+          deprecated: true
+        clientSecretCredentialId: { type: string, format: uuid, nullable: true }
         roleClaimPath: { type: string, nullable: true }
         claimValueField: { type: string, nullable: true }
         roleMapping:
@@ -2027,6 +2290,13 @@ components:
             type: object
             properties:
               key: { type: string }
+        credentialIds:
+          type: array
+          items: { type: string, format: uuid }
+          description: Stored credentials resolved for this config
+        secretRefsDeprecated:
+          type: boolean
+          description: True when the config still relies on legacy env/file refs
         schedule: { type: string, nullable: true }
         enabled: { type: boolean }
         createdBy: { type: string, format: uuid, nullable: true }
@@ -2038,6 +2308,11 @@ components:
       properties:
         id: { type: string, format: uuid }
         configId: { type: string, format: uuid }
+        credentialIds:
+          type: array
+          nullable: true
+          items: { type: string, format: uuid }
+          description: Stored credentials resolved by this run
         status:
           type: string
           enum: [PENDING, RUNNING, COMPLETED, FAILED, CANCELLED, INTERRUPTED]
@@ -2063,6 +2338,52 @@ components:
         errorType: { type: string }
         errorMessage: { type: string }
         createdAt: { type: string, format: date-time }
+    Credential:
+      type: object
+      description: >-
+        Credential metadata. Secret values are write-only — `keyHints` shows
+        the last 4 characters of each stored key, never the value.
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        label: { type: string }
+        status:
+          type: string
+          enum: [ACTIVE, REVOKED]
+        keyHints:
+          type: object
+          additionalProperties: { type: string }
+          description: Last-4 hint per stored key
+        expiresAt: { type: string, format: date-time, nullable: true }
+        lastUsedAt: { type: string, format: date-time, nullable: true }
+        createdBy: { type: string, format: uuid, nullable: true }
+        updatedBy: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CredentialDependents:
+      type: object
+      properties:
+        importerConfigs:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              label: { type: string }
+        oidc:
+          type: boolean
+          description: Whether the OIDC configuration references this credential
+    CredentialTestResult:
+      type: object
+      required: [ok]
+      description: >-
+        Result of `POST /credentials/{id}/test`. Never carries secret
+        material — `error` is a sanitized, status-level message.
+      properties:
+        ok: { type: boolean }
+        error:
+          type: string
+          description: Failure reason (e.g. "Authentication failed (401)")
     Team:
       type: object
       properties:

@@ -8,7 +8,7 @@ This document is the contributor contract for adding new importers to Componode.
 
 1. **Importers are pull-only.** They read from an external system and yield `DiscoveredAsset` records. They never write to the Componode database, call backend services, or push data back to the source.
 2. **Importers depend only on `@componode/core`.** They must not import from `@componode/backend` or from other importers.
-3. **Secrets are resolved by the core.** The backend resolves `secretRefs` to a `Record<string, string>` and passes that map to the importer. Importers must not read `process.env`.
+3. **Secrets are resolved by the core.** The backend resolves the importer config's `credentialIds` (stored `Credential` bundles, AES-256-GCM encrypted — see ADR-107) and legacy `secretRefs` into a `Record<string, string>` and passes that map to the importer. Importers must not read `process.env`. Declare the keys your importer consumes in `manifest.secrets` — the backend validates coverage at config save time and fails the run before execution when a required key is missing, a credential is revoked, or keys collide across sources.
 4. **Respect `AbortSignal`.** All long-running or paginated work must check `context.signal.aborted` and, where the underlying SDK supports it, pass the signal into network requests.
 5. **Validate with `validateDiscoveredAsset`.** The backend validates each yielded asset, but importers should avoid emitting invalid data.
 6. **Use structured logging.** Write progress through `context.logger` and `context.reportPhase`.
@@ -51,6 +51,9 @@ export const manifest = {
   version: "1.0.0",
   implPath: "@componode/importer-<provider>/importer",
   configSchema: githubConfigSchema,
+  // Secret keys this importer consumes — drives save-time coverage validation
+  // and the credential picker's hints. Optional; defaults to [].
+  secrets: [{ key: "token", label: "Personal access token", required: true }],
 };
 ```
 
@@ -146,6 +149,37 @@ record `{status: "OK"|"FORBIDDEN"|"UNAVAILABLE"|"ERROR", message?}` on the ownin
 component's `details.capabilities`, and continue the run. A 403 on a billing
 endpoint must not fail the whole import. Fatal capabilities (e.g. the resource
 listing itself) may still throw.
+
+## Credential testing (`testSecrets`)
+
+An importer may expose a cheap authentication probe so users can verify stored
+credentials from the UI before running an import:
+
+```ts
+export class GithubImporter implements Importer {
+  // ...run() as above...
+
+  async testSecrets(
+    secrets: Record<string, string>,
+    config?: Record<string, unknown>,
+  ): Promise<CredentialTestResult> {
+    // Minimal authenticated request — never a full import.
+    const octokit = new Octokit({ auth: secrets.token });
+    await octokit.rest.rateLimit.get();
+    return { ok: true };
+  }
+}
+```
+
+Rules:
+
+- `testSecrets` is optional; importers without it return `MANIFEST_NO_TEST`
+  from `POST /credentials/{id}/test`.
+- Probe with the smallest authenticated call available (a rate-limit or
+  identity endpoint). Never run a full import.
+- Return `{ ok: false, error }` for upstream auth failures; error strings must
+  never echo credential values.
+- Tests must mock the SDK (`vi.mock("octokit")` for GitHub) — no live network.
 
 ---
 

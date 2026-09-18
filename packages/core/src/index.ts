@@ -17,6 +17,8 @@ export { RELATIONSHIP_TYPES, RELATIONSHIP_TYPE_META } from "./constants/relation
 export type { RelationshipType } from "./constants/relationship-types.js";
 export { IMPORT_RUN_STATUS, IMPORT_RUN_STATUS_META } from "./constants/import-run-status.js";
 export type { ImportRunStatus } from "./constants/import-run-status.js";
+export { CREDENTIAL_STATUSES, CREDENTIAL_STATUS_META } from "./constants/credential-status.js";
+export type { CredentialStatus } from "./constants/credential-status.js";
 export { ERROR_CODES } from "./constants/error-codes.js";
 export type { ErrorCode } from "./constants/error-codes.js";
 export { PASSWORD_MIN_LENGTH } from "./constants/passwords.js";
@@ -41,7 +43,8 @@ export type { AppSettings } from "./contracts/app-settings.js";
 export type { PasswordResetToken } from "./contracts/password-reset-token.js";
 export type { EntityChange, EdgeChange, ActivityFeedItem } from "./contracts/audit.js";
 export type { DiscoveredAsset, DiscoveredAssetInstance, DiscoveredAssetEnvironment } from "./contracts/discovered-asset.js";
-export type { Importer, ImporterContext, SecretResolver } from "./contracts/importer.js";
+export type { Importer, ImporterContext, SecretResolver, ImporterSecretDeclaration } from "./contracts/importer.js";
+export type { Credential, CredentialDependents, CredentialDetail, CredentialTestResult } from "./contracts/credential.js";
 
 // Observability
 export type { Logger } from "./observability/logger.js";
@@ -63,6 +66,16 @@ export {
   createImporterConfigSchema,
   updateImporterConfigSchema,
 } from "./schemas/importer-config.js";
+export {
+  createCredentialSchema,
+  updateCredentialSchema,
+  testCredentialSchema,
+} from "./schemas/credential.js";
+export type {
+  CreateCredentialInput,
+  UpdateCredentialInput,
+  TestCredentialInput,
+} from "./schemas/credential.js";
 export {
   activityFeedQuerySchema,
   entityHistoryQuerySchema,

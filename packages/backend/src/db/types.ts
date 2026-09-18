@@ -46,6 +46,7 @@ export interface OidcConfigRow {
   issuer: string | null;
   clientId: string | null;
   clientSecretRef: string | null;
+  clientSecretCredentialId: string | null;
   roleClaimPath: string | null;
   claimValueField: string | null;
   roleMapping: Record<string, string> | null;
@@ -172,9 +173,32 @@ export interface ImportRunRow {
   componentsRetired: number;
   currentPhase: string | null;
   cancelRequestedAt: string | null;
+  credentialIds: string[] | null;
   errorMessage: string | null;
   errorStack: string | null;
   errorType: string | null;
+  createdAt: Generated<string>;
+}
+
+export interface CredentialRow {
+  id: string;
+  slug: string;
+  label: string;
+  status: string;
+  encryptedPayload: string;
+  keyVersion: number;
+  keyHints: Record<string, string>;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  createdBy: string | null;
+  updatedBy: string | null;
+  createdAt: Generated<string>;
+  updatedAt: Generated<string>;
+}
+
+export interface ImporterConfigCredentialRow {
+  configId: string;
+  credentialId: string;
   createdAt: Generated<string>;
 }
 
@@ -255,6 +279,8 @@ export interface DB {
   component_sources_from: JunctionRow;
   component_exposes: JunctionRow;
   importer_configs: ImporterConfigRow;
+  importer_config_credentials: ImporterConfigCredentialRow;
+  credentials: CredentialRow;
   import_runs: ImportRunRow;
   import_run_errors: ImportRunErrorRow;
   entity_changes: EntityChangeRow;
