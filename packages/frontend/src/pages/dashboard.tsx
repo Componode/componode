@@ -180,14 +180,14 @@ export function DashboardPage() {
                         key={run.configId}
                         className="flex items-center justify-between px-4 py-2.5 text-sm"
                       >
-                        <span className="min-w-0">
+                        <span className="min-w-0 truncate">
                           <Link
                             to="/importers"
                             className="font-medium hover:underline"
                           >
                             {run.configLabel}
                           </Link>
-                          <span className="ml-2 text-xs text-muted-foreground">
+                          <span className="ml-2 hidden text-xs text-muted-foreground md:inline">
                             {run.importerName}
                           </span>
                         </span>
