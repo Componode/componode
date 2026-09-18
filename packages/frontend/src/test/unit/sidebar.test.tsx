@@ -70,3 +70,69 @@ describe("Sidebar", () => {
     expect(screen.queryByText("Catalog")).toBeNull();
   });
 });
+
+const originalMatchMedia = window.matchMedia;
+
+/** Stub the viewport as narrow (below `lg`) or wide for matchMedia queries. */
+function stubViewport(narrow: boolean) {
+  window.matchMedia = ((query: string) => ({
+    matches: narrow && query.includes("max-width"),
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia;
+}
+
+afterEach(() => {
+  window.matchMedia = originalMatchMedia;
+});
+
+describe("Sidebar width-aware default (bugfix 014)", () => {
+  it("defaults to the icon rail on a narrow viewport with no stored preference", () => {
+    stubViewport(true);
+    renderSidebar();
+    expect(screen.getByTestId("sidebar").dataset.collapsed).toBe("true");
+  });
+
+  it("defaults to expanded on a wide viewport with no stored preference", () => {
+    stubViewport(false);
+    renderSidebar();
+    expect(screen.getByTestId("sidebar").dataset.collapsed).toBe("false");
+  });
+
+  it("explicit expanded choice wins on a narrow viewport", () => {
+    stubViewport(true);
+    sessionStorage.setItem("sidebar-collapsed", "false");
+    renderSidebar();
+    expect(screen.getByTestId("sidebar").dataset.collapsed).toBe("false");
+  });
+
+  it("explicit collapsed choice wins on a wide viewport", () => {
+    stubViewport(false);
+    sessionStorage.setItem("sidebar-collapsed", "true");
+    renderSidebar();
+    expect(screen.getByTestId("sidebar").dataset.collapsed).toBe("true");
+  });
+
+  it("does not write a preference on mount — only an explicit toggle persists", () => {
+    stubViewport(true);
+    renderSidebar();
+    expect(sessionStorage.getItem("sidebar-collapsed")).toBeNull();
+  });
+
+  it("falls back to the width-based default when sessionStorage is unavailable", () => {
+    stubViewport(true);
+    const spy = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(() => {
+        throw new DOMException("denied", "SecurityError");
+      });
+    renderSidebar();
+    expect(screen.getByTestId("sidebar").dataset.collapsed).toBe("true");
+    spy.mockRestore();
+  });
+});

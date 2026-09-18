@@ -10,12 +10,12 @@ import { CrumbLabelProvider } from "./crumb-context";
  */
 export function AppShell() {
   return (
-    <div className="flex min-h-screen bg-background" data-testid="app-shell">
+    <div className="flex h-dvh overflow-hidden bg-background" data-testid="app-shell">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <CrumbLabelProvider>
           <TopBar />
-          <main className="flex-1 overflow-y-auto">
+          <main className="min-h-0 flex-1 overflow-y-auto">
             <Outlet />
           </main>
         </CrumbLabelProvider>
