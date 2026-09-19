@@ -330,9 +330,12 @@ v1 is split into sequential spec-kit features:
     shell, single `<main>` scroll region), width-aware sidebar default
     (icon rail below `lg`, explicit choice wins), importer-status row
     truncation at 768px.
-14. **Next** — `015-ui-refresh` (mobile drawer, emerald palette, faceted
-    filters, importer run-history chart), then v1.1 features
-    (Kubernetes/Helm packaging, E2E tests, additional importers).
+14. **`015-ui-refresh`** ✅ — emerald brand palette (radius + icon wells),
+    faceted multi-value filters with removable pills, mobile nav drawer
+    below `md` + `Ctrl+B` toggle (ADR-108), importer run-history stacked
+    chart on the dashboard.
+15. **Next** — v1.1 features (Kubernetes/Helm packaging, E2E tests,
+    additional importers).
 
 Dependencies: 001 → 002 → 003 → 004 → 005 → 006 → 007; later features build on
 the hierarchy and org-level entities (`Person`, `Team`, `LineOfBusiness`).

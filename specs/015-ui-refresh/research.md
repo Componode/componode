@@ -93,13 +93,17 @@ against the actual codebase.
 
 ## Decision 8: Breakpoint handoff — drawer `<md`, sidebar `≥md`, mutually exclusive
 
-- **Decision**: `hidden md:block` on the sidebar aside and `md:hidden` on
-  the hamburger; `NavDrawer` only mounts below `md` (matchMedia-gated or
-  CSS-gated — prefer CSS `md:` classes so no JS resize listener exists).
-- **Rationale**: CSS-only handoff keeps the two chrome modes mutually
-  exclusive with zero resize logic; aligns with the 014 "never re-derive
-  on resize" rule.
-- **Alternatives**: matchMedia-driven mount — rejected, JS for a CSS job.
+- **Decision**: `hidden md:flex` on the sidebar aside and `md:hidden` on
+  the hamburger/drawer — plus one `matchMedia("(min-width: 768px)")`
+  listener whose only job is clearing the drawer's React open state on
+  crossover (FR-009). Both layers, not either/or: CSS guarantees the
+  visual dismissal, the listener keeps state honest.
+- **Rationale**: CSS handles the mutual exclusion; the listener is a
+  state reset, not a resize-derived layout decision — consistent with the
+  014 "never re-derive on resize" rule.
+- **Alternatives**: matchMedia-driven mount — rejected, JS for a CSS job;
+  CSS-only with no listener — leaves stale open state if the drawer is
+  open during crossover.
 
 ## Resolved unknowns → none outstanding
 

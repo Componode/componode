@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { LogOut, Search } from "lucide-react";
+import { LogOut, Menu, Search } from "lucide-react";
+import { SheetTrigger } from "@/components/ui/sheet";
 import { useSession, useLogout } from "@/api/hooks/auth";
 import { Breadcrumbs } from "./breadcrumbs";
 import { ThemeToggle } from "@/components/theme-provider";
@@ -34,6 +35,15 @@ export function TopBar() {
 
   return (
     <header className="flex h-14 items-center justify-between gap-4 border-b bg-background px-6">
+      <SheetTrigger asChild>
+        <button
+          type="button"
+          aria-label="Open navigation"
+          className="-ml-2 flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+        >
+          <Menu className="h-5 w-5" aria-hidden="true" />
+        </button>
+      </SheetTrigger>
       <Breadcrumbs />
 
       <div className="flex items-center gap-2">

@@ -23,7 +23,7 @@ FAIL before implementation.
 
 ## Phase 1: Setup
 
-- [ ] T001 `pnpm add` `@radix-ui/react-popover` + `recharts` in
+- [x] T001 `pnpm add` `@radix-ui/react-popover` + `recharts` in
   `packages/frontend` (`^` ranges, releases ≥7 days old, never `latest`);
   commit `pnpm-lock.yaml` with the manifest change
 
@@ -33,11 +33,11 @@ FAIL before implementation.
 
 **⚠️ CRITICAL**: US1–US4 cannot start until these primitives exist.
 
-- [ ] T002 [P] Create `fe/components/ui/sheet.tsx` — shadcn Sheet
+- [x] T002 [P] Create `fe/components/ui/sheet.tsx` — shadcn Sheet
   primitive wrapping the already-installed `@radix-ui/react-dialog`
   (side-anchored variants incl. `side="left"`, overlay, close control,
   focus trap, aria labeling)
-- [ ] T003 [P] Create `fe/components/ui/popover.tsx` — thin wrapper over
+- [x] T003 [P] Create `fe/components/ui/popover.tsx` — thin wrapper over
   `@radix-ui/react-popover` (Root/Trigger/Content/Anchor, `cn` styling
   per existing `ui/` conventions)
 
@@ -57,39 +57,39 @@ green treatment, radius/wells present, no mixed greens.
 
 ### Tests for User Story 1 ⚠️ (write first — must FAIL)
 
-- [ ] T004 [P] [US1] Create `fe/test/unit/theme-tokens.test.ts` reading
+- [x] T004 [P] [US1] Create `fe/test/unit/theme-tokens.test.ts` reading
   `fe/index.css` and asserting `--color-primary: hsl(163 94% 24%)` in the
   light block, `hsl(158 64% 52%)` in the dark block, `--radius: 0.625rem`,
   and that `--color-success` keeps its ~`hsl(142 …)` hue unchanged
-- [ ] T005 [P] [US1] Extend `fe/test/unit/` status-badge coverage (new
+- [x] T005 [P] [US1] Extend `fe/test/unit/` status-badge coverage (new
   `status-badge.test.tsx` or existing file) asserting every `StatusBadge`
   renders a leading dot element plus the status label, and that the
   existing enum→color mapping is preserved
-- [ ] T006 [P] [US1] Extend `fe/test/unit/components-page-states.test.tsx`
+- [x] T006 [P] [US1] Extend `fe/test/unit/components-page-states.test.tsx`
   (or new test) asserting taxonomy/category pills in table cells render
   as non-interactive elements (no `role="link"`/`button`, no `href`, no
   click handler)
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Update `fe/index.css`: light `--color-primary` →
+- [x] T007 [US1] Update `fe/index.css`: light `--color-primary` →
   `hsl(163 94% 24%)`, `--color-primary-foreground` → white,
   `--color-ring` → follow primary, primary hover → `hsl(163 94% 20%)`;
   dark `--color-primary` → `hsl(158 64% 52%)` (+ matching foreground/
   ring); `--radius` `0.5rem` → `0.625rem`; leave `--color-success` and
   the system font stack unchanged
-- [ ] T008 [US1] Add the `icon-well` utility (single source in
+- [x] T008 [US1] Add the `icon-well` utility (single source in
   `fe/index.css` or shared class per `contracts/ui-contracts.md`) and
   apply it to sidebar nav icons in `fe/components/layout/sidebar.tsx`
-- [ ] T009 [US1] Apply the icon-well treatment to dashboard stat icons in
+- [x] T009 [US1] Apply the icon-well treatment to dashboard stat icons in
   `fe/pages/dashboard.tsx`
-- [ ] T010 [US1] Add the leading `bg-current` dot to every status in
+- [x] T010 [US1] Add the leading `bg-current` dot to every status in
   `fe/components/states/status-badge.tsx` (no prop changes; keep tinted
   pill mapping)
-- [ ] T011 [US1] Convert taxonomy/category pills in table cells to the
+- [x] T011 [US1] Convert taxonomy/category pills in table cells to the
   decorative (non-interactive) pill treatment in `fe/pages/components.tsx`
   and any other enum-pill surface found
-- [ ] T012 [US1] Audit interactive surfaces for brand/status separation
+- [x] T012 [US1] Audit interactive surfaces for brand/status separation
   (FR-002): grep for `success`/`green` classes on interactive elements,
   verify primary buttons/links/focus rings consume the emerald tokens,
   verify active nav stays neutral — fix any stragglers
@@ -112,36 +112,36 @@ re-filters without reload; refresh preserves state.
 
 ### Tests for User Story 2 ⚠️ (write first — must FAIL)
 
-- [ ] T013 [P] [US2] Create `fe/test/unit/facet-filter.test.tsx`:
+- [x] T013 [P] [US2] Create `fe/test/unit/facet-filter.test.tsx`:
   renders all provided options in a searchable list; multi-select emits
   `onChange` with the union; selected values render as pills inside the
   trigger capped at 2 with a `+N` overflow counter; pill × deselects
   that value; "Clear" empties selection
-- [ ] T014 [P] [US2] Extend `fe/test/unit/` components-page filter
+- [x] T014 [P] [US2] Extend `fe/test/unit/` components-page filter
   coverage asserting facet selections serialize comma-joined into
   `category`/`provider`/`lifecycle`/`status`/`group` search params,
   round-trip on reload, and a clear-all affordance empties every facet
   param
-- [ ] T015 [P] [US2] Test the component-groups facet populates from
+- [x] T015 [P] [US2] Test the component-groups facet populates from
   `useComponentGroups()` and its combobox filters a long list by
   typeahead (mock the hook; assert filtered option set)
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Create `fe/components/facet-filter.tsx` per
+- [x] T016 [US2] Create `fe/components/facet-filter.tsx` per
   `contracts/ui-contracts.md` — `ui/popover` + `ui/command` body,
   checkbox option list, pills-in-trigger (2 + `+N`), per-pill remove,
   "Clear" action
-- [ ] T017 [US2] Rewrite `fe/components/component-filters.tsx` to render
+- [x] T017 [US2] Rewrite `fe/components/component-filters.tsx` to render
   five `FacetFilter`s fed by `COMPONENT_CATEGORIES`,
   `COMPONENT_PROVIDERS`, `COMPONENT_LIFECYCLE`, `INSTANCE_STATUS`, and
   `useComponentGroups()`; keep `filtersToSearchParams`/
   `filtersFromSearchParams` round-trip (values are comma-joined strings
   in the existing params); keep `page` reset to 1 on change
-- [ ] T018 [US2] Inventory every enum-backed filter surface in
+- [x] T018 [US2] Inventory every enum-backed filter surface in
   `fe/pages/` (product `type` select, instance `status` filter, any
   others) and convert each to `FacetFilter` per FR-006
-- [ ] T019 [US2] Add the clear-all affordance to the filter bar and wire
+- [x] T019 [US2] Add the clear-all affordance to the filter bar and wire
   the standard empty state's "Clear filters" primary action to it
 
 **Checkpoint**: US2 independently testable — rows 4–5 green.
@@ -161,45 +161,45 @@ work with focus return, crossover dismisses, desktop untouched.
 
 ### Tests for User Story 3 ⚠️ (write first — must FAIL)
 
-- [ ] T020 [P] [US3] Create `fe/test/unit/nav-drawer.test.tsx` (override
+- [x] T020 [P] [US3] Create `fe/test/unit/nav-drawer.test.tsx` (override
   `matchMedia` for `<768px` per the 014 sidebar-test pattern): hamburger
   visible only below `md`; open renders the same nav sections incl.
   admin-gated items; Escape, scrim click, and × each close; focus is
   trapped while open and returns to the hamburger on close; drawer is
   aria-labeled
-- [ ] T021 [P] [US3] Extend `fe/test/unit/sidebar.test.tsx` (or new
+- [x] T021 [P] [US3] Extend `fe/test/unit/sidebar.test.tsx` (or new
   `use-sidebar-shortcut.test.tsx`): `Ctrl+B` toggles drawer open below
   `md` and sidebar collapse at/above `md`; verify it fires globally —
   including from an input/textarea focus (spec edge case: global, not
   suppressed); verify it cleans up on unmount like the `Ctrl+K` listener
-- [ ] T022 [P] [US3] Test the crossover: with drawer open, switching
+- [x] T022 [P] [US3] Test the crossover: with drawer open, switching
   `matchMedia` to `≥md` dismisses it and the persistent sidebar resumes —
   drawer and sidebar chrome never co-visible
 
 ### Implementation for User Story 3
 
-- [ ] T023 [US3] Extract nav sections from `fe/components/layout/
+- [x] T023 [US3] Extract nav sections from `fe/components/layout/
   sidebar.tsx` into `fe/components/layout/nav-sections.ts` (single
   source); refactor sidebar to consume it — no visual change at `≥md`
-- [ ] T024 [US3] Create `fe/components/layout/nav-drawer.tsx` —
+- [x] T024 [US3] Create `fe/components/layout/nav-drawer.tsx` —
   `ui/sheet` `side="left"` rendering `nav-sections`, overlay + content
   `md:hidden`, explicit close control, `aria-label`/`aria-labelledby`,
   close on destination select
-- [ ] T025 [US3] Add the hamburger trigger (`md:hidden`) to
+- [x] T025 [US3] Add the hamburger trigger (`md:hidden`) to
   `fe/components/layout/top-bar.tsx` and own the drawer `open` state in
   `fe/components/layout/app-shell.tsx`; add a matchMedia
   `(min-width: 768px)` listener that clears `open` on crossover (visible
   dismissal is already guaranteed by `md:hidden` — this keeps state
   honest per FR-009)
-- [ ] T026 [US3] Create `fe/lib/use-sidebar-shortcut.ts` per
+- [x] T026 [US3] Create `fe/lib/use-sidebar-shortcut.ts` per
   `contracts/ui-contracts.md` — `Ctrl/Cmd+B`, `preventDefault`, global
   (not suppressed in inputs, matching `Ctrl+K`); routes to drawer
   `<md` / sidebar toggle `≥md`; mount it in `app-shell.tsx`
-- [ ] T027 [US3] Write `researches/adrs/ADR-108-*.md` ratifying the
+- [x] T027 [US3] Write `researches/adrs/ADR-108-*.md` ratifying the
   drawer-only mobile-navigation exception (context, decision,
   consequences, alternatives incl. full mobile redesign rejection) and
   add its index row to `researches/architecture-decisions.md`
-- [ ] T028 [US3] Amend `docs/ux.md` §9 to cite ADR-108 as the ratified
+- [x] T028 [US3] Amend `docs/ux.md` §9 to cite ADR-108 as the ratified
   mobile-nav exception (drawer-only; other sub-768px layout unchanged)
 
 **Checkpoint**: US3 independently testable — rows 6–9 green.
@@ -217,21 +217,21 @@ empty state with zero runs, accessible text equivalent present.
 
 ### Tests for User Story 4 ⚠️ (write first — must FAIL)
 
-- [ ] T029 [P] [US4] Create `fe/test/unit/importer-run-chart.test.tsx`
+- [x] T029 [P] [US4] Create `fe/test/unit/importer-run-chart.test.tsx`
   (mock `useImporterConfigs`/`useImporterRuns`): renders one stacked bar
   per run with correct segment values; zero runs → standard empty state;
   a text equivalent (table/list) reflects the same data
 
 ### Implementation for User Story 4
 
-- [ ] T030 [US4] Create `fe/components/importer-run-chart.tsx` per
+- [x] T030 [US4] Create `fe/components/importer-run-chart.tsx` per
   `contracts/ui-contracts.md` — `useQueries` fan-out over
   `useImporterRuns(configId)` for visible configs, global recency-trim to
   `maxRuns` (default 20), Recharts `BarChart` stacked `created`/
   `updated`/`processed-unchanged` segments, legend, tooltip on
   hover/focus, adjacent text-equivalent table, standard empty state,
   reduced-motion-safe
-- [ ] T031 [US4] Integrate the chart into the dashboard importer section
+- [x] T031 [US4] Integrate the chart into the dashboard importer section
   in `fe/pages/dashboard.tsx` (above or beside the last-runs list; keep
   the 014 row-collision fix intact)
 
@@ -241,14 +241,14 @@ empty state with zero runs, accessible text equivalent present.
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T032 [P] Verify `prefers-reduced-motion` disables drawer slide and
+- [x] T032 [P] Verify `prefers-reduced-motion` disables drawer slide and
   chart animation/transitions (FR-013); adjust transition classes as
   needed
-- [ ] T033 README roadmap sync — mark `015-ui-refresh` complete, revise
+- [x] T033 README roadmap sync — mark `015-ui-refresh` complete, revise
   `Next` (README.md)
-- [ ] T034 Run `pnpm lint && pnpm typecheck && pnpm --filter frontend
+- [x] T034 Run `pnpm lint && pnpm typecheck && pnpm --filter frontend
   test` — all green
-- [ ] T035 Run the quickstart browser matrix rows 1–12 at
+- [x] T035 Run the quickstart browser matrix rows 1–12 at
   1440/1280/768/390 × light/dark (incl. contrast spot-checks and
   keyboard-only pass) — record results
 
@@ -321,3 +321,14 @@ breaking the previous.
   state reset — both, not either/or
 - Keep `docs/security/2026-09-13-security-assessment.md` untracked —
   unrelated to this feature
+
+## Phase 8: Convergence
+
+- [x] T036 Convert credential status and expiry pills in
+  `packages/frontend/src/pages/credentials.tsx` to `StatusBadge` (extend
+  `STATUS_STYLES` with `REVOKED`/`EXPIRED` and the expiring states) so no
+  status renders as solid brand fill — per FR-002/FR-004/SC-001
+  (contradicts)
+- [x] T037 Convert the `kind` enum filter (`entity`/`edge`) in
+  `packages/frontend/src/pages/activity.tsx` to `FacetFilter`
+  `mode="single"` — per FR-006 (missing)

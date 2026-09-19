@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardGridSkeleton, TableSkeleton } from "@/components/states/skeletons";
 import { ErrorState } from "@/components/states/error-state";
 import { StatusBadge } from "@/components/states/status-badge";
+import { ImporterRunChart } from "@/components/importer-run-chart";
 import { relativeTime, absoluteTime } from "@/lib/format";
 import type { AttentionItem } from "@/api/types";
 
@@ -174,7 +175,11 @@ export function DashboardPage() {
                     </Link>
                   </p>
                 ) : (
-                  <ul className="divide-y">
+                  <>
+                    <ImporterRunChart
+                      configIds={lastRuns.map((r) => r.configId)}
+                    />
+                    <ul className="divide-y border-t">
                     {lastRuns.map((run) => (
                       <li
                         key={run.configId}
@@ -223,7 +228,8 @@ export function DashboardPage() {
                         </span>
                       </li>
                     ))}
-                  </ul>
+                    </ul>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -254,7 +260,9 @@ function StatCard({
           <CardTitle className="text-sm font-medium text-muted-foreground">
             {label}
           </CardTitle>
-          <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <span className="icon-well">
+            <Icon className="h-4 w-4" aria-hidden="true" />
+          </span>
         </CardHeader>
         <CardContent>
           <p className="text-3xl font-bold">{total.toLocaleString()}</p>

@@ -59,10 +59,12 @@ interface ImporterRunChartProps {
 }
 ```
 
-- Stacked bars: segments `created` / `updated` (further `skipped`/
-  `unchanged`/`failed` segments only if `ImportRun` carries them —
-  otherwise created+updated). Empty/zero-runs → empty-state copy, not an
-  empty axis. A sibling `<table>`/`<ul>` text equivalent (a11y).
+- Stacked bars: segments `created` / `updated` / `unchanged`, where
+  `unchanged` is **derived** — `max(0, assetsProcessed - assetsCreated -
+  assetsUpdated)` (`ImportRun` has exactly these three counters). Only
+  completed runs chart (`completedAt != null`). Empty/zero-runs →
+  empty-state copy, not an empty axis. A sibling `<table>`/`<ul>` text
+  equivalent (a11y).
 
 ### `StatusBadge` (`components/states/status-badge.tsx`) — CHANGED
 

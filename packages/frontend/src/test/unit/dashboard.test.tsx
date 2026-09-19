@@ -7,6 +7,12 @@ vi.mock("@/api/hooks/dashboard", () => ({
   useDashboardSummary: vi.fn(),
 }));
 
+// Chart is covered by importer-run-chart.test.tsx; stub it here so this
+// suite doesn't need a QueryClient for the useQueries fan-out.
+vi.mock("@/components/importer-run-chart", () => ({
+  ImporterRunChart: () => null,
+}));
+
 import { useDashboardSummary } from "@/api/hooks/dashboard";
 const mockSummary = vi.mocked(useDashboardSummary);
 

@@ -22,7 +22,7 @@ importer runs aggregated from the existing per-config runs endpoint.
 **Primary Dependencies**: React 18, Vite, Tailwind CSS v4 (`@theme` tokens),
 React Router 7, TanStack Query, `cmdk` (present), `@radix-ui/react-dialog`
 (present — the drawer's Sheet wraps it), `next-themes`, `lucide-react`.
-**New deps**: `recharts` (^2.x, ≥7-day-old release), `@radix-ui/react-popover`
+**New deps**: `recharts` (^3.10.1, ≥7-day-old release), `@radix-ui/react-popover`
 (facet control), `vaul` NOT needed (drawer is Dialog-based, not bottom-sheet).
 
 **Storage**: `sessionStorage["sidebar-collapsed"]` (unchanged, from 014);

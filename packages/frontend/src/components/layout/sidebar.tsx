@@ -1,69 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Package,
-  Boxes,
-  Group,
-  Landmark,
-  UsersRound,
-  Download,
-  Users,
-  Settings,
-  KeyRound,
-  LockKeyhole,
-  Activity,
-  PanelLeftClose,
-  PanelLeftOpen,
-} from "lucide-react";
+import { Boxes, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useSession } from "@/api/hooks/auth";
 import { cn } from "@/lib/utils";
-
-interface NavItem {
-  to: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-}
-
-interface NavSection {
-  label: string;
-  adminOnly?: boolean;
-  items: NavItem[];
-}
-
-const SECTIONS: NavSection[] = [
-  {
-    label: "Catalog",
-    items: [
-      { to: "/", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/products", label: "Products", icon: Package },
-      { to: "/components", label: "Components", icon: Boxes },
-      { to: "/component-groups", label: "Component Groups", icon: Group },
-    ],
-  },
-  {
-    label: "Organization",
-    items: [
-      { to: "/lobs", label: "Lines of Business", icon: Landmark },
-      { to: "/teams", label: "Teams", icon: UsersRound },
-    ],
-  },
-  {
-    label: "Sources",
-    items: [{ to: "/importers", label: "Importers", icon: Download }],
-  },
-  {
-    label: "Administration",
-    adminOnly: true,
-    items: [
-      { to: "/users", label: "Users", icon: Users },
-      { to: "/sessions", label: "Sessions", icon: KeyRound },
-      { to: "/credentials", label: "Credentials", icon: LockKeyhole },
-      { to: "/activity", label: "Activity", icon: Activity },
-      { to: "/settings", label: "Settings", icon: Settings },
-    ],
-  },
-];
+import { SECTIONS } from "./nav-sections";
 
 const STORAGE_KEY = "sidebar-collapsed";
 
@@ -104,12 +44,21 @@ export function Sidebar() {
     });
   };
 
+  // Ctrl+B dispatch target (see lib/use-sidebar-shortcut.ts) — same event
+  // convention as componode:open-palette.
+  useEffect(() => {
+    const handler = () => toggleCollapsed();
+    window.addEventListener("componode:toggle-sidebar", handler);
+    return () => window.removeEventListener("componode:toggle-sidebar", handler);
+  }, []);
+
   const isAdmin = user?.role === "ADMIN";
 
   return (
     <aside
       className={cn(
-        "flex h-full flex-col border-r bg-card transition-[width] duration-200",
+        // Below md the NavDrawer replaces this chrome entirely (ADR-108).
+        "hidden h-full flex-col border-r bg-card transition-[width] duration-200 md:flex",
         collapsed ? "w-14" : "w-56",
       )}
       data-testid="sidebar"
@@ -154,7 +103,9 @@ export function Sidebar() {
                           )
                         }
                       >
-                        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        <span className="icon-well">
+                          <Icon className="h-4 w-4" aria-hidden="true" />
+                        </span>
                         {!collapsed && <span className="truncate">{item.label}</span>}
                       </NavLink>
                     </li>

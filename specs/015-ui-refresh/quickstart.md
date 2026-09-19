@@ -27,11 +27,11 @@ result.
 | 3 | 1440 | both | Components page | Category/provider/lifecycle/status pills are decorative (not links); status badges show dot+label |
 | 4 | 1440 | light | Filters | Each facet control opens a searchable multi-select listing **all** enum values + component groups; selections appear as removable pills in the button; URL params update; refresh keeps them |
 | 5 | 1440 | light | Filters | Pill overflow: >2 selections collapse to `+N`; "Clear all" empties every facet + URL |
-| 6 | 1440 | both | `Ctrl+B` | Sidebar toggles collapsed↔expanded; works with focus on body; does nothing inside an input/textarea |
+| 6 | 1440 | both | `Ctrl+B` | Sidebar toggles collapsed↔expanded; works with focus on body **and inside inputs** (same global rule as `Ctrl+K`) |
 | 7 | 767 | both | Any page | No persistent sidebar; hamburger visible; opens left drawer w/ scrim; focus trapped; Esc + scrim + × all close; focus returns to hamburger |
 | 8 | 767→1024 | both | Resize with drawer open | Drawer dismisses, persistent sidebar resumes — never both at once |
 | 9 | 390 | both | Drawer nav | Drawer shows same nav sections/groups as desktop sidebar; section collapse optional |
-| 10 | 1440 | light | Dashboard | Importer section renders stacked-bar chart of recent runs (created+updated segments); empty/zero runs → empty state; adjacent text equivalent exists |
+| 10 | 1440 | both | Dashboard | Importer section renders stacked-bar chart of recent runs (created+updated+unchanged segments); empty/zero runs → empty state; adjacent text equivalent exists |
 | 11 | any | both | Keyboard | All new controls reachable; visible `focus-visible` ring; chart/drawer/facets operable without mouse |
 | 12 | any | both | A11y | Brand emerald never used for success/status; status remains color+label/dot (color-blind safe) |
 

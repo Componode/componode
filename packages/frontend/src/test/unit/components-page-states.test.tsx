@@ -65,4 +65,29 @@ describe("ComponentsPage states", () => {
     renderPage();
     expect(screen.getByText("payments-api")).toBeDefined();
   });
+
+  it("renders taxonomy pills as decorative (non-interactive, muted treatment)", () => {
+    mockUseComponents.mockReturnValue({
+      data: {
+        data: [
+          {
+            id: "c1", name: "payments-api", slug: "payments-api",
+            category: "REPOSITORY", provider: "GITHUB", resourceType: "repo",
+            lifecycle: "ACTIVE", componentGroupId: null, componentGroupName: null,
+            instanceCount: 2,
+          },
+        ],
+        pagination: { page: 1, pageSize: 50, total: 1, pageCount: 1, hasNext: false },
+      },
+      isPending: false, isFetching: false, error: null, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useComponents>);
+    renderPage();
+    for (const el of [screen.getByText("REPOSITORY"), screen.getByText("GITHUB")]) {
+      expect(el.tagName).not.toBe("A");
+      expect(el.tagName).not.toBe("BUTTON");
+      expect(el.getAttribute("href")).toBeNull();
+      expect(el.getAttribute("tabindex")).toBeNull();
+      expect(el.className).toMatch(/bg-muted/);
+    }
+  });
 });

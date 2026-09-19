@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/states/empty-state";
 import { ErrorState } from "@/components/states/error-state";
 import { Forbidden } from "@/components/states/forbidden";
 import { PRODUCT_TYPES, PRODUCT_TYPE_META } from "@componode/core";
+import { FacetFilter } from "@/components/facet-filter";
 import { useState } from "react";
 import type { ApiError } from "@/api/client";
 
@@ -75,19 +76,16 @@ export function ProductsPage() {
           className="w-64"
           aria-label="Filter products"
         />
-        <select
-          value={type}
-          onChange={(e) => setParam("type", e.target.value)}
-          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          aria-label="Filter by type"
-        >
-          <option value="">All types</option>
-          {PRODUCT_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {PRODUCT_TYPE_META[t].label}
-            </option>
-          ))}
-        </select>
+        <FacetFilter
+          title="Type"
+          mode="single"
+          options={PRODUCT_TYPES.map((t) => ({
+            value: t,
+            label: PRODUCT_TYPE_META[t].label,
+          }))}
+          selected={type ? [type] : []}
+          onChange={(v) => setParam("type", v[0] ?? "")}
+        />
         <div className="flex items-center gap-2">
           <Switch
             id="show-retired"

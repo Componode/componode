@@ -234,8 +234,11 @@ Every page and every async region implements these states. Toast feedback
 
 - Optimized for ≥1280px; usable at ~768px (sidebar collapses to icons).
 - Below 768px the app renders but is not designed for: no mobile layouts, no
-  touch-target work. This is a recorded decision, not an oversight — revisit
-  only via a dedicated spec.
+  touch-target work — **with one ratified exception**: navigation becomes an
+  off-canvas drawer (hamburger in the top bar) so the shell degrades
+  gracefully instead of crushing content. That is the only sub-768px change;
+  see ADR-108. Anything further is a recorded decision, not an oversight —
+  revisit only via a dedicated spec.
 - No in-app graph canvas (see §5). No activity feed, no customizable
   dashboard widgets, no per-user layout customization in v1.
 

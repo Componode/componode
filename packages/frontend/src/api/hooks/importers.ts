@@ -110,6 +110,14 @@ export function useTriggerImportRun() {
   });
 }
 
+export function importerRunsQueryOptions(configId: string) {
+  return {
+    queryKey: ["importer-configs", configId, "runs"] as const,
+    queryFn: () =>
+      api<{ runs: ImportRun[] }>(`/importer-configs/${configId}/runs`),
+  };
+}
+
 export function useImporterRuns(configId: string | null) {
   return useQuery({
     queryKey: ["importer-configs", configId, "runs"],
