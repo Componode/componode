@@ -98,4 +98,19 @@ describe("DashboardPage", () => {
     expect(screen.getByRole("alert")).toBeDefined();
     expect(screen.getByRole("button", { name: /retry/i })).toBeDefined();
   });
+
+  // bugfix 014: at ~768px the label must ellipsize, never overlap the badge.
+  it("last-run rows truncate the label instead of colliding with the badge", () => {
+    mockSummary.mockReturnValue({ data: base, isPending: false, isFetching: false, error: null, refetch: vi.fn() } as unknown as ReturnType<typeof useDashboardSummary>);
+    renderPage();
+    const labelWrapper = screen.getByText("org-scan").parentElement!;
+    expect(labelWrapper.className).toContain("min-w-0");
+    expect(labelWrapper.className).toContain("truncate");
+    // Supplementary importer name is demoted below `md`.
+    const importerName = screen.getByText("github", { selector: "span" });
+    expect(importerName.className).toContain("hidden");
+    expect(importerName.className).toContain("md:inline");
+    // The badge cluster keeps its no-shrink contract.
+    expect(labelWrapper.nextElementSibling!.className).toContain("shrink-0");
+  });
 });

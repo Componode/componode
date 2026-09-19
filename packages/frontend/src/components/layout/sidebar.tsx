@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -76,26 +76,40 @@ export function Sidebar() {
   const { data: user } = useSession();
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
-      return sessionStorage.getItem(STORAGE_KEY) === "true";
+      const stored = sessionStorage.getItem(STORAGE_KEY);
+      if (stored !== null) return stored === "true";
+    } catch {
+      /* storage unavailable — fall through to the width-based default */
+    }
+    try {
+      // No explicit preference: default to the icon rail below `lg`
+      // (docs/ux.md §9). Evaluated once on mount, never on resize.
+      return window.matchMedia("(max-width: 1023.98px)").matches;
     } catch {
       return false;
     }
   });
 
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(STORAGE_KEY, String(collapsed));
-    } catch {
-      /* storage unavailable */
-    }
-  }, [collapsed]);
+  // Persist only explicit choices — a width-based default must not become
+  // a stored preference (it would then beat the viewport on later loads).
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        sessionStorage.setItem(STORAGE_KEY, String(next));
+      } catch {
+        /* storage unavailable */
+      }
+      return next;
+    });
+  };
 
   const isAdmin = user?.role === "ADMIN";
 
   return (
     <aside
       className={cn(
-        "flex h-screen flex-col border-r bg-card transition-[width] duration-200",
+        "flex h-full flex-col border-r bg-card transition-[width] duration-200",
         collapsed ? "w-14" : "w-56",
       )}
       data-testid="sidebar"
@@ -155,7 +169,7 @@ export function Sidebar() {
       <div className="border-t p-2">
         <button
           type="button"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={toggleCollapsed}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-expanded={!collapsed}
           className={cn(
