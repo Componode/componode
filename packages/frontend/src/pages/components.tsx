@@ -92,6 +92,19 @@ export function ComponentsPage() {
     setFilters({ ...filters, page: next });
   }
 
+  const hasActiveFilters = !!(
+    filters.category || filters.provider || filters.lifecycle ||
+    filters.status || filters.group || filters.search
+  );
+
+  function clearFilters() {
+    setFilters({
+      ...filters,
+      category: undefined, provider: undefined, lifecycle: undefined,
+      status: undefined, group: undefined, search: undefined, page: 1,
+    });
+  }
+
   const isForbidden = error ? ((error as unknown) as ApiError).code === "FORBIDDEN" : false;
 
   return (
@@ -123,9 +136,17 @@ export function ComponentsPage() {
           {!isPending && !error && components.length === 0 && (
             <EmptyState
               icon={PackageSearch}
-              title="No components found"
-              description="Run an importer to populate the catalog."
-              action={{ label: "Configure importers", to: "/importers" }}
+              title={hasActiveFilters ? "No components match the filters" : "No components found"}
+              description={
+                hasActiveFilters
+                  ? "Try removing or broadening the active filters."
+                  : "Run an importer to populate the catalog."
+              }
+              action={
+                hasActiveFilters
+                  ? { label: "Clear filters", onClick: clearFilters }
+                  : { label: "Configure importers", to: "/importers" }
+              }
             />
           )}
 
@@ -155,10 +176,10 @@ export function ComponentsPage() {
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{component.category}</Badge>
+                        <Badge variant="outline" className="bg-muted text-muted-foreground">{component.category}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{component.provider}</Badge>
+                        <Badge variant="secondary" className="bg-muted text-muted-foreground">{component.provider}</Badge>
                       </TableCell>
                       <TableCell>{component.resourceType}</TableCell>
                       <TableCell>

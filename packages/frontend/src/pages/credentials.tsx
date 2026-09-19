@@ -30,6 +30,7 @@ import { TableSkeleton } from "@/components/states/skeletons";
 import { EmptyState } from "@/components/states/empty-state";
 import { ErrorState } from "@/components/states/error-state";
 import { Forbidden } from "@/components/states/forbidden";
+import { StatusBadge } from "@/components/states/status-badge";
 import { relativeTime, absoluteTime } from "@/lib/format";
 import type { ApiError } from "@/api/client";
 import type { Credential } from "@/api/types";
@@ -128,17 +129,23 @@ export function CredentialsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={cred.status === "ACTIVE" ? "default" : "destructive"}>
-                          {cred.status}
-                        </Badge>
+                        <StatusBadge status={cred.status} />
                       </TableCell>
                       <TableCell>
                         {exp === null ? (
                           <span className="text-muted-foreground">—</span>
                         ) : (
-                          <Badge variant={expired ? "destructive" : expiring ? "secondary" : "outline"}>
-                            {expired ? "Expired" : expiring ? "Expiring" : ""} {absoluteTime(cred.expiresAt!)}
-                          </Badge>
+                          <span className="inline-flex items-center gap-2">
+                            {(expired || expiring) && (
+                              <StatusBadge status={expired ? "EXPIRED" : "EXPIRING"} />
+                            )}
+                            <span
+                              className="text-muted-foreground"
+                              title={absoluteTime(cred.expiresAt!)}
+                            >
+                              {relativeTime(cred.expiresAt)}
+                            </span>
+                          </span>
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">

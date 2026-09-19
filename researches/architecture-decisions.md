@@ -154,6 +154,7 @@
 | [ADR-104](./adrs/ADR-104-api-documentation-sync.md) | API documentation sync (`docs/openapi.yaml` + `docs/api.md` normative) |
 | [ADR-106](./adrs/ADR-106-security-hardening-2026-09-assessment.md) | Security hardening from the 2026-09-10 assessment |
 | [ADR-107](./adrs/ADR-107-credential-store.md) | Application credential store for integration secrets (supersedes ADR-023 no-secrets-at-rest clause) |
+| [ADR-108](./adrs/ADR-108-mobile-nav-drawer.md) | Mobile navigation drawer below `md` (narrows `docs/ux.md` §9) |
 
 ### Frontend & SPA
 

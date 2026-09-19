@@ -9,8 +9,9 @@
   --color-card-foreground: hsl(222 47% 11%);
   --color-popover: hsl(0 0% 100%);
   --color-popover-foreground: hsl(222 47% 11%);
-  --color-primary: hsl(221 83% 40%);
+  --color-primary: hsl(163 94% 24%);
   --color-primary-foreground: hsl(0 0% 100%);
+  --color-primary-hover: hsl(163 94% 20%);
   --color-secondary: hsl(214 32% 94%);
   --color-secondary-foreground: hsl(222 47% 11%);
   --color-muted: hsl(214 32% 94%);
@@ -25,8 +26,8 @@
   --color-warning-foreground: hsl(0 0% 100%);
   --color-border: hsl(214 32% 85%);
   --color-input: hsl(214 32% 85%);
-  --color-ring: hsl(221 83% 40%);
-  --radius: 0.5rem;
+  --color-ring: hsl(163 94% 24%);
+  --radius: 0.625rem;
 }
 
 .dark {
@@ -36,8 +37,9 @@
   --color-card-foreground: hsl(210 40% 96%);
   --color-popover: hsl(222 44% 9%);
   --color-popover-foreground: hsl(210 40% 96%);
-  --color-primary: hsl(217 91% 65%);
+  --color-primary: hsl(158 64% 52%);
   --color-primary-foreground: hsl(222 47% 8%);
+  --color-primary-hover: hsl(158 64% 44%);
   --color-secondary: hsl(217 33% 17%);
   --color-secondary-foreground: hsl(210 40% 96%);
   --color-muted: hsl(217 33% 17%);
@@ -52,7 +54,20 @@
   --color-warning-foreground: hsl(38 92% 10%);
   --color-border: hsl(217 33% 22%);
   --color-input: hsl(217 33% 22%);
-  --color-ring: hsl(217 91% 65%);
+  --color-ring: hsl(158 64% 52%);
+}
+
+/* Decorative icon well (docs/ux.md icon treatment): nav + stat icons. */
+.icon-well {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  background-color: var(--color-muted);
+  color: var(--color-muted-foreground);
 }
 
 * {

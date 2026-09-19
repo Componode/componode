@@ -21,6 +21,10 @@ const STATUS_STYLES: Record<string, string> = {
   ERROR: "bg-destructive/15 text-destructive border-destructive/30",
   GONE: "bg-destructive/15 text-destructive border-destructive/30",
   FAILED: "bg-destructive/15 text-destructive border-destructive/30",
+  REVOKED: "bg-destructive/15 text-destructive border-destructive/30",
+  EXPIRED: "bg-destructive/15 text-destructive border-destructive/30",
+  // Warning
+  EXPIRING: "bg-warning/15 text-warning border-warning/30",
   // Neutral / inactive
   STOPPED: "bg-secondary text-secondary-foreground border-border",
   CANCELLED: "bg-secondary text-secondary-foreground border-border",
@@ -38,8 +42,13 @@ export function StatusBadge({
   return (
     <Badge
       variant="outline"
-      className={cn(STATUS_STYLES[status] ?? "bg-muted text-muted-foreground border-border", className)}
+      className={cn("gap-1.5", STATUS_STYLES[status] ?? "bg-muted text-muted-foreground border-border", className)}
     >
+      <span
+        data-status-dot
+        aria-hidden="true"
+        className="size-1.5 rounded-full bg-current"
+      />
       {status}
     </Badge>
   );

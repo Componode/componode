@@ -11,6 +11,9 @@ vi.mock("@/components/layout/sidebar", () => ({
 vi.mock("@/components/layout/top-bar", () => ({
   TopBar: () => <header />,
 }));
+vi.mock("@/components/layout/nav-drawer", () => ({
+  NavDrawer: () => null,
+}));
 vi.mock("@/components/command-palette", () => ({
   CommandPalette: () => null,
 }));

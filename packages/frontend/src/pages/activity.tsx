@@ -4,7 +4,7 @@ import { useActivityFeed, type ActivityFeedQuery } from "@/api/hooks/audit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { FacetFilter, type FacetOption } from "@/components/facet-filter";
 import {
   Table,
   TableBody,
@@ -21,6 +21,11 @@ import { EmptyState } from "@/components/states/empty-state";
 import type { ActivityFeedItem } from "@componode/core";
 
 const PAGE_SIZE = 50;
+
+const KIND_OPTIONS: readonly FacetOption<"entity" | "edge">[] = [
+  { value: "entity", label: "Entity" },
+  { value: "edge", label: "Edge" },
+];
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleString();
@@ -65,18 +70,14 @@ export function ActivityPage() {
         <CardContent>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
-              <Label htmlFor="kind">Kind</Label>
-              <Select
-                id="kind"
-                value={filters.kind ?? ""}
-                onChange={(e) =>
-                  updateFilter("kind", (e.target.value || undefined) as ActivityFeedQuery["kind"])
-                }
-              >
-                <option value="">All</option>
-                <option value="entity">Entity</option>
-                <option value="edge">Edge</option>
-              </Select>
+              <Label>Kind</Label>
+              <FacetFilter
+                title="Kind"
+                options={KIND_OPTIONS}
+                selected={filters.kind ? [filters.kind] : []}
+                onChange={(v) => updateFilter("kind", v[0] as ActivityFeedQuery["kind"])}
+                mode="single"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="entityType">Entity type</Label>
