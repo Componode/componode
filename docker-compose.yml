@@ -33,5 +33,20 @@ services:
       timeout: 5s
       retries: 3
 
+  # Optional: Caddy reverse proxy for automatic HTTPS (ADR-093). Create a
+  # Caddyfile with `your-domain.example.com { reverse_proxy app:3000 }`,
+  # uncomment this service, and set TRUSTED_PROXY_IP + PUBLIC_URL in .env.
+  # caddy:
+  #   image: caddy:2-alpine
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy_data:/data
+  #   depends_on:
+  #     - app
+
 volumes:
   postgres_data:
+  # caddy_data:

@@ -25,3 +25,7 @@ accepts a single proxy IP, a comma-separated list of proxy IPs, or an integer
 hop count; unset means `trustProxy: false` and `X-Forwarded-*` headers are
 ignored entirely. Previously the code unconditionally set `trustProxy: true`,
 which let any client spoof `X-Forwarded-For` to bypass IP-keyed rate limiting.
+
+**Amendment (2026-09-21 docs review)**: `docs/deployment.md` now documents
+Caddy and nginx TLS setup as decided, and `docker-compose.yml` includes the
+commented-out Caddy service this decision promised.

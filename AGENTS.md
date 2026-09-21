@@ -1,7 +1,7 @@
 # AGENTS.md — Project Context for AI Coding Agents
 
-> **Last updated**: 2026-09-10 (010-security-hardening: Node 24, OIDC
-> verification, hashed session tokens, proxy trust, SSRF guard)
+> **Last updated**: 2026-09-21 (docs sync: 108 ADRs, per-spec data models,
+> dead env vars removed, TLS/OIDC deployment docs)
 > **Project**: Componode — open-source Digital Product Asset Management
 > **License**: Apache 2.0
 > **Repository**: https://github.com/Componode/componode
@@ -42,7 +42,7 @@ and every product depends on Components.
 | Document | Role |
 |---|---|
 | `.specify/memory/constitution.md` | **7 binding principles that govern every spec** |
-| `researches/architecture-decisions.md` | **ADR index — 103 ratified decisions** |
+| `researches/architecture-decisions.md` | **ADR index — 108 ratified decisions** |
 | `researches/adrs/ADR-XXX-*.md` | **Individual ADRs for every rule in this file** |
 | `specs/{NNN-feature-name}/spec.md` | **Feature specifications (authoritative for current work)** |
 | `specs/{NNN-feature-name}/plan.md` | **Implementation plan for the current feature** |
@@ -99,7 +99,7 @@ Constraints and the relevant ADRs.
 │   └── importer-web-url/
 ├── researches/                    # Architecture research and decisions
 │   ├── architecture-decisions.md  # ADR index
-│   └── adrs/                      # 103 individual ADR files
+│   └── adrs/                      # 108 individual ADR files
 ├── specs/                         # DYNAMIC — created per feature
 │   └── {NNN-feature-name}/        # spec.md, plan.md, tasks.md, ...
 ├── docs/                          # Source documentation
@@ -108,7 +108,7 @@ Constraints and the relevant ADRs.
 │   ├── openapi-reference.md       # Interactive OpenAPI reference source
 │   ├── importer-development.md    # Importer contributor contract
 │   ├── ux.md                      # Normative UX/UI reference
-│   ├── data-model.md              # Schema, entities, relationships
+│   ├── security/                  # Dated security assessment reports
 │   ├── deployment.md              # Docker Compose self-hosting
 │   ├── release.md                 # Changeset release process
 │   └── index.md                   # Docs site landing page
@@ -338,6 +338,6 @@ artifact, the more specific document wins.
 | `docs/importer-development.md` | When building or editing an importer |
 | `docs/api.md`, `docs/openapi.yaml`, `docs/openapi-reference.md` | When adding, changing, or removing any API endpoint (ADR-104) |
 | `docs/ux.md` | Before writing or reviewing any frontend spec or UI code |
-| `docs/data-model.md` | When changing schema or entities |
+| `specs/{NNN-feature-name}/data-model.md`, `packages/backend/src/db/migrations/` | When changing schema or entities |
 | `docs/deployment.md` | When changing Docker Compose or deployment |
 | `docs/release.md` | When changing the changeset or release process |
