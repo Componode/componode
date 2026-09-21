@@ -33,7 +33,7 @@ running migrations when the database does not meet the requirements.
    cp .env.example .env
    ```
 
-3. Open `.env` and set strong random values for `COOKIE_SECRET` and `CSRF_SECRET`.
+3. Open `.env` and set a strong random value for `COOKIE_SECRET`.
    Change `BOOTSTRAP_ADMIN_PASSWORD` from the default to a secure value.
 
 4. Start the stack:
@@ -86,13 +86,67 @@ its purpose.
 | `BOOTSTRAP_ADMIN_USERNAME` | yes | — | First admin username. |
 | `BOOTSTRAP_ADMIN_PASSWORD` | yes | — | First admin password. |
 | `COOKIE_SECRET` | yes | — | Random secret for session cookies. |
-| `CSRF_SECRET` | yes | — | Random secret for CSRF tokens. |
-| `OIDC_ISSUER` | no | — | Optional OIDC issuer URL. |
-| `OIDC_CLIENT_ID` | no | — | Optional OIDC client ID. |
-| `OIDC_CLIENT_SECRET` | no | — | Optional OIDC client secret. |
+| `PUBLIC_URL` | no | request origin | Canonical public base URL (e.g., `https://componode.example.com`). Used to build the OIDC callback URL — set it when the app sits behind a reverse proxy so the IdP redirect resolves to the external origin. |
+| `CORS_ALLOWED_ORIGINS` | no | — (CORS disabled) | Comma-separated list of exact origins allowed to call the API with credentials. Unset means no cross-origin access (ADR-088). |
+| `IMPORTER_MAX_CONCURRENCY` | no | `3` | Maximum importer runs executing in parallel. |
+| `DEBUG_ERROR_DETAILS` | no | `false` | `true` includes internal error details in API error responses. Debug only — never enable in production (ADR-096). |
 | `NODE_ENV` | no | `production` | Node environment; should stay `production` for deployments. |
 | `LOG_LEVEL` | no | `info` | Log level (`debug`, `info`, `warn`, `error`). |
 | `PROBLEM_TYPE_BASE` | no | `https://componode.io` | Canonical base URI for RFC 7807 problem `type` fields. |
+
+## TLS and reverse proxy
+
+Production deployments MUST serve Componode over HTTPS (ADR-093). The app
+does not terminate TLS — put it behind a reverse proxy that does. Set
+`TRUSTED_PROXY_IP` to the proxy's IP so the app honors `X-Forwarded-*`
+headers; leave it unset only when clients connect directly.
+
+### Caddy (automatic HTTPS)
+
+Caddy obtains and renews Let's Encrypt certificates automatically. A minimal
+`Caddyfile`:
+
+```text
+componode.example.com {
+    reverse_proxy localhost:3000
+}
+```
+
+Run Caddy on the host, or uncomment the `caddy` service in
+`docker-compose.yml` (it mounts `./Caddyfile` with `reverse_proxy app:3000`)
+and set `TRUSTED_PROXY_IP=1` — container IPs are dynamic, so trust one proxy
+hop instead of an address.
+
+### nginx (manual TLS)
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name componode.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/componode.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/componode.example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Set `TRUSTED_PROXY_IP=127.0.0.1` (or the proxy's IP) and `PUBLIC_URL` to the
+external HTTPS origin.
+
+## OIDC single sign-on
+
+OIDC is configured **in the app**, not via environment variables: log in as
+an ADMIN and open **Settings → OIDC Configuration** to set the issuer URL,
+client ID, and client secret (stored encrypted in the credential store —
+ADR-107). Register `https://<your-host>/api/v1/auth/oidc/callback` as the
+redirect URI at your IdP. When the app runs behind a reverse proxy, set
+`PUBLIC_URL` so the generated callback URL uses the external origin.
 
 ## Upgrading
 
@@ -110,9 +164,9 @@ volume preserves all data across upgrades.
 
 ## Secrets
 
-Never commit `.env` or any file containing `COOKIE_SECRET`, `CSRF_SECRET`,
-`DATABASE_URL` with real credentials, or `OIDC_CLIENT_SECRET`. All sensitive
-values are read from the environment at runtime.
+Never commit `.env` or any file containing `COOKIE_SECRET`,
+`DATABASE_URL` with real credentials, or `COMPONODE_SECRETS_KEY`. All
+sensitive values are read from the environment at runtime.
 
 ## Credential store
 

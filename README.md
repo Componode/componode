@@ -40,7 +40,7 @@ Run Componode on your own server with Docker Compose:
 git clone https://github.com/Componode/componode.git
 cd componode
 cp .env.example .env
-# Edit .env and set COOKIE_SECRET, CSRF_SECRET, and BOOTSTRAP_ADMIN_PASSWORD
+# Edit .env and set COOKIE_SECRET and BOOTSTRAP_ADMIN_PASSWORD
 docker compose up -d
 ```
 
@@ -319,22 +319,25 @@ v1 is split into sequential spec-kit features:
     billing/usage snapshot with per-repo attribution, mapping-classified branch
     + deployment-environment instances, optional workflows/runners/packages,
     GHES `baseUrl` support, new `ACCOUNT` taxonomy category (ADR-013 amendment).
-12. **`013-credential-store`** ✅ — application-managed credential store for
+12. **`012-bugfix-empty-body-content-type`** ✅ — `apiFetch` omits
+    `Content-Type` on body-less requests, fixing `400`
+    (`FST_ERR_CTP_EMPTY_JSON_BODY`) rejections on trigger/run calls.
+13. **`013-credential-store`** ✅ — application-managed credential store for
     integration secrets: AES-256-GCM encrypted credential bundles, managed
     master key with dual-key rotation, write-only API, lifecycle (rotate /
     revoke / delete with dependent protection), importer credential
     resolution + manifest `secrets` declarations, credential testing,
     OIDC client-secret migration, deprecated env/file ref conversion
     (ADR-107).
-13. **`014-bugfix-app-shell`** ✅ — pinned app-shell chrome (bounded `h-dvh`
+14. **`014-bugfix-app-shell`** ✅ — pinned app-shell chrome (bounded `h-dvh`
     shell, single `<main>` scroll region), width-aware sidebar default
     (icon rail below `lg`, explicit choice wins), importer-status row
     truncation at 768px.
-14. **`015-ui-refresh`** ✅ — emerald brand palette (radius + icon wells),
+15. **`015-ui-refresh`** ✅ — emerald brand palette (radius + icon wells),
     faceted multi-value filters with removable pills, mobile nav drawer
     below `md` + `Ctrl+B` toggle (ADR-108), importer run-history stacked
     chart on the dashboard.
-15. **Next** — v1.1 features (Kubernetes/Helm packaging, E2E tests,
+16. **Next** — v1.1 features (Kubernetes/Helm packaging, E2E tests,
     additional importers).
 
 Dependencies: 001 → 002 → 003 → 004 → 005 → 006 → 007; later features build on
