@@ -47,12 +47,12 @@
   "devDependencies": {
     "@testcontainers/postgresql": "^12.1.0",
     "@types/node": "^24.13.4",
-    "@types/pg": "^8.11.10",
+    "@types/pg": "^8.23.1",
     "jose": "^6.2.12",
     "testcontainers": "^12.1.0",
-    "tsx": "^4.19.2",
+    "tsx": "^4.23.13",
     "typescript": "^5.7.2",
     "vitest": "^5.0.1",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.1"
   }
 }
