@@ -287,29 +287,30 @@ See `.specify/memory/constitution.md` for the full constitution and
 
 ## Roadmap
 
-v1 is split into sequential spec-kit features:
+Development proceeds as sequential spec-kit features (v1 = 001–007;
+008–015 are post-v1 fixes and enhancements):
 
 1. **`001-foundation`** ✅ — core contracts, DB schema, backend skeleton,
-   auth, RBAC, observability, empty dashboard. (Complete)
+   auth, RBAC, observability, empty dashboard.
 2. **`002-importer-framework`** ✅ — run service, scheduler, registry,
-   reconciliation, cancellation, run observability. (Complete)
+   reconciliation, cancellation, run observability.
 3. **`003-component-catalog`** ✅ — component/instance services + UI, the
-   7 v1 importers. (Complete)
+   7 v1 importers.
 4. **`004-ux-shell`** ✅ — sidebar shell, state matrix, dark-mode theming,
-   health-and-attention dashboard, Ctrl+K global search. (Complete)
+   health-and-attention dashboard, Ctrl+K global search.
 5. **`005-product-hierarchy`** ✅ — product tree UI, typed edges
    (COMPOSES/CONSUMES_FROM/DEPENDS_ON_COMPONENT), LOB/Team ownership, audit
    records.
 6. **`006-audit-settings`** ✅ — audit tables, activity feed, history,
    admin settings.
 7. **`007-deployment-cicd-docs`** ✅ — Docker Compose packaging, CI/CD
-   changesets, generated docs. (Complete)
+   changesets, generated docs.
 8. **`008-rfc-7807-errors`** ✅ — RFC 7807 Problem Details for all API
    errors, `application/problem+json` responses, backward-compatible
    `code`/`message`/`details`, `invalid-params` for validation, OpenAPI and
-   docs updates. (Complete)
+   docs updates.
 9. **`009-bugfix-spa-csrf`** ✅ — SPA fallback for direct navigation + CSRF
-   double-submit protection. (Complete)
+   double-submit protection.
 10. **`010-security-hardening`** ✅ — consolidated fixes for all critical,
     high, and medium findings from the 2026-09-10 security assessment:
     verified OIDC login, hashed session tokens, session-revocation ownership,
@@ -337,8 +338,12 @@ v1 is split into sequential spec-kit features:
     faceted multi-value filters with removable pills, mobile nav drawer
     below `md` + `Ctrl+B` toggle (ADR-108), importer run-history stacked
     chart on the dashboard.
-16. **Next** — v1.1 features (Kubernetes/Helm packaging, E2E tests,
-    additional importers).
+16. **Next** — v1.1 (see `.specify/memory/constitution.md` § v1.1
+    Roadmap): runtime-loaded importer plugins, invite-based registration,
+    E2E tests, per-env blast-radius traversal, Kubernetes/Helm packaging,
+    remaining providers, and range filters (multi-value enum filters
+    shipped in 015). Deferred UI work includes the product-graph canvas
+    and custom importer-form widgets (`docs/ux.md` §11).
 
 Dependencies: 001 → 002 → 003 → 004 → 005 → 006 → 007; later features build on
 the hierarchy and org-level entities (`Person`, `Team`, `LineOfBusiness`).
