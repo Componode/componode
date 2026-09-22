@@ -46,7 +46,7 @@
   },
   "devDependencies": {
     "@testcontainers/postgresql": "^12.1.0",
-    "@types/node": "^24.13.4",
+    "@types/node": "^26.6.2",
     "@types/pg": "^8.23.1",
     "jose": "^6.2.12",
     "testcontainers": "^12.1.0",
