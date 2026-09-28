@@ -51,7 +51,7 @@
     "jose": "^6.2.12",
     "testcontainers": "^12.1.0",
     "tsx": "^4.23.13",
-    "typescript": "^5.7.2",
+    "typescript": "^7.0.2",
     "vitest": "^5.0.1",
     "yaml": "^2.9.1"
   }
