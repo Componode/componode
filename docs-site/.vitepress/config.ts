@@ -10,6 +10,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: "Home", link: "/" },
+      { text: "Architecture", link: "/architecture" },
       { text: "Deployment", link: "/deployment" },
       { text: "API", link: "/api" },
       { text: "Importers", link: "/importer-development" },
@@ -25,6 +26,7 @@ export default defineConfig({
       {
         text: "Reference",
         items: [
+          { text: "Architecture", link: "/architecture" },
           { text: "API Reference", link: "/api" },
           { text: "OpenAPI Reference", link: "/openapi-reference" },
           { text: "UX/UI Reference", link: "/ux" },

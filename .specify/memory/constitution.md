@@ -163,7 +163,7 @@ defers instrumentation to "after the feature works," violates this principle.
 
 ### Spec-Driven Development Workflow
 
-This project uses **spec-kit v0.12.11** for structured feature development.
+This project uses **spec-kit v1.0.4** for structured feature development.
 The workflow is command-driven via spec-kit skills.
 
 1. **`/speckit-constitution`** — Establish project principles (run once, first).

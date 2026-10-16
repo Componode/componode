@@ -18,7 +18,7 @@ meaning layer (what it means).
 - A **single-organization** self-hosted tool. One deployment = one org/team.
   No multi-tenancy.
 - An **importer-first** tool: the headline value is importing assets from
-  GitHub, AWS, Azure, Kubernetes, Docker, and web/API/MCP endpoints.
+  GitHub, AWS, Azure, Kubernetes, and web/API/MCP endpoints.
 - A **catalog** of digital products and their composition hierarchy, curated
   by humans, enriched by importers.
 - A **self-hostable** monolith: Fastify backend, React/Vite frontend,
@@ -80,7 +80,7 @@ implemented and tested:
 | Observability | Pino (logging) + Prometheus (`prom-client`) + OpenTelemetry (`@opentelemetry/api`) |
 | Deployment | Docker Compose (one container: backend serves frontend static) |
 | Identifiers | UUID v7 (application-side generation) and URL-safe slugs |
-| CI/CD | GitHub Actions + changesets (planned) |
+| CI/CD | GitHub Actions + changesets |
 | License | Apache 2.0 |
 
 ## Repository Structure
@@ -89,37 +89,48 @@ implemented and tested:
 packages/
 ├── core/                           # Shared contracts (zero runtime deps)
 │   ├── src/contracts/              # DiscoveredAsset, Importer, entity types
-│   ├── src/constants/              # 24 component categories, 10 providers,
+│   ├── src/constants/              # 25 component categories, 10 providers,
 │   │                               # roles, environments, lifecycle, etc.
 │   ├── src/schemas/                # Zod validation schemas
 │   ├── src/observability/          # Logger and Tracer interfaces
 │   └── src/validation/             # validateDiscoveredAsset harness
 ├── backend/                        # Fastify API + Kysely services
-│   ├── src/db/migrations/          # 001_initial_schema, 002_append_only_triggers,
-│   │                               # 003_terminal_state_triggers
+│   ├── src/db/migrations/          # 001_initial_schema … 011_credential_store
+│   │                               # (11 migrations total)
 │   ├── src/plugins/                # helmet, cors, csrf, rate-limit, session,
-│   │                               # rbac, logging, metrics, tracing
+│   │                               # rbac, logging, metrics, tracing, error-handler
 │   ├── src/routes/                 # auth, users, sessions, settings, health, metrics,
 │   │                               # products (hierarchy + edges), org (lobs/teams),
-│   │                               # components, groups, importers, dashboard, search
+│   │                               # components, groups, importers, credentials,
+│   │                               # dashboard, search, audit
 │   ├── src/services/               # auth, user, session, oidc, password-reset,
 │   │                               # settings, bootstrap, product, product-edge,
-│   │                               # org, audit, search, dashboard
+│   │                               # org, audit, search, dashboard, scheduler,
+│   │                               # import-run, importer-config, importer-registry,
+│   │                               # credential, component-catalog, component-group
 │   └── test/                       # unit and integration (testcontainers) tests
+├── importer-github/                # 7 pull-only importer packages, each with
+├── importer-aws/                   # src/{config,manifest,importer}.ts and unit
+├── importer-azure/                 # tests that exercise validateDiscoveredAsset
+├── importer-kubernetes/            # (see docs/importer-development.md)
+├── importer-web-url/
+├── importer-api-url/
+├── importer-mcp-server/
 └── frontend/                       # React/Vite dashboard
     ├── src/pages/                  # login, register, dashboard, products (tree),
     │                               # product-detail, lobs, teams, components,
-    │                               # component-groups, importers, settings,
-    │                               # sessions, users, oidc-callback, not-found
+    │                               # component-detail, component-groups, importers,
+    │                               # importer-run, settings, sessions, users,
+    │                               # credentials, activity, oidc-callback, not-found
     ├── src/components/ui/          # shadcn/ui components
-    ├── src/components/layout/      # auth-guard, nav
+    ├── src/components/layout/      # auth-guard, sidebar, nav-drawer, breadcrumbs
     └── src/api/                    # fetch client + TanStack Query hooks
 researches/                         # Architecture Decision Records (ADRs)
 ├── architecture-decisions.md       # ADR index
 ├── component_taxonomy_research.md  # Taxonomy grounding research
 └── adrs/                           # Individual ADR files
 specs/                              # spec-kit feature specifications
-└── 001-foundation/                 # spec.md, plan.md, tasks.md, contracts/
+└── 001-foundation … 015-ui-refresh # spec.md, plan.md, tasks.md, contracts/
 .specify/                           # spec-kit infrastructure
 .devin/                             # Devin skills
 ```
@@ -131,10 +142,11 @@ specs/                              # spec-kit feature specifications
   (`BUSINESS_CAPABILITY`, `PLATFORM`, `CUSTOMER_FACING`) and lifecycle
   (`ACTIVE`/`RETIRED`).
 - **Component**: A building-block asset with a two-level taxonomy:
-  - `category`: one of 24 controlled values (`COMPUTE`, `STORAGE`, `DATABASE`,
-    `CONTAINER`, `CONTAINER_ORCHESTRATION`, `API_GATEWAY`, `WEB_APP`, etc.)
+  - `category`: one of 25 controlled values (`COMPUTE`, `STORAGE`, `DATABASE`,
+    `CONTAINER`, `CONTAINER_ORCHESTRATION`, `REPOSITORY`, `ACCOUNT`, etc.)
   - `provider`: one of 10 controlled values (`GITHUB`, `AWS`, `AZURE`,
-    `GOOGLE_CLOUD`, `KUBERNETES`, `DOCKER`, `WEB`, `API`, `MCP`, `OTHER`)
+    `GOOGLE_CLOUD`, `KUBERNETES`, `DOCKER`, `WEB_URL`, `API_URL`,
+    `MCP_SERVER`, `OTHER`)
   - `resourceType`: free-form string carrying the provider-native type (e.g.
     `ec2:instance`, `apps/v1:Deployment`, `Microsoft.Compute/virtualMachines`)
 - **Component Instance**: An environment-specific deployment of a component.
@@ -189,7 +201,7 @@ Componode is governed by seven constitution principles recorded in
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 24+
 - pnpm 9+
 - Docker and Docker Compose (for PostgreSQL)
 
@@ -269,7 +281,7 @@ pnpm --filter @componode/frontend test             # jsdom-based
 
 ### Spec-Driven Development
 
-This project uses spec-kit v0.12.11 for structured feature development. The
+This project uses spec-kit v1.0.4 for structured feature development. The
 workflow is command-driven via `.devin/skills/speckit-*`:
 
 1. `/speckit-constitution` — establish project principles
