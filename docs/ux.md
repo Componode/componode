@@ -68,11 +68,16 @@ user identity + sign-out (right).
 │  Components│                                          │
 │  Component │                                          │
 │   Groups   │                                          │
+│ Organiz.   │                                          │
+│  LOBs      │                                          │
+│  Teams     │                                          │
 │ Sources    │                                          │
 │  Importers │                                          │
 │ Admin*     │                                          │
 │  Users     │                                          │
 │  Sessions  │                                          │
+│  Credential│                                          │
+│  Activity  │                                          │
 │  Settings  │                                          │
 └────────────┴──────────────────────────────────────────┘
 ```
@@ -92,11 +97,14 @@ user identity + sign-out (right).
 | `/components`, `/components/:id` | Component catalog, detail | Catalog |
 | `/component-groups` | Component groups | Catalog |
 | `/importers`, `/importers/:configId/runs/:runId` | Importer configs and runs | Sources |
+| `/lobs`, `/teams` | Org entities | Organization |
 | `/users` | User management | Admin |
 | `/sessions` | Active sessions | Admin |
+| `/credentials` | Credential store | Admin |
+| `/activity` | Audit activity feed | Admin |
 | `/settings` | App settings (OIDC, registration) | Admin |
 | `/login`, `/register`, `/auth/oidc/callback` | Auth (no shell) | — |
-| `/lobs`, `/teams` (spec 005) · *(future)* `/people` | Org entities | Catalog → "Organization" group |
+| *(future)* `/people` | Person entities | Organization |
 
 ### Breadcrumbs
 
@@ -239,8 +247,8 @@ Every page and every async region implements these states. Toast feedback
   gracefully instead of crushing content. That is the only sub-768px change;
   see ADR-108. Anything further is a recorded decision, not an oversight —
   revisit only via a dedicated spec.
-- No in-app graph canvas (see §5). No activity feed, no customizable
-  dashboard widgets, no per-user layout customization in v1.
+- No in-app graph canvas (see §5). No customizable dashboard widgets, no
+  per-user layout customization in v1.
 
 ---
 
@@ -258,8 +266,8 @@ The dashboard is a **health + attention** overview, not a navigation hub
 4. **Empty install**: getting-started strip ("Configure your first importer")
    replaces all of the above.
 
-This section records *layout intent only*; the real dashboard requires its own
-feature spec before implementation.
+This section records *layout intent only*; the dashboard as shipped (specs
+004 and 015) implements it, including the importer run-history stacked chart.
 
 ---
 
@@ -268,10 +276,9 @@ feature spec before implementation.
 Deferred — each needs its own ADR or spec before implementation:
 
 - Graph/map visualization of the COMPOSES DAG (§5)
-- Mobile/tablet support (§9)
-- Activity feed / audit-log UI
-- Real dashboard spec (§10)
+- Mobile/tablet support beyond the sub-`md` nav drawer (§9, ADR-108)
 - Custom importer-form widgets beyond the generic JSON-Schema renderer
   (ADR-042 marks these v1.1)
 - Density toggle, per-user layout preferences
-- Nav entries for LineOfBusiness / Team / Person (route map §3)
+- A `/people` surface for `Person` entities beyond user management (route
+  map §3)
