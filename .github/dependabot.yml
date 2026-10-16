@@ -1,9 +1,12 @@
 version: 2
 updates:
   - package-ecosystem: "npm"
+    # Single root entry only. pnpm workspaces keep one lockfile at the repo
+    # root, and the "/" job already updates every package manifest plus the
+    # lockfile. Per-package "/packages/*" entries produced PRs that modified
+    # only package.json, which can never pass `pnpm install --frozen-lockfile`.
     directories:
       - "/"
-      - "/packages/*"
     schedule:
       interval: "weekly"
       day: "monday"
