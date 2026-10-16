@@ -45,14 +45,14 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@testcontainers/postgresql": "^12.1.0",
-    "@types/node": "^26.6.2",
+    "@testcontainers/postgresql": "^12.2.0",
+    "@types/node": "^26.6.5",
     "@types/pg": "^8.23.1",
     "jose": "^6.2.12",
-    "testcontainers": "^12.1.0",
-    "tsx": "^4.23.13",
+    "testcontainers": "^12.2.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.7.2",
-    "vitest": "^5.0.1",
+    "vitest": "^5.0.4",
     "yaml": "^2.9.1"
   }
 }
