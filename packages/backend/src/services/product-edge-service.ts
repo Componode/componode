@@ -159,8 +159,80 @@ export async function removeConsumesFromEdge(
 }
 
 export async function addDependsOnEdge(productId: string, rawInput: unknown, actor: Actor) {
-  const { componentId } = addDependsOnEdgeSchema.parse(rawInput);
+  const input = addDependsOnEdgeSchema.parse(rawInput);
   await getProductType(productId);
+
+  // Group target (ADR-110): the product→group edge is persisted; members
+  // expand at read time, so group changes propagate automatically.
+  if (input.componentGroupId) {
+    const groupId = input.componentGroupId;
+    const group = await db
+      .selectFrom("component_groups")
+      .select("id")
+      .where("id", "=", groupId)
+      .executeTakeFirst();
+    if (!group) throw notFound("Component group");
+
+    await db.transaction().execute(async (trx) => {
+      await trx
+        .insertInto("product_depends_on_component_group")
+        .values({ productId, componentGroupId: groupId })
+        .onConflict((oc) => oc.doNothing())
+        .execute();
+      await writeEdgeChange(
+        "DEPENDS_ON_COMPONENT",
+        { entityType: "digital_product", entityId: productId },
+        { entityType: "component_group", entityId: groupId },
+        "added",
+        actor,
+        null,
+        trx,
+      );
+    });
+    return;
+  }
+
+  // Bulk form (ADR-110 §3): dedupe, verify every component exists, then
+  // insert all edges and audit rows in a single transaction.
+  if (input.componentIds) {
+    const componentIds = [...new Set(input.componentIds)];
+    const found = await db
+      .selectFrom("components")
+      .select("id")
+      .where("id", "in", componentIds)
+      .execute();
+    const foundIds = new Set(found.map((r) => r.id));
+    const missingIds = componentIds.filter((id) => !foundIds.has(id));
+    if (missingIds.length > 0) {
+      throw Object.assign(new Error("Components not found"), {
+        statusCode: 404,
+        code: "NOT_FOUND",
+        details: { missingIds },
+      });
+    }
+
+    await db.transaction().execute(async (trx) => {
+      await trx
+        .insertInto("product_depends_on_component")
+        .values(componentIds.map((componentId) => ({ productId, componentId })))
+        .onConflict((oc) => oc.doNothing())
+        .execute();
+      for (const componentId of componentIds) {
+        await writeEdgeChange(
+          "DEPENDS_ON_COMPONENT",
+          { entityType: "digital_product", entityId: productId },
+          { entityType: "component", entityId: componentId },
+          "added",
+          actor,
+          null,
+          trx,
+        );
+      }
+    });
+    return;
+  }
+
+  const componentId = input.componentId!;
   const component = await db
     .selectFrom("components")
     .select("id")
@@ -188,19 +260,30 @@ export async function addDependsOnEdge(productId: string, rawInput: unknown, act
 
 export async function removeDependsOnEdge(
   productId: string,
-  componentId: string,
+  targetId: string,
+  kind: "component" | "group",
   actor: Actor,
 ) {
-  const removed = await db
-    .deleteFrom("product_depends_on_component")
-    .where("productId", "=", productId)
-    .where("componentId", "=", componentId)
-    .executeTakeFirst();
+  const removed =
+    kind === "group"
+      ? await db
+          .deleteFrom("product_depends_on_component_group")
+          .where("productId", "=", productId)
+          .where("componentGroupId", "=", targetId)
+          .executeTakeFirst()
+      : await db
+          .deleteFrom("product_depends_on_component")
+          .where("productId", "=", productId)
+          .where("componentId", "=", targetId)
+          .executeTakeFirst();
   if (!Number(removed.numDeletedRows)) throw notFound("Edge");
   await writeEdgeChange(
     "DEPENDS_ON_COMPONENT",
     { entityType: "digital_product", entityId: productId },
-    { entityType: "component", entityId: componentId },
+    {
+      entityType: kind === "group" ? "component_group" : "component",
+      entityId: targetId,
+    },
     "removed",
     actor,
   );

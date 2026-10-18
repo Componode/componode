@@ -2,7 +2,8 @@
 
 > **Sessions**: 2026-08-16 grilling sessions (Session 1: ADR-001–032,
 > Session 2 Architecture: ADR-033–083, Session 2 Security: ADR-084–102),
-> Practical DPAM improvements: ADR-109–112
+> Practical DPAM improvements: ADR-109–112,
+> DPAM review grilling (2026-10-18): ADR-113–114
 > **Status**: Ratified — these decisions are the foundation for Componode v1.
 > **How to use**: Each ADR is in its own file under `researches/adrs/`.
 > Read the relevant ADRs before starting implementation work. Changes to any
@@ -49,6 +50,8 @@
 | [ADR-110](./adrs/ADR-110-product-dependency-on-component-group.md) | Product dependency may target a ComponentGroup (amends ADR-015) |
 | [ADR-111](./adrs/ADR-111-practical-catalog-metadata.md) | Practical catalog metadata: links, tags, criticality, sunset date |
 | [ADR-112](./adrs/ADR-112-product-health-rollup.md) | Derived product health from component instance status |
+| [ADR-113](./adrs/ADR-113-staged-edge-suggestions.md) | Staged edge suggestions: server-generated DEPENDS_ON candidates (amends ADR-019) |
+| [ADR-114](./adrs/ADR-114-catalog-bootstrap-import.md) | Catalog bootstrap import: declarative product + dependency file |
 
 ### Importer Framework
 

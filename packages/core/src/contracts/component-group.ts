@@ -12,3 +12,8 @@ export interface ComponentGroup {
   createdAt: string;
   updatedAt: string;
 }
+
+/** List response item — includes the current member count (spec 019, FR-010). */
+export interface ComponentGroupListItem extends ComponentGroup {
+  memberCount: number;
+}

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useProducts } from "@/api/hooks/products";
 import { useComponents } from "@/api/hooks/components";
+import { useComponentGroups } from "@/api/hooks/component-groups";
 import type { ApiError } from "@/api/client";
 
 export type EdgeTarget =
@@ -34,38 +35,46 @@ interface Props {
 export function EdgePicker({ open, onClose, target, productId, onAdd }: Props) {
   const { data: productsData } = useProducts({ includeRetired: true });
   const { data: componentsData } = useComponents({ pageSize: 100, sort: "name" });
+  const { data: groupsData } = useComponentGroups();
   const [selected, setSelected] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  let options: { id: string; label: string }[] = [];
-  let bodyKey = "childId";
+  let options: { id: string; label: string; bodyKey: string }[] = [];
 
   if (target.kind === "composes") {
     // Adding a COMPOSES child for this product — any type may be a parent or
     // child (ADR-109). Exclude self and retired products.
     options = (productsData?.products ?? [])
       .filter((p) => p.id !== productId && p.lifecycle !== "RETIRED")
-      .map((p) => ({ id: p.id, label: p.name }));
-    bodyKey = "childId";
+      .map((p) => ({ id: p.id, label: p.name, bodyKey: "childId" }));
   } else if (target.kind === "consumes-from") {
     options = (productsData?.products ?? [])
       .filter((p) => p.id !== productId && p.type === "PLATFORM" && p.lifecycle !== "RETIRED")
-      .map((p) => ({ id: p.id, label: p.name }));
-    bodyKey = "platformId";
+      .map((p) => ({ id: p.id, label: p.name, bodyKey: "platformId" }));
   } else {
-    options = (componentsData?.data ?? [])
-      .filter((c) => c.lifecycle !== "RETIRED")
-      .map((c) => ({ id: c.id, label: c.name }));
-    bodyKey = "componentId";
+    // ADR-110: DEPENDS_ON targets components and component groups alike.
+    options = [
+      ...(componentsData?.data ?? [])
+        .filter((c) => c.lifecycle !== "RETIRED")
+        .map((c) => ({ id: c.id, label: c.name, bodyKey: "componentId" })),
+      ...(groupsData?.groups ?? [])
+        .filter((g) => g.lifecycle !== "RETIRED")
+        .map((g) => ({
+          id: g.id,
+          label: `${g.name} (group · ${g.memberCount ?? 0})`,
+          bodyKey: "componentGroupId",
+        })),
+    ];
   }
 
   async function handleAdd() {
-    if (!selected) return;
+    const option = options.find((o) => o.id === selected);
+    if (!option) return;
     setPending(true);
     setSubmitError(null);
     try {
-      await onAdd({ [bodyKey]: selected });
+      await onAdd({ [option.bodyKey]: option.id });
       setSelected("");
       onClose();
     } catch (err) {

@@ -60,9 +60,25 @@ export const addComposesEdgeSchema = z.object({ childId: z.string().uuid() }).st
 export const addConsumesFromEdgeSchema = z
   .object({ platformId: z.string().uuid() })
   .strict();
+// ADR-110: exactly one target form — a concrete component, a group, or a
+// bulk list of components (applied atomically, one audit row per edge).
 export const addDependsOnEdgeSchema = z
-  .object({ componentId: z.string().uuid() })
-  .strict();
+  .object({
+    componentId: z.string().uuid().optional(),
+    componentGroupId: z.string().uuid().optional(),
+    componentIds: z.array(z.string().uuid()).min(1).max(100).optional(),
+  })
+  .strict()
+  .refine(
+    (v) =>
+      [v.componentId, v.componentGroupId, v.componentIds].filter(
+        (x) => x !== undefined,
+      ).length === 1,
+    {
+      message:
+        "Provide exactly one of componentId, componentGroupId, or componentIds",
+    },
+  );
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;

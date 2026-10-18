@@ -37,11 +37,13 @@ import { SunsetBadge } from "@/components/metadata/sunset-badge";
 import { relativeTime, absoluteTime, MONO_CLASS } from "@/lib/format";
 import { useSetCrumbLabel } from "@/components/layout/crumb-context";
 import { ProductForm } from "@/components/products/product-form";
+import { HealthBadge } from "@/components/products/health-badge";
 import { EdgePicker, type EdgeTarget } from "@/components/products/edge-picker";
 import { EntityHistory } from "@/components/entity-history";
 import { cn } from "@/lib/utils";
 import type { ApiError } from "@/api/client";
 import type { ProductRef, ComponentDepRef, InstanceDepRef } from "@/api/types";
+import type { DepSource } from "@componode/core";
 
 const ROLE_LEVEL: Record<string, number> = { VIEWER: 0, EDITOR: 1, ADMIN: 2 };
 type Tab = "overview" | "composition" | "components" | "instances";
@@ -173,6 +175,30 @@ export function ProductDetailPage() {
     );
   }
 
+  /** Via cell: render a dep row's sources[] (ADR-110 §2). */
+  function depSources(sources: DepSource[]) {
+    if (sources.length === 0) return "—";
+    return sources.map((s, i) => (
+      <span key={i}>
+        {i > 0 && ", "}
+        {s.kind === "DIRECT" ? (
+          "direct"
+        ) : s.kind === "GROUP" ? (
+          <Link to="/component-groups" className="text-foreground hover:underline">
+            group: {s.group.name}
+          </Link>
+        ) : (
+          <Link
+            to={`/products/${s.product.slug}`}
+            className="text-foreground hover:underline"
+          >
+            {s.product.name}
+          </Link>
+        )}
+      </span>
+    ));
+  }
+
   function componentTable(rows: ComponentDepRef[]) {
     return rows.length === 0 ? (
       <p className="text-sm text-muted-foreground">None.</p>
@@ -188,7 +214,7 @@ export function ProductDetailPage() {
         </TableHeader>
         <TableBody>
           {rows.map((c) => (
-            <TableRow key={`${c.id}-${c.via?.id ?? "declared"}`}>
+            <TableRow key={c.id}>
               <TableCell>
                 <Link
                   to={`/components/${c.id}`}
@@ -202,7 +228,26 @@ export function ProductDetailPage() {
                 <StatusBadge status={c.lifecycle} />
               </TableCell>
               <TableCell className="text-muted-foreground">
-                {c.via ? c.via.name : "—"}
+                {depSources(c.sources)}
+              </TableCell>
+              <TableCell className="w-10">
+                {editor && c.sources.some((s) => s.kind === "DIRECT") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Remove dependency ${c.name}`}
+                    onClick={() =>
+                      removeEdge.mutate({
+                        id: product!.id,
+                        kind: "depends-on",
+                        otherId: c.id,
+                        targetKind: "component",
+                      })
+                    }
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                )}
               </TableCell>
             </TableRow>
           ))}
@@ -275,6 +320,10 @@ export function ProductDetailPage() {
               <StatusBadge status={product.lifecycle} />
               <CriticalityBadge criticality={product.criticality} />
               <SunsetBadge sunsetAt={product.sunsetAt} lifecycle={product.lifecycle} />
+              <HealthBadge
+                status={data.health?.status ?? null}
+                perEnv={data.health?.perEnv}
+              />
             </div>
             <p className={cn("text-sm text-muted-foreground", MONO_CLASS)}>
               {product.slug}
@@ -359,6 +408,29 @@ export function ProductDetailPage() {
                 <span className="text-muted-foreground">Team owner: </span>
                 {product.teamOwnerName ?? "Unassigned"}
               </p>
+              <div className="flex items-start gap-2">
+                <span className="text-muted-foreground">Health: </span>
+                {data.health ? (
+                  <span className="flex flex-wrap items-center gap-2">
+                    <StatusBadge status={data.health.status} />
+                    {Object.entries(data.health.perEnv).map(([env, s]) => (
+                      <span
+                        key={env}
+                        className="text-muted-foreground inline-flex items-center gap-1"
+                      >
+                        {env}
+                        <StatusBadge status={s} className="font-normal" />
+                      </span>
+                    ))}
+                    <span className="text-muted-foreground">
+                      ({data.health.sourceCount} source
+                      {data.health.sourceCount === 1 ? "" : "s"})
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </div>
               <p title={absoluteTime(product.updatedAt)}>
                 <span className="text-muted-foreground">Updated: </span>
                 {relativeTime(product.updatedAt)}
@@ -407,6 +479,43 @@ export function ProductDetailPage() {
             )}
           </div>
           {componentTable(data.components.declared)}
+          {data.dependsOnGroups.length > 0 && (
+            <div>
+              <h2 className="mb-2 text-lg font-semibold">Group dependencies</h2>
+              <ul className="space-y-1">
+                {data.dependsOnGroups.map((g) => (
+                  <li key={g.id} className="flex items-center gap-2 text-sm">
+                    <Link
+                      to="/component-groups"
+                      className="font-medium hover:underline"
+                    >
+                      {g.name}
+                    </Link>
+                    <span className="text-muted-foreground">
+                      {g.memberCount} member{g.memberCount === 1 ? "" : "s"}
+                    </span>
+                    {editor && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Remove group dependency ${g.name}`}
+                        onClick={() =>
+                          removeEdge.mutate({
+                            id: product!.id,
+                            kind: "depends-on",
+                            otherId: g.id,
+                            targetKind: "group",
+                          })
+                        }
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <h2 className="text-lg font-semibold">Inherited</h2>
           {data.components.inherited.length === 0 ? (
             <p className="text-sm text-muted-foreground">

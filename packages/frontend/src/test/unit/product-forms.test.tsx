@@ -37,6 +37,9 @@ vi.mock("@/api/hooks/components", () => ({
   useComponents: () => ({ data: { data: [] } }),
   useUpdateComponent: () => ({ mutateAsync: vi.fn() }),
 }));
+vi.mock("@/api/hooks/component-groups", () => ({
+  useComponentGroups: () => ({ data: { groups: [] } }),
+}));
 
 afterEach(() => {
   cleanup();

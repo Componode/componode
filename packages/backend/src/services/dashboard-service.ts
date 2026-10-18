@@ -1,10 +1,11 @@
 import { db } from "../db/connection.js";
 import { PRODUCT_TYPES, INSTANCE_STATUS, COMPONENT_LIFECYCLE } from "@componode/core";
+import { computeHealthForProducts } from "./product-health-service.js";
 
 const ATTENTION_LIMIT = 20;
 
 export interface AttentionItem {
-  kind: "FAILED_RUN" | "INSTANCE_ERROR" | "INSTANCE_GONE";
+  kind: "FAILED_RUN" | "PRODUCT_ERROR" | "INSTANCE_ERROR" | "INSTANCE_GONE";
   label: string;
   href: string;
   at: string;
@@ -113,12 +114,34 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     .limit(ATTENTION_LIMIT)
     .execute();
 
+  // ADR-112/spec 019: products whose derived health is ERROR. Product-level
+  // "is my product affected" ranks below failed importer runs but above raw
+  // instance noise. Derived health has no event timestamp — `at` is the
+  // observation time.
+  const allProducts = await db
+    .selectFrom("digital_products")
+    .select(["id", "name", "slug", "updatedAt"])
+    .where("lifecycle", "!=", "RETIRED")
+    .execute();
+  const healthByProduct = await computeHealthForProducts(
+    allProducts.map((p) => p.id),
+  );
+  const errorProducts = allProducts.filter(
+    (p) => healthByProduct.get(p.id)?.status === "ERROR",
+  );
+
   const attention: AttentionItem[] = [
     ...failedRuns.map((r) => ({
       kind: "FAILED_RUN" as const,
       label: `${r.importerName} / ${r.configLabel}`,
       href: `/importers/${r.configId}/runs/${r.runId}`,
       at: (r.completedAt ?? r.createdAt).toString(),
+    })),
+    ...errorProducts.map((p) => ({
+      kind: "PRODUCT_ERROR" as const,
+      label: p.name,
+      href: `/products/${p.slug}`,
+      at: new Date().toISOString(),
     })),
     ...errorInstances.map((i) => ({
       kind: (i.status === "ERROR" ? "INSTANCE_ERROR" : "INSTANCE_GONE") as AttentionItem["kind"],

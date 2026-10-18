@@ -1,5 +1,12 @@
 /** Shared API contract types for the Componode frontend. */
 
+import type {
+  DepSource,
+  ProductHealth,
+  ProductHealthStatus,
+  ProductGroupEdge,
+} from "@componode/core";
+
 export type UserRole = "VIEWER" | "EDITOR" | "ADMIN";
 
 export interface User {
@@ -143,6 +150,7 @@ export interface ComponentGroup {
   lifecycle: string;
   teamOwnerId?: string | null;
   teamOwnerName?: string | null;
+  memberCount?: number;
 }
 
 export interface Link {
@@ -192,7 +200,7 @@ export interface ComponentWithInstances extends Component {
 }
 
 export interface AttentionItem {
-  kind: "FAILED_RUN" | "INSTANCE_ERROR" | "INSTANCE_GONE";
+  kind: "FAILED_RUN" | "INSTANCE_ERROR" | "INSTANCE_GONE" | "PRODUCT_ERROR";
   label: string;
   href: string;
   at: string;
@@ -260,6 +268,7 @@ export interface ProductRef {
 }
 
 export interface DigitalProduct extends ProductRef {
+  status?: ProductHealthStatus | null;
   description?: string | null;
   lobOwnerId?: string | null;
   teamOwnerId?: string | null;
@@ -284,7 +293,7 @@ export interface ComponentDepRef {
   slug: string;
   category: string;
   lifecycle: string;
-  via?: { id: string; name: string; slug: string };
+  sources: DepSource[];
 }
 
 export interface InstanceDepRef {
@@ -299,11 +308,13 @@ export interface InstanceDepRef {
 
 export interface ProductDetail {
   product: DigitalProduct;
+  health: ProductHealth | null;
   composedBy: ProductRef[];
   composes: ProductRef[];
   consumesFrom: ProductRef[];
   consumedBy: ProductRef[];
   components: { declared: ComponentDepRef[]; inherited: ComponentDepRef[] };
+  dependsOnGroups: ProductGroupEdge[];
   instances: { declared: InstanceDepRef[]; inherited: InstanceDepRef[] };
   counts: {
     composedBy: number;

@@ -183,8 +183,8 @@ production (Docker Compose internal network).
 | DELETE | `/api/v1/products/:id/composes/:childId` | Remove a COMPOSES edge | `product:edge:remove` |
 | POST | `/api/v1/products/:id/consumes-from` | Add a CONSUMES_FROM edge (this product consumes a platform product) | `product:edge:add` |
 | DELETE | `/api/v1/products/:id/consumes-from/:platformId` | Remove a CONSUMES_FROM edge | `product:edge:remove` |
-| POST | `/api/v1/products/:id/depends-on` | Add a DEPENDS_ON edge (product depends on a component) | `product:edge:add` |
-| DELETE | `/api/v1/products/:id/depends-on/:componentId` | Remove a DEPENDS_ON edge | `product:edge:remove` |
+| POST | `/api/v1/products/:id/depends-on` | Add a DEPENDS_ON edge (component, component group, or bulk components) | `product:edge:add` |
+| DELETE | `/api/v1/products/:id/depends-on/:targetId` | Remove a DEPENDS_ON edge | `product:edge:remove` |
 <!-- /GENERATED:table:Products -->
 
 Notes:

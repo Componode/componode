@@ -65,7 +65,8 @@ The rules (enforced by the API, not just convention):
   be `PLATFORM`. It is *never* drawn inside the composition tree — it's a
   different kind of relationship.
 - **`DEPENDS_ON_COMPONENT`** — "the product depends on this component." Any
-  product can depend on any component.
+  product can depend on any component — or on a whole `ComponentGroup`
+  (ADR-110), in which case every current and future member counts.
 
 Why two relationships for products? `COMPOSES` answers "what is this product
 *made of*?" while `CONSUMES_FROM` answers "what shared platform does it *run
@@ -258,10 +259,20 @@ flowchart LR
     G --> C3["Component<br/>accounts-postgres · acct C"]
 ```
 
-The group is an *organizational* unit for humans — products still wire
-`DEPENDS_ON_COMPONENT` to concrete components (edges target components only).
-What the group gives you is one name, owner, and lifecycle for "the same
-thing" wherever it was discovered.
+The group is an *organizational* unit for humans — and since ADR-110 it is
+also a legal `DEPENDS_ON` target: a product can depend on the group itself,
+and the edge expands to whatever components are members *right now* (swaps
+and new members propagate without rewiring). Read views deduplicate a
+component reached through several paths and show every source ("direct",
+"via {group}", "via {product}"). Products still cannot delete a group while
+depended on — retire it instead.
+
+Depending on components also gives every product a **derived health**
+(ADR-112): the worst instance status across its declared dependencies —
+production first — shown as a badge on the product list, detail page, and
+the dashboard's attention feed when something is in `ERROR`. Health is
+computed on read, never stored, and ignores `GONE` instances and `RETIRED`
+components.
 
 ## Full worked scenario: a small bank
 

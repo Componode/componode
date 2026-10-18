@@ -108,10 +108,17 @@ export function useAddEdge() {
 export function useRemoveEdge() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { id: string; kind: EdgeKind; otherId: string }) =>
-      api<undefined>(`/products/${vars.id}/${vars.kind}/${vars.otherId}`, {
-        method: "DELETE",
-      }),
+    mutationFn: (vars: {
+      id: string;
+      kind: EdgeKind;
+      otherId: string;
+      /** depends-on targets are kind-discriminated (ADR-110 §4). */
+      targetKind?: "component" | "group";
+    }) =>
+      api<undefined>(
+        `/products/${vars.id}/${vars.kind}/${vars.otherId}${vars.targetKind ? `?kind=${vars.targetKind}` : ""}`,
+        { method: "DELETE" },
+      ),
     onSuccess: () => invalidateProducts(qc),
   });
 }

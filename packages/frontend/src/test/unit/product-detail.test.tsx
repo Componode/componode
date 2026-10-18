@@ -51,6 +51,11 @@ const detail = {
     teamOwnerName: null,
     updatedAt: new Date().toISOString(),
   },
+  health: {
+    status: "ERROR",
+    perEnv: { PRODUCTION: "ERROR", DEV: "RUNNING" },
+    sourceCount: 2,
+  },
   composedBy: [],
   composes: [{ id: "p2", name: "Child P", slug: "child-p", type: "PLATFORM", lifecycle: "ACTIVE" }],
   consumesFrom: [],
@@ -64,10 +69,16 @@ const detail = {
         slug: "dep-lib",
         category: "LIBRARY",
         lifecycle: "ACTIVE",
-        via: { id: "p2", name: "Child P", slug: "child-p" },
+        sources: [
+          {
+            kind: "INHERITED",
+            product: { id: "p2", name: "Child P", slug: "child-p" },
+          },
+        ],
       },
     ],
   },
+  dependsOnGroups: [],
   instances: { declared: [], inherited: [] },
   counts: { composedBy: 0, composes: 1, components: 1, instances: 0 },
 };
@@ -97,6 +108,31 @@ describe("ProductDetailPage", () => {
     expect(screen.getByRole("heading", { name: "Payments" })).toBeDefined();
     expect(screen.getByRole("tab", { name: "Composition" })).toBeDefined();
     expect(screen.getByText(/Composes: 1/)).toBeDefined();
+  });
+
+  it("renders the health badge and per-env breakdown (spec 019)", () => {
+    mockUseProduct.mockReturnValue({
+      data: detail,
+      isPending: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useProduct>);
+    renderPage();
+    expect(screen.getByText("Health:")).toBeDefined();
+    expect(screen.getAllByText("ERROR").length).toBeGreaterThan(0);
+    expect(screen.getByText("DEV")).toBeDefined();
+  });
+
+  it("renders muted — when health is null", () => {
+    mockUseProduct.mockReturnValue({
+      data: { ...detail, health: null },
+      isPending: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useProduct>);
+    renderPage();
+    expect(screen.getByText("Health:")).toBeDefined();
+    expect(screen.queryByText("ERROR")).toBeNull();
   });
 
   it("composition tab shows labeled sections; components tab shows Declared/Inherited", () => {
