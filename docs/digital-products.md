@@ -9,8 +9,11 @@ digital product has a **type** (`BUSINESS_CAPABILITY`, `PLATFORM`, or
 This guide explains each type in plain English, classifies four familiar
 systems (internet banking, ERP, e-commerce, CRM), and shows how products are
 built from building blocks. The rules themselves are ratified in
-[ADR-018](../researches/adrs/ADR-018-product-types-enum-with-enforced-composition-rules.md);
-the canonical vocabulary is [CONTEXT.md](../CONTEXT.md).
+[ADR-018](https://github.com/Componode/componode/blob/main/researches/adrs/ADR-018-product-types-enum-with-enforced-composition-rules.md)
+and
+[ADR-109](https://github.com/Componode/componode/blob/main/researches/adrs/ADR-109-composes-parent-restriction-removed.md);
+the canonical vocabulary is
+[CONTEXT.md](https://github.com/Componode/componode/blob/main/CONTEXT.md).
 
 ## The vocabulary in one paragraph
 
@@ -32,20 +35,21 @@ Importers fill in what *exists* (components, instances). Humans decide what it
 | `CUSTOMER_FACING` | Something your customers **touch** | The app, portal, or storefront they log into |
 | `PLATFORM` | Shared machinery that **powers** the others | "Identity Platform", "Event Backbone", "Payment Gateway Platform" — consumed, not browsed |
 
-Two edge types wire products together, and the types constrain them:
+Two edge types wire products together; only `CONSUMES_FROM` constrains types:
 
 ```mermaid
 flowchart LR
-    subgraph Parents["Can be a COMPOSES parent"]
+    subgraph Parents["Any product can be a COMPOSES parent (ADR-109)"]
         BC["BUSINESS_CAPABILITY"]
         CF["CUSTOMER_FACING"]
+        P["PLATFORM"]
     end
-    P["PLATFORM"]
 
     BC -->|"COMPOSES — is composed of"| Child["any product<br/>DAG, cycles rejected"]
     CF -->|"COMPOSES"| Child
-    BC -.->|"CONSUMES_FROM — shared platform"| P
-    CF -.->|"CONSUMES_FROM"| P
+    P -->|"COMPOSES"| Child
+    BC -.->|"CONSUMES_FROM — shared platform"| T["PLATFORM target"]
+    CF -.->|"CONSUMES_FROM"| T
     P -->|"DEPENDS_ON_COMPONENT"| C["Component"]
     BC -->|"DEPENDS_ON_COMPONENT"| C
     CF -->|"DEPENDS_ON_COMPONENT"| C
@@ -53,9 +57,10 @@ flowchart LR
 
 The rules (enforced by the API, not just convention):
 
-- **`COMPOSES`** — "parent is composed of child." The parent must be
-  `BUSINESS_CAPABILITY` or `CUSTOMER_FACING`. The graph is a **DAG**: a child
-  can serve many parents, but cycles are rejected (`409 CYCLE_DETECTED`).
+- **`COMPOSES`** — "parent is composed of child." Any product type may be a
+  parent (ADR-109 — a platform has parts too). The graph is a **DAG**: a
+  child can serve many parents, but cycles are rejected
+  (`409 CYCLE_DETECTED`).
 - **`CONSUMES_FROM`** — "product consumes a shared platform." The target must
   be `PLATFORM`. It is *never* drawn inside the composition tree — it's a
   different kind of relationship.
@@ -303,7 +308,7 @@ Two workflows tie this together:
 2. **Promote shared things to platforms.** When several products depend on
    the same component, Componode surfaces it: *"payments-events is depended on
    by 4 business products — consider making it a platform product."* The
-   Platform Product workflow ([ADR-017](../researches/adrs/ADR-017-platform-product-workflow-full-guided-workflow-in-v1.md))
+   Platform Product workflow ([ADR-017](https://github.com/Componode/componode/blob/main/researches/adrs/ADR-017-platform-product-workflow-full-guided-workflow-in-v1.md))
    creates the `PLATFORM` product, rewires the consumers' edges to
    `CONSUMES_FROM`, and assigns an owner — turning ungoverned shared
    infrastructure into a managed product with a team behind it.
@@ -371,7 +376,7 @@ and named consumers — rather than merely paying for it.
 
 ## Related documents
 
-- [CONTEXT.md](../CONTEXT.md) — canonical vocabulary and `Avoid:` terms
+- [CONTEXT.md](https://github.com/Componode/componode/blob/main/CONTEXT.md) — canonical vocabulary and `Avoid:` terms
 - [docs/architecture.md](architecture.md) — runtime architecture and ER model
 - [docs/api.md](api.md) — product/edge endpoints and validation errors
-- [researches/architecture-decisions.md](../researches/architecture-decisions.md) — ADR index (ADR-015…019, ADR-049/050)
+- [researches/architecture-decisions.md](https://github.com/Componode/componode/blob/main/researches/architecture-decisions.md) — ADR index (ADR-015…019, ADR-049/050)

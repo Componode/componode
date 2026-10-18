@@ -22,15 +22,16 @@ interface Props {
   target: EdgeTarget;
   /** The product the edge is anchored on (detail page product). */
   productId: string;
-  productType: string;
   onAdd: (body: Record<string, string>) => Promise<void>;
 }
 
 /**
  * Edge-adding picker (spec 005, US3): the option list is pre-filtered to the
- * legal counterpart types per ADR-018. 409/422 errors surface inline.
+ * legal counterpart types. Any product type may be a COMPOSES parent
+ * (ADR-109); CONSUMES_FROM targets must still be PLATFORM. 409/422 errors
+ * surface inline.
  */
-export function EdgePicker({ open, onClose, target, productId, productType, onAdd }: Props) {
+export function EdgePicker({ open, onClose, target, productId, onAdd }: Props) {
   const { data: productsData } = useProducts({ includeRetired: true });
   const { data: componentsData } = useComponents({ pageSize: 100, sort: "name" });
   const [selected, setSelected] = useState("");
@@ -41,9 +42,8 @@ export function EdgePicker({ open, onClose, target, productId, productType, onAd
   let bodyKey = "childId";
 
   if (target.kind === "composes") {
-    // Adding a COMPOSES child for this product — children may be any type,
-    // but this product must be a legal parent (BC/CF); UI hides the action
-    // otherwise. Exclude self.
+    // Adding a COMPOSES child for this product — any type may be a parent or
+    // child (ADR-109). Exclude self and retired products.
     options = (productsData?.products ?? [])
       .filter((p) => p.id !== productId && p.lifecycle !== "RETIRED")
       .map((p) => ({ id: p.id, label: p.name }));
@@ -59,9 +59,6 @@ export function EdgePicker({ open, onClose, target, productId, productType, onAd
       .map((c) => ({ id: c.id, label: c.name }));
     bodyKey = "componentId";
   }
-
-  const canBeParent = productType === "BUSINESS_CAPABILITY" || productType === "CUSTOMER_FACING";
-  const disabled = target.kind === "composes" && !canBeParent;
 
   async function handleAdd() {
     if (!selected) return;
@@ -86,12 +83,6 @@ export function EdgePicker({ open, onClose, target, productId, productType, onAd
           <DialogTitle>{target.label}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          {disabled && (
-            <p className="text-sm text-muted-foreground">
-              Only Business Capability and Customer-Facing products can be
-              COMPOSES parents.
-            </p>
-          )}
           <div className="space-y-1.5">
             <Label htmlFor="edge-target">Select target</Label>
             <select
@@ -99,7 +90,6 @@ export function EdgePicker({ open, onClose, target, productId, productType, onAd
               value={selected}
               onChange={(e) => setSelected(e.target.value)}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              disabled={disabled}
             >
               <option value="">Choose…</option>
               {options.map((o) => (
@@ -119,7 +109,7 @@ export function EdgePicker({ open, onClose, target, productId, productType, onAd
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleAdd} disabled={!selected || pending || disabled}>
+          <Button onClick={handleAdd} disabled={!selected || pending}>
             {pending ? "Adding…" : "Add"}
           </Button>
         </div>

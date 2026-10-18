@@ -460,7 +460,6 @@ export function ProductDetailPage() {
           open
           target={edgePicker}
           productId={product.id}
-          productType={product.type}
           onClose={() => setEdgePicker(null)}
           onAdd={async (body) => {
             await addEdge.mutateAsync({ id: product!.id, kind: edgePicker.kind, body });

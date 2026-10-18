@@ -123,8 +123,9 @@ constitution.
 
 - `COMPOSES` (product → product) is a DAG. Cycle detection returns `409 CYCLE`
   to the client. See `ADR-049`, `ADR-050`.
-- `CONSUMES_FROM` target must be `PLATFORM`; `COMPOSES` parent must be
-  `BUSINESS_CAPABILITY` or `CUSTOMER_FACING`. See `ADR-018`.
+- `CONSUMES_FROM` target must be `PLATFORM` (see `ADR-018`); any product
+  type may be a `COMPOSES` parent — the parent-type restriction was removed.
+  See `ADR-109`.
 - 1-to-many relationships are foreign keys; many-to-many are typed junction
   tables. No polymorphic `edges` table. See `ADR-048`.
 
