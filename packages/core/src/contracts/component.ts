@@ -1,4 +1,5 @@
 import type { ComponentCategory, ComponentProvider, ComponentLifecycle } from "../constants/index.js";
+import type { Link } from "../schemas/metadata.js";
 
 export interface Component {
   id: string;
@@ -12,6 +13,9 @@ export interface Component {
   componentGroupId?: string | null;
   externalId?: string | null;
   details?: Record<string, unknown> | null;
+  links?: Link[];
+  tags?: string[];
+  sunsetAt?: string | null;
   lastSeenAt?: string | null;
   lastSeenInRunId?: string | null;
   createdBy?: string | null;

@@ -11,6 +11,19 @@ export interface ApiError {
   details?: unknown;
 }
 
+/** Human-readable error for VALIDATION_FAILED: first zod issue "field: message". */
+export function describeApiError(err: ApiError, fallback = "Request failed"): string {
+  const issues = Array.isArray(err.details)
+    ? (err.details as { path?: (string | number)[]; message?: string }[])
+    : [];
+  if (err.code === "VALIDATION_FAILED" && issues.length > 0) {
+    const first = issues[0]!;
+    const field = first.path?.length ? `${first.path.join(".")}: ` : "";
+    return `${field}${first.message ?? err.message}`;
+  }
+  return err.message ?? fallback;
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},

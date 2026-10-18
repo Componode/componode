@@ -9,13 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OwnerPickers } from "@/components/products/owner-picker";
+import { LinksEditor } from "@/components/metadata/links-editor";
+import { TagsInput } from "@/components/metadata/tags-input";
 import {
   useCreateProduct,
   useUpdateProduct,
 } from "@/api/hooks/products";
-import { PRODUCT_TYPES, PRODUCT_TYPE_META } from "@componode/core";
-import type { DigitalProduct } from "@/api/types";
-import type { ApiError } from "@/api/client";
+import { PRODUCT_TYPES, PRODUCT_TYPE_META, CRITICALITIES, CRITICALITY_META } from "@componode/core";
+import type { DigitalProduct, Link } from "@/api/types";
+import { describeApiError, type ApiError } from "@/api/client";
 
 interface Props {
   open: boolean;
@@ -35,7 +37,11 @@ export function ProductForm({ open, onClose, product }: Props) {
     lifecycle: "ACTIVE",
     lobOwnerId: "",
     teamOwnerId: "",
+    criticality: "",
+    sunsetAt: "",
   });
+  const [links, setLinks] = useState<Link[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,7 +54,11 @@ export function ProductForm({ open, onClose, product }: Props) {
         lifecycle: product?.lifecycle ?? "ACTIVE",
         lobOwnerId: product?.lobOwnerId ?? "",
         teamOwnerId: product?.teamOwnerId ?? "",
+        criticality: product?.criticality ?? "",
+        sunsetAt: product?.sunsetAt ? product.sunsetAt.slice(0, 10) : "",
       });
+      setLinks(product?.links ?? []);
+      setTags(product?.tags ?? []);
       setError(null);
     }
   }, [open, product]);
@@ -58,6 +68,8 @@ export function ProductForm({ open, onClose, product }: Props) {
   async function handleSubmit() {
     setError(null);
     try {
+      const linksToSave = links.filter((l) => l.title.trim() || l.url.trim());
+      const sunsetAt = form.sunsetAt ? new Date(form.sunsetAt).toISOString() : null;
       if (product) {
         await update.mutateAsync({
           id: product.id,
@@ -68,6 +80,10 @@ export function ProductForm({ open, onClose, product }: Props) {
           lifecycle: form.lifecycle,
           lobOwnerId: form.lobOwnerId || null,
           teamOwnerId: form.teamOwnerId || null,
+          links: linksToSave,
+          tags,
+          criticality: form.criticality || null,
+          sunsetAt,
         });
       } else {
         await create.mutateAsync({
@@ -77,12 +93,15 @@ export function ProductForm({ open, onClose, product }: Props) {
           description: form.description || undefined,
           lobOwnerId: form.lobOwnerId || undefined,
           teamOwnerId: form.teamOwnerId || undefined,
+          links: linksToSave,
+          tags,
+          criticality: form.criticality || null,
+          sunsetAt,
         });
       }
       onClose();
     } catch (err) {
-      const apiErr = err as ApiError;
-      setError(apiErr.message ?? "Save failed");
+      setError(describeApiError(err as ApiError, "Save failed"));
     }
   }
 
@@ -157,6 +176,40 @@ export function ProductForm({ open, onClose, product }: Props) {
             onLobChange={(v) => setForm((f) => ({ ...f, lobOwnerId: v }))}
             onTeamChange={(v) => setForm((f) => ({ ...f, teamOwnerId: v }))}
           />
+          <div className="space-y-1.5">
+            <Label htmlFor="p-criticality">Criticality (optional)</Label>
+            <select
+              id="p-criticality"
+              value={form.criticality}
+              onChange={(e) => setForm((f) => ({ ...f, criticality: e.target.value }))}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">None</option>
+              {CRITICALITIES.map((c) => (
+                <option key={c} value={c}>
+                  {CRITICALITY_META[c].label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="p-sunset">Sunset date (optional)</Label>
+            <Input
+              id="p-sunset"
+              type="date"
+              value={form.sunsetAt}
+              onChange={(e) => setForm((f) => ({ ...f, sunsetAt: e.target.value }))}
+              className="w-48"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Links</Label>
+            <LinksEditor value={links} onChange={setLinks} idPrefix="p-link" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Tags</Label>
+            <TagsInput value={tags} onChange={setTags} />
+          </div>
           {error && (
             <p className="text-sm text-destructive" role="alert">
               {error}

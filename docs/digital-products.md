@@ -312,6 +312,29 @@ Ownership is org-real, not abstract: every product is owned by a **Line of
 Business** and optionally a **Team**/**Person**, which is who gets asked when
 the platform changes.
 
+## Practical metadata
+
+Beyond names, owners, and edges, every Digital Product and Component carries
+four optional, human-curated metadata fields. All of them are optional —
+start flat, add context where it pays off. Importers never touch them, so
+curation survives every reconcile.
+
+| Field | Where | What it is |
+|---|---|---|
+| **Links** | products + components | Ordered `{ title, url }` references — runbooks, repos, dashboards. Max 20, http(s) only. |
+| **Tags** | products + components | Lowercase free-form labels (`pci`, `payments`, `tier-1`). Max 20; filter lists with a single exact tag. |
+| **Criticality** | products only | `CRITICAL \| HIGH \| MEDIUM \| LOW` — a triage hint for humans, nothing more. |
+| **Sunset** | products + components | An optional `sunsetAt` date announcing planned decommission. |
+
+Sunset is deliberately *display-only*: a passed date renders an "overdue"
+badge but never auto-retires anything. Retirement stays a human decision
+(`ACTIVE → RETIRED` is reversible). The badge states:
+
+- More than 30 days out → neutral `Sunset {date}`
+- Within 30 days → amber `Sunset in {n}d`
+- Past while still `ACTIVE` → red `Sunset overdue`
+- `RETIRED` entities never show overdue — they already transitioned
+
 ## Common classification questions
 
 **"Is this a product or a component?"**
@@ -340,7 +363,7 @@ and named consumers — rather than merely paying for it.
 | Owned, business-meaningful thing? | `DigitalProduct` |
 | An importer could discover it? | `Component` |
 | Vendor SaaS (Stripe, SendGrid)? | `Component` with provider `OTHER` |
-| "Parent is made of child" | `COMPOSES` (parent: BC or CF, DAG) |
+| "Parent is made of child" | `COMPOSES` (any type, DAG) |
 | "Runs on a shared platform" | `CONSUMES_FROM` (target: PLATFORM) |
 | "Needs this imported asset" | `DEPENDS_ON_COMPONENT` |
 | Where does it run? | `ComponentInstance` per environment |

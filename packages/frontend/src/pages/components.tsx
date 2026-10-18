@@ -20,6 +20,8 @@ import { EmptyState } from "@/components/states/empty-state";
 import { ErrorState } from "@/components/states/error-state";
 import { Forbidden } from "@/components/states/forbidden";
 import { StatusBadge } from "@/components/states/status-badge";
+import { SunsetBadge } from "@/components/metadata/sunset-badge";
+import { Input } from "@/components/ui/input";
 import type { ApiError } from "@/api/client";
 import type { ComponentListResponse } from "@/api/types";
 
@@ -41,6 +43,7 @@ function filtersFromSearchParams(params: URLSearchParams): ComponentListFilters 
     lifecycle: params.get("lifecycle") ?? undefined,
     status: params.get("status") ?? undefined,
     group: params.get("group") ?? undefined,
+    tag: params.get("tag") ?? undefined,
     search: params.get("search") ?? undefined,
   };
 }
@@ -94,14 +97,14 @@ export function ComponentsPage() {
 
   const hasActiveFilters = !!(
     filters.category || filters.provider || filters.lifecycle ||
-    filters.status || filters.group || filters.search
+    filters.status || filters.group || filters.tag || filters.search
   );
 
   function clearFilters() {
     setFilters({
       ...filters,
       category: undefined, provider: undefined, lifecycle: undefined,
-      status: undefined, group: undefined, search: undefined, page: 1,
+      status: undefined, group: undefined, tag: undefined, search: undefined, page: 1,
     });
   }
 
@@ -118,6 +121,13 @@ export function ComponentsPage() {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <ComponentSearch value={filters.search ?? ""} onChange={setSearch} />
+            <Input
+              placeholder="Tag…"
+              value={filters.tag ?? ""}
+              onChange={(e) => setFilters({ ...filters, tag: e.target.value || undefined, page: 1 })}
+              className="w-32"
+              aria-label="Filter by tag"
+            />
             <ComponentFilters filters={filters} onChange={setFilters} />
           </div>
         </CardContent>
@@ -160,6 +170,7 @@ export function ComponentsPage() {
                     <TableHead>Provider</TableHead>
                     <TableHead>Resource type</TableHead>
                     <TableHead>Lifecycle</TableHead>
+                    <TableHead>Sunset</TableHead>
                     <TableHead>Group</TableHead>
                     <TableHead className="text-right">Instances</TableHead>
                   </TableRow>
@@ -184,6 +195,9 @@ export function ComponentsPage() {
                       <TableCell>{component.resourceType}</TableCell>
                       <TableCell>
                         <StatusBadge status={component.lifecycle} />
+                      </TableCell>
+                      <TableCell>
+                        <SunsetBadge sunsetAt={component.sunsetAt} lifecycle={component.lifecycle} />
                       </TableCell>
                       <TableCell>
                         {component.componentGroupName ?? "—"}

@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (v1.0.0, features 001–016)
+## Shipped (v1.0.0, features 001–017)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -29,6 +29,10 @@ file tracks shipped and upcoming work — update it when a spec completes.
   drawer.
 - `016-bugfix-login-redirect` — first-login bounce caused by a stale session
   cache.
+- `017-product-metadata` — practical catalog metadata: curated links, tags,
+  product criticality, and display-only `sunsetAt` on products and
+  components (ADR-111). Importer reconciliation never clobbers curated
+  fields.
 
 ## Next — v1.1
 

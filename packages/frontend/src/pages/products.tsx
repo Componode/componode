@@ -13,7 +13,7 @@ import { TableSkeleton } from "@/components/states/skeletons";
 import { EmptyState } from "@/components/states/empty-state";
 import { ErrorState } from "@/components/states/error-state";
 import { Forbidden } from "@/components/states/forbidden";
-import { PRODUCT_TYPES, PRODUCT_TYPE_META } from "@componode/core";
+import { PRODUCT_TYPES, PRODUCT_TYPE_META, CRITICALITIES, CRITICALITY_META } from "@componode/core";
 import { FacetFilter } from "@/components/facet-filter";
 import { useState } from "react";
 import type { ApiError } from "@/api/client";
@@ -31,18 +31,22 @@ export function ProductsPage() {
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
   const type = params.get("type") ?? "";
+  const tag = params.get("tag") ?? "";
+  const criticality = params.get("criticality") ?? "";
   const includeRetired = params.get("includeRetired") === "true";
   const [createOpen, setCreateOpen] = useState(false);
 
   const { data, isPending, error, refetch } = useProducts({
     q: q || undefined,
     type: type || undefined,
+    tag: tag || undefined,
+    criticality: criticality || undefined,
     includeRetired,
   });
 
   const products = data?.products ?? [];
   const edges = data?.edges ?? [];
-  const filtering = !!(q || type);
+  const filtering = !!(q || type || tag || criticality);
   const isForbidden = error ? (error as unknown as ApiError).code === "FORBIDDEN" : false;
 
   const setParam = (key: string, value: string | boolean) => {
@@ -85,6 +89,23 @@ export function ProductsPage() {
           }))}
           selected={type ? [type] : []}
           onChange={(v) => setParam("type", v[0] ?? "")}
+        />
+        <FacetFilter
+          title="Criticality"
+          mode="single"
+          options={CRITICALITIES.map((c) => ({
+            value: c,
+            label: CRITICALITY_META[c].label,
+          }))}
+          selected={criticality ? [criticality] : []}
+          onChange={(v) => setParam("criticality", v[0] ?? "")}
+        />
+        <Input
+          placeholder="Tag…"
+          value={tag}
+          onChange={(e) => setParam("tag", e.target.value)}
+          className="w-32"
+          aria-label="Filter by tag"
         />
         <div className="flex items-center gap-2">
           <Switch

@@ -31,8 +31,8 @@ _Avoid_: folder, collection
 
 **COMPOSES**:
 A product→product edge meaning "parent is composed of child." A DAG with
-unlimited depth; the parent must be `BUSINESS_CAPABILITY` or
-`CUSTOMER_FACING`; cycles are rejected at write time.
+unlimited depth; any product type may be a parent (ADR-109); cycles are
+rejected at write time.
 _Avoid_: parent-of, contains
 
 **CONSUMES_FROM**:
@@ -70,6 +70,29 @@ _Avoid_: department, org unit
 **Importer**:
 A pull-only integration that discovers Components from an external source.
 _Avoid_: connector, sync
+
+**Link**:
+A curated `{ title, url }` reference attached to a Digital Product or
+Component (runbook, repo, dashboard). Human-authored, ordered, max 20;
+http(s) only.
+_Avoid_: bookmark, attachment
+
+**Tag**:
+A lowercase free-form label (`a-z`, `0-9`, `.` `_` `:` `-`, ≤32 chars, ≤20
+per entity) on a Digital Product or Component, used for exact-match list
+filtering.
+_Avoid_: label, keyword, taxonomy
+
+**Criticality**:
+A nullable product-only triage hint: `CRITICAL | HIGH | MEDIUM | LOW`.
+Informational only — never drives lifecycle or permissions.
+_Avoid_: tier, SLA class, severity
+
+**Sunset**:
+An optional `sunsetAt` date on a Digital Product or Component announcing
+planned decommission. Display-only — passing the date never changes
+lifecycle automatically.
+_Avoid_: end-of-life state, deprecation gate
 
 ## Decision rules
 

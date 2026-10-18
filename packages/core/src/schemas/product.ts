@@ -1,11 +1,14 @@
 import { z } from "zod";
 import { PRODUCT_TYPES } from "../constants/product-types.js";
 import { COMPONENT_LIFECYCLE } from "../constants/lifecycle.js";
+import { CRITICALITIES } from "../constants/criticality.js";
+import { linksSchema, tagSchema, tagsSchema } from "./metadata.js";
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const productTypeSchema = z.enum(PRODUCT_TYPES);
 export const productLifecycleSchema = z.enum(COMPONENT_LIFECYCLE);
+export const productCriticalitySchema = z.enum(CRITICALITIES);
 
 /** Slug auto-derives from name when omitted (ADR-046 uniqueness enforced by service). */
 export const createProductSchema = z
@@ -16,6 +19,10 @@ export const createProductSchema = z
     description: z.string().max(2000).nullable().optional(),
     lobOwnerId: z.string().uuid().nullable().optional(),
     teamOwnerId: z.string().uuid().nullable().optional(),
+    links: linksSchema.optional(),
+    tags: tagsSchema.optional(),
+    criticality: productCriticalitySchema.nullable().optional(),
+    sunsetAt: z.string().datetime({ offset: true }).nullable().optional(),
   })
   .strict();
 
@@ -28,6 +35,10 @@ export const updateProductSchema = z
     lifecycle: productLifecycleSchema.optional(),
     lobOwnerId: z.string().uuid().nullable().optional(),
     teamOwnerId: z.string().uuid().nullable().optional(),
+    links: linksSchema.optional(),
+    tags: tagsSchema.optional(),
+    criticality: productCriticalitySchema.nullable().optional(),
+    sunsetAt: z.string().datetime({ offset: true }).nullable().optional(),
   })
   .strict();
 
@@ -36,6 +47,8 @@ export const listProductsQuerySchema = z
     q: z.string().trim().min(1).max(200).optional(),
     type: productTypeSchema.optional(),
     lifecycle: productLifecycleSchema.optional(),
+    tag: tagSchema.optional(),
+    criticality: productCriticalitySchema.optional(),
     includeRetired: z
       .union([z.literal("true"), z.literal("false")])
       .transform((v) => v === "true")

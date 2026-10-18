@@ -208,7 +208,7 @@ Notes:
 |---|---|---|---|
 | GET | `/api/v1/components` | List components (paginated, filterable) | Authenticated |
 | GET | `/api/v1/components/:id` | Get a component by ID | Authenticated |
-| PATCH | `/api/v1/components/:id` | Update component group/team assignment | `component:update` |
+| PATCH | `/api/v1/components/:id` | Update component assignment and curated metadata | `component:update` |
 <!-- /GENERATED:table:Components -->
 
 Query params for `GET /components`: `page`, `pageSize` (max 100), `category`,

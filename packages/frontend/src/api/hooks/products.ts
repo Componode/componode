@@ -4,12 +4,15 @@ import type {
   ProductListResponse,
   ProductDetail,
   DigitalProduct,
+  Link,
 } from "@/api/types";
 
 export interface ProductListParams {
   q?: string;
   type?: string;
   lifecycle?: string;
+  tag?: string;
+  criticality?: string;
   includeRetired?: boolean;
 }
 
@@ -18,6 +21,8 @@ export function useProducts(params: ProductListParams = {}) {
   if (params.q) search.set("q", params.q);
   if (params.type) search.set("type", params.type);
   if (params.lifecycle) search.set("lifecycle", params.lifecycle);
+  if (params.tag) search.set("tag", params.tag);
+  if (params.criticality) search.set("criticality", params.criticality);
   if (params.includeRetired) search.set("includeRetired", "true");
   const qs = search.toString();
   return useQuery({
@@ -47,6 +52,10 @@ export interface ProductFormInput {
   lifecycle?: string;
   lobOwnerId?: string | null;
   teamOwnerId?: string | null;
+  links?: Link[];
+  tags?: string[];
+  criticality?: string | null;
+  sunsetAt?: string | null;
 }
 
 export function useCreateProduct() {

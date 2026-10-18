@@ -10,6 +10,7 @@ export interface ComponentListFilters {
   lifecycle?: string;
   status?: string;
   group?: string;
+  tag?: string;
   search?: string;
   sort?: "name" | "lastSeenAt" | "createdAt";
   order?: "asc" | "desc";

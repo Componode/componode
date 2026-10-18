@@ -145,6 +145,11 @@ export interface ComponentGroup {
   teamOwnerName?: string | null;
 }
 
+export interface Link {
+  title: string;
+  url: string;
+}
+
 export interface Component {
   id: string;
   name: string;
@@ -157,6 +162,9 @@ export interface Component {
   componentGroupName: string | null;
   teamOwnerId?: string | null;
   teamOwnerName?: string | null;
+  links?: Link[];
+  tags?: string[];
+  sunsetAt?: string | null;
   instanceCount: number;
 }
 
@@ -257,6 +265,10 @@ export interface DigitalProduct extends ProductRef {
   teamOwnerId?: string | null;
   lobOwnerName?: string | null;
   teamOwnerName?: string | null;
+  links?: Link[];
+  tags?: string[];
+  criticality?: string | null;
+  sunsetAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

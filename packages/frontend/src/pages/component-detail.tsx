@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Box } from "lucide-react";
+import { ArrowLeft, Box, Pencil } from "lucide-react";
 import { useComponentDetail, useUpdateComponent } from "@/api/hooks/components";
 import { useSession } from "@/api/hooks/auth";
 import { useTeams } from "@/api/hooks/org";
@@ -19,6 +20,10 @@ import { Forbidden } from "@/components/states/forbidden";
 import { StatusBadge } from "@/components/states/status-badge";
 import { EmptyState } from "@/components/states/empty-state";
 import { EntityHistory } from "@/components/entity-history";
+import { LinksCard } from "@/components/metadata/links-card";
+import { TagChips } from "@/components/metadata/tags-input";
+import { SunsetBadge } from "@/components/metadata/sunset-badge";
+import { ComponentMetadataForm } from "@/components/metadata/component-metadata-form";
 import { relativeTime, absoluteTime, MONO_CLASS } from "@/lib/format";
 import { safeUrl } from "@/components/safe-url";
 import { useSetCrumbLabel } from "@/components/layout/crumb-context";
@@ -33,6 +38,7 @@ export function ComponentDetailPage() {
   const { data: teamsData } = useTeams();
   const updateComponent = useUpdateComponent();
   const canEdit = ["EDITOR", "ADMIN"].includes(user?.role ?? "VIEWER");
+  const [editOpen, setEditOpen] = useState(false);
 
   const isForbidden = error ? ((error as unknown) as ApiError).code === "FORBIDDEN" : false;
 
@@ -79,12 +85,21 @@ export function ComponentDetailPage() {
 
       <div className="flex items-start gap-4 mb-6">
         <Box className="h-8 w-8 text-muted-foreground" />
-        <div>
-          <h1 className="text-2xl font-bold">{component.name}</h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">{component.name}</h1>
+            <SunsetBadge sunsetAt={component.sunsetAt} lifecycle={component.lifecycle} />
+          </div>
           <p className={`text-sm text-muted-foreground ${MONO_CLASS}`}>
             {component.slug}
           </p>
+          <TagChips tags={component.tags ?? []} className="mt-1" />
         </div>
+        {canEdit && (
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil className="mr-1 h-4 w-4" /> Edit metadata
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -153,6 +168,8 @@ export function ComponentDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        <LinksCard links={component.links ?? []} />
 
         {component.details && Object.keys(component.details).length > 0 && (
           <Card>
@@ -232,6 +249,12 @@ export function ComponentDetailPage() {
           <EntityHistory entityType="component" entityId={component.id} />
         </CardContent>
       </Card>
+
+      <ComponentMetadataForm
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        component={component}
+      />
     </div>
   );
 }
