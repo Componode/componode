@@ -69,7 +69,7 @@ Constraints and the relevant ADRs.
 ├── docs/                          # Source documentation (see Key References)
 ├── .specify/                      # spec-kit: memory/constitution.md, workflows/, powershell helpers
 ├── .agents/skills/                # Canonical shared skills (pinned by skills-lock.json)
-├── .devin/skills/                 # Devin-only skills: speckit-* + repo-authored
+├── .devin/skills/                 # speckit-* only (spec-kit manifest-tracked)
 ├── .claude/skills/                # Claude Code skills (only place Claude reads them)
 ├── skills-lock.json               # Lockfile for installed skills (source + hash)
 ├── docs-site/                     # VitePress config and output
