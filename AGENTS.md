@@ -1,7 +1,5 @@
 # AGENTS.md — Project Context for AI Coding Agents
 
-> **Last updated**: 2026-09-21 (docs sync: 108 ADRs, per-spec data models,
-> dead env vars removed, TLS/OIDC deployment docs)
 > **Project**: Componode — open-source Digital Product Asset Management
 > **License**: Apache 2.0
 > **Repository**: https://github.com/Componode/componode
@@ -12,30 +10,18 @@
 ## Project Overview
 
 Componode is an **open-source, self-hosted Digital Product Asset Management
-(DPAM)** tool. It lets users model their **Digital Products** (applications,
-solutions) as compositions of building-block **Components** imported from
-repository tools, cloud environments, container orchestrators, and web/API/MCP
-endpoints.
+(DPAM)** tool — a single-organization, importer-first catalog. Users model
+their **Digital Products** (applications, solutions) as compositions of
+building-block **Components** imported from repository tools, cloud
+environments, container orchestrators, and web/API/MCP endpoints.
 
 The canonical architecture is the **Composable Product Model**: Lines of
 Business own Business Capability Products that compose shared Platform Products,
 and every product depends on Components.
 
-### What Componode is
-
-- A **single-organization** self-hosted tool (no multi-tenancy).
-- An **importer-first** catalog: the headline value is importing assets from
-  GitHub, AWS, Azure, Kubernetes, web/API/MCP endpoints.
-- A human-curated catalog of digital products and their composition hierarchy,
-  enriched by importers.
-
-### What Componode is not
-
-- Not a hosted SaaS (single-org only; hosted offering is a future open-core
-  possibility, not v1).
-- Not multi-tenant (no `Organization`/tenant layer).
-- Not a security scanner (Risk entity and ASPM integration are deferred to a
-  later phase).
+Scope guardrails: no multi-tenancy/`Organization` layer, no hosted SaaS in v1,
+and no security scanning (Risk entity and ASPM integration are deferred to a
+later phase).
 
 ### Foundational documents (read these first)
 
@@ -50,6 +36,8 @@ and every product depends on Components.
 
 Never implement from `.devin/plans`, one-off notes, or temporary locations.
 Always implement from the generated `tasks.md` artifact under `specs/`.
+If this file conflicts with an ADR, the constitution, or an active `specs/`
+artifact, the more specific document wins.
 
 ---
 
@@ -67,9 +55,6 @@ Always implement from the generated `tasks.md` artifact under `specs/`.
 | Observability | Pino (logging) + Prometheus (metrics) + OpenTelemetry (tracing) |
 | Deployment | Docker Compose (one container: backend serves frontend static) |
 | CI/CD | GitHub Actions + changesets |
-| License | Apache 2.0 |
-| Identifiers | UUID v7 for entities; `slug` for human-readable refs |
-| API versioning | `/api/v1/...` prefix on all routes |
 
 For the full stack rationale, see `.specify/memory/constitution.md` § Additional
 Constraints and the relevant ADRs.
@@ -80,45 +65,17 @@ Constraints and the relevant ADRs.
 
 ```text
 .
-├── .changeset/                    # Changeset release notes
-├── .devin/
-│   └── skills/                    # spec-kit skills (speckit-*)
-├── .specify/                      # spec-kit infrastructure
-│   ├── memory/constitution.md     # Project constitution
-│   └── workflows/                 # Workflow registry
-├── packages/                      # pnpm workspace packages
-│   ├── core/                      # Shared contracts and types
+├── packages/                      # pnpm workspace
+│   ├── core/                      # Shared contracts and types (leaf — zero @componode/* deps)
 │   ├── backend/                   # Fastify API + Kysely services
 │   ├── frontend/                  # React/Vite dashboard
-│   ├── importer-api-url/
-│   ├── importer-aws/
-│   ├── importer-azure/
-│   ├── importer-github/
-│   ├── importer-kubernetes/
-│   ├── importer-mcp-server/
-│   └── importer-web-url/
-├── researches/                    # Architecture research and decisions
-│   ├── architecture-decisions.md  # ADR index
-│   └── adrs/                      # 108 individual ADR files
-├── specs/                         # DYNAMIC — created per feature
-│   └── {NNN-feature-name}/        # spec.md, plan.md, tasks.md, ...
-├── docs/                          # Source documentation
-│   ├── api.md                     # API reference (human-readable)
-│   ├── openapi.yaml               # API reference (OpenAPI 3.0)
-│   ├── openapi-reference.md       # Interactive OpenAPI reference source
-│   ├── importer-development.md    # Importer contributor contract
-│   ├── ux.md                      # Normative UX/UI reference
-│   ├── security/                  # Dated security assessment reports
-│   ├── deployment.md              # Docker Compose self-hosting
-│   ├── release.md                 # Changeset release process
-│   └── index.md                   # Docs site landing page
-├── docs-site/                     # VitePress configuration and output
-│   └── .vitepress/                # VitePress theme and config
-├── scripts/                       # Deployment and validation scripts
-├── docker-compose.yml
-├── CHANGELOG.md
-├── AGENTS.md                      # This file
-└── README.md
+│   └── importer-*/                # 7 in-tree importers (api-url, aws, azure, github, kubernetes, mcp-server, web-url)
+├── researches/                    # Research docs ({topic}_research.md), adrs/, architecture-decisions.md index
+├── specs/{NNN-feature-name}/      # DYNAMIC — spec.md, plan.md, tasks.md, created per feature/bugfix
+├── docs/                          # Source documentation (see Key References)
+├── .specify/                      # spec-kit: memory/constitution.md, workflows/
+├── docs-site/                     # VitePress config and output
+└── scripts/                       # Deployment and validation scripts
 ```
 
 ---
@@ -303,25 +260,30 @@ architecture decision.
 
 ---
 
-## What AGENTS.md Is
+## Research Workflow
 
-- A **starting map** for the project.
-- A **guardrail list** of the most important non-negotiables.
-- A **signpost** to the authoritative documents (constitution, ADRs, specs).
+Research workloads produce **documentation only** — no code changes, no
+schema changes, no implementation. Findings land in `researches/` as
+Markdown, following the existing `{topic}_research.md` convention (Purpose /
+Scope header, claims cited to primary sources). Research documents are
+informative, not authoritative: where a finding conflicts with a ratified
+ADR, flag the conflict explicitly — never silently override it.
 
-## What AGENTS.md Is NOT
+**Research → specification.** When the user asks to turn research into a
+specification:
 
-- **Not the spec.** Authoritative feature requirements live in
-  `specs/{NNN-feature-name}/`.
-- **Not the architecture record.** Ratified decisions live in
-  `researches/architecture-decisions.md` and `researches/adrs/`.
-- **Not the constitution.** The 7 binding principles live in
-  `.specify/memory/constitution.md`.
-- **Not a security checklist.** The full 19 secure-development rules are in
-  `ADR-084` through `ADR-102`.
-
-If this file conflicts with an ADR, the constitution, or an active `specs/`
-artifact, the more specific document wins.
+1. Run the `grilling` skill on the research document — grill the user on
+   every open decision the research raises until the design tree is fully
+   settled and shared understanding is confirmed.
+2. Record ratified decisions as ADRs in the existing standard —
+   `researches/adrs/ADR-NNN-{slug}.md` (next sequential number; Context,
+   Decision, Consequences, Amendments to earlier ADRs, Rationale,
+   Alternatives considered) — and register each in the
+   `researches/architecture-decisions.md` index under the right section.
+3. Only then run the spec-kit flow (`speckit-specify` → `speckit-plan` →
+   `speckit-tasks` → `speckit-implement`). Implementation is driven from
+   `specs/{NNN-feature-name}/tasks.md`, never directly from the research
+   document.
 
 ---
 
@@ -329,12 +291,6 @@ artifact, the more specific document wins.
 
 | Document | When to read it |
 |---|---|
-| `.specify/memory/constitution.md` | Before writing or reviewing any spec |
-| `researches/architecture-decisions.md` | Before any implementation |
-| `researches/adrs/ADR-XXX-*.md` | When the ADR index or `AGENTS.md` boundary points you to one |
-| `specs/{NNN-feature-name}/spec.md` | When starting a feature |
-| `specs/{NNN-feature-name}/plan.md` | Before `speckit-tasks` for that feature |
-| `specs/{NNN-feature-name}/tasks.md` | During `speckit-implement` |
 | `docs/importer-development.md` | When building or editing an importer |
 | `docs/api.md`, `docs/openapi.yaml`, `docs/openapi-reference.md` | When adding, changing, or removing any API endpoint (ADR-104) |
 | `docs/ux.md` | Before writing or reviewing any frontend spec or UI code |
