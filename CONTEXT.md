@@ -24,7 +24,9 @@ Component's logical lifecycle.
 _Avoid_: deployment, environment
 
 **Component Group**:
-A flat grouping of Components for organization.
+A human-declared equivalence across distinct source assets (e.g. three EC2
+instances in three accounts considered the same logical component). A
+first-class entity with its own name, slug, description, and owner.
 _Avoid_: folder, collection
 
 **COMPOSES**:
