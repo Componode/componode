@@ -669,7 +669,12 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: Product detail (includes composition edges and dependencies)
+          description: |
+            Product detail — composition edges, declared/inherited component
+            dependencies (each with `sources[]`: DIRECT / GROUP / INHERITED
+            attribution, ADR-110), `dependsOnGroups` (raw group edges incl.
+            empty groups with `memberCount`), and derived read-only `health`
+            (ADR-112: `{status, perEnv, sourceCount}` or `null`).
           content:
             application/json:
               schema: { type: object }
@@ -818,9 +823,18 @@ paths:
   /products/{id}/depends-on:
     post:
       tags: [Products]
-      summary: Add a DEPENDS_ON edge (product depends on a component)
+      summary: Add a DEPENDS_ON edge (component, component group, or bulk components)
       x-permission: "product:edge:add"
-      description: Requires the `product:edge:add` role.
+      description: |
+        Requires the `product:edge:add` role. Exactly one target form must be
+        provided (ADR-110):
+
+        - `{componentId}` — a single component dependency
+        - `{componentGroupId}` — a dependency on a component group; the edge
+          is persisted product→group and members expand at read time
+        - `{componentIds}` — bulk: all edges applied atomically in one
+          transaction, one audit entry per edge; any unknown id fails the
+          whole request (`404`)
       parameters:
         - { $ref: '#/components/parameters/Id' }
       requestBody:
@@ -828,35 +842,59 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [componentId]
-              additionalProperties: false
-              properties:
-                componentId: { type: string, format: uuid }
+              oneOf:
+                - type: object
+                  required: [componentId]
+                  additionalProperties: false
+                  properties:
+                    componentId: { type: string, format: uuid }
+                - type: object
+                  required: [componentGroupId]
+                  additionalProperties: false
+                  properties:
+                    componentGroupId: { type: string, format: uuid }
+                - type: object
+                  required: [componentIds]
+                  additionalProperties: false
+                  properties:
+                    componentIds:
+                      type: array
+                      items: { type: string, format: uuid }
+                      minItems: 1
+                      maxItems: 100
       responses:
         '204': { description: Edge added }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422':
           description: Edge type rule violated (`INVALID_EDGE_TYPE`)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
-  /products/{id}/depends-on/{componentId}:
+  /products/{id}/depends-on/{targetId}:
     delete:
       tags: [Products]
       summary: Remove a DEPENDS_ON edge
       x-permission: "product:edge:remove"
-      description: Requires the `product:edge:remove` role.
+      description: |
+        Requires the `product:edge:remove` role. The target is
+        kind-discriminated (ADR-110): `kind=component` (default) removes a
+        concrete component edge, `kind=group` removes a group dependency
+        without touching direct edges on the group's members.
       parameters:
         - { $ref: '#/components/parameters/Id' }
         - in: path
-          name: componentId
+          name: targetId
           required: true
           schema: { type: string, format: uuid }
+        - in: query
+          name: kind
+          schema: { type: string, enum: [component, group], default: component }
       responses:
         '204': { description: Edge removed }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1110,7 +1148,10 @@ paths:
       tags: [ComponentGroups]
       summary: Delete a component group
       x-permission: "componentGroup:delete"
-      description: Requires the `componentGroup:delete` role (Editor+).
+      description: |
+        Requires the `componentGroup:delete` role (Editor+). Deletion is
+        blocked while products depend on the group via DEPENDS_ON (spec 019);
+        retire the group instead.
       parameters:
         - { $ref: '#/components/parameters/Id' }
       responses:
@@ -1118,6 +1159,13 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: >-
+            Group is depended on by products (`REFERENCED`) —
+            `details.products` names the blocking products
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   # -------------------------------------------------------------- Importers
   /importers:
@@ -2249,6 +2297,13 @@ components:
           items: { type: string }
         criticality: { $ref: '#/components/schemas/ProductCriticality', nullable: true }
         sunsetAt: { type: string, format: date-time, nullable: true }
+        status:
+          type: string
+          enum: [RUNNING, STOPPED, 'ERROR']
+          nullable: true
+          description: >-
+            Derived product health headline (ADR-112), present on list
+            responses — `null` when there are no contributing instances
         createdBy: { type: string, format: uuid, nullable: true }
         updatedBy: { type: string, format: uuid, nullable: true }
         createdAt: { type: string, format: date-time }
@@ -2338,6 +2393,9 @@ components:
         description: { type: string, nullable: true }
         lifecycle: { $ref: '#/components/schemas/Lifecycle' }
         teamOwnerId: { type: string, format: uuid, nullable: true }
+        memberCount:
+          type: integer
+          description: Current member components (present on list responses)
         createdBy: { type: string, format: uuid, nullable: true }
         updatedBy: { type: string, format: uuid, nullable: true }
         createdAt: { type: string, format: date-time }

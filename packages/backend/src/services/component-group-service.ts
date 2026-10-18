@@ -40,7 +40,7 @@ export async function listComponentGroups(rawQuery: ListComponentGroupsQuery) {
   let query = db
     .selectFrom("component_groups")
     .leftJoin("teams", "component_groups.teamOwnerId", "teams.id")
-    .select([
+    .select((eb) => [
       "component_groups.id",
       "component_groups.name",
       "component_groups.slug",
@@ -50,6 +50,12 @@ export async function listComponentGroups(rawQuery: ListComponentGroupsQuery) {
       "teams.name as teamOwnerName",
       "component_groups.createdAt",
       "component_groups.updatedAt",
+      // FR-010: pickers/labels show how many components the group expands to.
+      eb
+        .selectFrom("components")
+        .whereRef("components.componentGroupId", "=", "component_groups.id")
+        .select((eb2) => eb2.fn.countAll().as("c"))
+        .as("memberCount"),
     ]);
 
   if (parsed.lifecycle) {
@@ -58,7 +64,8 @@ export async function listComponentGroups(rawQuery: ListComponentGroupsQuery) {
     query = query.where("component_groups.lifecycle", "!=", "RETIRED");
   }
 
-  return query.orderBy("component_groups.name").execute();
+  const rows = await query.orderBy("component_groups.name").execute();
+  return rows.map((r) => ({ ...r, memberCount: Number(r.memberCount) }));
 }
 
 export async function getComponentGroup(id: string) {
@@ -218,6 +225,38 @@ export async function deleteComponentGroup(id: string, actor: Actor) {
   const existing = await getComponentGroup(id);
   if (!existing) {
     return null;
+  }
+
+  // Spec 019 / FR-009: a group that products depend on must not be deleted —
+  // removal would silently drop curated dependency edges. Retirement is the
+  // supported alternative (components keep their membership).
+  const blockers = await db
+    .selectFrom("product_depends_on_component_group")
+    .innerJoin(
+      "digital_products",
+      "product_depends_on_component_group.productId",
+      "digital_products.id",
+    )
+    .select([
+      "digital_products.id",
+      "digital_products.name",
+      "digital_products.slug",
+    ])
+    .where(
+      "product_depends_on_component_group.componentGroupId",
+      "=",
+      id,
+    )
+    .execute();
+  if (blockers.length > 0) {
+    throw Object.assign(
+      new Error(
+        `Component group is depended on by ${blockers.length} product(s): ${blockers
+          .map((p) => p.name)
+          .join(", ")}`,
+      ),
+      { statusCode: 409, code: "REFERENCED", details: { products: blockers } },
+    );
   }
 
   return db.transaction().execute(async (trx) => {

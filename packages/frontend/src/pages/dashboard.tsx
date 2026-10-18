@@ -20,6 +20,7 @@ const ATTENTION_LABEL: Record<AttentionItem["kind"], string> = {
   FAILED_RUN: "Importer run failed",
   INSTANCE_ERROR: "Instance in error",
   INSTANCE_GONE: "Instance gone",
+  PRODUCT_ERROR: "Product affected by error",
 };
 
 /**
@@ -109,7 +110,8 @@ export function DashboardPage() {
                           status={
                             item.kind === "FAILED_RUN"
                               ? "FAILED"
-                              : item.kind === "INSTANCE_ERROR"
+                              : item.kind === "INSTANCE_ERROR" ||
+                                  item.kind === "PRODUCT_ERROR"
                                 ? "ERROR"
                                 : "GONE"
                           }

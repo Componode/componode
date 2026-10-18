@@ -70,6 +70,19 @@ describe("ProductTree", () => {
     expect(screen.getByText("child")).toBeDefined();
   });
 
+  it("renders the derived health badge per row; null renders —", () => {
+    renderTree(
+      [
+        p("err", "Err", { status: "ERROR" }),
+        p("ok", "Ok", { status: "RUNNING" }),
+        p("none", "None", { status: null }),
+      ],
+      [],
+    );
+    expect(screen.getByText("ERROR")).toBeDefined();
+    expect(screen.getByText("RUNNING")).toBeDefined();
+  });
+
   it("expand-all / collapse-all controls work", () => {
     renderTree([p("r"), p("c")], [{ parentId: "r", childId: "c" }]);
     fireEvent.click(screen.getByRole("button", { name: /expand all/i }));

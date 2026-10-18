@@ -14,3 +14,9 @@ candidates, human-confirmed).
 **Rationale**: "Does the Payments product compose the Fraud product, or consume
 from it?" is a business/architecture decision, not something a GitHub importer
 can reliably infer. v1 keeps the importer contract clean.
+
+> **AMENDMENT ([ADR-113](./ADR-113-staged-edge-suggestions.md))**: "manual"
+> now means *human-decided*, not unassisted — ADR-113 adds staged,
+> server-generated `DEPENDS_ON` candidates reviewed in a queue; every edge
+> still requires human acceptance. Importer-declared candidates remain a
+> distinct v2 mechanism per constitution V.

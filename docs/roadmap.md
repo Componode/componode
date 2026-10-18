@@ -36,8 +36,16 @@ file tracks shipped and upcoming work — update it when a spec completes.
 - `018-edge-rule-ergonomics` — any product type may be a `COMPOSES` parent
   (ADR-109); `CONSUMES_FROM` → `PLATFORM` unchanged. Platforms can finally
   compose their parts.
+- `019-group-deps-health` — `DEPENDS_ON` may target a `ComponentGroup`
+  (ADR-110: persisted group edges, read-time expansion with `sources[]`
+  attribution, kind-discriminated removal, `componentIds[]` bulk wiring,
+  delete guards both directions) and every product gets a derived read-only
+  health rollup (ADR-112: production-first worst-of, `GONE`/`RETIRED`
+  excluded) on detail, list, and the dashboard attention feed.
 
 ## Next — v1.1
+
+Immediately next: `020-platform-product-workflow` heads the queue.
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list:

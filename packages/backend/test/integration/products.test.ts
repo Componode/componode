@@ -240,7 +240,12 @@ describe("product hierarchy API", () => {
     const body = res.json();
     expect(body.composes[0].slug).toBe("checkout-svc");
     expect(body.components.inherited).toHaveLength(1);
-    expect(body.components.inherited[0].via.slug).toBe("checkout-svc");
+    expect(
+      body.components.inherited[0].sources.some(
+        (s: { kind: string; product?: { slug: string } }) =>
+          s.kind === "INHERITED" && s.product?.slug === "checkout-svc",
+      ),
+    ).toBe(true);
 
     const missing = await app.inject({
       method: "GET",

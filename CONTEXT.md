@@ -94,6 +94,27 @@ planned decommission. Display-only — passing the date never changes
 lifecycle automatically.
 _Avoid_: end-of-life state, deprecation gate
 
+**Candidate edge**:
+A staged, server-generated suggestion that a product may `DEPENDS_ON` a
+component — computed from stored import data, reviewed in the Suggestions
+queue, and decided by a human (ADR-113). `PENDING` until accepted (a real
+edge) or dismissed; decided and superseded pairs never resurface.
+_Avoid_: auto-wiring, recommendation
+
+**Bootstrap import**:
+A one-shot curated upload of a YAML/JSON document declaring Digital
+Products and their `DEPENDS_ON` refs — the cold-start path for existing
+application inventories (ADR-114). Upserts products by slug; unresolved
+refs are reported, never fatal. Not a scheduled importer.
+_Avoid_: sync, migration
+
+**Catalog coverage**:
+Derived read-only metrics on how completely the catalog is wired — the
+share of active components with a product edge, and products without
+owner, dependencies, or description. A dashboard signal for the next
+curation action.
+_Avoid_: scorecard, maturity
+
 ## Decision rules
 
 **Product or Component?**

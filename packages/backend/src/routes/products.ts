@@ -214,15 +214,22 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
   );
 
   app.delete(
-    "/products/:id/depends-on/:componentId",
+    "/products/:id/depends-on/:targetId",
     { preHandler: [app.verifySession, requireRole("product:edge:remove")] },
     async (req: AuthenticatedRequest, reply: FastifyReply) => {
-      const { id, componentId } = req.params as {
+      const { id, targetId } = req.params as {
         id: string;
-        componentId: string;
+        targetId: string;
       };
+      const { kind } = req.query as { kind?: string };
+      if (kind !== undefined && kind !== "component" && kind !== "group") {
+        return reply.status(400).send({
+          code: "VALIDATION_FAILED",
+          message: "kind must be 'component' or 'group'",
+        });
+      }
       try {
-        await removeDependsOnEdge(id, componentId, actor(req));
+        await removeDependsOnEdge(id, targetId, kind ?? "component", actor(req));
         return reply.status(204).send();
       } catch (err) {
         return sendServiceError(reply, err);

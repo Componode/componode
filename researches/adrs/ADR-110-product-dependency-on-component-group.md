@@ -48,3 +48,10 @@ attribution on the product detail page.
 discovery-driven groups); persist both the group edge *and* materialized
 member edges — rejected (denormalization cost with no read benefit over
 expansion).
+
+> **AMENDMENT (2026-10-18 DPAM review grilling)**: the union input is
+> extended — the route may also accept `componentIds[]` (bulk component
+> targets in one request/transaction, one audit entry per edge). Still
+> exactly-one-of the three forms. Ratified in the same session as
+> [ADR-113](./ADR-113-staged-edge-suggestions.md); see
+> `researches/digital_product_concepts_review_research.md`.

@@ -34,8 +34,8 @@ export type { Person } from "./contracts/person.js";
 export type { Session } from "./contracts/session.js";
 export type { Component } from "./contracts/component.js";
 export type { ComponentInstance } from "./contracts/component-instance.js";
-export type { ComponentGroup } from "./contracts/component-group.js";
-export type { DigitalProduct } from "./contracts/digital-product.js";
+export type { ComponentGroup, ComponentGroupListItem } from "./contracts/component-group.js";
+export type { DigitalProduct, ProductHealth, ProductHealthStatus, DepSource, ProductGroupEdge } from "./contracts/digital-product.js";
 export type { LineOfBusiness } from "./contracts/line-of-business.js";
 export type { Team } from "./contracts/team.js";
 export type { ImporterConfig } from "./contracts/importer-config.js";
@@ -149,3 +149,5 @@ export type {
 export { validateDiscoveredAsset, validateDiscoveredAssetDetailed } from "./validation/discovered-asset.js";
 export type { ValidationResult } from "./validation/discovered-asset.js";
 export { isUrlAllowedForImport, assertUrlAllowedForImport, urlSafetyError } from "./validation/url-safety.js";
+export { computeProductHealth } from "./product-health.js";
+export type { ProductHealthInput } from "./product-health.js";

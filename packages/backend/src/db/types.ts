@@ -252,6 +252,7 @@ export interface JunctionRow {
   platformId?: string;
   productId?: string;
   componentId?: string;
+  componentGroupId?: string;
   serviceId?: string;
   repositoryId?: string;
   apiId?: string;
@@ -282,6 +283,7 @@ export interface DB {
   product_composes: JunctionRow;
   product_consumes_from: JunctionRow;
   product_depends_on_component: JunctionRow;
+  product_depends_on_component_group: JunctionRow;
   component_depends_on_component: JunctionRow;
   component_sources_from: JunctionRow;
   component_exposes: JunctionRow;

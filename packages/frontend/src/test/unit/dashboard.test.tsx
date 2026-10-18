@@ -30,6 +30,12 @@ const base = {
       href: "/importers/cfg1/runs/run1",
       at: "2026-09-07T09:00:00Z",
     },
+    {
+      kind: "PRODUCT_ERROR" as const,
+      label: "Payments",
+      href: "/products/payments",
+      at: "2026-09-07T09:05:00Z",
+    },
   ],
   lastRuns: [
     {
@@ -62,6 +68,8 @@ describe("DashboardPage", () => {
     renderPage();
     expect(screen.getByText("Attention needed")).toBeDefined();
     expect(screen.getByText("github / org-scan")).toBeDefined();
+    expect(screen.getByText("Product affected by error:")).toBeDefined();
+    expect(screen.getByText("Payments")).toBeDefined();
     expect(screen.getByText("Products")).toBeDefined();
     expect(screen.getByText("Components")).toBeDefined();
     expect(screen.getByText("Instances")).toBeDefined();

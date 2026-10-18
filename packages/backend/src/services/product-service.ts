@@ -7,9 +7,11 @@ import {
   type UpdateProductInput,
   type ListProductsQuery,
   type Link,
+  type DepSource,
 } from "@componode/core";
 import { db } from "../db/connection.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
+import { computeHealthForProducts } from "./product-health-service.js";
 
 const PRODUCT_SELECT = [
   "digital_products.id",
@@ -98,16 +100,25 @@ export async function listProducts(parsed: ListProductsQuery) {
 
   const products = await query.execute();
   const ids = products.map((p) => p.id);
-  const edges = ids.length
-    ? await db
-        .selectFrom("product_composes")
-        .select(["parentId", "childId"])
-        .where("parentId", "in", ids)
-        .where("childId", "in", ids)
-        .execute()
-    : [];
+  const [edges, healthByProduct] = await Promise.all([
+    ids.length
+      ? db
+          .selectFrom("product_composes")
+          .select(["parentId", "childId"])
+          .where("parentId", "in", ids)
+          .where("childId", "in", ids)
+          .execute()
+      : Promise.resolve([]),
+    computeHealthForProducts(ids),
+  ]);
 
-  return { products, edges };
+  return {
+    products: products.map((p) => ({
+      ...p,
+      status: healthByProduct.get(p.id)?.status ?? null,
+    })),
+    edges,
+  };
 }
 
 export async function getProductById(id: string) {
@@ -202,33 +213,141 @@ export async function getProductDetail(slug: string) {
         .execute()
     : [];
 
-  const declared = depRows
-    .filter((r) => r.viaId === product.id)
-    .map((r) => ({
-      id: r.id,
-      name: r.name,
-      slug: r.slug,
-      category: r.category,
-      lifecycle: r.lifecycle,
-    }));
-  const inherited = depRows
-    .filter((r) => r.viaId !== product.id)
-    .map((r) => ({
-      id: r.id,
-      name: r.name,
-      slug: r.slug,
-      category: r.category,
-      lifecycle: r.lifecycle,
-      via: { id: r.viaId, name: r.viaName, slug: r.viaSlug },
-    }));
+  // Group edges expand to current members at read time (ADR-110 §2).
+  const groupDepRows = allProductIds.length
+    ? await db
+        .selectFrom("product_depends_on_component_group")
+        .innerJoin(
+          "component_groups",
+          "product_depends_on_component_group.componentGroupId",
+          "component_groups.id",
+        )
+        .innerJoin(
+          "components",
+          "components.componentGroupId",
+          "component_groups.id",
+        )
+        .innerJoin(
+          "digital_products",
+          "product_depends_on_component_group.productId",
+          "digital_products.id",
+        )
+        .select([
+          "components.id",
+          "components.name",
+          "components.slug",
+          "components.category",
+          "components.lifecycle",
+          "component_groups.id as groupId",
+          "component_groups.name as groupName",
+          "component_groups.slug as groupSlug",
+          "digital_products.id as viaId",
+          "digital_products.name as viaName",
+          "digital_products.slug as viaSlug",
+        ])
+        .where("product_depends_on_component_group.productId", "in", allProductIds)
+        .execute()
+    : [];
 
-  const componentIds = [...new Set(depRows.map((r) => r.id))];
-  const viaByComponent = new Map<string, { id: string; name: string; slug: string }>();
-  const declaredComponentIds = new Set(declared.map((c) => c.id));
-  for (const r of depRows) {
-    if (!viaByComponent.has(r.id)) {
-      viaByComponent.set(r.id, { id: r.viaId, name: r.viaName, slug: r.viaSlug });
+  // Raw group edges of this product — surfaces empty groups too (spec 019).
+  const dependsOnGroups = await db
+    .selectFrom("product_depends_on_component_group")
+    .innerJoin(
+      "component_groups",
+      "product_depends_on_component_group.componentGroupId",
+      "component_groups.id",
+    )
+    .select((eb) => [
+      "component_groups.id",
+      "component_groups.name",
+      "component_groups.slug",
+      eb
+        .selectFrom("components")
+        .whereRef("components.componentGroupId", "=", "component_groups.id")
+        .select((eb2) => eb2.fn.countAll().as("c"))
+        .as("memberCount"),
+    ])
+    .where("product_depends_on_component_group.productId", "=", product.id)
+    .execute();
+
+  type DepEntry = {
+    id: string;
+    name: string;
+    slug: string;
+    category: string;
+    lifecycle: string;
+    sources: DepSource[];
+  };
+  const depMap = new Map<string, DepEntry>();
+
+  const sourceKey = (s: DepSource) =>
+    s.kind === "DIRECT"
+      ? "DIRECT"
+      : s.kind === "GROUP"
+        ? `GROUP:${s.group.id}`
+        : `INHERITED:${s.product.id}`;
+
+  function addDep(
+    c: { id: string; name: string; slug: string; category: string; lifecycle: string },
+    source: DepSource,
+  ) {
+    const entry =
+      depMap.get(c.id) ??
+      depMap
+        .set(c.id, { ...c, sources: [] })
+        .get(c.id)!;
+    const key = sourceKey(source);
+    if (!entry.sources.some((s) => sourceKey(s) === key)) {
+      entry.sources.push(source);
     }
+  }
+
+  for (const r of depRows) {
+    addDep(
+      r,
+      r.viaId === product.id
+        ? { kind: "DIRECT" }
+        : {
+            kind: "INHERITED",
+            product: { id: r.viaId, name: r.viaName, slug: r.viaSlug },
+          },
+    );
+  }
+  for (const r of groupDepRows) {
+    addDep(
+      r,
+      r.viaId === product.id
+        ? {
+            kind: "GROUP",
+            group: { id: r.groupId, name: r.groupName, slug: r.groupSlug },
+          }
+        : {
+            kind: "INHERITED",
+            product: { id: r.viaId, name: r.viaName, slug: r.viaSlug },
+          },
+    );
+  }
+
+  // declared = reachable via the product's own edges (direct or group);
+  // inherited = only reachable through COMPOSES descendants.
+  const declared: DepEntry[] = [];
+  const inherited: DepEntry[] = [];
+  for (const entry of depMap.values()) {
+    if (entry.sources.some((s) => s.kind !== "INHERITED")) {
+      declared.push(entry);
+    } else {
+      inherited.push(entry);
+    }
+  }
+
+  const componentIds = [...depMap.keys()];
+  const declaredComponentIds = new Set(declared.map((c) => c.id));
+  const viaByComponent = new Map<string, { id: string; name: string; slug: string }>();
+  for (const entry of inherited) {
+    const inheritedSource = entry.sources.find(
+      (s): s is Extract<DepSource, { kind: "INHERITED" }> => s.kind === "INHERITED",
+    );
+    if (inheritedSource) viaByComponent.set(entry.id, inheritedSource.product);
   }
 
   const instanceRows = componentIds.length
@@ -270,6 +389,11 @@ export async function getProductDetail(slug: string) {
     consumesFrom,
     consumedBy,
     components: { declared, inherited },
+    dependsOnGroups: dependsOnGroups.map((g) => ({
+      ...g,
+      memberCount: Number(g.memberCount),
+    })),
+    health: (await computeHealthForProducts([product.id])).get(product.id) ?? null,
     instances: { declared: declaredInstances, inherited: inheritedInstances },
     counts: {
       composedBy: composedBy.length,
@@ -282,13 +406,14 @@ export async function getProductDetail(slug: string) {
 
 /** Count every edge touching a product (delete guard, FR-004). */
 export async function countProductEdges(productId: string) {
-  const [composesAsParent, composesAsChild, consumesAsConsumer, consumesAsPlatform, dependsOn] =
+  const [composesAsParent, composesAsChild, consumesAsConsumer, consumesAsPlatform, dependsOn, dependsOnGroups] =
     await Promise.all([
       db.selectFrom("product_composes").where("parentId", "=", productId).select((eb) => eb.fn.countAll().as("n")).executeTakeFirstOrThrow(),
       db.selectFrom("product_composes").where("childId", "=", productId).select((eb) => eb.fn.countAll().as("n")).executeTakeFirstOrThrow(),
       db.selectFrom("product_consumes_from").where("consumerId", "=", productId).select((eb) => eb.fn.countAll().as("n")).executeTakeFirstOrThrow(),
       db.selectFrom("product_consumes_from").where("platformId", "=", productId).select((eb) => eb.fn.countAll().as("n")).executeTakeFirstOrThrow(),
       db.selectFrom("product_depends_on_component").where("productId", "=", productId).select((eb) => eb.fn.countAll().as("n")).executeTakeFirstOrThrow(),
+      db.selectFrom("product_depends_on_component_group").where("productId", "=", productId).select((eb) => eb.fn.countAll().as("n")).executeTakeFirstOrThrow(),
     ]);
   return {
     composes: Number(composesAsParent.n),
@@ -296,6 +421,7 @@ export async function countProductEdges(productId: string) {
     consumesFrom: Number(consumesAsConsumer.n),
     consumedBy: Number(consumesAsPlatform.n),
     dependsOn: Number(dependsOn.n),
+    dependsOnGroups: Number(dependsOnGroups.n),
   };
 }
 

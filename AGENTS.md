@@ -128,6 +128,8 @@ constitution.
   See `ADR-109`.
 - 1-to-many relationships are foreign keys; many-to-many are typed junction
   tables. No polymorphic `edges` table. See `ADR-048`.
+- `DEPENDS_ON` may target a `ComponentGroup` (ADR-110); product health is a
+  derived rollup over declared dep sources (ADR-112).
 
 ### Package dependencies
 
