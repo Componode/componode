@@ -27,6 +27,7 @@ export default defineConfig({
       {
         text: "Reference",
         items: [
+          { text: "Digital Products", link: "/digital-products" },
           { text: "Architecture", link: "/architecture" },
           { text: "API Reference", link: "/api" },
           { text: "OpenAPI Reference", link: "/openapi-reference" },
