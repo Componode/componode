@@ -9,8 +9,11 @@ digital product has a **type** (`BUSINESS_CAPABILITY`, `PLATFORM`, or
 This guide explains each type in plain English, classifies four familiar
 systems (internet banking, ERP, e-commerce, CRM), and shows how products are
 built from building blocks. The rules themselves are ratified in
-[ADR-018](../researches/adrs/ADR-018-product-types-enum-with-enforced-composition-rules.md);
-the canonical vocabulary is [CONTEXT.md](../CONTEXT.md).
+[ADR-018](https://github.com/Componode/componode/blob/main/researches/adrs/ADR-018-product-types-enum-with-enforced-composition-rules.md)
+and
+[ADR-109](https://github.com/Componode/componode/blob/main/researches/adrs/ADR-109-composes-parent-restriction-removed.md);
+the canonical vocabulary is
+[CONTEXT.md](https://github.com/Componode/componode/blob/main/CONTEXT.md).
 
 ## The vocabulary in one paragraph
 
@@ -305,7 +308,7 @@ Two workflows tie this together:
 2. **Promote shared things to platforms.** When several products depend on
    the same component, Componode surfaces it: *"payments-events is depended on
    by 4 business products — consider making it a platform product."* The
-   Platform Product workflow ([ADR-017](../researches/adrs/ADR-017-platform-product-workflow-full-guided-workflow-in-v1.md))
+   Platform Product workflow ([ADR-017](https://github.com/Componode/componode/blob/main/researches/adrs/ADR-017-platform-product-workflow-full-guided-workflow-in-v1.md))
    creates the `PLATFORM` product, rewires the consumers' edges to
    `CONSUMES_FROM`, and assigns an owner — turning ungoverned shared
    infrastructure into a managed product with a team behind it.
@@ -373,7 +376,7 @@ and named consumers — rather than merely paying for it.
 
 ## Related documents
 
-- [CONTEXT.md](../CONTEXT.md) — canonical vocabulary and `Avoid:` terms
+- [CONTEXT.md](https://github.com/Componode/componode/blob/main/CONTEXT.md) — canonical vocabulary and `Avoid:` terms
 - [docs/architecture.md](architecture.md) — runtime architecture and ER model
 - [docs/api.md](api.md) — product/edge endpoints and validation errors
-- [researches/architecture-decisions.md](../researches/architecture-decisions.md) — ADR index (ADR-015…019, ADR-049/050)
+- [researches/architecture-decisions.md](https://github.com/Componode/componode/blob/main/researches/architecture-decisions.md) — ADR index (ADR-015…019, ADR-049/050)
