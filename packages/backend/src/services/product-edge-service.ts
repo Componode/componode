@@ -64,15 +64,11 @@ async function assertNoCycle(parentId: string, childId: string) {
 
 export async function addComposesEdge(parentId: string, rawInput: unknown, actor: Actor) {
   const { childId } = addComposesEdgeSchema.parse(rawInput);
-  const parent = await getProductType(parentId);
+  // Any product type is a legal COMPOSES parent (ADR-109); guards are
+  // self-edge rejection and cycle detection only.
+  await getProductType(parentId); // existence check → 404
   await getProductType(childId); // existence check → 404
 
-  if (parent.type !== "BUSINESS_CAPABILITY" && parent.type !== "CUSTOMER_FACING") {
-    throw invalidEdge(
-      "COMPOSES parents must be BUSINESS_CAPABILITY or CUSTOMER_FACING",
-      "COMPOSES_PARENT_TYPE",
-    );
-  }
   if (parentId === childId) {
     throw invalidEdge("A product cannot compose itself", "SELF_EDGE");
   }

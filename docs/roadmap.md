@@ -33,6 +33,9 @@ file tracks shipped and upcoming work — update it when a spec completes.
   product criticality, and display-only `sunsetAt` on products and
   components (ADR-111). Importer reconciliation never clobbers curated
   fields.
+- `018-edge-rule-ergonomics` — any product type may be a `COMPOSES` parent
+  (ADR-109); `CONSUMES_FROM` → `PLATFORM` unchanged. Platforms can finally
+  compose their parts.
 
 ## Next — v1.1
 

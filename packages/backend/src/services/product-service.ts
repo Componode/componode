@@ -350,12 +350,9 @@ export async function createProduct(input: CreateProductInput, actor: Actor) {
 }
 
 /**
- * Type changes are guarded (grilling Q9-B): a new type must not invalidate
- * existing edges — PLATFORM can't be a COMPOSES parent; non-PLATFORM can't be
- * a CONSUMES_FROM target.
- * NOTE: the COMPOSES-parent restriction was rescinded by ADR-109 and is
- * scheduled for removal in spec 018-edge-rule-ergonomics; the guard is kept
- * until then to preserve current behavior.
+ * Type changes are guarded: a new type must not invalidate existing edges —
+ * non-PLATFORM can't be a CONSUMES_FROM target. Any type may be a COMPOSES
+ * parent (ADR-109), so retyping to PLATFORM is never blocked by children.
  */
 export async function updateProduct(id: string, input: UpdateProductInput, actor: Actor) {
   const existing = await getProductById(id);
@@ -366,21 +363,6 @@ export async function updateProduct(id: string, input: UpdateProductInput, actor
 
   if (parsed.type && parsed.type !== existing.type) {
     const offenders: Array<{ edgeType: string; otherId: string; otherName: string }> = [];
-    if (parsed.type === "PLATFORM") {
-      const children = await db
-        .selectFrom("product_composes")
-        .innerJoin("digital_products", "product_composes.childId", "digital_products.id")
-        .select(["digital_products.id", "digital_products.name"])
-        .where("product_composes.parentId", "=", id)
-        .execute();
-      offenders.push(
-        ...children.map((c) => ({
-          edgeType: "COMPOSES",
-          otherId: c.id,
-          otherName: c.name,
-        })),
-      );
-    }
     if (parsed.type !== "PLATFORM") {
       const consumers = await db
         .selectFrom("product_consumes_from")

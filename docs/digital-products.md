@@ -32,20 +32,21 @@ Importers fill in what *exists* (components, instances). Humans decide what it
 | `CUSTOMER_FACING` | Something your customers **touch** | The app, portal, or storefront they log into |
 | `PLATFORM` | Shared machinery that **powers** the others | "Identity Platform", "Event Backbone", "Payment Gateway Platform" — consumed, not browsed |
 
-Two edge types wire products together, and the types constrain them:
+Two edge types wire products together; only `CONSUMES_FROM` constrains types:
 
 ```mermaid
 flowchart LR
-    subgraph Parents["Can be a COMPOSES parent"]
+    subgraph Parents["Any product can be a COMPOSES parent (ADR-109)"]
         BC["BUSINESS_CAPABILITY"]
         CF["CUSTOMER_FACING"]
+        P["PLATFORM"]
     end
-    P["PLATFORM"]
 
     BC -->|"COMPOSES — is composed of"| Child["any product<br/>DAG, cycles rejected"]
     CF -->|"COMPOSES"| Child
-    BC -.->|"CONSUMES_FROM — shared platform"| P
-    CF -.->|"CONSUMES_FROM"| P
+    P -->|"COMPOSES"| Child
+    BC -.->|"CONSUMES_FROM — shared platform"| T["PLATFORM target"]
+    CF -.->|"CONSUMES_FROM"| T
     P -->|"DEPENDS_ON_COMPONENT"| C["Component"]
     BC -->|"DEPENDS_ON_COMPONENT"| C
     CF -->|"DEPENDS_ON_COMPONENT"| C
@@ -53,9 +54,10 @@ flowchart LR
 
 The rules (enforced by the API, not just convention):
 
-- **`COMPOSES`** — "parent is composed of child." The parent must be
-  `BUSINESS_CAPABILITY` or `CUSTOMER_FACING`. The graph is a **DAG**: a child
-  can serve many parents, but cycles are rejected (`409 CYCLE_DETECTED`).
+- **`COMPOSES`** — "parent is composed of child." Any product type may be a
+  parent (ADR-109 — a platform has parts too). The graph is a **DAG**: a
+  child can serve many parents, but cycles are rejected
+  (`409 CYCLE_DETECTED`).
 - **`CONSUMES_FROM`** — "product consumes a shared platform." The target must
   be `PLATFORM`. It is *never* drawn inside the composition tree — it's a
   different kind of relationship.

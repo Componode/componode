@@ -72,7 +72,6 @@ describe("EdgePicker type filtering", () => {
         <EdgePicker
           {...base}
           productId="bc"
-          productType="BUSINESS_CAPABILITY"
           target={{ kind: "composes", label: "Composes" }}
         />
       </MemoryRouter>,
@@ -85,13 +84,30 @@ describe("EdgePicker type filtering", () => {
     expect(labels).not.toContain("Old"); // RETIRED excluded
   });
 
+  it("composes picker is enabled for a PLATFORM parent (ADR-109)", () => {
+    render(
+      <MemoryRouter>
+        <EdgePicker
+          {...base}
+          productId="pl"
+          target={{ kind: "composes", label: "Composes" }}
+        />
+      </MemoryRouter>,
+    );
+    const select = screen.getByRole("combobox") as HTMLSelectElement;
+    expect(select.disabled).toBe(false);
+    expect(screen.queryByText(/only business capability/i)).toBeNull();
+    const labels = Array.from(select.querySelectorAll("option")).map((o) => o.textContent);
+    expect(labels).toContain("Cap");
+    expect(labels).not.toContain("Plat"); // self excluded
+  });
+
   it("consumes-from picker lists only active PLATFORM products", () => {
     render(
       <MemoryRouter>
         <EdgePicker
           {...base}
           productId="src"
-          productType="BUSINESS_CAPABILITY"
           target={{ kind: "consumes-from", label: "Consumes from" }}
         />
       </MemoryRouter>,
@@ -112,7 +128,6 @@ describe("EdgePicker type filtering", () => {
         <EdgePicker
           {...base}
           productId="src"
-          productType="BUSINESS_CAPABILITY"
           target={{ kind: "composes", label: "Composes" }}
           onAdd={onAdd}
         />

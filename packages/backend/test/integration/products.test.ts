@@ -250,7 +250,7 @@ describe("product hierarchy API", () => {
     expect(missing.statusCode).toBe(404);
   });
 
-  it("COMPOSES cycle → 409 CYCLE_DETECTED; PLATFORM parent → 422", async () => {
+  it("COMPOSES cycle → 409 CYCLE_DETECTED; PLATFORM parent → 204; self-edge → 422 (ADR-109)", async () => {
     const a = await mkProduct(testDb, {
       name: "Cap A",
       slug: "cap-a",
@@ -281,14 +281,22 @@ describe("product hierarchy API", () => {
       slug: "plat",
       type: "PLATFORM",
     });
-    const badParent = await app.inject({
+    const platformParent = await app.inject({
       method: "POST",
       url: `/api/v1/products/${platform}/composes`,
       ...authed(editorSession),
       payload: { childId: b },
     });
-    expect(badParent.statusCode).toBe(422);
-    expect(badParent.json().code).toBe("INVALID_EDGE_TYPE");
+    expect(platformParent.statusCode).toBe(204);
+
+    const selfEdge = await app.inject({
+      method: "POST",
+      url: `/api/v1/products/${platform}/composes`,
+      ...authed(editorSession),
+      payload: { childId: platform },
+    });
+    expect(selfEdge.statusCode).toBe(422);
+    expect(selfEdge.json().code).toBe("INVALID_EDGE_TYPE");
   });
 
   it("CONSUMES_FROM requires PLATFORM target; DEPENDS_ON works", async () => {
@@ -333,7 +341,7 @@ describe("product hierarchy API", () => {
     expect(dep.statusCode).toBe(204);
   });
 
-  it("type change blocked when it would invalidate edges; delete guarded", async () => {
+  it("retype to PLATFORM keeps COMPOSES children (ADR-109); CONSUMES_FROM target retype still blocked; delete guarded", async () => {
     const parent = await mkProduct(testDb, {
       name: "P",
       slug: "p-cap",
@@ -349,14 +357,41 @@ describe("product hierarchy API", () => {
       .values({ parentId: parent, childId: child })
       .execute();
 
+    // Retype to PLATFORM is allowed now — composes edges stay valid
     const typeChange = await app.inject({
       method: "PATCH",
       url: `/api/v1/products/${parent}`,
       ...authed(editorSession),
       payload: { type: "PLATFORM" },
     });
-    expect(typeChange.statusCode).toBe(409);
-    expect(typeChange.json().code).toBe("TYPE_CHANGE_BLOCKED");
+    expect(typeChange.statusCode).toBe(200);
+    const stillComposes = await testDb.db
+      .selectFrom("product_composes")
+      .selectAll()
+      .where("parentId", "=", parent)
+      .where("childId", "=", child)
+      .executeTakeFirst();
+    expect(stillComposes).toBeTruthy();
+
+    // CONSUMES_FROM target rule unchanged: retyping the target away → 409
+    const consumer = await mkProduct(testDb, {
+      name: "Cons",
+      slug: "cons-x",
+      type: "BUSINESS_CAPABILITY",
+    });
+    await testDb.db
+      .insertInto("product_consumes_from")
+      .values({ consumerId: consumer, platformId: child })
+      .execute();
+    const targetRetype = await app.inject({
+      method: "PATCH",
+      url: `/api/v1/products/${child}`,
+      ...authed(editorSession),
+      payload: { type: "BUSINESS_CAPABILITY" },
+    });
+    expect(targetRetype.statusCode).toBe(409);
+    expect(targetRetype.json().code).toBe("TYPE_CHANGE_BLOCKED");
+    expect(JSON.stringify(targetRetype.json().details)).toContain("CONSUMES_FROM");
 
     const delWired = await app.inject({
       method: "DELETE",
