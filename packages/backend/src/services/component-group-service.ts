@@ -2,10 +2,11 @@ import { uuidv7 } from "uuidv7";
 import {
   createComponentGroupSchema,
   updateComponentGroupSchema,
-  updateComponentGroupAssignmentSchema,
+  updateComponentSchema,
   type CreateComponentGroupInput,
   type UpdateComponentGroupInput,
-  type UpdateComponentGroupAssignmentInput,
+  type UpdateComponentInput,
+  type Link,
   type ListComponentGroupsQuery,
   listComponentGroupsQuerySchema,
 } from "@componode/core";
@@ -237,12 +238,12 @@ export async function deleteComponentGroup(id: string, actor: Actor) {
   });
 }
 
-export async function assignComponentGroup(
+export async function updateComponent(
   componentId: string,
-  input: UpdateComponentGroupAssignmentInput,
+  input: UpdateComponentInput,
   actor: Actor,
 ) {
-  const parsed = updateComponentGroupAssignmentSchema.parse(input);
+  const parsed = updateComponentSchema.parse(input);
 
   if (parsed.teamOwnerId) {
     const team = await db
@@ -284,6 +285,10 @@ export async function assignComponentGroup(
   if (parsed.componentGroupId !== undefined)
     updates.componentGroupId = parsed.componentGroupId;
   if (parsed.teamOwnerId !== undefined) updates.teamOwnerId = parsed.teamOwnerId;
+  if (parsed.links !== undefined)
+    updates.links = JSON.stringify(parsed.links) as unknown as Link[];
+  if (parsed.tags !== undefined) updates.tags = parsed.tags;
+  if (parsed.sunsetAt !== undefined) updates.sunsetAt = parsed.sunsetAt;
   if (Object.keys(updates).length === 0) {
     return getComponentGroupByComponentId(componentId);
   }
@@ -319,8 +324,18 @@ async function getComponentGroupByComponentIdWithTrx(
     .leftJoin("component_groups", "components.componentGroupId", "component_groups.id")
     .select([
       "components.id",
-      "component_groups.id as componentGroupId",
+      "components.name",
+      "components.slug",
+      "components.category",
+      "components.provider",
+      "components.resourceType",
+      "components.lifecycle",
+      "components.componentGroupId",
       "component_groups.name as componentGroupName",
+      "components.teamOwnerId",
+      "components.links",
+      "components.tags",
+      "components.sunsetAt",
     ])
     .where("components.id", "=", componentId)
     .executeTakeFirst();

@@ -613,6 +613,13 @@ paths:
           name: lifecycle
           schema: { $ref: '#/components/schemas/Lifecycle' }
         - in: query
+          name: tag
+          schema: { type: string, maxLength: 32 }
+          description: Exact-match filter on a single tag
+        - in: query
+          name: criticality
+          schema: { $ref: '#/components/schemas/ProductCriticality' }
+        - in: query
           name: includeRetired
           schema: { type: string, enum: ['true', 'false'] }
       responses:
@@ -903,6 +910,10 @@ paths:
               - { type: string }
               - { type: array, items: { type: string } }
         - in: query
+          name: tag
+          schema: { type: string, maxLength: 32 }
+          description: Exact-match filter on a single tag
+        - in: query
           name: search
           schema: { type: string, maxLength: 100 }
         - in: query
@@ -944,9 +955,13 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [Components]
-      summary: Update component group/team assignment
+      summary: Update component assignment and curated metadata
       x-permission: "component:update"
-      description: Requires the `component:update` role (Editor+).
+      description: >-
+        Requires the `component:update` role (Editor+). Accepts group/team
+        assignment plus curated metadata (`links`, `tags`, `sunsetAt`).
+        Importer-owned fields are not writable here; omitted fields are
+        left unchanged, `null` clears nullable fields.
       parameters:
         - { $ref: '#/components/parameters/Id' }
       requestBody:
@@ -955,9 +970,19 @@ paths:
           application/json:
             schema:
               type: object
+              additionalProperties: false
               properties:
                 componentGroupId: { type: string, format: uuid, nullable: true }
                 teamOwnerId: { type: string, format: uuid, nullable: true }
+                links:
+                  type: array
+                  maxItems: 20
+                  items: { $ref: '#/components/schemas/Link' }
+                tags:
+                  type: array
+                  maxItems: 20
+                  items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
+                sunsetAt: { type: string, format: date-time, nullable: true }
       responses:
         '200':
           description: Updated component
@@ -2195,6 +2220,16 @@ components:
         database: { type: string, enum: [connected, disconnected] }
         uptime: { type: number }
         version: { type: string }
+    Link:
+      type: object
+      required: [title, url]
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 80 }
+        url: { type: string, format: uri, description: 'http(s) URLs only' }
+    ProductCriticality:
+      type: string
+      enum: [CRITICAL, HIGH, MEDIUM, LOW]
     DigitalProduct:
       type: object
       properties:
@@ -2206,6 +2241,14 @@ components:
         lifecycle: { $ref: '#/components/schemas/Lifecycle' }
         lobOwnerId: { type: string, format: uuid, nullable: true }
         teamOwnerId: { type: string, format: uuid, nullable: true }
+        links:
+          type: array
+          items: { $ref: '#/components/schemas/Link' }
+        tags:
+          type: array
+          items: { type: string }
+        criticality: { $ref: '#/components/schemas/ProductCriticality', nullable: true }
+        sunsetAt: { type: string, format: date-time, nullable: true }
         createdBy: { type: string, format: uuid, nullable: true }
         updatedBy: { type: string, format: uuid, nullable: true }
         createdAt: { type: string, format: date-time }
@@ -2225,6 +2268,16 @@ components:
         description: { type: string, maxLength: 2000, nullable: true }
         lobOwnerId: { type: string, format: uuid, nullable: true }
         teamOwnerId: { type: string, format: uuid, nullable: true }
+        links:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/Link' }
+        tags:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
+        criticality: { $ref: '#/components/schemas/ProductCriticality', nullable: true }
+        sunsetAt: { type: string, format: date-time, nullable: true }
     UpdateProduct:
       type: object
       additionalProperties: false
@@ -2239,6 +2292,16 @@ components:
         lifecycle: { $ref: '#/components/schemas/Lifecycle' }
         lobOwnerId: { type: string, format: uuid, nullable: true }
         teamOwnerId: { type: string, format: uuid, nullable: true }
+        links:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/Link' }
+        tags:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
+        criticality: { $ref: '#/components/schemas/ProductCriticality', nullable: true }
+        sunsetAt: { type: string, format: date-time, nullable: true }
     Component:
       type: object
       properties:
@@ -2253,6 +2316,13 @@ components:
         componentGroupId: { type: string, format: uuid, nullable: true }
         externalId: { type: string, nullable: true }
         details: { type: object, nullable: true }
+        links:
+          type: array
+          items: { $ref: '#/components/schemas/Link' }
+        tags:
+          type: array
+          items: { type: string }
+        sunsetAt: { type: string, format: date-time, nullable: true }
         lastSeenAt: { type: string, format: date-time, nullable: true }
         lastSeenInRunId: { type: string, format: uuid, nullable: true }
         createdBy: { type: string, format: uuid, nullable: true }

@@ -1,9 +1,9 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { listComponentsQuerySchema, updateComponentGroupAssignmentSchema } from "@componode/core";
+import { listComponentsQuerySchema, updateComponentSchema } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
 import { listComponents, getComponentById } from "../services/component-catalog-service.js";
-import { assignComponentGroup } from "../services/component-group-service.js";
+import { updateComponent } from "../services/component-group-service.js";
 import { toActor } from "../services/actor.js";
 
 export async function componentRoutes(app: FastifyInstance): Promise<void> {
@@ -22,7 +22,7 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [app.verifySession, requireRole("component:update")],
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const { id } = req.params as { id: string };
-    const parsed = updateComponentGroupAssignmentSchema.safeParse(req.body);
+    const parsed = updateComponentSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send({
         code: "VALIDATION_FAILED",
@@ -32,7 +32,7 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
-      const result = await assignComponentGroup(id, parsed.data, toActor(req));
+      const result = await updateComponent(id, parsed.data, toActor(req));
       return reply.status(200).send({ component: result });
     } catch (err) {
       const error = err as { statusCode?: number; code?: string; message?: string };

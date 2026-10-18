@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { linksSchema, tagSchema, tagsSchema } from "./metadata.js";
 
 const lifecycleEnum = ["ACTIVE", "RETIRED"] as [string, ...string[]];
 
@@ -19,6 +20,7 @@ export const listComponentsQuerySchema = z.object({
   status: stringOrStringArray,
   componentGroup: stringOrStringArray,
   group: stringOrStringArray,
+  tag: tagSchema.optional(),
   search: z.string().max(100).optional(),
   sort: z.enum(["name", "lastSeenAt", "createdAt"]).default("name"),
   order: z.enum(["asc", "desc"]).default("asc"),
@@ -30,6 +32,15 @@ export const updateComponentGroupAssignmentSchema = z.object({
   componentGroupId: z.string().uuid().nullable().optional(),
   teamOwnerId: z.string().uuid().nullable().optional(),
 });
+
+/** General component update (spec 017): group/owner assignment plus curated metadata. */
+export const updateComponentSchema = updateComponentGroupAssignmentSchema
+  .extend({
+    links: linksSchema.optional(),
+    tags: tagsSchema.optional(),
+    sunsetAt: z.string().datetime({ offset: true }).nullable().optional(),
+  })
+  .strict();
 
 export const createComponentGroupSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name must be 100 characters or less"),
@@ -50,6 +61,7 @@ export const listComponentGroupsQuerySchema = z.object({
 
 export type ListComponentsQuery = z.infer<typeof listComponentsQuerySchema>;
 export type UpdateComponentGroupAssignmentInput = z.infer<typeof updateComponentGroupAssignmentSchema>;
+export type UpdateComponentInput = z.infer<typeof updateComponentSchema>;
 export type CreateComponentGroupInput = z.infer<typeof createComponentGroupSchema>;
 export type UpdateComponentGroupInput = z.infer<typeof updateComponentGroupSchema>;
 export type ListComponentGroupsQuery = z.infer<typeof listComponentGroupsQuerySchema>;

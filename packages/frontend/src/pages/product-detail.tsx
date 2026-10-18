@@ -30,6 +30,10 @@ import { PageSkeleton } from "@/components/states/skeletons";
 import { ErrorState } from "@/components/states/error-state";
 import { Forbidden } from "@/components/states/forbidden";
 import { StatusBadge } from "@/components/states/status-badge";
+import { LinksCard } from "@/components/metadata/links-card";
+import { TagChips } from "@/components/metadata/tags-input";
+import { CriticalityBadge } from "@/components/metadata/criticality-badge";
+import { SunsetBadge } from "@/components/metadata/sunset-badge";
 import { relativeTime, absoluteTime, MONO_CLASS } from "@/lib/format";
 import { useSetCrumbLabel } from "@/components/layout/crumb-context";
 import { ProductForm } from "@/components/products/product-form";
@@ -269,10 +273,13 @@ export function ProductDetailPage() {
                 className="font-normal"
               />
               <StatusBadge status={product.lifecycle} />
+              <CriticalityBadge criticality={product.criticality} />
+              <SunsetBadge sunsetAt={product.sunsetAt} lifecycle={product.lifecycle} />
             </div>
             <p className={cn("text-sm text-muted-foreground", MONO_CLASS)}>
               {product.slug}
             </p>
+            <TagChips tags={product.tags ?? []} className="mt-1" />
           </div>
           {editor && (
             <div className="flex gap-2">
@@ -369,6 +376,7 @@ export function ProductDetailPage() {
               <p>Instances: {data.counts.instances}</p>
             </CardContent>
           </Card>
+          <LinksCard links={product.links ?? []} />
         </div>
       )}
 

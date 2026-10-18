@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { ChevronRight, ChevronDown, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/states/status-badge";
+import { CriticalityBadge } from "@/components/metadata/criticality-badge";
+import { SunsetBadge } from "@/components/metadata/sunset-badge";
 import { cn } from "@/lib/utils";
 import type { DigitalProduct } from "@/api/types";
 
@@ -127,6 +129,8 @@ export function ProductTree({ products, edges, flattened = false, onContextMenu 
             />
           )}
           <span className="ml-auto flex items-center gap-2">
+            <CriticalityBadge criticality={product.criticality} />
+            <SunsetBadge sunsetAt={product.sunsetAt} lifecycle={product.lifecycle} />
             <StatusBadge status={product.type} className="font-normal" />
             <StatusBadge status={product.lifecycle} />
           </span>

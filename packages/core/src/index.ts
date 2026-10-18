@@ -13,6 +13,8 @@ export { INSTANCE_STATUS, INSTANCE_STATUS_META } from "./constants/instance-stat
 export type { InstanceStatus } from "./constants/instance-status.js";
 export { PRODUCT_TYPES, PRODUCT_TYPE_META } from "./constants/product-types.js";
 export type { ProductType } from "./constants/product-types.js";
+export { CRITICALITIES, CRITICALITY_META } from "./constants/criticality.js";
+export type { ProductCriticality } from "./constants/criticality.js";
 export { RELATIONSHIP_TYPES, RELATIONSHIP_TYPE_META } from "./constants/relationship-types.js";
 export type { RelationshipType } from "./constants/relationship-types.js";
 export { IMPORT_RUN_STATUS, IMPORT_RUN_STATUS_META } from "./constants/import-run-status.js";
@@ -82,8 +84,16 @@ export {
   correctionInputSchema,
 } from "./schemas/audit.js";
 export {
+  linkSchema,
+  linksSchema,
+  tagSchema,
+  tagsSchema,
+} from "./schemas/metadata.js";
+export type { Link } from "./schemas/metadata.js";
+export {
   listComponentsQuerySchema,
   updateComponentGroupAssignmentSchema,
+  updateComponentSchema,
   createComponentGroupSchema,
   updateComponentGroupSchema,
   listComponentGroupsQuerySchema,
@@ -93,6 +103,7 @@ export type { SearchQuery } from "./schemas/search.js";
 export {
   productTypeSchema,
   productLifecycleSchema,
+  productCriticalitySchema,
   createProductSchema,
   updateProductSchema,
   listProductsQuerySchema,
@@ -110,6 +121,7 @@ export type { CreateOrgEntityInput, UpdateOrgEntityInput } from "./schemas/org.j
 export type {
   ListComponentsQuery,
   UpdateComponentGroupAssignmentInput,
+  UpdateComponentInput,
   CreateComponentGroupInput,
   UpdateComponentGroupInput,
   ListComponentGroupsQuery,

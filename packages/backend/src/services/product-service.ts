@@ -1,3 +1,4 @@
+import { sql, type SqlBool } from "kysely";
 import { uuidv7 } from "uuidv7";
 import {
   createProductSchema,
@@ -5,6 +6,7 @@ import {
   type CreateProductInput,
   type UpdateProductInput,
   type ListProductsQuery,
+  type Link,
 } from "@componode/core";
 import { db } from "../db/connection.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
@@ -18,6 +20,10 @@ const PRODUCT_SELECT = [
   "digital_products.lifecycle",
   "digital_products.lobOwnerId",
   "digital_products.teamOwnerId",
+  "digital_products.links",
+  "digital_products.tags",
+  "digital_products.criticality",
+  "digital_products.sunsetAt",
   "line_of_businesses.name as lobOwnerName",
   "teams.name as teamOwnerName",
   "digital_products.createdAt",
@@ -71,6 +77,14 @@ export async function listProducts(parsed: ListProductsQuery) {
   }
   if (parsed.type) {
     query = query.where("digital_products.type", "=", parsed.type);
+  }
+  if (parsed.tag) {
+    query = query.where(
+      sql<SqlBool>`digital_products.tags @> ARRAY[${parsed.tag}]::text[]`,
+    );
+  }
+  if (parsed.criticality) {
+    query = query.where("digital_products.criticality", "=", parsed.criticality);
   }
   if (parsed.q) {
     const like = `${parsed.q}%`;
@@ -310,6 +324,10 @@ export async function createProduct(input: CreateProductInput, actor: Actor) {
         lifecycle: "ACTIVE",
         lobOwnerId: parsed.lobOwnerId ?? null,
         teamOwnerId: parsed.teamOwnerId ?? null,
+        links: JSON.stringify(parsed.links ?? []) as unknown as Link[],
+        tags: parsed.tags ?? [],
+        criticality: parsed.criticality ?? null,
+        sunsetAt: parsed.sunsetAt ?? null,
         createdBy: actor.id,
         updatedBy: null,
         createdAt: now,
@@ -335,6 +353,9 @@ export async function createProduct(input: CreateProductInput, actor: Actor) {
  * Type changes are guarded (grilling Q9-B): a new type must not invalidate
  * existing edges — PLATFORM can't be a COMPOSES parent; non-PLATFORM can't be
  * a CONSUMES_FROM target.
+ * NOTE: the COMPOSES-parent restriction was rescinded by ADR-109 and is
+ * scheduled for removal in spec 018-edge-rule-ergonomics; the guard is kept
+ * until then to preserve current behavior.
  */
 export async function updateProduct(id: string, input: UpdateProductInput, actor: Actor) {
   const existing = await getProductById(id);
@@ -390,6 +411,11 @@ export async function updateProduct(id: string, input: UpdateProductInput, actor
   if (parsed.description !== undefined) updates.description = parsed.description;
   if (parsed.lobOwnerId !== undefined) updates.lobOwnerId = parsed.lobOwnerId;
   if (parsed.teamOwnerId !== undefined) updates.teamOwnerId = parsed.teamOwnerId;
+  if (parsed.links !== undefined)
+    updates.links = JSON.stringify(parsed.links) as unknown as Link[];
+  if (parsed.tags !== undefined) updates.tags = parsed.tags;
+  if (parsed.criticality !== undefined) updates.criticality = parsed.criticality;
+  if (parsed.sunsetAt !== undefined) updates.sunsetAt = parsed.sunsetAt;
   if (Object.keys(updates).length === 0) return existing;
 
   const prevLifecycle = existing.lifecycle;

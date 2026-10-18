@@ -68,6 +68,10 @@ export interface DigitalProductRow {
   lifecycle: string;
   lobOwnerId: string | null;
   teamOwnerId: string | null;
+  links: Generated<{ title: string; url: string }[]>;
+  tags: Generated<string[]>;
+  criticality: string | null;
+  sunsetAt: string | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: Generated<string>;
@@ -86,6 +90,9 @@ export interface ComponentRow {
   componentGroupId: string | null;
   externalId: string | null;
   details: Record<string, unknown> | null;
+  links: Generated<{ title: string; url: string }[]>;
+  tags: Generated<string[]>;
+  sunsetAt: string | null;
   lastSeenAt: string | null;
   lastSeenInRunId: string | null;
   createdBy: string | null;

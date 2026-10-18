@@ -1,3 +1,4 @@
+import { sql, type SqlBool } from "kysely";
 import { db } from "../db/connection.js";
 import { listComponentsQuerySchema, type ListComponentsQuery } from "@componode/core";
 
@@ -90,6 +91,12 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
     }
   }
 
+  if (parsed.tag) {
+    query = query.where(
+      sql<SqlBool>`components.tags @> ARRAY[${parsed.tag}]::text[]`,
+    );
+  }
+
   if (parsed.search) {
     const term = parsed.search;
     query = query.where((eb) =>
@@ -129,6 +136,9 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
       "component_groups.name as componentGroupName",
       "components.teamOwnerId",
       "teams.name as teamOwnerName",
+      "components.links",
+      "components.tags",
+      "components.sunsetAt",
       eb
         .selectFrom("component_instances")
         .select((eb2) => eb2.fn.count("component_instances.id").as("count"))
@@ -177,6 +187,9 @@ export async function getComponentById(id: string) {
       "teams.name as teamOwnerName",
       "components.externalId",
       "components.details",
+      "components.links",
+      "components.tags",
+      "components.sunsetAt",
       "components.lastSeenAt",
       "components.createdAt",
       "components.updatedAt",
