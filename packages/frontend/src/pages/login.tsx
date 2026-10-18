@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type ApiError } from "@/api/client";
+import { useLogin } from "@/api/hooks/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,9 +14,10 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [oidcEnabled, setOidcEnabled] = useState(false);
+  const login = useLogin();
 
   useEffect(() => {
-    api<OidcStatus>("/settings/oidc/status")
+    api<OidcStatus>("/auth/oidc/status")
       .then((data) => setOidcEnabled(data.enabled === true))
       .catch(() => setOidcEnabled(false));
   }, []);
@@ -26,10 +28,7 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      await api("/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ username, password }),
-      });
+      await login.mutateAsync({ username, password });
       navigate("/");
     } catch (err) {
       const apiErr = err as ApiError;

@@ -47,7 +47,7 @@ export function useUpdateOidcConfig() {
 export function useOidcStatus() {
   return useQuery({
     queryKey: ["settings", "oidc", "status"],
-    queryFn: () => api<OidcStatus>("/settings/oidc/status"),
+    queryFn: () => api<OidcStatus>("/auth/oidc/status"),
     retry: false,
   });
 }

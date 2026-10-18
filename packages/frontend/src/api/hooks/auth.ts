@@ -34,16 +34,24 @@ export interface LoginVariables {
   password: string;
 }
 
+interface LoginResponse {
+  user: User;
+  csrfToken: string;
+}
+
 export function useLogin() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (vars: LoginVariables) =>
-      api<void>("/auth/login", {
+      api<LoginResponse>("/auth/login", {
         method: "POST",
         body: JSON.stringify(vars),
       }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["auth", "session"] });
+    onSuccess: (data) => {
+      // Seed the session cache directly: invalidation alone leaves the stale
+      // unauthenticated `null` in place long enough for AuthGuard to bounce
+      // the fresh login back to /login.
+      qc.setQueryData(["auth", "session"], data.user);
     },
   });
 }
