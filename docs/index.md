@@ -21,6 +21,7 @@ Componode helps you model your **Digital Products** — applications, solutions,
 
 ## Reference
 
+- [Digital products & composition](digital-products.md)
 - [Architecture overview](architecture.md)
 - [API reference](api.md)
 - [OpenAPI reference](openapi-reference.md)

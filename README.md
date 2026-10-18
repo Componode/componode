@@ -68,6 +68,7 @@ databases, TLS, reverse proxies, and OIDC setup.
 | [docs/api.md](docs/api.md) | Human-readable API reference (generated from OpenAPI) |
 | [docs/openapi.yaml](docs/openapi.yaml) | Machine-readable OpenAPI 3.0 spec |
 | [docs/importer-development.md](docs/importer-development.md) | How to write an importer |
+| [docs/digital-products.md](docs/digital-products.md) | Product types & composition — plain-English guide with examples |
 | [docs/architecture.md](docs/architecture.md) | Architecture overview |
 | [docs/ux.md](docs/ux.md) | UX/UI conventions and deferred UI work |
 | [docs/release.md](docs/release.md) | Changesets and release process |
@@ -98,6 +99,11 @@ require the `componode_csrf` cookie plus an `x-csrf-token` header.
 - **Importer**: a pull-only `AsyncGenerator<DiscoveredAsset>` that reads an
   external source and yields normalized assets. Importers never touch the
   database — the core owns upsert, dedup, reconciliation, and run history.
+
+> **New to the model?** [docs/digital-products.md](docs/digital-products.md)
+> walks through the product types, composition edges, and component
+> inventories with plain-English scenarios — internet banking, ERP,
+> e-commerce, and CRM — and diagrams for each.
 
 ## Technology stack
 
