@@ -1,7 +1,8 @@
 # Componode — Architecture Decisions Record
 
 > **Sessions**: 2026-08-16 grilling sessions (Session 1: ADR-001–032,
-> Session 2 Architecture: ADR-033–083, Session 2 Security: ADR-084–102)
+> Session 2 Architecture: ADR-033–083, Session 2 Security: ADR-084–102),
+> Practical DPAM improvements: ADR-109–112
 > **Status**: Ratified — these decisions are the foundation for Componode v1.
 > **How to use**: Each ADR is in its own file under `researches/adrs/`.
 > Read the relevant ADRs before starting implementation work. Changes to any
@@ -44,6 +45,10 @@
 | [ADR-019](./adrs/ADR-019-hierarchy-authoring-manual-for-v1.md) | Hierarchy authoring: manual for v1 |
 | [ADR-020](./adrs/ADR-020-ownership-lineofbusiness-team-person.md) | Ownership: LineOfBusiness + Team + Person |
 | [ADR-021](./adrs/ADR-021-risk-deferred-entirely-from-v1.md) | Risk: deferred entirely from v1 |
+| [ADR-109](./adrs/ADR-109-composes-parent-restriction-removed.md) | COMPOSES parent-type restriction removed (amends ADR-018) |
+| [ADR-110](./adrs/ADR-110-product-dependency-on-component-group.md) | Product dependency may target a ComponentGroup (amends ADR-015) |
+| [ADR-111](./adrs/ADR-111-practical-catalog-metadata.md) | Practical catalog metadata: links, tags, criticality, sunset date |
+| [ADR-112](./adrs/ADR-112-product-health-rollup.md) | Derived product health from component instance status |
 
 ### Importer Framework
 
@@ -171,6 +176,7 @@
 | `COMPOSES` | DigitalProduct → DigitalProduct | Parent composes child (hierarchy) | **DAG**: child has many parents; parent has many children (ADR-049) |
 | `CONSUMES_FROM` | DigitalProduct → DigitalProduct | Business product consumes shared platform product | Many consumers, one platform |
 | `DEPENDS_ON` | DigitalProduct → Component | Product depends on component | Many-to-many |
+| `DEPENDS_ON` | DigitalProduct → ComponentGroup | Product depends on a group (expands to member components, ADR-110) | Many-to-many |
 | `DEPENDS_ON` | Component → Component | Component depends on component (shared deps) | Many-to-many |
 | `SOURCES_FROM` | Component → Component | Code provenance (service → repository) | Many-to-many |
 | `EXPOSES` | Component → Component | Service exposes an API | Many-to-many |

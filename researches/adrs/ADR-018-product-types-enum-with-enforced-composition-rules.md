@@ -21,3 +21,9 @@ type, `CONSUMES_FROM` collapses into a synonym for `COMPOSES`.
 > have many parents (a shared platform product composed into multiple business
 > capabilities). See [ADR-049](./ADR-049-composes-hierarchy-dag-with-unlimited-depth.md) for the full rationale and the cycle-detection
 > strategy ([ADR-050](./ADR-050-composes-cycle-detection-implementation.md)). The relationship table in the ADR index has been corrected.
+
+> **AMENDMENT ([ADR-109](./ADR-109-composes-parent-restriction-removed.md))**: The
+> rule `COMPOSES parent ∈ {BUSINESS_CAPABILITY, CUSTOMER_FACING}` is removed —
+> any product type may be a `COMPOSES` parent (platforms have parts; children
+> were already unrestricted). Cycle detection and the `CONSUMES_FROM` target
+> rule are unchanged.
