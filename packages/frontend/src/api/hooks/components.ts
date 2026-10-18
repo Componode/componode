@@ -1,6 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import type { ComponentWithInstances, ComponentGroup, ComponentListResponse } from "@/api/types";
+import type {
+  ComponentWithInstances,
+  ComponentGroup,
+  ComponentListResponse,
+  ComponentDependent,
+  PlatformCandidate,
+  PromoteToPlatformInput,
+  PromoteToPlatformResult,
+} from "@/api/types";
 
 export interface ComponentListFilters {
   page?: number;
@@ -60,6 +68,47 @@ export function useUpdateComponent() {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["components"] });
+    },
+  });
+}
+
+/** ADR-017 detection: components depended on by ≥2 active products. */
+export function usePlatformCandidates() {
+  return useQuery({
+    queryKey: ["platform-candidates"],
+    queryFn: () =>
+      api<{ candidates: PlatformCandidate[] }>(
+        "/components/platform-candidates",
+      ),
+    select: (d) => d.candidates,
+  });
+}
+
+/** Active products with a direct DEPENDS_ON edge on the component. */
+export function useComponentDependents(id: string | null) {
+  return useQuery({
+    queryKey: ["component-dependents", id],
+    queryFn: () =>
+      api<{ dependents: ComponentDependent[] }>(`/components/${id}/dependents`),
+    enabled: id !== null,
+    select: (d) => d.dependents,
+  });
+}
+
+export function usePromoteComponent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: string; input: PromoteToPlatformInput }) =>
+      api<PromoteToPlatformResult>(`/components/${vars.id}/promote-to-platform`, {
+        method: "POST",
+        body: JSON.stringify(vars.input),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["platform-candidates"] });
+      qc.invalidateQueries({ queryKey: ["component-dependents"] });
+      qc.invalidateQueries({ queryKey: ["components"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
     },
   });
 }

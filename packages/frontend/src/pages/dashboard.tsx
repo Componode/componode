@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -13,8 +14,10 @@ import { CardGridSkeleton, TableSkeleton } from "@/components/states/skeletons";
 import { ErrorState } from "@/components/states/error-state";
 import { StatusBadge } from "@/components/states/status-badge";
 import { ImporterRunChart } from "@/components/importer-run-chart";
+import { PlatformCandidatesSection } from "@/components/platform-candidates";
+import { PromoteToPlatformDialog } from "@/components/products/promote-to-platform-dialog";
 import { relativeTime, absoluteTime } from "@/lib/format";
-import type { AttentionItem } from "@/api/types";
+import type { AttentionItem, PlatformCandidate } from "@/api/types";
 
 const ATTENTION_LABEL: Record<AttentionItem["kind"], string> = {
   FAILED_RUN: "Importer run failed",
@@ -30,6 +33,7 @@ const ATTENTION_LABEL: Record<AttentionItem["kind"], string> = {
  */
 export function DashboardPage() {
   const { data, isPending, isFetching, error, refetch } = useDashboardSummary();
+  const [promoting, setPromoting] = useState<PlatformCandidate | null>(null);
 
   if (isPending) {
     return (
@@ -136,6 +140,8 @@ export function DashboardPage() {
             </section>
           )}
 
+          <PlatformCandidatesSection onPromote={setPromoting} />
+
           <section aria-label="Catalog stats" className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <StatCard
               icon={Package}
@@ -237,6 +243,17 @@ export function DashboardPage() {
             </Card>
           </section>
         </>
+      )}
+
+      {promoting && (
+        <PromoteToPlatformDialog
+          open
+          onClose={() => setPromoting(null)}
+          component={{
+            id: promoting.component.id,
+            name: promoting.component.name,
+          }}
+        />
       )}
     </main>
   );

@@ -35,7 +35,7 @@ export type { Session } from "./contracts/session.js";
 export type { Component } from "./contracts/component.js";
 export type { ComponentInstance } from "./contracts/component-instance.js";
 export type { ComponentGroup, ComponentGroupListItem } from "./contracts/component-group.js";
-export type { DigitalProduct, ProductHealth, ProductHealthStatus, DepSource, ProductGroupEdge } from "./contracts/digital-product.js";
+export type { DigitalProduct, ProductHealth, ProductHealthStatus, DepSource, ProductGroupEdge, ComponentDependent, PlatformCandidate, PromoteToPlatformResult } from "./contracts/digital-product.js";
 export type { LineOfBusiness } from "./contracts/line-of-business.js";
 export type { Team } from "./contracts/team.js";
 export type { ImporterConfig } from "./contracts/importer-config.js";
@@ -110,11 +110,13 @@ export {
   addComposesEdgeSchema,
   addConsumesFromEdgeSchema,
   addDependsOnEdgeSchema,
+  promoteToPlatformSchema,
 } from "./schemas/product.js";
 export type {
   CreateProductInput,
   UpdateProductInput,
   ListProductsQuery,
+  PromoteToPlatformInput,
 } from "./schemas/product.js";
 export { createOrgEntitySchema, updateOrgEntitySchema } from "./schemas/org.js";
 export type { CreateOrgEntityInput, UpdateOrgEntityInput } from "./schemas/org.js";

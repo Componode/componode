@@ -1034,6 +1034,120 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /components/platform-candidates:
+    get:
+      tags: [Components]
+      summary: List platform candidates (ADR-017 detection)
+      description: >-
+        ACTIVE components with direct `DEPENDS_ON` edges from at least two
+        distinct non-RETIRED products. Group-expanded reach never counts.
+        Ordered by dependerCount desc, then component name.
+      responses:
+        '200':
+          description: Platform candidates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  candidates:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        component:
+                          type: object
+                          properties:
+                            id: { type: string, format: uuid }
+                            name: { type: string }
+                            slug: { type: string }
+                            category: { type: string }
+                            provider: { type: string }
+                        dependerCount: { type: integer, minimum: 2 }
+                        dependents:
+                          type: array
+                          items: { $ref: '#/components/schemas/ComponentDependent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /components/{id}/dependents:
+    get:
+      tags: [Components]
+      summary: List products that directly depend on a component
+      description: >-
+        Every non-RETIRED product holding a direct `DEPENDS_ON` edge on the
+        component, ordered by name. Group-expanded reach is excluded.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Direct dependents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dependents:
+                    type: array
+                    items: { $ref: '#/components/schemas/ComponentDependent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /components/{id}/promote-to-platform:
+    post:
+      tags: [Components]
+      summary: Promote a component into a PLATFORM product (ADR-017)
+      x-permission: "product:create"
+      description: >-
+        Atomically creates a `PLATFORM` product, wires its `DEPENDS_ON` edge
+        to the component, and rewrites each selected consumer's direct edge
+        into a `CONSUMES_FROM` edge on the new platform. `consumerIds`
+        selects which consumers are rewritten; absent means all active
+        direct consumers. Unchecked/omitted consumers keep their direct
+        edge. `type` is not accepted — always `PLATFORM`.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                slug: { type: string, maxLength: 100, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+                description: { type: string, maxLength: 2000, nullable: true }
+                lobOwnerId: { type: string, format: uuid, nullable: true }
+                teamOwnerId: { type: string, format: uuid, nullable: true }
+                links:
+                  type: array
+                  maxItems: 20
+                  items: { $ref: '#/components/schemas/Link' }
+                tags:
+                  type: array
+                  maxItems: 20
+                  items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
+                criticality: { $ref: '#/components/schemas/ProductCriticality', nullable: true }
+                sunsetAt: { type: string, format: date-time, nullable: true }
+                consumerIds:
+                  type: array
+                  maxItems: 500
+                  items: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Created platform product and rewritten consumers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  product: { $ref: '#/components/schemas/DigitalProduct' }
+                  consumers:
+                    type: array
+                    items: { $ref: '#/components/schemas/ComponentDependent' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   # -------------------------------------------------------- Component groups
   /component-groups:
@@ -2308,6 +2422,16 @@ components:
         updatedBy: { type: string, format: uuid, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    ComponentDependent:
+      type: object
+      description: >-
+        A non-RETIRED product holding a direct DEPENDS_ON edge on a
+        component (ADR-017 platform promotion workflow)
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        type: { $ref: '#/components/schemas/ProductType' }
     CreateProduct:
       type: object
       required: [name, type]

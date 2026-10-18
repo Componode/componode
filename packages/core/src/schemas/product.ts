@@ -80,6 +80,25 @@ export const addDependsOnEdgeSchema = z
     },
   );
 
+// ADR-017: guided promotion of a shared component into a PLATFORM product.
+// `type` is not accepted — always PLATFORM. `consumerIds` selects which
+// consumer edges to rewrite; absent = all active direct consumers.
+export const promoteToPlatformSchema = z
+  .object({
+    name: z.string().min(1).max(200).optional(),
+    slug: z.string().regex(slugPattern).max(100).optional(),
+    description: z.string().max(2000).nullable().optional(),
+    lobOwnerId: z.string().uuid().nullable().optional(),
+    teamOwnerId: z.string().uuid().nullable().optional(),
+    links: linksSchema.optional(),
+    tags: tagsSchema.optional(),
+    criticality: productCriticalitySchema.nullable().optional(),
+    sunsetAt: z.string().datetime({ offset: true }).nullable().optional(),
+    consumerIds: z.array(z.string().uuid()).max(500).optional(),
+  })
+  .strict();
+
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
+export type PromoteToPlatformInput = z.infer<typeof promoteToPlatformSchema>;

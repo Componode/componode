@@ -3,6 +3,8 @@ import type {
   ComponentLifecycle,
   ProductCriticality,
   Environment,
+  ComponentCategory,
+  ComponentProvider,
 } from "../constants/index.js";
 import type { Link } from "../schemas/metadata.js";
 
@@ -52,4 +54,35 @@ export interface ProductGroupEdge {
   name: string;
   slug: string;
   memberCount: number;
+}
+
+/** A non-RETIRED product holding a direct DEPENDS_ON edge on a component (spec 020). */
+export interface ComponentDependent {
+  id: string;
+  name: string;
+  slug: string;
+  type: ProductType;
+}
+
+/**
+ * Platform candidate (ADR-017 detection): an ACTIVE component with direct
+ * DEPENDS_ON edges from ≥2 distinct non-RETIRED products. Derived per read,
+ * never stored.
+ */
+export interface PlatformCandidate {
+  component: {
+    id: string;
+    name: string;
+    slug: string;
+    category: ComponentCategory;
+    provider: ComponentProvider;
+  };
+  dependerCount: number;
+  dependents: ComponentDependent[];
+}
+
+/** Result of `promoteComponentToPlatform` — the created product + rewritten consumers. */
+export interface PromoteToPlatformResult {
+  product: DigitalProduct;
+  consumers: ComponentDependent[];
 }

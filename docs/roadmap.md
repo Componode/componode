@@ -42,10 +42,16 @@ file tracks shipped and upcoming work — update it when a spec completes.
   delete guards both directions) and every product gets a derived read-only
   health rollup (ADR-112: production-first worst-of, `GONE`/`RETIRED`
   excluded) on detail, list, and the dashboard attention feed.
+- `020-platform-product-workflow` — the full guided Platform Product
+  workflow (ADR-017): a dashboard worklist detects components depended on
+  by ≥2 products, and one atomic promotion creates the `PLATFORM` product,
+  wires its `DEPENDS_ON` edge, rewrites chosen consumers to
+  `CONSUMES_FROM`, and prompts for LOB/Team ownership. Promotion is also
+  reachable from every component's detail page.
 
 ## Next — v1.1
 
-Immediately next: `020-platform-product-workflow` heads the queue.
+Immediately next: `021-catalog-bootstrap` heads the queue.
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list:

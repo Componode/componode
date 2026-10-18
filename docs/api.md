@@ -209,6 +209,9 @@ Notes:
 | GET | `/api/v1/components` | List components (paginated, filterable) | Authenticated |
 | GET | `/api/v1/components/:id` | Get a component by ID | Authenticated |
 | PATCH | `/api/v1/components/:id` | Update component assignment and curated metadata | `component:update` |
+| GET | `/api/v1/components/platform-candidates` | List platform candidates (ADR-017 detection) | Authenticated |
+| GET | `/api/v1/components/:id/dependents` | List products that directly depend on a component | Authenticated |
+| POST | `/api/v1/components/:id/promote-to-platform` | Promote a component into a PLATFORM product (ADR-017) | `product:create` |
 <!-- /GENERATED:table:Components -->
 
 Query params for `GET /components`: `page`, `pageSize` (max 100), `category`,

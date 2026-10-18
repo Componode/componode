@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Box, Pencil } from "lucide-react";
+import { ArrowLeft, Box, Pencil, Workflow } from "lucide-react";
 import { useComponentDetail, useUpdateComponent } from "@/api/hooks/components";
+import { PromoteToPlatformDialog } from "@/components/products/promote-to-platform-dialog";
 import { useSession } from "@/api/hooks/auth";
 import { useTeams } from "@/api/hooks/org";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ export function ComponentDetailPage() {
   const updateComponent = useUpdateComponent();
   const canEdit = ["EDITOR", "ADMIN"].includes(user?.role ?? "VIEWER");
   const [editOpen, setEditOpen] = useState(false);
+  const [promoteOpen, setPromoteOpen] = useState(false);
 
   const isForbidden = error ? ((error as unknown) as ApiError).code === "FORBIDDEN" : false;
 
@@ -95,6 +97,15 @@ export function ComponentDetailPage() {
           </p>
           <TagChips tags={component.tags ?? []} className="mt-1" />
         </div>
+        {canEdit && component.lifecycle === "ACTIVE" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPromoteOpen(true)}
+          >
+            <Workflow className="mr-1 h-4 w-4" /> Promote to platform
+          </Button>
+        )}
         {canEdit && (
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <Pencil className="mr-1 h-4 w-4" /> Edit metadata
@@ -254,6 +265,11 @@ export function ComponentDetailPage() {
         open={editOpen}
         onClose={() => setEditOpen(false)}
         component={component}
+      />
+      <PromoteToPlatformDialog
+        open={promoteOpen}
+        onClose={() => setPromoteOpen(false)}
+        component={{ id: component.id, name: component.name }}
       />
     </div>
   );
