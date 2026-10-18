@@ -222,6 +222,11 @@ Every page and every async region implements these states. Toast feedback
 - Sentence case everywhere ("Run import", not "Run Import").
 - Domain terms verbatim: Component, ComponentInstance, DigitalProduct,
   ComponentGroup, Importer. No synonyms ("asset", "service") in UI copy.
+- Edge names are written as natural-language phrases, never bare enum names:
+  "X is composed of Y" / "X composes Y" for `COMPOSES`, "X consumes Y" for
+  `CONSUMES_FROM`, "X depends on Y" for `DEPENDS_ON_COMPONENT`. `COMPOSES` in
+  particular reads backwards from its semantics (the parent *is composed of*
+  the child), so the bare enum is forbidden in UI copy.
 - Button labels are verbs or verb phrases.
 
 ---

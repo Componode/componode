@@ -312,6 +312,24 @@ Ownership is org-real, not abstract: every product is owned by a **Line of
 Business** and optionally a **Team**/**Person**, which is who gets asked when
 the platform changes.
 
+## Common classification questions
+
+**"Is this a product or a component?"**
+Ask who owns it. If a team owns it and you describe it in business terms — a
+name stakeholders recognize, edges a person deliberately wired — it's a
+Digital Product. If an importer could discover it (a repo, a database, a
+Kubernetes deployment, an endpoint), it's a Component. A microservice can be
+both: the *logical service your team ships* is a product; the *deployment the
+Kubernetes importer found* is a component. The two coexist — the product
+`DEPENDS_ON_COMPONENT` the component.
+
+**"Where does Stripe / SendGrid / vendor SaaS go?"**
+A manually created **Component** with `provider: OTHER` — an external
+building block your products depend on. Group it in a `ComponentGroup` if the
+same service appears under several sources. Promote it to a `PLATFORM`
+product only when your organization actually governs it — a dedicated owner
+and named consumers — rather than merely paying for it.
+
 ## Quick reference
 
 | Question | Answer |
@@ -319,6 +337,9 @@ the platform changes.
 | Customers log into it? | `CUSTOMER_FACING` |
 | It's "something the business does"? | `BUSINESS_CAPABILITY` |
 | Other products consume it as shared machinery? | `PLATFORM` |
+| Owned, business-meaningful thing? | `DigitalProduct` |
+| An importer could discover it? | `Component` |
+| Vendor SaaS (Stripe, SendGrid)? | `Component` with provider `OTHER` |
 | "Parent is made of child" | `COMPOSES` (parent: BC or CF, DAG) |
 | "Runs on a shared platform" | `CONSUMES_FROM` (target: PLATFORM) |
 | "Needs this imported asset" | `DEPENDS_ON_COMPONENT` |
