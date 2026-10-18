@@ -70,3 +70,18 @@ _Avoid_: department, org unit
 **Importer**:
 A pull-only integration that discovers Components from an external source.
 _Avoid_: connector, sync
+
+## Decision rules
+
+**Product or Component?**
+Owned and curated — it has an owner, a description with business meaning,
+and edges a person deliberately wired → **Digital Product**. Discovered
+infrastructure or workload an importer could find (repository, database,
+deployment, endpoint, cloud account) → **Component**.
+
+**External SaaS?**
+Vendor services no importer discovers (Stripe, SendGrid, a partner API) →
+**Component** with `provider: OTHER`, created manually; group with a
+`ComponentGroup` if the same service appears from several sources. Model it
+as a `PLATFORM` Digital Product only when the organization governs it as
+shared infrastructure — an owner, named consumers, a lifecycle.
