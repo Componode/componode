@@ -100,6 +100,11 @@ require the `componode_csrf` cookie plus an `x-csrf-token` header.
   external source and yields normalized assets. Importers never touch the
   database — the core owns upsert, dedup, reconciliation, and run history.
 
+> **New to the model?** [docs/digital-products.md](docs/digital-products.md)
+> walks through the product types, composition edges, and component
+> inventories with plain-English scenarios — internet banking, ERP,
+> e-commerce, and CRM — and diagrams for each.
+
 ## Technology stack
 
 | Layer | Technology |
