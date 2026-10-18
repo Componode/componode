@@ -188,38 +188,25 @@ code, cloud accounts, compute, data stores, queues, edge endpoints — each
 classified by `category` / `provider` / `resourceType`. This is what the
 importers typically yield for our internet-banking example:
 
-```mermaid
-flowchart TD
-    subgraph SRC["Source"]
-        R1["Component: ib-web repo<br/><i>REPOSITORY · GITHUB · github:repository</i>"]
-        R2["Component: payments-api repo<br/><i>REPOSITORY · GITHUB · github:repository</i>"]
-        R3["Component: Acme org<br/><i>ACCOUNT · GITHUB · github:organization</i>"]
-    end
-    subgraph CLOUD["Cloud accounts"]
-        A1["Component: prod-bank account<br/><i>ACCOUNT · AWS · aws:account</i>"]
-        A2["Component: bank subscription<br/><i>ACCOUNT · AZURE · Microsoft.Subscription</i>"]
-    end
-    subgraph COMP["Compute &amp; workloads"]
-        C1["Component: ib-web servers<br/><i>COMPUTE · AWS · ec2:instance</i>"]
-        C2["Component: payments-worker<br/><i>CONTAINER_ORCHESTRATION · KUBERNETES · apps/v1:Deployment</i>"]
-        C3["Component: batch-vm<br/><i>COMPUTE · AZURE · Microsoft.Compute/virtualMachines</i>"]
-    end
-    subgraph DATA["Data"]
-        D1["Component: accounts-postgres<br/><i>DATABASE · AWS · rds:db-instance</i>"]
-        D2["Component: static-assets<br/><i>STORAGE · AWS · s3:bucket</i>"]
-        D3["Component: payments-events<br/><i>QUEUE · AWS · kafka:cluster</i>"]
-    end
-    subgraph EDGE["Endpoints &amp; APIs"]
-        E1["Component: api.bank.example.com<br/><i>WEB_ENDPOINT · WEB_URL · web:url</i>"]
-        E2["Component: payments-openapi<br/><i>API · API_URL · api:url</i>"]
-        E3["Component: support-mcp<br/><i>MCP_SERVER · MCP_SERVER · tools/list</i>"]
-    end
-    subgraph OPS["Ops"]
-        O1["Component: cert bank.example.com<br/><i>CERTIFICATE · AWS · acm:certificate</i>"]
-        O2["Component: payments-alarms<br/><i>OBSERVABILITY · AWS · cloudwatch:alarm</i>"]
-        O3["Component: payments-vault<br/><i>SECRET · AWS · secretsmanager:secret</i>"]
-    end
-```
+| Layer | Component | `category` | `provider` | `resourceType` |
+|---|---|---|---|---|
+| Source | `ib-web` repo | `REPOSITORY` | `GITHUB` | `github:repository` |
+| Source | `payments-api` repo | `REPOSITORY` | `GITHUB` | `github:repository` |
+| Source | Acme organization | `ACCOUNT` | `GITHUB` | `github:organization` |
+| Cloud accounts | `prod-bank` AWS account | `ACCOUNT` | `AWS` | `aws:account` |
+| Cloud accounts | `bank` Azure subscription | `ACCOUNT` | `AZURE` | `Microsoft.Subscription` |
+| Compute | `ib-web` servers | `COMPUTE` | `AWS` | `ec2:instance` |
+| Compute | `payments-worker` | `CONTAINER_ORCHESTRATION` | `KUBERNETES` | `apps/v1:Deployment` |
+| Compute | `batch-vm` | `COMPUTE` | `AZURE` | `Microsoft.Compute/virtualMachines` |
+| Data | `accounts-postgres` | `DATABASE` | `AWS` | `rds:db-instance` |
+| Data | `static-assets` | `STORAGE` | `AWS` | `s3:bucket` |
+| Data | `payments-events` | `QUEUE` | `AWS` | `kafka:cluster` |
+| Endpoints & APIs | `api.bank.example.com` | `WEB_ENDPOINT` | `WEB_URL` | `web:url` |
+| Endpoints & APIs | `payments-openapi` | `API` | `API_URL` | `api:url` |
+| Endpoints & APIs | `support-mcp` | `MCP_SERVER` | `MCP_SERVER` | `tools/list` |
+| Ops | `bank.example.com` certificate | `CERTIFICATE` | `AWS` | `acm:certificate` |
+| Ops | `payments-alarms` | `OBSERVABILITY` | `AWS` | `cloudwatch:alarm` |
+| Ops | `payments-vault` | `SECRET` | `AWS` | `secretsmanager:secret` |
 
 Everything above is a **Component** — one logical row in the catalog.
 `resourceType` stays free-form on purpose: it carries whatever type the
