@@ -68,17 +68,19 @@ Constraints and the relevant ADRs.
 ├── specs/{NNN-feature-name}/      # DYNAMIC — spec.md, plan.md, tasks.md, created per feature/bugfix
 ├── docs/                          # Source documentation (see Key References)
 ├── .specify/                      # spec-kit: memory/constitution.md, workflows/, powershell helpers
-├── .agents/skills/                # Canonical skill copies (pinned by skills-lock.json)
-├── .devin/skills/                 # Devin skills — required
-├── .claude/skills/                # Claude Code skills — required (CLAUDE.md imports AGENTS.md)
+├── .agents/skills/                # Canonical shared skills (pinned by skills-lock.json)
+├── .devin/skills/                 # Devin-only skills: speckit-* + repo-authored
+├── .claude/skills/                # Claude Code skills (only place Claude reads them)
 ├── skills-lock.json               # Lockfile for installed skills (source + hash)
 ├── docs-site/                     # VitePress config and output
 └── scripts/                       # Deployment and validation scripts
 
 > Skills under `.agents/`, `.devin/`, and `.claude/` are **required project
-> tooling** — they are tracked in git, and agents working in this repo must
-> use them (e.g. `speckit-*` for feature work, `writing-for-agents` when
-> editing agent-facing docs).
+> tooling** — tracked in git, and agents working in this repo must use them
+> (e.g. `speckit-*` for feature work, `writing-for-agents` when editing
+> agent-facing docs). Devin discovers `.agents/skills/` natively, so the
+> shared set is NOT duplicated into `.devin/skills/`; Claude Code only reads
+> `.claude/skills/`, so its copies are kept there.
 ```
 
 ---
