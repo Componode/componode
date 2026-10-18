@@ -162,7 +162,7 @@ flowchart LR
         KAFKA_P["Event Backbone<br/><b>PLATFORM</b>"]
     end
     subgraph Factual["Factual layer (importer-discovered)"]
-        KAFKA["Component:<br/>payments-kafka<br/><i>category QUEUE · AWS</i>"]
+        KAFKA["Component:<br/>payments-events<br/><i>category QUEUE · AWS</i>"]
         PRD["Instance: PRODUCTION<br/>status RUNNING"]
         STG["Instance: STAGING<br/>status RUNNING"]
         DEV["Instance: DEV<br/>status STOPPED"]
@@ -178,8 +178,98 @@ flowchart LR
 
 So "Internet Banking is down" decomposes into something answerable: the
 product is `CUSTOMER_FACING` → composed of `Payments` → which consumes the
-`Event Backbone` platform → which depends on `payments-kafka` → whose
+`Event Backbone` platform → which depends on `payments-events` → whose
 `PRODUCTION` instance is `ERROR`.
+
+## Anatomy of a component inventory
+
+A real solution's factual layer is a grab-bag of discovered assets — source
+code, cloud accounts, compute, data stores, queues, edge endpoints — each
+classified by `category` / `provider` / `resourceType`. This is what the
+importers typically yield for our internet-banking example:
+
+```mermaid
+flowchart TD
+    subgraph SRC["Source"]
+        R1["Component: ib-web repo<br/><i>REPOSITORY · GITHUB · github:repository</i>"]
+        R2["Component: payments-api repo<br/><i>REPOSITORY · GITHUB · github:repository</i>"]
+        R3["Component: Acme org<br/><i>ACCOUNT · GITHUB · github:organization</i>"]
+    end
+    subgraph CLOUD["Cloud accounts"]
+        A1["Component: prod-bank account<br/><i>ACCOUNT · AWS · aws:account</i>"]
+        A2["Component: bank subscription<br/><i>ACCOUNT · AZURE · Microsoft.Subscription</i>"]
+    end
+    subgraph COMP["Compute &amp; workloads"]
+        C1["Component: ib-web servers<br/><i>COMPUTE · AWS · ec2:instance</i>"]
+        C2["Component: payments-worker<br/><i>CONTAINER_ORCHESTRATION · KUBERNETES · apps/v1:Deployment</i>"]
+        C3["Component: batch-vm<br/><i>COMPUTE · AZURE · Microsoft.Compute/virtualMachines</i>"]
+    end
+    subgraph DATA["Data"]
+        D1["Component: accounts-postgres<br/><i>DATABASE · AWS · rds:db-instance</i>"]
+        D2["Component: static-assets<br/><i>STORAGE · AWS · s3:bucket</i>"]
+        D3["Component: payments-events<br/><i>QUEUE · AWS · kafka:cluster</i>"]
+    end
+    subgraph EDGE["Endpoints &amp; APIs"]
+        E1["Component: api.bank.example.com<br/><i>WEB_ENDPOINT · WEB_URL · web:url</i>"]
+        E2["Component: payments-openapi<br/><i>API · API_URL · api:url</i>"]
+        E3["Component: support-mcp<br/><i>MCP_SERVER · MCP_SERVER · tools/list</i>"]
+    end
+    subgraph OPS["Ops"]
+        O1["Component: cert bank.example.com<br/><i>CERTIFICATE · AWS · acm:certificate</i>"]
+        O2["Component: payments-alarms<br/><i>OBSERVABILITY · AWS · cloudwatch:alarm</i>"]
+        O3["Component: payments-vault<br/><i>SECRET · AWS · secretsmanager:secret</i>"]
+    end
+```
+
+Everything above is a **Component** — one logical row in the catalog.
+`resourceType` stays free-form on purpose: it carries whatever type the
+source system calls the thing (`ec2:instance`,
+`Microsoft.Compute/virtualMachines`, `apps/v1:Deployment`), while
+`category` + `provider` keep it searchable across providers.
+
+### Instances: where each component actually runs
+
+Components are logical; **instances** are concrete. One component can exist
+in several environments — or several regions — and each instance carries its
+own status, URL, region, and version:
+
+```mermaid
+flowchart LR
+    subgraph KAFKA["Component: payments-events (QUEUE · AWS · kafka:cluster)"]
+        I1["Instance · PRODUCTION<br/>us-east-1 · RUNNING<br/>v3.6"]
+        I2["Instance · STAGING<br/>us-east-1 · RUNNING<br/>v3.6"]
+        I3["Instance · DEV<br/>us-east-1 · STOPPED<br/>v3.5"]
+    end
+    subgraph PG["Component: accounts-postgres (DATABASE · AWS · rds:db-instance)"]
+        I4["Instance · PRODUCTION<br/>eu-west-1 · RUNNING<br/>pg 16.4"]
+        I5["Instance · PRODUCTION<br/>us-east-1 · RUNNING · replica<br/>pg 16.4"]
+    end
+```
+
+`Component.lifecycle` (`ACTIVE`/`RETIRED`) is the *logical* state — retiring
+keeps history; `ComponentInstance.status` (`RUNNING`/`STOPPED`/`ERROR`/`GONE`)
+is the *operational* state importers maintain. Default views hide `RETIRED`
+components and `GONE` instances.
+
+### Component Groups: same thing, three sources
+
+Sometimes the *same logical asset* shows up as distinct discoveries — e.g.
+the payments database appears once per AWS account the importer can see.
+Instead of pretending they're one component, keep three `Component` rows and
+declare them equivalent with a `ComponentGroup`:
+
+```mermaid
+flowchart LR
+    G["ComponentGroup:<br/>accounts-postgres<br/><i>owner: Data Platform team</i>"]
+    G --> C1["Component<br/>accounts-postgres · acct A"]
+    G --> C2["Component<br/>accounts-postgres · acct B"]
+    G --> C3["Component<br/>accounts-postgres · acct C"]
+```
+
+The group is an *organizational* unit for humans — products still wire
+`DEPENDS_ON_COMPONENT` to concrete components (edges target components only).
+What the group gives you is one name, owner, and lifecycle for "the same
+thing" wherever it was discovered.
 
 ## Full worked scenario: a small bank
 
@@ -205,9 +295,11 @@ flowchart TD
     PAY -.->|CONSUMES_FROM| IDP
     PAY -.->|CONSUMES_FROM| EVB
 
-    IDP -->|DEPENDS_ON_COMPONENT| KC["Component: keycloak-prod"]
-    EVB -->|DEPENDS_ON_COMPONENT| KF["Component: payments-kafka"]
-    ACC -->|DEPENDS_ON_COMPONENT| PG["Component: accounts-postgres"]
+    IDP -->|DEPENDS_ON_COMPONENT| KC["Component: keycloak-prod<br/><i>CONTAINER_ORCHESTRATION · KUBERNETES</i>"]
+    EVB -->|DEPENDS_ON_COMPONENT| KF["Component: payments-events<br/><i>QUEUE · AWS</i>"]
+    ACC -->|DEPENDS_ON_COMPONENT| PG["Component: accounts-postgres (acct A)<br/><i>DATABASE · AWS · in a ComponentGroup</i>"]
+    IB -->|DEPENDS_ON_COMPONENT| REPO["Component: ib-web repo<br/><i>REPOSITORY · GITHUB</i>"]
+    IB -->|DEPENDS_ON_COMPONENT| WEB["Component: api.bank.example.com<br/><i>WEB_ENDPOINT · WEB_URL</i>"]
 ```
 
 Notice the DAG property: `Accounts` and `Payments` have **two parents**
@@ -220,9 +312,9 @@ exactly the point of the model.
 Two workflows tie this together:
 
 1. **Start flat.** Importers discover components; you create products and add
-   `DEPENDS_ON_COMPONENT` edges. "Payments depends on payments-kafka."
+   `DEPENDS_ON_COMPONENT` edges. "Payments depends on payments-events."
 2. **Promote shared things to platforms.** When several products depend on
-   the same component, Componode surfaces it: *"payments-kafka is depended on
+   the same component, Componode surfaces it: *"payments-events is depended on
    by 4 business products — consider making it a platform product."* The
    Platform Product workflow ([ADR-017](../researches/adrs/ADR-017-platform-product-workflow-full-guided-workflow-in-v1.md))
    creates the `PLATFORM` product, rewires the consumers' edges to
