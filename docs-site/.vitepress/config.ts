@@ -21,6 +21,7 @@ export default defineConfig({
         items: [
           { text: "Deployment", link: "/deployment" },
           { text: "Release Process", link: "/release" },
+          { text: "Roadmap", link: "/roadmap" },
         ],
       },
       {

@@ -17,6 +17,7 @@ Componode helps you model your **Digital Products** — applications, solutions,
 
 - [Deploy with Docker Compose](deployment.md)
 - [Release process](release.md)
+- [Roadmap](roadmap.md)
 
 ## Reference
 

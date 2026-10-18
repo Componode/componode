@@ -148,7 +148,7 @@ defers instrumentation to "after the feature works," violates this principle.
 
 | Layer | Technology |
 |---|---|
-| Backend API | TypeScript 5, Fastify, Kysely (query builder) |
+| Backend API | TypeScript 6, Fastify, Kysely (query builder) |
 | Frontend | React 18, Vite, TanStack Query, React Router, Tailwind CSS, shadcn/ui |
 | Database | PostgreSQL (CHECK constraints from `core` constants; no native ENUMs) |
 | Migrations | Kysely built-in migration system (TS, schema-builder) |
@@ -163,8 +163,9 @@ defers instrumentation to "after the feature works," violates this principle.
 
 ### Spec-Driven Development Workflow
 
-This project uses **spec-kit v1.0.4** for structured feature development.
-The workflow is command-driven via spec-kit skills.
+This project uses **spec-kit** for structured feature development (installed
+version is tracked in `.specify/integration.json`). The workflow is
+command-driven via spec-kit skills.
 
 1. **`/speckit-constitution`** — Establish project principles (run once, first).
 2. **`/speckit-specify`** — Create a feature branch and write `spec.md`.
@@ -205,9 +206,9 @@ directory evolves:
    Componode."
 
 Post-v1 work — Kubernetes/Helm packaging, runtime-loaded importer plugins,
-E2E tests, RFC 7807 error wrapping, range/OR filters, invite-based
-registration, per-env blast-radius traversal, and additional cloud providers
-— will be tracked in the v1.1 Roadmap below.
+E2E tests, range/OR filters, invite-based registration, per-env blast-radius
+traversal, and additional cloud providers — is tracked in `docs/roadmap.md`
+and summarized in the v1.1 Roadmap below.
 
 Dependencies: 001 → 002 → 003 → 004 → 005 → 006 → 007.
 
@@ -230,11 +231,15 @@ development guidance and ADR history.
   now part of `007`.
 - **v1.0.3** (2026-09-09): `007-deployment-cicd-docs` marked complete; v1
   feature set is implemented and validated.
+- **v1.0.5** (2026-10-18): documentation-only corrections — stack table
+  updated to TypeScript 6; v1.1 roadmap entries already shipped (RFC 7807 in
+  `008`, multi-value enum filters in `015`) removed or annotated. Living
+  roadmap now maintained in `docs/roadmap.md`.
 
 ### v1.1 Roadmap (deferred from v1, queued for the next cycle)
 
-- RFC 7807 wrapping for error responses (ADR-071).
-- Range/OR filters on list endpoints (ADR-081).
+- Range/OR filters on list endpoints (ADR-081) — multi-value enum filters
+  shipped in `015`; range/OR comparisons remain open.
 - Invite-based registration (ADR-075).
 - Runtime-loaded importer plugins (ADR-012).
 - E2E tests (ADR-029).
@@ -244,4 +249,4 @@ development guidance and ADR history.
   Cloudflare, OpenShift, Docker/Podman) — contributor-welcome issues.
 - Importer-declared candidate product edges (v2: staged, human-confirmed).
 
-**Version**: 1.0.4 | **Ratified**: 2026-08-16 | **Last Amended**: 2026-09-16
+**Version**: 1.0.5 | **Ratified**: 2026-08-16 | **Last Amended**: 2026-10-18

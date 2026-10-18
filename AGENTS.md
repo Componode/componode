@@ -28,8 +28,9 @@ later phase).
 | Document | Role |
 |---|---|
 | `.specify/memory/constitution.md` | **7 binding principles that govern every spec** |
-| `researches/architecture-decisions.md` | **ADR index — 108 ratified decisions** |
+| `researches/architecture-decisions.md` | **ADR index** |
 | `researches/adrs/ADR-XXX-*.md` | **Individual ADRs for every rule in this file** |
+| `CONTEXT.md` | **Domain vocabulary — canonical terms + `Avoid:` list; read before writing specs, UI copy, or entity names** |
 | `specs/{NNN-feature-name}/spec.md` | **Feature specifications (authoritative for current work)** |
 | `specs/{NNN-feature-name}/plan.md` | **Implementation plan for the current feature** |
 | `specs/{NNN-feature-name}/tasks.md` | **Executable tasks for the current feature** |
@@ -43,20 +44,13 @@ artifact, the more specific document wins.
 
 ## Technology Stack
 
-| Layer | Technology |
-|---|---|
-| Backend API | TypeScript 5, Fastify, Kysely |
-| Frontend | React 18, Vite, TanStack Query, React Router, Tailwind CSS, shadcn/ui |
-| Database | PostgreSQL (CHECK constraints from `core` constants; no native ENUMs) |
-| Migrations | Kysely built-in migration system (TS, schema-builder) |
-| Monorepo | pnpm workspaces + Turborepo |
-| Importer framework | In-tree packages, pull-only `AsyncGenerator<DiscoveredAsset>` |
-| Auth | Built-in local (Argon2id + server-side sessions) + optional OIDC |
-| Observability | Pino (logging) + Prometheus (metrics) + OpenTelemetry (tracing) |
-| Deployment | Docker Compose (one container: backend serves frontend static) |
-| CI/CD | GitHub Actions + changesets |
+Fastify + Kysely backend (TypeScript), React/Vite frontend (TanStack Query,
+React Router, Tailwind, shadcn/ui), PostgreSQL (CHECK constraints from `core`
+constants; no native ENUMs), pnpm workspaces + Turborepo, Kysely migrations,
+Docker Compose deploy.
 
-For the full stack rationale, see `.specify/memory/constitution.md` § Additional
+Exact dependency versions are pinned in each package's `package.json`. For the
+full stack rationale, see `.specify/memory/constitution.md` § Additional
 Constraints and the relevant ADRs.
 
 ---
@@ -73,9 +67,18 @@ Constraints and the relevant ADRs.
 ├── researches/                    # Research docs ({topic}_research.md), adrs/, architecture-decisions.md index
 ├── specs/{NNN-feature-name}/      # DYNAMIC — spec.md, plan.md, tasks.md, created per feature/bugfix
 ├── docs/                          # Source documentation (see Key References)
-├── .specify/                      # spec-kit: memory/constitution.md, workflows/
+├── .specify/                      # spec-kit: memory/constitution.md, workflows/, powershell helpers
+├── .agents/skills/                # Canonical skill copies (pinned by skills-lock.json)
+├── .devin/skills/                 # Devin skills — required
+├── .claude/skills/                # Claude Code skills — required (CLAUDE.md imports AGENTS.md)
+├── skills-lock.json               # Lockfile for installed skills (source + hash)
 ├── docs-site/                     # VitePress config and output
 └── scripts/                       # Deployment and validation scripts
+
+> Skills under `.agents/`, `.devin/`, and `.claude/` are **required project
+> tooling** — they are tracked in git, and agents working in this repo must
+> use them (e.g. `speckit-*` for feature work, `writing-for-agents` when
+> editing agent-facing docs).
 ```
 
 ---
@@ -197,16 +200,19 @@ constitution.
 
 ## Shell Environment (Windows)
 
-Commands run in **PowerShell**. For any `git` or `gh` command that needs a
-long message (commit body, PR body), write the text to a temporary file and
-pass it with the file flag:
+The interactive shell may be **PowerShell or Git Bash** depending on the host
+— check which you have before quoting long commands. The speckit helpers are
+PowerShell scripts under `.specify/scripts/powershell/` and require
+PowerShell regardless of the interactive shell.
+
+For any `git` or `gh` command that needs a long message (commit body, PR
+body), write the text to a temporary file and pass it with the file flag —
+this is reliable in both shells:
 
 - `git commit -F <file>`
 - `gh pr create --body-file <file>` / `gh pr edit --body-file <file>`
 
-Bash heredocs (`git commit -m "$(cat <<'EOF' ... EOF)"`) fail with parser
-errors in PowerShell — always use the temp-file flag instead. Delete the
-temporary file after the command succeeds.
+Delete the temporary file after the command succeeds.
 
 ---
 
@@ -230,9 +236,15 @@ Branch naming is determined by `.specify/init-options.json`
 issued, the agent MUST work on the designated feature branch and never on `main`
 or an unrelated branch.
 
-**Roadmap sync**: when a spec completes (implementation + PR), update the
-**Roadmap** section in `README.md` — mark the feature `NNN-name` complete and
-revise the `Next` entry so the roadmap always reflects the current state.
+`.specify/feature.json` is the machine-local pointer to the **current** feature
+directory — `speckit-specify` rewrites it, and `speckit-plan`/`tasks`/etc.
+resolve the feature from it. Keep it pointed at the in-flight spec (update it
+when switching features); it is ignored by git on purpose.
+
+**Roadmap sync**: when a spec completes (implementation + PR), update
+`docs/roadmap.md` — mark the feature `NNN-name` complete under **Shipped**
+and revise the **Next** entry so the roadmap always reflects the current
+state.
 
 ## Bugfix Spec Workflow
 
