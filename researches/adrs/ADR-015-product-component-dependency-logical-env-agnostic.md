@@ -13,3 +13,10 @@ documented as a Phase 4+ evolution.
 judgment-bearing statement; "and here are payments-api's instances across
 dev/staging/prod" is a navigation, not a separate dependency. Matches LeanIX
 (Application → IT Component) and Backstage (Component → Resource).
+
+> **AMENDMENT ([ADR-110](./ADR-110-product-dependency-on-component-group.md))**:
+> the dependency target is extended to `ComponentGroup` — a product may depend
+> on a group in addition to a concrete component, via a persisted
+> `product_depends_on_component_group` edge expanded at read time. Concrete
+> component targets are unchanged; the dependency stays logical and
+> env-agnostic.
