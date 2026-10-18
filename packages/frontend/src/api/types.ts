@@ -339,3 +339,42 @@ export interface TeamMember {
   username: string;
   slug: string;
 }
+
+// --- Platform product workflow (spec 020 / ADR-017) ------------------------
+
+export interface ComponentDependent {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+}
+
+export interface PlatformCandidate {
+  component: {
+    id: string;
+    name: string;
+    slug: string;
+    category: string;
+    provider: string;
+  };
+  dependerCount: number;
+  dependents: ComponentDependent[];
+}
+
+export interface PromoteToPlatformInput {
+  name?: string;
+  slug?: string;
+  description?: string | null;
+  lobOwnerId?: string | null;
+  teamOwnerId?: string | null;
+  links?: Link[];
+  tags?: string[];
+  criticality?: string | null;
+  sunsetAt?: string | null;
+  consumerIds?: string[];
+}
+
+export interface PromoteToPlatformResult {
+  product: DigitalProduct;
+  consumers: ComponentDependent[];
+}

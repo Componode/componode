@@ -324,6 +324,20 @@ Two workflows tie this together:
    `CONSUMES_FROM`, and assigns an owner — turning ungoverned shared
    infrastructure into a managed product with a team behind it.
 
+   Concretely: the dashboard's **Platform candidates** section lists every
+   active component with direct `DEPENDS_ON` edges from **two or more**
+   active products (reach via a ComponentGroup doesn't count — only direct
+   edges do). Each row names the dependent products so you can inspect the
+   blast radius before deciding. **Promote** opens a dialog that creates the
+   `PLATFORM` product, wires the platform's own `DEPENDS_ON` edge to the
+   component, and presents every current consumer as a checklist — all
+   checked by default, but you can opt a product out and it keeps its direct
+   edge. The whole promotion is one transaction: either the product, its
+   edge, and every consumer rewrite land together, or nothing does. You can
+   assign a Line of Business and/or Team owner in the same dialog.
+   Promotion isn't limited to the worklist — every active component's
+   detail page offers **Promote to platform**, even with zero consumers.
+
 Ownership is org-real, not abstract: every product is owned by a **Line of
 Business** and optionally a **Team**/**Person**, which is who gets asked when
 the platform changes.

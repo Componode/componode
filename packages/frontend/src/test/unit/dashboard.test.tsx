@@ -7,6 +7,20 @@ vi.mock("@/api/hooks/dashboard", () => ({
   useDashboardSummary: vi.fn(),
 }));
 
+// Platform-candidates section hooks — stub so no QueryClient is needed.
+vi.mock("@/api/hooks/components", () => ({
+  usePlatformCandidates: () => ({ data: [], isPending: false, error: null }),
+  useComponentDependents: () => ({ data: [], isPending: false, error: null }),
+  usePromoteComponent: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+vi.mock("@/api/hooks/auth", () => ({
+  useSession: () => ({ data: { role: "ADMIN" } }),
+}));
+vi.mock("@/api/hooks/org", () => ({
+  useLobs: () => ({ data: { lobs: [] } }),
+  useTeams: () => ({ data: { teams: [] } }),
+}));
+
 // Chart is covered by importer-run-chart.test.tsx; stub it here so this
 // suite doesn't need a QueryClient for the useQueries fan-out.
 vi.mock("@/components/importer-run-chart", () => ({

@@ -1,12 +1,77 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { ZodError } from "zod";
 import { listComponentsQuerySchema, updateComponentSchema } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
 import { listComponents, getComponentById } from "../services/component-catalog-service.js";
 import { updateComponent } from "../services/component-group-service.js";
 import { toActor } from "../services/actor.js";
+import {
+  listPlatformCandidates,
+  listComponentDependents,
+  promoteComponentToPlatform,
+} from "../services/platform-promotion-service.js";
+
+type ServiceError = {
+  statusCode?: number;
+  code?: string;
+  message?: string;
+  details?: unknown;
+};
+
+function sendServiceError(reply: FastifyReply, err: unknown) {
+  if (err instanceof ZodError) {
+    return validationFailed(reply, err.issues);
+  }
+  const error = err as ServiceError;
+  if (error.statusCode && error.statusCode < 500) {
+    return reply.status(error.statusCode).send({
+      code: error.code ?? "CONFLICT",
+      message: error.message ?? "Request failed",
+      ...(error.details ? { details: error.details } : {}),
+    });
+  }
+  throw err;
+}
+
+function validationFailed(reply: FastifyReply, issues: unknown) {
+  return reply
+    .status(400)
+    .send({ code: "VALIDATION_FAILED", message: "Invalid input", details: issues });
+}
 
 export async function componentRoutes(app: FastifyInstance): Promise<void> {
+  // Static route — find-my-way resolves it ahead of /components/:id.
+  app.get("/components/platform-candidates", {
+    preHandler: [app.verifySession],
+  }, async (_req: FastifyRequest, reply: FastifyReply) => {
+    const candidates = await listPlatformCandidates();
+    return reply.status(200).send({ candidates });
+  });
+
+  app.get("/components/:id/dependents", {
+    preHandler: [app.verifySession],
+  }, async (req: FastifyRequest, reply: FastifyReply) => {
+    const { id } = req.params as { id: string };
+    const component = await getComponentById(id);
+    if (!component) {
+      return reply.status(404).send({ code: "NOT_FOUND", message: "Component not found" });
+    }
+    return reply.status(200).send({ dependents: await listComponentDependents(id) });
+  });
+
+  app.post("/components/:id/promote-to-platform", {
+    preHandler: [app.verifySession, requireRole("product:create")],
+  }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
+    const { id } = req.params as { id: string };
+    try {
+      const result = await promoteComponentToPlatform(id, req.body, toActor(req));
+      return reply.status(201).send(result);
+    } catch (err) {
+      return sendServiceError(reply, err);
+    }
+  });
+
   app.get("/components/:id", {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
