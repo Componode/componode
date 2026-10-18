@@ -2,14 +2,19 @@
   "version": "1.2.1",
   "integration_state_schema": 1,
   "installed_integrations": [
-    "claude"
+    "claude",
+    "devin"
   ],
   "integration_settings": {
     "claude": {
       "script": "ps",
       "invoke_separator": "-"
+    },
+    "devin": {
+      "script": "ps",
+      "invoke_separator": "-"
     }
   },
-  "integration": "claude",
-  "default_integration": "claude"
+  "integration": "devin",
+  "default_integration": "devin"
 }

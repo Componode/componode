@@ -1,7 +1,7 @@
 {
   "integration": "devin",
   "version": "1.2.1",
-  "installed_at": "2026-10-18T02:33:01.742942+00:00",
+  "installed_at": "2026-10-18T03:06:19.448346+00:00",
   "files": {
     ".devin/skills/speckit-analyze/SKILL.md": "bc5c24e6bbadf90f58e52d351c9ea22d502257ffb584694a9a46cf592dd78033",
     ".devin/skills/speckit-clarify/SKILL.md": "c0ab0a24043c37e03db3251a261d9250da95bb1ab5f69b51f6beedf009900c48",
