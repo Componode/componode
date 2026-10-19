@@ -639,7 +639,11 @@ paths:
       tags: [Products]
       summary: Create a product
       x-permission: "product:create"
-      description: Requires the `product:create` role (Editor+).
+      description: |
+        Requires the `product:create` role (Editor+). Optional `componentIds`
+        (spec 021 fast path) wires DEPENDS_ON edges to existing components in
+        the same transaction — an unknown id fails the whole create with
+        `404` and `details.missingIds`.
       requestBody:
         required: true
         content:
@@ -657,7 +661,52 @@ paths:
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /products/bootstrap:
+    post:
+      tags: [Products]
+      summary: Bootstrap the catalog from a YAML/JSON document (ADR-114)
+      x-permission: "product:create"
+      description: |
+        Requires the `product:create` role (Editor+). One-shot curated import —
+        **not** an importer: no run history, no DiscoveredAssets.
+
+        The whole document is strictly validated before anything is written
+        (`400 VALIDATION_FAILED` with per-item `details`). Each product item
+        then applies atomically: upsert by name-derived slug with merge
+        semantics (absent fields preserved, present fields applied, explicit
+        `null`/`[]` clears), plus its DEPENDS_ON edges in one transaction.
+        Owner refs resolve by Line of Business / Team slug; `dependsOn` refs
+        resolve by component slug → name → externalId. Unresolved or
+        ambiguous refs land in `skipped` — nothing is ever fabricated.
+        `?dryRun=true` returns the identical report with zero writes.
+      parameters:
+        - in: query
+          name: dryRun
+          schema: { type: string, enum: ['true', 'false'] }
+          description: Preview the report without writing
+      requestBody:
+        required: true
+        content:
+          application/yaml:
+            schema: { $ref: '#/components/schemas/BootstrapDocument' }
+          application/json:
+            schema: { $ref: '#/components/schemas/BootstrapDocument' }
+      responses:
+        '200':
+          description: Per-document apply report
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BootstrapReport' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413':
+          description: Document exceeds the 1 MB body limit
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
   /products/{slug}:
     get:
       tags: [Products]
@@ -2457,6 +2506,14 @@ components:
           items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
         criticality: { $ref: '#/components/schemas/ProductCriticality', nullable: true }
         sunsetAt: { type: string, format: date-time, nullable: true }
+        componentIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: |
+            Existing component ids wired as DEPENDS_ON edges atomically with
+            the create (spec 021). Unknown ids → `404` with `details.missingIds`.
+          items: { type: string, format: uuid }
     UpdateProduct:
       type: object
       additionalProperties: false
@@ -2481,6 +2538,58 @@ components:
           items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
         criticality: { $ref: '#/components/schemas/ProductCriticality', nullable: true }
         sunsetAt: { type: string, format: date-time, nullable: true }
+    BootstrapDocument:
+      type: object
+      required: [version, products]
+      additionalProperties: false
+      properties:
+        version: { type: integer, enum: [1] }
+        products:
+          type: array
+          items: { $ref: '#/components/schemas/BootstrapProductItem' }
+    BootstrapProductItem:
+      type: object
+      required: [name, type]
+      additionalProperties: false
+      description: |
+        No `slug` field — the upsert key is derived from `name`. Absent
+        fields preserve the current value; explicit `null`/`[]` clears.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        type: { $ref: '#/components/schemas/ProductType' }
+        description: { type: string, maxLength: 2000, nullable: true }
+        owner:
+          type: object
+          additionalProperties: false
+          description: Entity slugs; each key merges independently, `null` clears
+          properties:
+            lob: { type: string, maxLength: 100, nullable: true }
+            team: { type: string, maxLength: 100, nullable: true }
+        tags:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
+        criticality: { $ref: '#/components/schemas/ProductCriticality', nullable: true }
+        sunsetAt: { type: string, format: date-time, nullable: true }
+        dependsOn:
+          type: array
+          description: Component refs resolved slug → name → externalId
+          items: { type: string, minLength: 1 }
+    BootstrapReport:
+      type: object
+      required: [created, updated, edgesAdded, skipped]
+      properties:
+        created: { type: integer }
+        updated: { type: integer }
+        edgesAdded: { type: integer }
+        skipped:
+          type: array
+          items:
+            type: object
+            required: [item, reason]
+            properties:
+              item: { type: string }
+              reason: { type: string }
     Component:
       type: object
       properties:

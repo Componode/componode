@@ -176,6 +176,7 @@ production (Docker Compose internal network).
 |---|---|---|---|
 | GET | `/api/v1/products` | List products | Authenticated |
 | POST | `/api/v1/products` | Create a product | `product:create` |
+| POST | `/api/v1/products/bootstrap` | Bootstrap the catalog from a YAML/JSON document (ADR-114) | `product:create` |
 | GET | `/api/v1/products/:slug` | Get product detail by slug | Authenticated |
 | PATCH | `/api/v1/products/:id` | Update a product | `product:update` |
 | DELETE | `/api/v1/products/:id` | Delete a product | `product:delete` |

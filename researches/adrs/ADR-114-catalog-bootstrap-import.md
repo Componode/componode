@@ -50,3 +50,11 @@ file including `COMPOSES` — deferred (ordering + cycle semantics in a bulk
 apply are avoidable complexity for a bootstrap tool). Atomic
 all-or-nothing apply — rejected (one typo in row 190 shouldn't void the
 file).
+
+## Amendments
+
+- **2026-02**: The shipped UI entry point is an **"Import products" button**
+  opening a dialog on the Products page (header action beside "New product",
+  plus the empty-state action area), not the "Import products card" sketched
+  in the original Decision text. The dialog provides the same flow: file →
+  dry-run preview → apply → report.

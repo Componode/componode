@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 import {
   createProductSchema,
   updateProductSchema,
@@ -22,6 +22,7 @@ import {
   addDependsOnEdge,
   removeDependsOnEdge,
 } from "../services/product-edge-service.js";
+import { bootstrapCatalog } from "../services/catalog-bootstrap-service.js";
 import type { Actor } from "../services/audit-service.js";
 
 type ServiceError = {
@@ -60,6 +61,23 @@ function validationFailed(reply: FastifyReply, issues: unknown) {
 }
 
 export async function productRoutes(app: FastifyInstance): Promise<void> {
+  // ADR-114: the bootstrap endpoint accepts the document as the raw request
+  // body — YAML media types arrive as text; JSON gets a scoped raw-string
+  // parser inside the bootstrap route's register block below.
+  for (const contentType of [
+    "application/yaml",
+    "application/x-yaml",
+    "text/yaml",
+  ]) {
+    app.addContentTypeParser(
+      contentType,
+      { parseAs: "string" },
+      (_req, body, done) => {
+        done(null, body);
+      },
+    );
+  }
+
   app.get(
     "/products",
     { preHandler: [app.verifySession] },
@@ -85,6 +103,41 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
       }
     },
   );
+
+  // ADR-114: curated catalog bootstrap — strict whole-document validation,
+  // per-item atomic upsert + edge wiring, ?dryRun=true previews the report.
+  // Encapsulated scope so application/json also arrives as a raw string here
+  // (YAML.parse handles JSON) without disturbing other routes' JSON parser.
+  app.register(async (scope) => {
+    scope.addContentTypeParser(
+      "application/json",
+      { parseAs: "string" },
+      (_req, body, done) => {
+        done(null, body);
+      },
+    );
+    scope.post(
+      "/products/bootstrap",
+      { preHandler: [scope.verifySession, requireRole("product:create")] },
+      async (req: AuthenticatedRequest, reply: FastifyReply) => {
+        const parsed = z
+          .object({ dryRun: z.enum(["true", "false"]).optional() })
+          .strict()
+          .safeParse(req.query);
+        if (!parsed.success) return validationFailed(reply, parsed.error.issues);
+        try {
+          const report = await bootstrapCatalog(
+            req.body,
+            { dryRun: parsed.data.dryRun === "true" },
+            actor(req),
+          );
+          return reply.status(200).send(report);
+        } catch (err) {
+          return sendServiceError(reply, err);
+        }
+      },
+    );
+  });
 
   app.get(
     "/products/:slug",

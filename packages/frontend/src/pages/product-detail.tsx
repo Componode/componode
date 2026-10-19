@@ -35,6 +35,7 @@ import { TagChips } from "@/components/metadata/tags-input";
 import { CriticalityBadge } from "@/components/metadata/criticality-badge";
 import { SunsetBadge } from "@/components/metadata/sunset-badge";
 import { relativeTime, absoluteTime, MONO_CLASS } from "@/lib/format";
+import { roleAtLeast } from "@/lib/roles";
 import { useSetCrumbLabel } from "@/components/layout/crumb-context";
 import { ProductForm } from "@/components/products/product-form";
 import { HealthBadge } from "@/components/products/health-badge";
@@ -45,7 +46,6 @@ import type { ApiError } from "@/api/client";
 import type { ProductRef, ComponentDepRef, InstanceDepRef } from "@/api/types";
 import type { DepSource } from "@componode/core";
 
-const ROLE_LEVEL: Record<string, number> = { VIEWER: 0, EDITOR: 1, ADMIN: 2 };
 type Tab = "overview" | "composition" | "components" | "instances";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -59,7 +59,7 @@ export function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { data: user } = useSession();
-  const editor = (ROLE_LEVEL[user?.role ?? "VIEWER"] ?? 0) >= 1;
+  const editor = roleAtLeast(user?.role);
 
   const { data, isPending, error, refetch } = useProduct(slug);
   const product = data?.product;
@@ -569,6 +569,7 @@ export function ProductDetailPage() {
           open
           target={edgePicker}
           productId={product.id}
+          existingComponentIds={data.components.declared.map((c) => c.id)}
           onClose={() => setEdgePicker(null)}
           onAdd={async (body) => {
             await addEdge.mutateAsync({ id: product!.id, kind: edgePicker.kind, body });

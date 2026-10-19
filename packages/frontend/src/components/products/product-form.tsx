@@ -23,10 +23,14 @@ interface Props {
   open: boolean;
   onClose: () => void;
   product?: DigitalProduct; // present = edit mode
+  /** Spec 021 US2: create-from-components — ids wired as DEPENDS_ON edges. */
+  componentIds?: string[];
+  /** Called with the created product after a successful create. */
+  onCreated?: (product: DigitalProduct) => void;
 }
 
 /** Create/edit product dialog (spec 005, US3/US4). */
-export function ProductForm({ open, onClose, product }: Props) {
+export function ProductForm({ open, onClose, product, componentIds, onCreated }: Props) {
   const create = useCreateProduct();
   const update = useUpdateProduct();
   const [form, setForm] = useState({
@@ -86,7 +90,7 @@ export function ProductForm({ open, onClose, product }: Props) {
           sunsetAt,
         });
       } else {
-        await create.mutateAsync({
+        const res = await create.mutateAsync({
           name: form.name,
           slug: form.slug || undefined,
           type: form.type,
@@ -97,7 +101,9 @@ export function ProductForm({ open, onClose, product }: Props) {
           tags,
           criticality: form.criticality || null,
           sunsetAt,
+          componentIds,
         });
+        onCreated?.(res.product);
       }
       onClose();
     } catch (err) {
@@ -112,6 +118,12 @@ export function ProductForm({ open, onClose, product }: Props) {
           <DialogTitle>{product ? "Edit product" : "New product"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
+          {!product && componentIds && componentIds.length > 0 && (
+            <p className="rounded-md border border-input bg-muted/50 px-3 py-2 text-sm">
+              This product will be wired to {componentIds.length} component
+              {componentIds.length === 1 ? "" : "s"} as dependencies.
+            </p>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="p-name">Name</Label>
             <Input

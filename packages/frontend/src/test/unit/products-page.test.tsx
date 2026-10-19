@@ -13,6 +13,7 @@ vi.mock("@/api/hooks/products", () => ({
   useDeleteProduct: vi.fn(() => ({ mutateAsync: vi.fn() })),
   useAddEdge: vi.fn(() => ({ mutateAsync: vi.fn() })),
   useRemoveEdge: vi.fn(() => ({ mutate: vi.fn() })),
+  useBootstrapProducts: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
 }));
 vi.mock("@/api/hooks/org", () => ({
   useLobs: vi.fn(() => ({ data: { lobs: [] } })),

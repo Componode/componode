@@ -118,6 +118,20 @@ export type {
   ListProductsQuery,
   PromoteToPlatformInput,
 } from "./schemas/product.js";
+export {
+  bootstrapDocumentSchema,
+  bootstrapProductItemSchema,
+  bootstrapOwnerSchema,
+} from "./schemas/bootstrap.js";
+export type {
+  BootstrapDocument,
+  BootstrapProductItem,
+  BootstrapOwner,
+} from "./schemas/bootstrap.js";
+export type {
+  BootstrapReport,
+  BootstrapSkippedItem,
+} from "./contracts/bootstrap.js";
 export { createOrgEntitySchema, updateOrgEntitySchema } from "./schemas/org.js";
 export type { CreateOrgEntityInput, UpdateOrgEntityInput } from "./schemas/org.js";
 export type {

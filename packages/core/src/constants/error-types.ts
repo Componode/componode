@@ -33,6 +33,7 @@ export const ERROR_TYPES: Record<ErrorCode, ErrorType> = {
   CONFIG_NOT_FOUND: { code: "CONFIG_NOT_FOUND", status: 404, title: "Configuration not found" },
   RUN_IN_PROGRESS: { code: "RUN_IN_PROGRESS", status: 409, title: "Run already in progress" },
   RUN_NOT_ACTIVE: { code: "RUN_NOT_ACTIVE", status: 409, title: "Run is not active" },
+  PAYLOAD_TOO_LARGE: { code: "PAYLOAD_TOO_LARGE", status: 413, title: "Request payload too large" },
   INTERNAL_ERROR: { code: "INTERNAL_ERROR", status: 500, title: "Internal server error" },
   CREDENTIAL_NOT_FOUND: { code: "CREDENTIAL_NOT_FOUND", status: 404, title: "Credential not found" },
   CREDENTIAL_IN_USE: { code: "CREDENTIAL_IN_USE", status: 409, title: "Credential is in use" },

@@ -1,7 +1,10 @@
 import { useMemo, useState, useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, PackageSearch } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ChevronLeft, ChevronRight, PackageSearch, PackagePlus } from "lucide-react";
 import { useComponents, type ComponentListFilters } from "@/api/hooks/components";
+import { roleAtLeast } from "@/lib/roles";
+import { useSession } from "@/api/hooks/auth";
+import { ProductForm } from "@/components/products/product-form";
 import { ComponentFilters } from "@/components/component-filters";
 import { ComponentSearch } from "@/components/component-search";
 import { Button } from "@/components/ui/button";
@@ -60,9 +63,22 @@ function filtersToSearchParams(filters: ComponentListFilters): URLSearchParams {
 
 export function ComponentsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { data: user } = useSession();
+  const editor = roleAtLeast(user?.role);
   const filters = useMemo(() => filtersFromSearchParams(searchParams), [searchParams]);
 
   const { data, isPending, isFetching, error, refetch } = useComponents(filters);
+
+  // Spec 021 US2: multi-select ACTIVE rows → "create product from components".
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [createFromOpen, setCreateFromOpen] = useState(false);
+
+  // Selections only make sense against the visible set — drop them when the
+  // filter/page changes so invisible ids can't leak into "Create product".
+  useEffect(() => {
+    setSelected(new Set());
+  }, [filters]);
 
   const [displayData, setDisplayData] = useState<ComponentListResponse["data"]>([]);
   const [pagination, setPagination] = useState<ComponentListResponse["pagination"]>({
@@ -162,9 +178,53 @@ export function ComponentsPage() {
 
           {!isPending && !error && components.length > 0 && (
             <>
+              {editor && selected.size > 0 && (
+                <div className="flex items-center justify-between border-b bg-muted/50 px-4 py-2">
+                  <p className="text-sm font-medium">{selected.size} selected</p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelected(new Set())}
+                    >
+                      Clear
+                    </Button>
+                    <Button size="sm" onClick={() => setCreateFromOpen(true)}>
+                      <PackagePlus className="mr-2 h-4 w-4" /> Create product
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {editor && (
+                      <TableHead className="w-8">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all active components"
+                          className="h-4 w-4"
+                          checked={
+                            components.filter((c) => c.lifecycle === "ACTIVE")
+                              .length > 0 &&
+                            components
+                              .filter((c) => c.lifecycle === "ACTIVE")
+                              .every((c) => selected.has(c.id))
+                          }
+                          onChange={(e) => {
+                            const active = components
+                              .filter((c) => c.lifecycle === "ACTIVE")
+                              .map((c) => c.id);
+                            setSelected((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) active.forEach((id) => next.add(id));
+                              else active.forEach((id) => next.delete(id));
+                              return next;
+                            });
+                          }}
+                        />
+                      </TableHead>
+                    )}
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Provider</TableHead>
@@ -178,6 +238,26 @@ export function ComponentsPage() {
                 <TableBody>
                   {components.map((component) => (
                     <TableRow key={component.id}>
+                      {editor && (
+                        <TableCell className="w-8">
+                          {component.lifecycle === "ACTIVE" && (
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${component.name}`}
+                              className="h-4 w-4"
+                              checked={selected.has(component.id)}
+                              onChange={(e) => {
+                                setSelected((prev) => {
+                                  const next = new Set(prev);
+                                  if (e.target.checked) next.add(component.id);
+                                  else next.delete(component.id);
+                                  return next;
+                                });
+                              }}
+                            />
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <Link
                           to={`/components/${component.id}`}
@@ -240,6 +320,16 @@ export function ComponentsPage() {
           )}
         </CardContent>
       </Card>
+
+      <ProductForm
+        open={createFromOpen}
+        onClose={() => setCreateFromOpen(false)}
+        componentIds={[...selected]}
+        onCreated={(product) => {
+          setSelected(new Set());
+          navigate(`/products/${product.slug}`);
+        }}
+      />
     </div>
   );
 }

@@ -48,10 +48,18 @@ file tracks shipped and upcoming work — update it when a spec completes.
   wires its `DEPENDS_ON` edge, rewrites chosen consumers to
   `CONSUMES_FROM`, and prompts for LOB/Team ownership. Promotion is also
   reachable from every component's detail page.
+- `021-catalog-bootstrap` — practical-DPAM cold start (ADR-114): a
+  declarative YAML/JSON bootstrap endpoint upserts products by derived slug
+  and wires `DEPENDS_ON` edges by component slug/name/externalId, with
+  strict whole-document validation, per-item atomicity, dry-run previews,
+  and an idempotent `{created, updated, edgesAdded, skipped}` report; the
+  Components list can create a product from checked components in one
+  transaction, and the dependency picker wires multiple components per
+  action.
 
 ## Next — v1.1
 
-Immediately next: `021-catalog-bootstrap` heads the queue.
+Immediately next: `022-edge-suggestions` heads the queue.
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list:

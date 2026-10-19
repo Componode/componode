@@ -35,6 +35,14 @@ vi.mock("@/components/layout/crumb-context", () => ({
   useSetCrumbLabel: vi.fn(),
 }));
 
+const edgePickerProps: { existingComponentIds?: string[] }[] = [];
+vi.mock("@/components/products/edge-picker", () => ({
+  EdgePicker: (props: { existingComponentIds?: string[] }) => {
+    edgePickerProps.push(props);
+    return null;
+  },
+}));
+
 import { useProduct } from "@/api/hooks/products";
 const mockUseProduct = vi.mocked(useProduct);
 
@@ -150,6 +158,45 @@ describe("ProductDetailPage", () => {
     expect(screen.getByText("Inherited")).toBeDefined();
     expect(screen.getByText("dep-lib")).toBeDefined();
     expect(screen.getByText("Child P")).toBeDefined(); // via provenance
+  });
+
+  it("disables declared components in the depends-on picker, including group-sourced deps", () => {
+    edgePickerProps.length = 0;
+    mockUseProduct.mockReturnValue({
+      data: {
+        ...detail,
+        components: {
+          declared: [
+            {
+              id: "c1",
+              name: "direct-dep",
+              slug: "direct-dep",
+              category: "LIBRARY",
+              lifecycle: "ACTIVE",
+              sources: [{ kind: "DIRECT" }],
+            },
+            {
+              id: "c2",
+              name: "group-dep",
+              slug: "group-dep",
+              category: "LIBRARY",
+              lifecycle: "ACTIVE",
+              sources: [{ kind: "GROUP", group: { id: "g1", name: "G", slug: "g" } }],
+            },
+          ],
+          inherited: [],
+        },
+      },
+      isPending: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useProduct>);
+    renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: "Components" }));
+    fireEvent.click(screen.getByRole("button", { name: /add dependency/i }));
+    // A component wired via a group is still "already declared" — the picker
+    // must not offer it for a redundant direct edge.
+    expect(edgePickerProps.at(-1)!.existingComponentIds).toEqual(["c1", "c2"]);
   });
 
   it("shows error state on failure", () => {

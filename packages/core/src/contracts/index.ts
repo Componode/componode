@@ -14,3 +14,4 @@ export type { PasswordResetToken } from "./password-reset-token.js";
 export type { EntityChange, EdgeChange } from "./audit.js";
 export type { DiscoveredAsset, DiscoveredAssetEnvironment } from "./discovered-asset.js";
 export type { SecretResolver, ImporterContext, Importer } from "./importer.js";
+export type { BootstrapReport, BootstrapSkippedItem } from "./bootstrap.js";

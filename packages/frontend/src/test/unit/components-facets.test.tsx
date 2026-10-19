@@ -7,6 +7,17 @@ vi.mock("@/api/hooks/components", () => ({
   useComponents: vi.fn(),
   useComponentGroups: vi.fn(() => ({ data: { groups: [] } })),
 }));
+vi.mock("@/api/hooks/auth", () => ({
+  useSession: vi.fn(() => ({ data: { role: "VIEWER" } })),
+}));
+vi.mock("@/api/hooks/products", () => ({
+  useCreateProduct: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useUpdateProduct: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+}));
+vi.mock("@/api/hooks/org", () => ({
+  useLobs: vi.fn(() => ({ data: { lobs: [] } })),
+  useTeams: vi.fn(() => ({ data: { teams: [] } })),
+}));
 
 import { useComponents, useComponentGroups } from "@/api/hooks/components";
 const mockUseComponents = vi.mocked(useComponents);
