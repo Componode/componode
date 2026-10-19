@@ -67,7 +67,9 @@ products:
   edges) commits independently; an item that fails mid-apply (e.g.
   `TYPE_CHANGE_BLOCKED`) lands in `skipped` and the apply continues.
   Upsert key is the slug derived from `name`; updates merge (present fields
-  applied, omitted untouched, lifecycle never changed). `dependsOn` refs
+  applied, omitted untouched, lifecycle never changed). Scalars clear via
+  `null`; array fields (`tags`, `dependsOn`) clear via `[]` — `null` is
+  rejected for arrays and for `owner` (clear each owner key individually). `dependsOn` refs
   resolve component slug → name → `externalId`; unresolved/ambiguous refs
   are `skipped`, never fabricated. Re-running the same file is idempotent.
 - **Audit**: `digital_product` `created`/`updated` per applied item +

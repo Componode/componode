@@ -239,3 +239,12 @@ the picker → one Add → all three appear as declared dependencies.
 - [X] T048 Align audit provenance with contract api.md — product `created`/`updated` audit rows from a bootstrap import aren't tagged with reason `"catalog bootstrap import"` (`entity_changes` lacks a reason column); either add reason provenance for product rows or amend the contract wording (partial)
 - [X] T049 Align `skipped[].item` shape with the contract example (`"payments-shop → dependsOn \"paymets-db\""`) or amend `contracts/api.md` to document the actual `"products.N (Name)"` format emitted by `catalog-bootstrap-service.ts` (partial)
 - [X] T050 Resolve `owner: null` semantics per FR-002 ("explicit `null` or `[]` clears the field") — schema currently rejects `owner: null`; either accept it to clear both owner refs or document sub-key-only clearing in `contracts/api.md` (partial)
+
+## Phase 13: Convergence
+
+- [X] T051 `edge-picker.tsx`: show a loading state while `useAllComponents`/`useComponentGroups` are pending (currently flashes "No active components found"), and only fetch components/groups when `target.kind === "depends-on"` — `composes`/`consumes-from` pickers only need the product list (partial)
+- [X] T052 `routes/products.ts` `sendServiceError`: guard `error.code` against `ERROR_CODES` before emitting (fall back to `CONFLICT`) — non-enum codes must not reach the controlled vocabulary per ADR-071 (partial)
+- [X] T053 Import dialog: surface all validation issues when the document is rejected (SC-002 "identifying every malformed item") — `describeApiError` renders only `issues[0]`; render the `details` issue list (partial)
+- [X] T054 Write `DEPENDS_ON_COMPONENT added` audit rows only for actually-inserted edges in the `componentIds[]` bulk paths (`product-service.ts` createProduct fast path + `product-edge-service.ts` bulk add) — `doNothing()` conflicts must not mint phantom audit entries per SC-006 (partial)
+- [X] T055 `contracts/api.md`: document that array fields (`tags`, `dependsOn`) clear via `[]`, not `null` — matches the strict schema and the documented `owner` sub-key convention per FR-002 (partial)
+- [X] T056 `useAddEdge` in `api/hooks/products.ts`: also invalidate `components`, `component-groups`, `dashboard` — bulk edge adds change ADR-112 health rollups, consistent with `useBootstrapProducts` (partial)

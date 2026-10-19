@@ -37,9 +37,12 @@ interface Props {
  * 409/422 errors surface inline.
  */
 export function EdgePicker({ open, onClose, target, productId, existingComponentIds, onAdd }: Props) {
+  const dependsOn = target.kind === "depends-on";
   const { data: productsData } = useProducts({ includeRetired: true });
-  const { data: componentsData } = useAllComponents({ sort: "name" });
-  const { data: groupsData } = useComponentGroups();
+  const { data: componentsData, isPending: componentsPending } =
+    useAllComponents({ sort: "name" }, dependsOn);
+  const { data: groupsData, isPending: groupsPending } =
+    useComponentGroups(dependsOn);
   const [selected, setSelected] = useState("");
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [selectedGroup, setSelectedGroup] = useState("");
@@ -62,7 +65,6 @@ export function EdgePicker({ open, onClose, target, productId, existingComponent
 
   // ADR-110 + spec 021 US3: depends-on mode is a mixed picker — components as
   // checkboxes (bulk submit via componentIds[]), groups as single-select.
-  const dependsOn = target.kind === "depends-on";
   const alreadyWired = new Set(existingComponentIds ?? []);
   const components = dependsOn
     ? (componentsData ?? []).filter((c) => c.lifecycle !== "RETIRED")
@@ -123,7 +125,11 @@ export function EdgePicker({ open, onClose, target, productId, existingComponent
             <>
               <div className="space-y-1.5">
                 <Label>Components</Label>
-                {components.length === 0 ? (
+                {componentsPending ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading components…
+                  </p>
+                ) : components.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No active components found.
                   </p>
@@ -159,7 +165,11 @@ export function EdgePicker({ open, onClose, target, productId, existingComponent
                   </ul>
                 )}
               </div>
-              {groups.length > 0 && (
+              {groupsPending ? (
+                <p className="text-sm text-muted-foreground">
+                  Loading component groups…
+                </p>
+              ) : groups.length > 0 && (
                 <div className="space-y-1.5">
                   <Label>Component groups</Label>
                   <ul className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-input p-2">

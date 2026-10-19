@@ -40,6 +40,25 @@ function SkippedList({ report }: { report: BootstrapReport }) {
   );
 }
 
+function issueText(issue: { path?: (string | number)[]; message?: string }): string {
+  const field = issue.path?.length ? `${issue.path.join(".")}: ` : "";
+  return `${field}${issue.message ?? "Invalid value"}`;
+}
+
+/** SC-002: a rejected document surfaces every malformed item, not just the first. */
+function ValidationIssueList({ error }: { error: ApiError }) {
+  if (error.code !== "VALIDATION_FAILED" || !Array.isArray(error.details)) return null;
+  const issues = error.details as { path?: (string | number)[]; message?: string }[];
+  if (issues.length <= 1) return null;
+  return (
+    <ul className="max-h-32 space-y-0.5 overflow-y-auto rounded-md border border-input p-2 text-xs">
+      {issues.map((issue, i) => (
+        <li key={i}>{issueText(issue)}</li>
+      ))}
+    </ul>
+  );
+}
+
 /**
  * ADR-114 catalog bootstrap: file selection triggers a dry-run preview of
  * the report; "Apply" commits the same document. The whole document is
@@ -51,7 +70,7 @@ export function ImportProductsDialog({ open, onClose }: Props) {
   const [fileText, setFileText] = useState<string | null>(null);
   const [preview, setPreview] = useState<BootstrapReport | null>(null);
   const [finalReport, setFinalReport] = useState<BootstrapReport | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -84,7 +103,7 @@ export function ImportProductsDialog({ open, onClose }: Props) {
     } catch (err) {
       setFileName(null);
       setFileText(null);
-      setError(describeApiError(err as ApiError, "Import preview failed"));
+      setError(err as ApiError);
     }
   }
 
@@ -95,7 +114,7 @@ export function ImportProductsDialog({ open, onClose }: Props) {
       const report = await bootstrap.mutateAsync({ document: fileText, dryRun: false });
       setFinalReport(report);
     } catch (err) {
-      setError(describeApiError(err as ApiError, "Import failed"));
+      setError(err as ApiError);
     }
   }
 
@@ -140,9 +159,12 @@ export function ImportProductsDialog({ open, onClose }: Props) {
           )}
 
           {error && (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
+            <div className="space-y-1" role="alert">
+              <p className="text-sm text-destructive">
+                {describeApiError(error, "Import failed")}
+              </p>
+              <ValidationIssueList error={error} />
+            </div>
           )}
         </div>
         <div className="flex justify-end gap-2">

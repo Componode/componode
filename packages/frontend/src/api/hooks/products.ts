@@ -132,7 +132,12 @@ export function useAddEdge() {
         method: "POST",
         body: JSON.stringify(vars.body),
       }),
-    onSuccess: () => invalidateProducts(qc),
+    onSuccess: () => {
+      invalidateProducts(qc);
+      qc.invalidateQueries({ queryKey: ["components"] });
+      qc.invalidateQueries({ queryKey: ["component-groups"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
 }
 

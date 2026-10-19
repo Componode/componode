@@ -488,21 +488,24 @@ export async function createProduct(input: CreateProductInput, actor: Actor) {
       changes: parsed as Record<string, unknown>,
       actor,
     }, trx);
-    for (const componentId of componentIds) {
-      await trx
+    if (componentIds.length > 0) {
+      const inserted = await trx
         .insertInto("product_depends_on_component")
-        .values({ productId: id, componentId })
+        .values(componentIds.map((componentId) => ({ productId: id, componentId })))
         .onConflict((oc) => oc.doNothing())
+        .returning("componentId")
         .execute();
-      await writeEdgeChange(
-        "DEPENDS_ON_COMPONENT",
-        { entityType: "digital_product", entityId: id },
-        { entityType: "component", entityId: componentId },
-        "added",
-        actor,
-        "created from components",
-        trx,
-      );
+      for (const { componentId } of inserted) {
+        await writeEdgeChange(
+          "DEPENDS_ON_COMPONENT",
+          { entityType: "digital_product", entityId: id },
+          { entityType: "component", entityId: componentId },
+          "added",
+          actor,
+          "created from components",
+          trx,
+        );
+      }
     }
     return trx
       .selectFrom("digital_products")

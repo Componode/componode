@@ -75,11 +75,13 @@ export async function addComposesEdge(parentId: string, rawInput: unknown, actor
   await assertNoCycle(parentId, childId);
 
   await db.transaction().execute(async (trx) => {
-    await trx
+    const inserted = await trx
       .insertInto("product_composes")
       .values({ parentId, childId })
       .onConflict((oc) => oc.doNothing())
+      .returning("childId")
       .execute();
+    if (inserted.length === 0) return;
     await writeEdgeChange(
       "COMPOSES",
       { entityType: "digital_product", entityId: parentId },
@@ -121,11 +123,13 @@ export async function addConsumesFromEdge(consumerId: string, rawInput: unknown,
   }
 
   await db.transaction().execute(async (trx) => {
-    await trx
+    const inserted = await trx
       .insertInto("product_consumes_from")
       .values({ consumerId, platformId })
       .onConflict((oc) => oc.doNothing())
+      .returning("platformId")
       .execute();
+    if (inserted.length === 0) return;
     await writeEdgeChange(
       "CONSUMES_FROM",
       { entityType: "digital_product", entityId: consumerId },
@@ -174,11 +178,13 @@ export async function addDependsOnEdge(productId: string, rawInput: unknown, act
     if (!group) throw notFound("Component group");
 
     await db.transaction().execute(async (trx) => {
-      await trx
+      const inserted = await trx
         .insertInto("product_depends_on_component_group")
         .values({ productId, componentGroupId: groupId })
         .onConflict((oc) => oc.doNothing())
+        .returning("componentGroupId")
         .execute();
+      if (inserted.length === 0) return;
       await writeEdgeChange(
         "DEPENDS_ON_COMPONENT",
         { entityType: "digital_product", entityId: productId },
@@ -212,12 +218,13 @@ export async function addDependsOnEdge(productId: string, rawInput: unknown, act
     }
 
     await db.transaction().execute(async (trx) => {
-      await trx
+      const inserted = await trx
         .insertInto("product_depends_on_component")
         .values(componentIds.map((componentId) => ({ productId, componentId })))
         .onConflict((oc) => oc.doNothing())
+        .returning("componentId")
         .execute();
-      for (const componentId of componentIds) {
+      for (const { componentId } of inserted) {
         await writeEdgeChange(
           "DEPENDS_ON_COMPONENT",
           { entityType: "digital_product", entityId: productId },
@@ -241,11 +248,13 @@ export async function addDependsOnEdge(productId: string, rawInput: unknown, act
   if (!component) throw notFound("Component");
 
   await db.transaction().execute(async (trx) => {
-    await trx
+    const inserted = await trx
       .insertInto("product_depends_on_component")
       .values({ productId, componentId })
       .onConflict((oc) => oc.doNothing())
+      .returning("componentId")
       .execute();
+    if (inserted.length === 0) return;
     await writeEdgeChange(
       "DEPENDS_ON_COMPONENT",
       { entityType: "digital_product", entityId: productId },

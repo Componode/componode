@@ -4,6 +4,7 @@ import {
   createProductSchema,
   updateProductSchema,
   listProductsQuerySchema,
+  isErrorCode,
 } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
@@ -46,7 +47,7 @@ function sendServiceError(reply: FastifyReply, err: unknown) {
   const error = err as ServiceError;
   if (error.statusCode && error.statusCode < 500) {
     return reply.status(error.statusCode).send({
-      code: error.code ?? "CONFLICT",
+      code: error.code && isErrorCode(error.code) ? error.code : "CONFLICT",
       message: error.message ?? "Request failed",
       ...(error.details ? { details: error.details } : {}),
     });
