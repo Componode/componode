@@ -40,6 +40,7 @@ const CODE_MEANINGS: Record<string, string> = {
   CONFLICT: "Generic conflict (409)",
   CYCLE_DETECTED: "COMPOSES edge would create a cycle (409)",
   INVALID_EDGE_TYPE: "Edge type/target constraint violated",
+  PAYLOAD_TOO_LARGE: "Request body exceeds the size limit",
   REFERENCED: "Delete blocked by existing references",
   TYPE_CHANGE_BLOCKED: "Product type change not allowed",
   SLUG_TAKEN: "Slug uniqueness conflict",

@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (v1.0.0, features 001–017)
+## Shipped (features 001–022)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -56,10 +56,15 @@ file tracks shipped and upcoming work — update it when a spec completes.
   Components list can create a product from checked components in one
   transaction, and the dependency picker wires multiple components per
   action.
+- `022-edge-suggestions` — staged, human-reviewed `DEPENDS_ON` candidates
+  (ADR-113): server-generated from name/topic-tag/namespace signals on
+  import completion, product writes, and rescan; accept wires through the
+  normal edge path with audit, dismiss is permanent, and `SUPERSEDED`
+  tombstones keep covered or deliberately unwired pairs from regenerating.
 
 ## Next — v1.1
 
-Immediately next: `022-edge-suggestions` heads the queue.
+Immediately next: `023-coverage-and-hygiene` heads the queue.
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list:

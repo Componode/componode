@@ -387,6 +387,64 @@ fast — all curated, all audited, none of them importers:
    request, or a single component group — never both. Components the product
    already depends on stay visible but disabled.
 
+## Staged edge suggestions (ADR-113)
+
+Importers fill the factual layer, but the meaning layer still starts empty —
+somebody has to wire every `DEPENDS_ON` edge. Suggestions close most of that
+gap without ever auto-authoring a relationship: the server computes
+**candidate edges** from stored catalog data, stages them as `PENDING` rows,
+and a human decides each one in the *Suggestions* queue.
+
+**The signals.** Every generation pass scores each active
+product × component pair on three ratified signals:
+
+| Signal | What matches | Score |
+|---|---|---|
+| `NAME_MATCH` | Token overlap between product and component names/slugs | 1.0 on containment, 0.5 on any shared token |
+| `TOPIC_TAG_MATCH` | Product tags/name tokens vs component `tags` + `details.topics` | 0.5 first hit, +0.1 each extra, cap 0.8 |
+| `NAMESPACE_MATCH` | Product name tokens vs `details.namespace` tokens | 0.6 |
+
+A pair hitting multiple signals keeps the strongest reason and gets a small
+multi-signal bonus (+0.05 each, cap +0.1). Pairs below the 0.5 floor are
+never staged.
+
+**The lifecycle.** One row per `(product, component)` pair:
+
+```
+PENDING ──accept──▶ ACCEPTED   (real edge wired via the normal edge path
+                                + its standard audit entry)
+PENDING ──dismiss─▶ DISMISSED  (permanent — never suggested again)
+*       ──covered─▶ SUPERSEDED (pair became a real or group-covered edge
+                              by other means)
+```
+
+Only `PENDING` is live. Decided rows are terminal: they never return to
+`PENDING`, there is no un-dismiss, and a pair that was once a real edge
+keeps a `SUPERSEDED` tombstone so deleting the edge later can never
+regenerate the suggestion. Pairs already covered through a `ComponentGroup`
+dependency are suppressed the same way — the queue only ever shows work a
+human would actually want.
+
+One caveat on tombstones: they are written when the edge itself is written.
+A pair that was wired **before** this feature existed and removed before any
+generation pass observed it leaves no tombstone, so a *Rescan* may re-stage
+it once — dismiss it and the dismissal is permanent.
+
+**When candidates appear.** Generation runs after a successful import run
+(failed/cancelled runs stage nothing), on product creates and name/tag
+updates, on component tag or group changes, after a catalog bootstrap apply
+and a platform promotion, and on demand via *Rescan* — the backfill path for
+catalogs that predate the feature. Pending rows that stop matching stay put:
+rescoring a suggestion is fine, un-deciding a human's queue is not.
+
+**The queue** (`/suggestions` in the Catalog nav) lists pending candidates
+sorted by score with the reason chip (`Name match`, `Topic/tag match`,
+`Namespace match`), product and component links, and Accept/Dismiss actions
+for `EDITOR+`. The Dismissed filter is the permanent decision history —
+reason, score, who dismissed it, and when. Accepting wires the edge through
+the exact same service and audit path as manual wiring; dismissing records
+the decider and is irreversible by design.
+
 ## Practical metadata
 
 Beyond names, owners, and edges, every Digital Product and Component carries

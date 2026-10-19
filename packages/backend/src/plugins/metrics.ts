@@ -107,6 +107,38 @@ const componentGroupsTotal = getOrCreateGauge(
   "Total number of component groups",
 );
 
+// Edge suggestion metrics (ADR-113)
+const suggestionPassesTotal = getOrCreateCounter(
+  "suggestion_passes_total",
+  "Total edge suggestion generation passes",
+  ["scope"],
+);
+
+const suggestionPassDurationSeconds = getOrCreateHistogram(
+  "suggestion_pass_duration_seconds",
+  "Edge suggestion generation pass duration",
+  ["scope"],
+  [0.05, 0.1, 0.5, 1, 2.5, 5, 10, 30, 60],
+);
+
+const suggestionStagedTotal = getOrCreateCounter(
+  "suggestion_staged_total",
+  "Total edge suggestion pairs staged or rescored",
+  [],
+);
+
+const suggestionSupersededTotal = getOrCreateCounter(
+  "suggestion_superseded_total",
+  "Total edge suggestion pairs tombstoned by coverage",
+  [],
+);
+
+const suggestionPassErrorsTotal = getOrCreateCounter(
+  "suggestion_pass_errors_total",
+  "Total failed edge suggestion generation passes",
+  [],
+);
+
 // Collect default Node.js metrics (event loop, GC, memory, CPU) once per process.
 const collectDefaultMetrics = promClient.collectDefaultMetrics;
 if (!promClient.register.getSingleMetric("process_cpu_user_seconds_total")) {
@@ -127,6 +159,11 @@ export const metrics = {
   importRunErrorsTotal,
   componentsTotal,
   componentGroupsTotal,
+  suggestionPassesTotal,
+  suggestionPassDurationSeconds,
+  suggestionStagedTotal,
+  suggestionSupersededTotal,
+  suggestionPassErrorsTotal,
 };
 
 export async function metricsPlugin(app: FastifyInstance): Promise<void> {

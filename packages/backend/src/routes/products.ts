@@ -1,10 +1,9 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { z, ZodError } from "zod";
+import { z } from "zod";
 import {
   createProductSchema,
   updateProductSchema,
   listProductsQuerySchema,
-  isErrorCode,
 } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
@@ -24,42 +23,11 @@ import {
   removeDependsOnEdge,
 } from "../services/product-edge-service.js";
 import { bootstrapCatalog } from "../services/catalog-bootstrap-service.js";
-import type { Actor } from "../services/audit-service.js";
-
-type ServiceError = {
-  statusCode?: number;
-  code?: string;
-  message?: string;
-  details?: unknown;
-};
-
-function actor(req: AuthenticatedRequest): Actor {
-  return {
-    id: req.user?.id ?? null,
-    name: req.user?.displayName ?? req.user?.username ?? null,
-  };
-}
-
-function sendServiceError(reply: FastifyReply, err: unknown) {
-  if (err instanceof ZodError) {
-    return validationFailed(reply, err.issues);
-  }
-  const error = err as ServiceError;
-  if (error.statusCode && error.statusCode < 500) {
-    return reply.status(error.statusCode).send({
-      code: error.code && isErrorCode(error.code) ? error.code : "CONFLICT",
-      message: error.message ?? "Request failed",
-      ...(error.details ? { details: error.details } : {}),
-    });
-  }
-  throw err;
-}
-
-function validationFailed(reply: FastifyReply, issues: unknown) {
-  return reply
-    .status(400)
-    .send({ code: "VALIDATION_FAILED", message: "Invalid input", details: issues });
-}
+import {
+  actor,
+  sendServiceError,
+  validationFailed,
+} from "./route-helpers.js";
 
 export async function productRoutes(app: FastifyInstance): Promise<void> {
   // ADR-114: the bootstrap endpoint accepts the document as the raw request

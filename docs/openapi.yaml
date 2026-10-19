@@ -2222,6 +2222,104 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
 
+  # ------------------------------------------------------------ Suggestions
+  /suggestions:
+    get:
+      tags: [Suggestions]
+      summary: List staged edge suggestions (ADR-113)
+      description: |
+        The human-review queue of server-generated DEPENDS_ON candidates.
+        Any authenticated role may read. `PENDING` rows are sorted by score
+        descending and exclude rows whose product or component is `RETIRED`;
+        `DISMISSED` returns the permanent decision history ordered by
+        `decidedAt` descending.
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [PENDING, DISMISSED], default: PENDING }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Queue page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuggestionListResult' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /suggestions/{id}/accept:
+    post:
+      tags: [Suggestions]
+      summary: Accept a suggestion — wires the real DEPENDS_ON edge
+      x-permission: "product:edge:add"
+      description: |
+        Requires `product:edge:add` (Editor+) — accepting IS an edge write:
+        the edge and its normal `edge_changes` audit entry are produced by
+        the standard edge path, and the suggestion is marked `ACCEPTED`
+        atomically. `404` when the suggestion (or an endpoint) is gone,
+        `409` when it is already decided.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The accepted suggestion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestion: { $ref: '#/components/schemas/EdgeSuggestion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /suggestions/{id}/dismiss:
+    post:
+      tags: [Suggestions]
+      summary: Dismiss a suggestion permanently
+      x-permission: "product:edge:add"
+      description: |
+        Requires `product:edge:add` (Editor+). Marks the row `DISMISSED` with
+        `decidedAt`/`decidedBy` — there is no un-dismiss transition and the
+        pair is never suggested again.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The dismissed suggestion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestion: { $ref: '#/components/schemas/EdgeSuggestion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /suggestions/rescan:
+    post:
+      tags: [Suggestions]
+      summary: Run a whole-catalog generation pass
+      x-permission: "product:edge:add"
+      description: |
+        Requires `product:edge:add` (Editor+). Runs the signal engine over
+        every active product × component pair synchronously — bounded for
+        existing catalogs. Stages new `PENDING` rows, rescores existing ones,
+        and tombstones newly covered pairs; terminal rows are never touched.
+      responses:
+        '200':
+          description: Pass report
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuggestionRescanReport' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   # ------------------------------------------------- Metrics (outside v1)
   /metrics:
     get:
@@ -2321,6 +2419,7 @@ components:
             - CONFLICT
             - CYCLE_DETECTED
             - INVALID_EDGE_TYPE
+            - PAYLOAD_TOO_LARGE
             - REFERENCED
             - TYPE_CHANGE_BLOCKED
             - SLUG_TAKEN
@@ -2579,6 +2678,64 @@ components:
           type: array
           description: Component refs resolved slug → name → externalId
           items: { type: string, minLength: 1 }
+    EdgeSuggestionReason:
+      type: string
+      enum: [NAME_MATCH, TOPIC_TAG_MATCH, NAMESPACE_MATCH]
+    EdgeSuggestionStatus:
+      type: string
+      enum: [PENDING, ACCEPTED, DISMISSED, SUPERSEDED]
+    EdgeSuggestion:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        componentId: { type: string, format: uuid }
+        reason:
+          allOf:
+            - { $ref: '#/components/schemas/EdgeSuggestionReason' }
+          nullable: true
+          description: NULL on coverage tombstones
+        score:
+          type: number
+          nullable: true
+          description: Signal score (e.g. 1.05); NULL on tombstones
+        status: { $ref: '#/components/schemas/EdgeSuggestionStatus' }
+        createdAt: { type: string, format: date-time }
+        decidedAt: { type: string, format: date-time, nullable: true }
+        decidedBy: { type: string, format: uuid, nullable: true }
+    SuggestionQueueItem:
+      allOf:
+        - { $ref: '#/components/schemas/EdgeSuggestion' }
+        - type: object
+          properties:
+            product:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                name: { type: string }
+                slug: { type: string }
+            component:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                name: { type: string }
+                slug: { type: string }
+                category: { type: string }
+            decidedByName: { type: string, nullable: true }
+    SuggestionListResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/SuggestionQueueItem' }
+        total: { type: integer }
+    SuggestionRescanReport:
+      type: object
+      properties:
+        productsScanned: { type: integer }
+        componentsScanned: { type: integer }
+        staged: { type: integer }
+        superseded: { type: integer }
     BootstrapReport:
       type: object
       required: [created, updated, edgesAdded, skipped]

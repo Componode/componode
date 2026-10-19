@@ -1,5 +1,4 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { ZodError } from "zod";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
 import {
@@ -9,41 +8,9 @@ import {
   updateOrgEntity,
   deleteOrgEntity,
 } from "../services/org-service.js";
-import type { Actor } from "../services/audit-service.js";
+import { actor, sendServiceError } from "./route-helpers.js";
 
 type OrgTable = "line_of_businesses" | "teams";
-type ServiceError = {
-  statusCode?: number;
-  code?: string;
-  message?: string;
-  details?: unknown;
-};
-
-function actor(req: AuthenticatedRequest): Actor {
-  return {
-    id: req.user?.id ?? null,
-    name: req.user?.displayName ?? req.user?.username ?? null,
-  };
-}
-
-function sendServiceError(reply: FastifyReply, err: unknown) {
-  if (err instanceof ZodError) {
-    return reply.status(400).send({
-      code: "VALIDATION_FAILED",
-      message: "Invalid input",
-      details: err.issues,
-    });
-  }
-  const error = err as ServiceError;
-  if (error.statusCode && error.statusCode < 500) {
-    return reply.status(error.statusCode).send({
-      code: error.code ?? "CONFLICT",
-      message: error.message ?? "Request failed",
-      ...(error.details ? { details: error.details } : {}),
-    });
-  }
-  throw err;
-}
 
 export async function orgRoutes(app: FastifyInstance): Promise<void> {
   const register = (

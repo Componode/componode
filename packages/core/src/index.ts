@@ -23,6 +23,16 @@ export { CREDENTIAL_STATUSES, CREDENTIAL_STATUS_META } from "./constants/credent
 export type { CredentialStatus } from "./constants/credential-status.js";
 export { ERROR_CODES } from "./constants/error-codes.js";
 export type { ErrorCode } from "./constants/error-codes.js";
+export {
+  EDGE_SUGGESTION_REASON,
+  EDGE_SUGGESTION_REASON_META,
+  EDGE_SUGGESTION_STATUS,
+  EDGE_SUGGESTION_STATUS_META,
+} from "./constants/edge-suggestion.js";
+export type {
+  EdgeSuggestionReason,
+  EdgeSuggestionStatus,
+} from "./constants/edge-suggestion.js";
 export { PASSWORD_MIN_LENGTH } from "./constants/passwords.js";
 export { ERROR_TYPES, getErrorType, isErrorCode } from "./constants/error-types.js";
 export type { ErrorType } from "./constants/error-types.js";
@@ -47,6 +57,7 @@ export type { EntityChange, EdgeChange, ActivityFeedItem } from "./contracts/aud
 export type { DiscoveredAsset, DiscoveredAssetInstance, DiscoveredAssetEnvironment } from "./contracts/discovered-asset.js";
 export type { Importer, ImporterContext, SecretResolver, ImporterSecretDeclaration } from "./contracts/importer.js";
 export type { Credential, CredentialDependents, CredentialDetail, CredentialTestResult } from "./contracts/credential.js";
+export type { EdgeSuggestion, SuggestionQueueItem, SuggestionListResult, SuggestionRescanReport } from "./contracts/edge-suggestion.js";
 
 // Observability
 export type { Logger } from "./observability/logger.js";
@@ -132,6 +143,8 @@ export type {
   BootstrapReport,
   BootstrapSkippedItem,
 } from "./contracts/bootstrap.js";
+export { listSuggestionsQuerySchema } from "./schemas/suggestions.js";
+export type { ListSuggestionsQuery } from "./schemas/suggestions.js";
 export { createOrgEntitySchema, updateOrgEntitySchema } from "./schemas/org.js";
 export type { CreateOrgEntityInput, UpdateOrgEntityInput } from "./schemas/org.js";
 export type {

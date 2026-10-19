@@ -34,4 +34,15 @@ export type { ProductCriticality } from "./criticality.js";
 export { ERROR_CODES } from "./error-codes.js";
 export type { ErrorCode } from "./error-codes.js";
 
+export {
+  EDGE_SUGGESTION_REASON,
+  EDGE_SUGGESTION_REASON_META,
+  EDGE_SUGGESTION_STATUS,
+  EDGE_SUGGESTION_STATUS_META,
+} from "./edge-suggestion.js";
+export type {
+  EdgeSuggestionReason,
+  EdgeSuggestionStatus,
+} from "./edge-suggestion.js";
+
 export { PASSWORD_MIN_LENGTH } from "./passwords.js";

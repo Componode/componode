@@ -11,6 +11,7 @@ import {
   KeyRound,
   LockKeyhole,
   Activity,
+  Sparkles,
 } from "lucide-react";
 
 export interface NavItem {
@@ -35,6 +36,7 @@ export const SECTIONS: NavSection[] = [
       { to: "/products", label: "Products", icon: Package },
       { to: "/components", label: "Components", icon: Boxes },
       { to: "/component-groups", label: "Component Groups", icon: Group },
+      { to: "/suggestions", label: "Suggestions", icon: Sparkles },
     ],
   },
   {

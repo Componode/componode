@@ -58,6 +58,7 @@ exception is `GET /metrics`, which is served at the root.
 | `CONFLICT` | Generic conflict (409) |
 | `CYCLE_DETECTED` | COMPOSES edge would create a cycle (409) |
 | `INVALID_EDGE_TYPE` | Edge type/target constraint violated |
+| `PAYLOAD_TOO_LARGE` | Request body exceeds the size limit |
 | `REFERENCED` | Delete blocked by existing references |
 | `TYPE_CHANGE_BLOCKED` | Product type change not allowed |
 | `SLUG_TAKEN` | Slug uniqueness conflict |
@@ -335,3 +336,20 @@ Query params: `q` (required, ≤100 chars), `limit` (1–20, default 8).
 | GET | `/api/v1/audit/entities/:entityType/:entityId` | Per-entity history | Authenticated |
 | POST | `/api/v1/audit/corrections` | Append a correction entry | `audit:correct` |
 <!-- /GENERATED:table:Audit -->
+
+## Suggestions
+
+Staged `DEPENDS_ON` edge suggestions (ADR-113): the server-generated
+candidate queue. Reads are open to any authenticated role; accept, dismiss,
+and rescan require the edge-write permission. `PENDING` is the only
+actionable state — `ACCEPTED`, `DISMISSED`, and `SUPERSEDED` are terminal
+and decided pairs never resurface.
+
+<!-- GENERATED:table:Suggestions -->
+| Method | Path | Description | Access |
+|---|---|---|---|
+| GET | `/api/v1/suggestions` | List staged edge suggestions (ADR-113) | Authenticated |
+| POST | `/api/v1/suggestions/:id/accept` | Accept a suggestion — wires the real DEPENDS_ON edge | `product:edge:add` |
+| POST | `/api/v1/suggestions/:id/dismiss` | Dismiss a suggestion permanently | `product:edge:add` |
+| POST | `/api/v1/suggestions/rescan` | Run a whole-catalog generation pass | `product:edge:add` |
+<!-- /GENERATED:table:Suggestions -->
