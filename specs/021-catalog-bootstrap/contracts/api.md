@@ -28,9 +28,9 @@ products:
   - name: Payments Shop            # required
     type: CUSTOMER_FACING          # required enum
     description: "Storefront"      # optional
-    owner:                         # optional strict object
-      lob: retail                  # LineOfBusiness slug | null clears
-      team: shop-platform          # Team slug | null clears
+    owner:                         # optional strict object — lob/team merge
+      lob: retail                  # independently; `owner: null` is rejected,
+      team: shop-platform          # clear each key with explicit `null`
     tags: [checkout, storefront]   # optional
     criticality: HIGH              # optional enum | null clears
     sunsetAt: null                 # optional iso8601 | null clears
@@ -46,10 +46,13 @@ products:
   "updated": 3,
   "edgesAdded": 41,
   "skipped": [
-    { "item": "payments-shop → dependsOn \"paymets-db\"", "reason": "component not found" }
+    { "item": "products.0 (Payments Shop)", "reason": "component \"paymets-db\" not found" }
   ]
 }
 ```
+
+`skipped[].item` is the document path `products.<index>` plus the item's
+`name` for readability; the failing reference is embedded in `reason`.
 
 - **Errors**:
 
@@ -68,8 +71,9 @@ products:
   resolve component slug → name → `externalId`; unresolved/ambiguous refs
   are `skipped`, never fabricated. Re-running the same file is idempotent.
 - **Audit**: `digital_product` `created`/`updated` per applied item +
-  `DEPENDS_ON_COMPONENT` `added` per edge, attributed to the acting user,
-  reason `"catalog bootstrap import"`.
+  `DEPENDS_ON_COMPONENT` `added` per edge, attributed to the acting user.
+  Edge audit rows carry reason `"catalog bootstrap import"`; `entity_changes`
+  has no reason column, so product rows are identified by actor + timestamp.
 
 ## `POST /api/v1/products` — extended
 

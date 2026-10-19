@@ -112,7 +112,12 @@ export function useBootstrapProducts() {
         },
       ),
     onSuccess: (_data, vars) => {
-      if (!vars.dryRun) invalidateProducts(qc);
+      if (!vars.dryRun) {
+        invalidateProducts(qc);
+        qc.invalidateQueries({ queryKey: ["components"] });
+        qc.invalidateQueries({ queryKey: ["component-groups"] });
+        qc.invalidateQueries({ queryKey: ["dashboard"] });
+      }
     },
   });
 }

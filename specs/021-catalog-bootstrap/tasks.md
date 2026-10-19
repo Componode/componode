@@ -230,3 +230,12 @@ the picker → one Add → all three appear as declared dependencies.
 ## Phase 11: Convergence
 
 - [X] T044 Update `contracts/api.md` line ~17: "absent/other values apply normally" is stale — strict `dryRun` enum now rejects non-`"true"`/`"false"` values with 400 per ADR-095; reword to match (partial)
+
+## Phase 12: Convergence
+
+- [X] T045 Reconcile the bootstrap import with FR-014 "go through the normal entity/edge services": either refactor `catalog-bootstrap-service.ts` item applies onto `createProduct`/`updateProduct`/`addDependsOnEdge` (preserving per-item atomicity + dry-run), or record the deliberate deviation + rationale as an amendment in `researches/adrs/ADR-114-catalog-bootstrap-import.md` (contradicts)
+- [X] T046 Sync `docs/openapi.yaml` bootstrap contract: add `application/x-yaml` and `text/yaml` requestBody media types (route accepts them; contract api.md documents them), add `minLength: 1` to `BootstrapOwner.lob`/`team` to match `bootstrapOwnerSchema`; regenerate `docs/api.md` per ADR-104 (partial)
+- [X] T047 Broaden `useBootstrapProducts` invalidation in `packages/frontend/src/api/hooks/products.ts` — apply also invalidates `components`, `dashboard`, and `component-groups` (imported edges change dependents/health rollups) per US1 report freshness (partial)
+- [X] T048 Align audit provenance with contract api.md — product `created`/`updated` audit rows from a bootstrap import aren't tagged with reason `"catalog bootstrap import"` (`entity_changes` lacks a reason column); either add reason provenance for product rows or amend the contract wording (partial)
+- [X] T049 Align `skipped[].item` shape with the contract example (`"payments-shop → dependsOn \"paymets-db\""`) or amend `contracts/api.md` to document the actual `"products.N (Name)"` format emitted by `catalog-bootstrap-service.ts` (partial)
+- [X] T050 Resolve `owner: null` semantics per FR-002 ("explicit `null` or `[]` clears the field") — schema currently rejects `owner: null`; either accept it to clear both owner refs or document sub-key-only clearing in `contracts/api.md` (partial)

@@ -691,6 +691,10 @@ paths:
         content:
           application/yaml:
             schema: { $ref: '#/components/schemas/BootstrapDocument' }
+          application/x-yaml:
+            schema: { $ref: '#/components/schemas/BootstrapDocument' }
+          text/yaml:
+            schema: { $ref: '#/components/schemas/BootstrapDocument' }
           application/json:
             schema: { $ref: '#/components/schemas/BootstrapDocument' }
       responses:
@@ -2563,8 +2567,8 @@ components:
           additionalProperties: false
           description: Entity slugs; each key merges independently, `null` clears
           properties:
-            lob: { type: string, maxLength: 100, nullable: true }
-            team: { type: string, maxLength: 100, nullable: true }
+            lob: { type: string, minLength: 1, maxLength: 100, nullable: true }
+            team: { type: string, minLength: 1, maxLength: 100, nullable: true }
         tags:
           type: array
           maxItems: 20
