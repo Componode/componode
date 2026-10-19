@@ -378,3 +378,5 @@ export interface PromoteToPlatformResult {
   product: DigitalProduct;
   consumers: ComponentDependent[];
 }
+
+export type { BootstrapReport, BootstrapSkippedItem } from "@componode/core";

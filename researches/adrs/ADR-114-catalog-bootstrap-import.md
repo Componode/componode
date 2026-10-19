@@ -50,3 +50,25 @@ file including `COMPOSES` — deferred (ordering + cycle semantics in a bulk
 apply are avoidable complexity for a bootstrap tool). Atomic
 all-or-nothing apply — rejected (one typo in row 190 shouldn't void the
 file).
+
+## Amendments
+
+- **2026-02**: The shipped UI entry point is an **"Import products" button**
+  opening a dialog on the Products page (header action beside "New product",
+  plus the empty-state action area), not the "Import products card" sketched
+  in the original Decision text. The dialog provides the same flow: file →
+  dry-run preview → apply → report.
+- **2026-02**: FR-014 says the import goes through "the normal entity/edge
+  services". The shipped `catalog-bootstrap-service.ts` writes
+  `digital_products`/`product_depends_on_component` rows directly in its own
+  per-item transactions rather than calling
+  `createProduct`/`updateProduct`/`addDependsOnEdge`. This is deliberate: the
+  two-phase design (validate/resolve the whole document, then apply each
+  item) needs batch ref-resolution, a plan stage shared by apply and
+  dry-run, field-level diffing for no-op detection, and per-item atomicity —
+  none of which the single-call services expose. Shared pieces are still
+  reused (`toSlug`, `findConsumesFromConsumers`, the same audit tables and
+  `TYPE_CHANGE_BLOCKED` code). Consequence: any future invariant added to
+  `createProduct`/`updateProduct`/`addDependsOnEdge` must be mirrored in the
+  bootstrap service — treat those services' changes as a review trigger for
+  `catalog-bootstrap-service.ts`.

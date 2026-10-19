@@ -23,6 +23,9 @@ export const createProductSchema = z
     tags: tagsSchema.optional(),
     criticality: productCriticalitySchema.nullable().optional(),
     sunsetAt: z.string().datetime({ offset: true }).nullable().optional(),
+    // Spec 021 US2: create-from-components fast path — the product and its
+    // DEPENDS_ON edges commit atomically; mirrors the bulk edge union.
+    componentIds: z.array(z.string().uuid()).min(1).max(100).optional(),
   })
   .strict();
 

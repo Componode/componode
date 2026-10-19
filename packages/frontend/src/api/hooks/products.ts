@@ -5,6 +5,7 @@ import type {
   ProductDetail,
   DigitalProduct,
   Link,
+  BootstrapReport,
 } from "@/api/types";
 
 export interface ProductListParams {
@@ -56,6 +57,8 @@ export interface ProductFormInput {
   tags?: string[];
   criticality?: string | null;
   sunsetAt?: string | null;
+  /** Spec 021 US2 fast path — wire these components on create, atomically. */
+  componentIds?: string[];
 }
 
 export function useCreateProduct() {
@@ -91,17 +94,50 @@ export function useDeleteProduct() {
   });
 }
 
+/**
+ * ADR-114 catalog bootstrap import. `document` is the raw file text — sent as
+ * `application/yaml` for both YAML and JSON documents (the backend parses
+ * either). `dryRun` previews the report without writes.
+ */
+export function useBootstrapProducts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { document: string; dryRun: boolean }) =>
+      api<BootstrapReport>(
+        `/products/bootstrap${vars.dryRun ? "?dryRun=true" : ""}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/yaml" },
+          body: vars.document,
+        },
+      ),
+    onSuccess: (_data, vars) => {
+      if (!vars.dryRun) {
+        invalidateProducts(qc);
+        qc.invalidateQueries({ queryKey: ["components"] });
+        qc.invalidateQueries({ queryKey: ["component-groups"] });
+        qc.invalidateQueries({ queryKey: ["dashboard"] });
+      }
+    },
+  });
+}
+
 export type EdgeKind = "composes" | "consumes-from" | "depends-on";
 
 export function useAddEdge() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { id: string; kind: EdgeKind; body: Record<string, string> }) =>
+    mutationFn: (vars: { id: string; kind: EdgeKind; body: Record<string, string | string[]> }) =>
       api<undefined>(`/products/${vars.id}/${vars.kind}`, {
         method: "POST",
         body: JSON.stringify(vars.body),
       }),
-    onSuccess: () => invalidateProducts(qc),
+    onSuccess: () => {
+      invalidateProducts(qc);
+      qc.invalidateQueries({ queryKey: ["components"] });
+      qc.invalidateQueries({ queryKey: ["component-groups"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
 }
 

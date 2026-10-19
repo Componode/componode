@@ -10,7 +10,7 @@ import {
   type DepSource,
 } from "@componode/core";
 import { db } from "../db/connection.js";
-import { writeEntityChange, type Actor } from "./audit-service.js";
+import { writeEntityChange, writeEdgeChange, type Actor } from "./audit-service.js";
 import { computeHealthForProducts } from "./product-health-service.js";
 
 const PRODUCT_SELECT = [
@@ -436,6 +436,27 @@ export async function createProduct(input: CreateProductInput, actor: Actor) {
   }
   await assertUniqueSlug(slug);
 
+  // Spec 021 US2: the fast path verifies every component id up front so a
+  // bad id fails before the product insert — existence-only, same rule as
+  // the bulk depends-on path (ADR-110).
+  const componentIds = parsed.componentIds ? [...new Set(parsed.componentIds)] : [];
+  if (componentIds.length > 0) {
+    const found = await db
+      .selectFrom("components")
+      .select("id")
+      .where("id", "in", componentIds)
+      .execute();
+    const foundIds = new Set(found.map((r) => r.id));
+    const missingIds = componentIds.filter((cid) => !foundIds.has(cid));
+    if (missingIds.length > 0) {
+      throw Object.assign(new Error("Components not found"), {
+        statusCode: 404,
+        code: "NOT_FOUND",
+        details: { missingIds },
+      });
+    }
+  }
+
   const id = uuidv7();
   const now = new Date().toISOString();
   return db.transaction().execute(async (trx) => {
@@ -467,12 +488,55 @@ export async function createProduct(input: CreateProductInput, actor: Actor) {
       changes: parsed as Record<string, unknown>,
       actor,
     }, trx);
+    if (componentIds.length > 0) {
+      const inserted = await trx
+        .insertInto("product_depends_on_component")
+        .values(componentIds.map((componentId) => ({ productId: id, componentId })))
+        .onConflict((oc) => oc.doNothing())
+        .returning("componentId")
+        .execute();
+      for (const { componentId } of inserted) {
+        await writeEdgeChange(
+          "DEPENDS_ON_COMPONENT",
+          { entityType: "digital_product", entityId: id },
+          { entityType: "component", entityId: componentId },
+          "added",
+          actor,
+          "created from components",
+          trx,
+        );
+      }
+    }
     return trx
       .selectFrom("digital_products")
       .selectAll()
       .where("id", "=", id)
       .executeTakeFirst();
   });
+}
+
+/**
+ * Products that consume a platform via CONSUMES_FROM — shared by
+ * updateProduct's type-change guard and the catalog bootstrap planner.
+ */
+export async function findConsumesFromConsumers(
+  platformIds: string[],
+): Promise<Map<string, { id: string; name: string }[]>> {
+  const byPlatform = new Map<string, { id: string; name: string }[]>();
+  if (!platformIds.length) return byPlatform;
+  const rows = await db
+    .selectFrom("product_consumes_from")
+    .innerJoin("digital_products", "product_consumes_from.consumerId", "digital_products.id")
+    .select(["product_consumes_from.platformId", "digital_products.id", "digital_products.name"])
+    .where("product_consumes_from.platformId", "in", platformIds)
+    .execute();
+  for (const r of rows) {
+    if (!r.platformId || !r.id || !r.name) continue;
+    const list = byPlatform.get(r.platformId) ?? [];
+    list.push({ id: r.id, name: r.name });
+    byPlatform.set(r.platformId, list);
+  }
+  return byPlatform;
 }
 
 /**
@@ -490,12 +554,7 @@ export async function updateProduct(id: string, input: UpdateProductInput, actor
   if (parsed.type && parsed.type !== existing.type) {
     const offenders: Array<{ edgeType: string; otherId: string; otherName: string }> = [];
     if (parsed.type !== "PLATFORM") {
-      const consumers = await db
-        .selectFrom("product_consumes_from")
-        .innerJoin("digital_products", "product_consumes_from.consumerId", "digital_products.id")
-        .select(["digital_products.id", "digital_products.name"])
-        .where("product_consumes_from.platformId", "=", id)
-        .execute();
+      const consumers = (await findConsumesFromConsumers([id])).get(id) ?? [];
       offenders.push(
         ...consumers.map((c) => ({
           edgeType: "CONSUMES_FROM",

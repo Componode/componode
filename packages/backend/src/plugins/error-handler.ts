@@ -107,6 +107,10 @@ export async function errorHandler(app: FastifyInstance): Promise<void> {
       code = toErrorCode(err);
       status = 422;
       message = err.message || "Unprocessable entity";
+    } else if (err.statusCode === 413) {
+      code = "PAYLOAD_TOO_LARGE";
+      status = 413;
+      message = err.message || "Request payload too large";
     } else if (err.statusCode === 503) {
       code = toErrorCode(err);
       status = 503;

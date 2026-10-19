@@ -43,6 +43,30 @@ export function useComponents(filters: ComponentListFilters = {}) {
   });
 }
 
+/**
+ * Fetch every matching component by paging through the list endpoint
+ * (pageSize caps at 100) — for pickers that must offer the full set.
+ */
+export function useAllComponents(
+  filters: ComponentListFilters = {},
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ["components", "all", filters],
+    enabled,
+    queryFn: async () => {
+      const all: ComponentListResponse["data"] = [];
+      for (let page = 1; ; page++) {
+        const res = await api<ComponentListResponse>(
+          `/components${buildQueryString({ ...filters, page, pageSize: 100 })}`,
+        );
+        all.push(...res.data);
+        if (!res.pagination?.hasNext) return all;
+      }
+    },
+  });
+}
+
 export function useComponentGroups() {
   return useQuery({
     queryKey: ["component-groups"],

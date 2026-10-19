@@ -22,10 +22,11 @@ export interface AssignComponentGroupInput {
   componentGroupId: string | null;
 }
 
-export function useComponentGroups() {
+export function useComponentGroups(enabled = true) {
   return useQuery({
     queryKey: ["component-groups"],
     queryFn: () => api<{ groups: ComponentGroup[] }>("/component-groups"),
+    enabled,
   });
 }
 

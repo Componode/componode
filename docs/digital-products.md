@@ -342,6 +342,51 @@ Ownership is org-real, not abstract: every product is owned by a **Line of
 Business** and optionally a **Team**/**Person**, which is who gets asked when
 the platform changes.
 
+## Bootstrapping the catalog (ADR-114)
+
+The meaning layer doesn't have to start at zero. Three workflows populate it
+fast — all curated, all audited, none of them importers:
+
+1. **Import products** (Products → *Import products*) uploads a YAML or JSON
+   catalog document to `POST /api/v1/products/bootstrap`:
+
+   ```yaml
+   version: 1
+   products:
+     - name: Payments Shop
+       type: CUSTOMER_FACING
+       description: Storefront checkout
+       owner: { lob: retail, team: shop-platform }   # entity slugs
+       tags: [checkout]
+       criticality: HIGH
+       sunsetAt: "2027-06-01T00:00:00Z"
+       dependsOn: [payments-db, arn:aws:rds:db-1]     # component refs
+   ```
+
+   The document is validated strictly **before** anything is written — a
+   malformed item or unknown field rejects the whole file. Each product then
+   applies in its own transaction: upserted by name-derived slug with merge
+   semantics (absent fields preserved, present fields applied, explicit
+   `null`/`[]` clears), then its `DEPENDS_ON_COMPONENT` edges are wired.
+   `owner` refs resolve by LOB/Team slug; `dependsOn` refs resolve by
+   component slug, then name, then `externalId`. Unresolved or ambiguous
+   refs are reported in `skipped` — never fabricated, and they don't block
+   the rest of the file. A `RETIRED` product matched by slug is updated but
+   stays retired; a type change that would invalidate `CONSUMES_FROM`
+   consumers is skipped, matching the normal update guard. Re-importing an
+   unchanged file reports all zeros and writes no audit rows — the import is
+   idempotent. `?dryRun=true` returns the identical report with zero writes;
+   the dialog runs it automatically on file selection before you hit *Apply*.
+
+2. **Create product from components** (Components list) — check any ACTIVE
+   component rows, click *Create product*, and the new product is wired to
+   every selection in one transaction.
+
+3. **Bulk dependency wiring** (product detail → *Add dependency*) — the
+   picker now takes a checked set of components in one `componentIds[]`
+   request, or a single component group — never both. Components the product
+   already depends on stay visible but disabled.
+
 ## Practical metadata
 
 Beyond names, owners, and edges, every Digital Product and Component carries

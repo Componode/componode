@@ -34,7 +34,7 @@ vi.mock("@/api/hooks/org", () => ({
   useTeams: () => ({ data: { teams: [] } }),
 }));
 vi.mock("@/api/hooks/components", () => ({
-  useComponents: () => ({ data: { data: [] } }),
+  useAllComponents: () => ({ data: [] }),
   useUpdateComponent: () => ({ mutateAsync: vi.fn() }),
 }));
 vi.mock("@/api/hooks/component-groups", () => ({
