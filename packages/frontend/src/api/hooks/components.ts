@@ -18,6 +18,8 @@ export interface ComponentListFilters {
   lifecycle?: string;
   status?: string;
   group?: string;
+  /** Spec 023: coverage filter — CSV of "wired"/"unwired". */
+  wired?: string;
   tag?: string;
   search?: string;
   sort?: "name" | "lastSeenAt" | "createdAt";

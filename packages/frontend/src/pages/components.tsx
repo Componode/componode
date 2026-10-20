@@ -46,6 +46,7 @@ function filtersFromSearchParams(params: URLSearchParams): ComponentListFilters 
     lifecycle: params.get("lifecycle") ?? undefined,
     status: params.get("status") ?? undefined,
     group: params.get("group") ?? undefined,
+    wired: params.get("wired") ?? undefined,
     tag: params.get("tag") ?? undefined,
     search: params.get("search") ?? undefined,
   };
@@ -113,14 +114,15 @@ export function ComponentsPage() {
 
   const hasActiveFilters = !!(
     filters.category || filters.provider || filters.lifecycle ||
-    filters.status || filters.group || filters.tag || filters.search
+    filters.status || filters.group || filters.wired || filters.tag || filters.search
   );
 
   function clearFilters() {
     setFilters({
       ...filters,
       category: undefined, provider: undefined, lifecycle: undefined,
-      status: undefined, group: undefined, tag: undefined, search: undefined, page: 1,
+      status: undefined, group: undefined, wired: undefined,
+      tag: undefined, search: undefined, page: 1,
     });
   }
 

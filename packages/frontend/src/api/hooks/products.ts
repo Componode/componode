@@ -14,6 +14,8 @@ export interface ProductListParams {
   lifecycle?: string;
   tag?: string;
   criticality?: string;
+  /** Spec 023: completeness-gap facet — CSV of owner/dependencies/description. */
+  missing?: string;
   includeRetired?: boolean;
 }
 
@@ -24,6 +26,7 @@ export function useProducts(params: ProductListParams = {}) {
   if (params.lifecycle) search.set("lifecycle", params.lifecycle);
   if (params.tag) search.set("tag", params.tag);
   if (params.criticality) search.set("criticality", params.criticality);
+  if (params.missing) search.set("missing", params.missing);
   if (params.includeRetired) search.set("includeRetired", "true");
   const qs = search.toString();
   return useQuery({

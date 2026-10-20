@@ -3,6 +3,7 @@ import { PRODUCT_TYPES } from "../constants/product-types.js";
 import { COMPONENT_LIFECYCLE } from "../constants/lifecycle.js";
 import { CRITICALITIES } from "../constants/criticality.js";
 import { linksSchema, tagSchema, tagsSchema } from "./metadata.js";
+import { splitCsvParam } from "./components.js";
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -52,6 +53,11 @@ export const listProductsQuerySchema = z
     lifecycle: productLifecycleSchema.optional(),
     tag: tagSchema.optional(),
     criticality: productCriticalitySchema.optional(),
+    missing: z
+      .union([z.string(), z.array(z.string())])
+      .transform(splitCsvParam)
+      .pipe(z.array(z.enum(["owner", "dependencies", "description"])))
+      .optional(),
     includeRetired: z
       .union([z.literal("true"), z.literal("false")])
       .transform((v) => v === "true")

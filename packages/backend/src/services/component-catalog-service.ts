@@ -1,6 +1,11 @@
 import { sql, type SqlBool } from "kysely";
 import { db } from "../db/connection.js";
 import { listComponentsQuerySchema, type ListComponentsQuery } from "@componode/core";
+import {
+  coveragePopulationPredicate,
+  hasNonGoneInstanceOrNone,
+  wiredComponentIdsQuery,
+} from "./catalog-coverage-service.js";
 
 function normalizeValues(value: string | string[] | undefined): string[] | undefined {
   if (value === undefined) return undefined;
@@ -51,26 +56,9 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
       ),
     );
   } else if (!includeGone) {
-    // Default: hide components that have only GONE instances; keep components with no instances
-    query = query.where((eb) =>
-      eb.or([
-        eb.not(
-          eb.exists(
-            eb
-              .selectFrom("component_instances")
-              .select("component_instances.id")
-              .whereRef("component_instances.componentId", "=", "components.id"),
-          ),
-        ),
-        eb.exists(
-          eb
-            .selectFrom("component_instances")
-            .select("component_instances.id")
-            .whereRef("component_instances.componentId", "=", "components.id")
-            .where("component_instances.status", "!=", "GONE"),
-        ),
-      ]),
-    );
+    // Default: hide components that have only GONE instances; keep
+    // components with no instances — shared predicate (spec 023).
+    query = query.where((eb) => hasNonGoneInstanceOrNone(eb));
   }
 
   const groupValues = normalizeValues(parsed.componentGroup ?? parsed.group);
@@ -88,6 +76,26 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
           eb("component_groups.slug", "in", nonNone),
         ]),
       );
+    }
+  }
+
+  // Schema-validated + CSV-split values: wired|unwired only.
+  const wiredValues = parsed.wired;
+  if (wiredValues?.length) {
+    const wantsWired = wiredValues.includes("wired");
+    const wantsUnwired = wiredValues.includes("unwired");
+    if (wantsWired || wantsUnwired) {
+      // Spec 023 FR-004: wiring classification applies only to the
+      // coverage population (default-visible: ACTIVE, not gone-only) —
+      // includeRetired/includeGone never surface out-of-population rows.
+      query = query.where((eb) => coveragePopulationPredicate(eb));
+      if (wantsWired !== wantsUnwired) {
+        query = query.where(
+          "components.id",
+          wantsWired ? "in" : "not in",
+          wiredComponentIdsQuery(),
+        );
+      }
     }
   }
 

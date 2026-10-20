@@ -37,6 +37,10 @@ const base = {
     instances: { total: 20, byStatus: { RUNNING: 18, STOPPED: 1, ERROR: 1, GONE: 0 } },
   },
   lastImportAt: "2026-09-07T09:00:00Z",
+  coverage: {
+    components: { active: 9, wired: 6, wiredPct: 66.7 },
+    products: { total: 2, missingOwner: 0, missingDependencies: 1, missingDescription: 0 },
+  },
   attention: [
     {
       kind: "FAILED_RUN" as const,
@@ -111,6 +115,10 @@ describe("DashboardPage", () => {
         lastImportAt: null,
         attention: [],
         lastRuns: [],
+        coverage: {
+          components: { active: 0, wired: 0, wiredPct: null },
+          products: { total: 0, missingOwner: 0, missingDependencies: 0, missingDescription: 0 },
+        },
       },
       isPending: false, isFetching: false, error: null, refetch: vi.fn(),
     } as unknown as ReturnType<typeof useDashboardSummary>);

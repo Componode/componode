@@ -7,6 +7,10 @@ import type {
   ProductGroupEdge,
 } from "@componode/core";
 
+// Catalog coverage & hygiene (spec 023) — contract shapes live in core.
+export type { CatalogCoverage, ProductCompleteness } from "@componode/core";
+import type { CatalogCoverage, ProductCompleteness } from "@componode/core";
+
 export type UserRole = "VIEWER" | "EDITOR" | "ADMIN";
 
 export interface User {
@@ -200,7 +204,13 @@ export interface ComponentWithInstances extends Component {
 }
 
 export interface AttentionItem {
-  kind: "FAILED_RUN" | "INSTANCE_ERROR" | "INSTANCE_GONE" | "PRODUCT_ERROR";
+  kind:
+    | "FAILED_RUN"
+    | "INSTANCE_ERROR"
+    | "INSTANCE_GONE"
+    | "PRODUCT_ERROR"
+    | "SUNSET_OVERDUE_PRODUCT"
+    | "SUNSET_OVERDUE_COMPONENT";
   label: string;
   href: string;
   at: string;
@@ -227,6 +237,7 @@ export interface DashboardSummary {
   lastImportAt: string | null;
   attention: AttentionItem[];
   lastRuns: ImporterRunStatus[];
+  coverage: CatalogCoverage;
 }
 
 export interface SearchHit {
@@ -269,6 +280,10 @@ export interface ProductRef {
 
 export interface DigitalProduct extends ProductRef {
   status?: ProductHealthStatus | null;
+  /** Spec 023: per-facet completeness (never a score). */
+  completeness?: ProductCompleteness;
+  /** Spec 023 US5: CONSUMES_FROM in-degree; rendered on PLATFORM rows. */
+  consumedByCount?: number;
   description?: string | null;
   lobOwnerId?: string | null;
   teamOwnerId?: string | null;

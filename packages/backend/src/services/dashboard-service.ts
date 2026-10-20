@@ -1,11 +1,26 @@
 import { db } from "../db/connection.js";
-import { PRODUCT_TYPES, INSTANCE_STATUS, COMPONENT_LIFECYCLE } from "@componode/core";
+import {
+  PRODUCT_TYPES,
+  INSTANCE_STATUS,
+  COMPONENT_LIFECYCLE,
+  type CatalogCoverage,
+} from "@componode/core";
 import { computeHealthForProducts } from "./product-health-service.js";
+import {
+  getCatalogCoverage,
+  coveragePopulationPredicate,
+} from "./catalog-coverage-service.js";
 
 const ATTENTION_LIMIT = 20;
 
 export interface AttentionItem {
-  kind: "FAILED_RUN" | "PRODUCT_ERROR" | "INSTANCE_ERROR" | "INSTANCE_GONE";
+  kind:
+    | "FAILED_RUN"
+    | "PRODUCT_ERROR"
+    | "INSTANCE_ERROR"
+    | "INSTANCE_GONE"
+    | "SUNSET_OVERDUE_PRODUCT"
+    | "SUNSET_OVERDUE_COMPONENT";
   label: string;
   href: string;
   at: string;
@@ -32,6 +47,7 @@ export interface DashboardSummary {
   lastImportAt: string | null;
   attention: AttentionItem[];
   lastRuns: ImporterRunStatusRow[];
+  coverage: CatalogCoverage;
 }
 
 function emptyBreakdown(keys: readonly string[]): Record<string, number> {
@@ -130,6 +146,40 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     (p) => healthByProduct.get(p.id)?.status === "ERROR",
   );
 
+  const [sunsetProducts, sunsetComponents] = await Promise.all([
+    db
+      .selectFrom("digital_products")
+      .select(["name", "slug", "sunsetAt"])
+      .where("lifecycle", "=", "ACTIVE")
+      .where("sunsetAt", "<", new Date().toISOString())
+      .orderBy("sunsetAt", "asc")
+      .execute(),
+    db
+      .selectFrom("components")
+      .select(["id", "name", "sunsetAt"])
+      // Spec 023 edge case: gone-only components are invisible to every
+      // coverage surface — the shared population predicate covers both the
+      // ACTIVE and not-gone-only halves.
+      .where((eb) => coveragePopulationPredicate(eb))
+      .where("sunsetAt", "<", new Date().toISOString())
+      .orderBy("sunsetAt", "asc")
+      .execute(),
+  ]);
+  const sunsetItems: AttentionItem[] = [
+    ...sunsetProducts.map((p) => ({
+      kind: "SUNSET_OVERDUE_PRODUCT" as const,
+      label: p.name,
+      href: `/products/${p.slug}`,
+      at: p.sunsetAt!.toString(),
+    })),
+    ...sunsetComponents.map((c) => ({
+      kind: "SUNSET_OVERDUE_COMPONENT" as const,
+      label: c.name,
+      href: `/components/${c.id}`,
+      at: c.sunsetAt!.toString(),
+    })),
+  ].sort((a, b) => a.at.localeCompare(b.at));
+
   const attention: AttentionItem[] = [
     ...failedRuns.map((r) => ({
       kind: "FAILED_RUN" as const,
@@ -149,6 +199,9 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
       href: `/components/${i.componentId}`,
       at: i.lastSeenAt?.toString() ?? "",
     })),
+    // Spec 023 FR-007/FR-008: overdue sunsets rank below every operational
+    // kind — display-only (ADR-111: passing sunsetAt changes nothing).
+    ...sunsetItems,
   ].slice(0, ATTENTION_LIMIT);
 
   // Latest run per importer config.
@@ -188,6 +241,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     },
     lastImportAt: lastRun?.completedAt?.toString() ?? null,
     attention,
+    coverage: await getCatalogCoverage(),
     lastRuns: lastRuns.map((r) => ({
       configId: r.configId,
       importerName: r.importerName,

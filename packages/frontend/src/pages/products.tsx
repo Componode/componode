@@ -33,6 +33,7 @@ export function ProductsPage() {
   const type = params.get("type") ?? "";
   const tag = params.get("tag") ?? "";
   const criticality = params.get("criticality") ?? "";
+  const missing = params.get("missing") ?? "";
   const includeRetired = params.get("includeRetired") === "true";
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -42,12 +43,13 @@ export function ProductsPage() {
     type: type || undefined,
     tag: tag || undefined,
     criticality: criticality || undefined,
+    missing: missing || undefined,
     includeRetired,
   });
 
   const products = data?.products ?? [];
   const edges = data?.edges ?? [];
-  const filtering = !!(q || type || tag || criticality);
+  const filtering = !!(q || type || tag || criticality || missing);
   const isForbidden = error ? (error as unknown as ApiError).code === "FORBIDDEN" : false;
 
   const setParam = (key: string, value: string | boolean) => {
@@ -105,6 +107,17 @@ export function ProductsPage() {
           }))}
           selected={criticality ? [criticality] : []}
           onChange={(v) => setParam("criticality", v[0] ?? "")}
+        />
+        {/* Spec 023 US2: completeness-gap worklist (values OR'd server-side). */}
+        <FacetFilter
+          title="Completeness"
+          options={[
+            { value: "owner", label: "No owner" },
+            { value: "dependencies", label: "No dependencies" },
+            { value: "description", label: "No description" },
+          ]}
+          selected={missing ? missing.split(",") : []}
+          onChange={(v) => setParam("missing", v.join(","))}
         />
         <Input
           placeholder="Tag…"

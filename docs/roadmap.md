@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–022)
+## Shipped (features 001–023)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -61,10 +61,14 @@ file tracks shipped and upcoming work — update it when a spec completes.
   import completion, product writes, and rescan; accept wires through the
   normal edge path with audit, dismiss is permanent, and `SUPERSEDED`
   tombstones keep covered or deliberately unwired pairs from regenerating.
+- `023-coverage-and-hygiene` — read-only coverage layer: dashboard
+  catalog-coverage figures wired to filtered worklists (`wired`/`unwired`
+  component facet, `missing` product facet), a per-facet completeness chip
+  on product rows and detail headers, platform consumer counts, and
+  overdue-`sunsetAt` items in the attention feed — all derived per read,
+  no persisted state.
 
 ## Next — v1.1
-
-Immediately next: `023-coverage-and-hygiene` heads the queue.
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list:

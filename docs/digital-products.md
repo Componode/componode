@@ -445,6 +445,34 @@ reason, score, who dismissed it, and when. Accepting wires the edge through
 the exact same service and audit path as manual wiring; dismissing records
 the decider and is irreversible by design.
 
+## Catalog coverage and hygiene
+
+Componode derives a read-only **coverage layer** over the catalog (spec 023).
+Nothing is persisted or recomputed offline — every figure is computed on the
+read, so it can never go stale.
+
+- **Dashboard — Catalog coverage**: wired share of the default-visible
+  component set (`ACTIVE`, not instances-all-`GONE`), plus the count of
+  non-retired products missing an owner, a dependency surface, or a
+  description. Every figure links to the matching filtered worklist; a zero
+  denominator renders `—`, not `0%`.
+- **Component wiring**: a component is *wired* when a non-retired product
+  reaches it through `DEPENDS_ON` — direct or via a `ComponentGroup`. Pending
+  edge suggestions never count. `/components?wired=unwired` is the gap
+  worklist and always agrees with the dashboard count.
+- **Product completeness**: three independent facets — owner, description,
+  dependency surface — shown as a chip on product rows and the detail header.
+  The dependency surface is non-empty when the product has its own
+  `DEPENDS_ON`/`CONSUMES_FROM` edges *or* any non-retired `COMPOSES`
+  descendant declares dependencies. `/products?missing=owner,description,…`
+  filters by gap (values OR'd). There is no score — each facet stays visible
+  on its own.
+- **Platform consumers**: `PLATFORM` rows and the platform detail show the
+  `consumedByCount` — products holding a `CONSUMES_FROM` edge on it.
+- **Sunset attention**: non-retired products and components whose `sunsetAt`
+  has passed appear in the dashboard attention feed, below operational
+  items, and link straight to the entity.
+
 ## Practical metadata
 
 Beyond names, owners, and edges, every Digital Product and Component carries

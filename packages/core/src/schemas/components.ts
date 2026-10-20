@@ -11,6 +11,13 @@ function toBoolean(value: unknown): boolean {
 
 const stringOrStringArray = z.union([z.string(), z.array(z.string())]).optional();
 
+/** Splits comma-joined facet params; each value is then enum-validated. */
+export const splitCsvParam = (v: string | string[]) =>
+  (Array.isArray(v) ? v : [v])
+    .flatMap((s) => s.split(","))
+    .map((s) => s.trim())
+    .filter(Boolean);
+
 export const listComponentsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
@@ -20,13 +27,18 @@ export const listComponentsQuerySchema = z.object({
   status: stringOrStringArray,
   componentGroup: stringOrStringArray,
   group: stringOrStringArray,
+  wired: z
+    .union([z.string(), z.array(z.string())])
+    .transform(splitCsvParam)
+    .pipe(z.array(z.enum(["wired", "unwired"])))
+    .optional(),
   tag: tagSchema.optional(),
   search: z.string().max(100).optional(),
   sort: z.enum(["name", "lastSeenAt", "createdAt"]).default("name"),
   order: z.enum(["asc", "desc"]).default("asc"),
   includeRetired: z.preprocess(toBoolean, z.boolean().default(false)),
   includeGone: z.preprocess(toBoolean, z.boolean().default(false)),
-});
+}).strict();
 
 export const updateComponentGroupAssignmentSchema = z.object({
   componentGroupId: z.string().uuid().nullable().optional(),
