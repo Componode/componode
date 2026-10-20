@@ -130,6 +130,10 @@ constitution.
   tables. No polymorphic `edges` table. See `ADR-048`.
 - `DEPENDS_ON` may target a `ComponentGroup` (ADR-110); product health is a
   derived rollup over declared dep sources (ADR-112).
+- Server-generated staged `DEPENDS_ON` candidates live in
+  `edge_suggestions` and are decided by humans in the Suggestions queue —
+  never auto-wired. Decided pairs (`ACCEPTED`/`DISMISSED`/`SUPERSEDED`) are
+  terminal. See `ADR-113`.
 
 ### Package dependencies
 

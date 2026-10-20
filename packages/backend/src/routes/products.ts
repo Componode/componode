@@ -1,10 +1,9 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { z, ZodError } from "zod";
+import { z } from "zod";
 import {
   createProductSchema,
   updateProductSchema,
   listProductsQuerySchema,
-  isErrorCode,
 } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
@@ -24,42 +23,11 @@ import {
   removeDependsOnEdge,
 } from "../services/product-edge-service.js";
 import { bootstrapCatalog } from "../services/catalog-bootstrap-service.js";
-import type { Actor } from "../services/audit-service.js";
-
-type ServiceError = {
-  statusCode?: number;
-  code?: string;
-  message?: string;
-  details?: unknown;
-};
-
-function actor(req: AuthenticatedRequest): Actor {
-  return {
-    id: req.user?.id ?? null,
-    name: req.user?.displayName ?? req.user?.username ?? null,
-  };
-}
-
-function sendServiceError(reply: FastifyReply, err: unknown) {
-  if (err instanceof ZodError) {
-    return validationFailed(reply, err.issues);
-  }
-  const error = err as ServiceError;
-  if (error.statusCode && error.statusCode < 500) {
-    return reply.status(error.statusCode).send({
-      code: error.code && isErrorCode(error.code) ? error.code : "CONFLICT",
-      message: error.message ?? "Request failed",
-      ...(error.details ? { details: error.details } : {}),
-    });
-  }
-  throw err;
-}
-
-function validationFailed(reply: FastifyReply, issues: unknown) {
-  return reply
-    .status(400)
-    .send({ code: "VALIDATION_FAILED", message: "Invalid input", details: issues });
-}
+import { toActor } from "../services/actor.js";
+import {
+  sendServiceError,
+  validationFailed,
+} from "./route-helpers.js";
 
 export async function productRoutes(app: FastifyInstance): Promise<void> {
   // ADR-114: the bootstrap endpoint accepts the document as the raw request
@@ -97,7 +65,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
       const parsed = createProductSchema.safeParse(req.body);
       if (!parsed.success) return validationFailed(reply, parsed.error.issues);
       try {
-        const product = await createProduct(parsed.data, actor(req));
+        const product = await createProduct(parsed.data, toActor(req));
         return reply.status(201).send({ product });
       } catch (err) {
         return sendServiceError(reply, err);
@@ -130,7 +98,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
           const report = await bootstrapCatalog(
             req.body,
             { dryRun: parsed.data.dryRun === "true" },
-            actor(req),
+            toActor(req),
           );
           return reply.status(200).send(report);
         } catch (err) {
@@ -163,7 +131,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
       const parsed = updateProductSchema.safeParse(req.body);
       if (!parsed.success) return validationFailed(reply, parsed.error.issues);
       try {
-        const product = await updateProduct(id, parsed.data, actor(req));
+        const product = await updateProduct(id, parsed.data, toActor(req));
         if (!product) {
           return reply
             .status(404)
@@ -182,7 +150,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
     async (req: AuthenticatedRequest, reply: FastifyReply) => {
       const { id } = req.params as { id: string };
       try {
-        const product = await deleteProduct(id, actor(req));
+        const product = await deleteProduct(id, toActor(req));
         if (!product) {
           return reply
             .status(404)
@@ -203,7 +171,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
     async (req: AuthenticatedRequest, reply: FastifyReply) => {
       const { id } = req.params as { id: string };
       try {
-        await addComposesEdge(id, req.body, actor(req));
+        await addComposesEdge(id, req.body, toActor(req));
         return reply.status(204).send();
       } catch (err) {
         return sendServiceError(reply, err);
@@ -217,7 +185,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
     async (req: AuthenticatedRequest, reply: FastifyReply) => {
       const { id, childId } = req.params as { id: string; childId: string };
       try {
-        await removeComposesEdge(id, childId, actor(req));
+        await removeComposesEdge(id, childId, toActor(req));
         return reply.status(204).send();
       } catch (err) {
         return sendServiceError(reply, err);
@@ -231,7 +199,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
     async (req: AuthenticatedRequest, reply: FastifyReply) => {
       const { id } = req.params as { id: string };
       try {
-        await addConsumesFromEdge(id, req.body, actor(req));
+        await addConsumesFromEdge(id, req.body, toActor(req));
         return reply.status(204).send();
       } catch (err) {
         return sendServiceError(reply, err);
@@ -245,7 +213,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
     async (req: AuthenticatedRequest, reply: FastifyReply) => {
       const { id, platformId } = req.params as { id: string; platformId: string };
       try {
-        await removeConsumesFromEdge(id, platformId, actor(req));
+        await removeConsumesFromEdge(id, platformId, toActor(req));
         return reply.status(204).send();
       } catch (err) {
         return sendServiceError(reply, err);
@@ -259,7 +227,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
     async (req: AuthenticatedRequest, reply: FastifyReply) => {
       const { id } = req.params as { id: string };
       try {
-        await addDependsOnEdge(id, req.body, actor(req));
+        await addDependsOnEdge(id, req.body, toActor(req));
         return reply.status(204).send();
       } catch (err) {
         return sendServiceError(reply, err);
@@ -283,7 +251,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
         });
       }
       try {
-        await removeDependsOnEdge(id, targetId, kind ?? "component", actor(req));
+        await removeDependsOnEdge(id, targetId, kind ?? "component", toActor(req));
         return reply.status(204).send();
       } catch (err) {
         return sendServiceError(reply, err);

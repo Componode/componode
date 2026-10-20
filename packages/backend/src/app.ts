@@ -25,6 +25,7 @@ import { componentGroupRoutes } from "./routes/component-groups.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
 import { searchRoutes } from "./routes/search.js";
 import { productRoutes } from "./routes/products.js";
+import { suggestionRoutes } from "./routes/suggestions.js";
 import { orgRoutes } from "./routes/org.js";
 import { auditRoutes } from "./routes/audit.js";
 
@@ -90,6 +91,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(dashboardRoutes, { prefix: "/api/v1" });
   await app.register(searchRoutes, { prefix: "/api/v1" });
   await app.register(productRoutes, { prefix: "/api/v1" });
+  await app.register(suggestionRoutes, { prefix: "/api/v1" });
   await app.register(orgRoutes, { prefix: "/api/v1" });
   await app.register(auditRoutes, { prefix: "/api/v1" });
 

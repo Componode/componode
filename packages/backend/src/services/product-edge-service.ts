@@ -3,8 +3,66 @@ import {
   addConsumesFromEdgeSchema,
   addDependsOnEdgeSchema,
 } from "@componode/core";
+import { uuidv7 } from "uuidv7";
+import type { Kysely, Transaction } from "kysely";
+import type { DB } from "../db/types.js";
 import { db } from "../db/connection.js";
 import { writeEdgeChange, type Actor } from "./audit-service.js";
+
+type DbOrTrx = Kysely<DB> | Transaction<DB>;
+
+/**
+ * ADR-113 coverage tombstones: once a (product, component) pair becomes a
+ * real or group-covered DEPENDS_ON edge, it is SUPERSEDED forever — a later
+ * edge removal must not regenerate the suggestion. Flips existing PENDING
+ * rows (attributing the wiring actor) and inserts reason/score-NULL
+ * tombstones for pairs that were never suggested. Terminal rows
+ * (ACCEPTED/DISMISSED/SUPERSEDED) are never touched.
+ */
+export async function supersedeSuggestionPairs(
+  trx: DbOrTrx,
+  productId: string,
+  componentIds: string[],
+  actor?: Actor,
+): Promise<{ flipped: number; inserted: number }> {
+  if (componentIds.length === 0) return { flipped: 0, inserted: 0 };
+  const now = new Date().toISOString();
+  const decidedBy = actor?.id ?? null;
+  const flipped = await trx
+    .updateTable("edge_suggestions")
+    .set({
+      status: "SUPERSEDED",
+      reason: null,
+      score: null,
+      decidedAt: now,
+      decidedBy,
+    })
+    .where("productId", "=", productId)
+    .where("componentId", "in", componentIds)
+    .where("status", "=", "PENDING")
+    .executeTakeFirst();
+  const inserted = await trx
+    .insertInto("edge_suggestions")
+    .values(
+      componentIds.map((componentId) => ({
+        id: uuidv7(),
+        productId,
+        componentId,
+        reason: null,
+        score: null,
+        status: "SUPERSEDED",
+        createdAt: now,
+        decidedAt: now,
+        decidedBy,
+      })),
+    )
+    .onConflict((oc) => oc.columns(["productId", "componentId"]).doNothing())
+    .executeTakeFirst();
+  return {
+    flipped: Number(flipped.numUpdatedRows),
+    inserted: Number(inserted.numInsertedOrUpdatedRows ?? 0),
+  };
+}
 
 function invalidEdge(message: string, rule: string) {
   return Object.assign(new Error(message), {
@@ -162,9 +220,19 @@ export async function removeConsumesFromEdge(
   );
 }
 
-export async function addDependsOnEdge(productId: string, rawInput: unknown, actor: Actor) {
+export async function addDependsOnEdge(
+  productId: string,
+  rawInput: unknown,
+  actor: Actor,
+  outerTrx?: DbOrTrx,
+): Promise<{ created: boolean }> {
   const input = addDependsOnEdgeSchema.parse(rawInput);
   await getProductType(productId);
+
+  const run = outerTrx
+    ? async (fn: (trx: DbOrTrx) => Promise<void>) => fn(outerTrx)
+    : async (fn: (trx: DbOrTrx) => Promise<void>) =>
+        db.transaction().execute(fn);
 
   // Group target (ADR-110): the product→group edge is persisted; members
   // expand at read time, so group changes propagate automatically.
@@ -177,7 +245,8 @@ export async function addDependsOnEdge(productId: string, rawInput: unknown, act
       .executeTakeFirst();
     if (!group) throw notFound("Component group");
 
-    await db.transaction().execute(async (trx) => {
+    let created = false;
+    await run(async (trx) => {
       const inserted = await trx
         .insertInto("product_depends_on_component_group")
         .values({ productId, componentGroupId: groupId })
@@ -185,6 +254,7 @@ export async function addDependsOnEdge(productId: string, rawInput: unknown, act
         .returning("componentGroupId")
         .execute();
       if (inserted.length === 0) return;
+      created = true;
       await writeEdgeChange(
         "DEPENDS_ON_COMPONENT",
         { entityType: "digital_product", entityId: productId },
@@ -194,8 +264,20 @@ export async function addDependsOnEdge(productId: string, rawInput: unknown, act
         null,
         trx,
       );
+      // Group coverage tombstones — one per current member (ADR-113).
+      const members = await trx
+        .selectFrom("components")
+        .select("id")
+        .where("componentGroupId", "=", groupId)
+        .execute();
+      await supersedeSuggestionPairs(
+        trx,
+        productId,
+        members.map((m) => m.id),
+        actor,
+      );
     });
-    return;
+    return { created };
   }
 
   // Bulk form (ADR-110 §3): dedupe, verify every component exists, then
@@ -217,29 +299,38 @@ export async function addDependsOnEdge(productId: string, rawInput: unknown, act
       });
     }
 
-    await db.transaction().execute(async (trx) => {
+    let created = false;
+    await run(async (trx) => {
       const inserted = await trx
         .insertInto("product_depends_on_component")
         .values(componentIds.map((componentId) => ({ productId, componentId })))
         .onConflict((oc) => oc.doNothing())
         .returning("componentId")
         .execute();
-      for (const { componentId } of inserted) {
+      const wiredIds = inserted
+        .map((r) => r.componentId)
+        .filter((id): id is string => typeof id === "string");
+      for (const wiredId of wiredIds) {
         await writeEdgeChange(
           "DEPENDS_ON_COMPONENT",
           { entityType: "digital_product", entityId: productId },
-          { entityType: "component", entityId: componentId },
+          { entityType: "component", entityId: wiredId },
           "added",
           actor,
           null,
           trx,
         );
       }
+      created = wiredIds.length > 0;
+      await supersedeSuggestionPairs(trx, productId, wiredIds, actor);
     });
-    return;
+    return { created };
   }
 
-  const componentId = input.componentId!;
+  // Unreachable under the exactly-one-of schema refine — narrow explicitly
+  // rather than asserting.
+  const componentId = input.componentId;
+  if (!componentId) throw invalidEdge("A component target is required", "NO_TARGET");
   const component = await db
     .selectFrom("components")
     .select("id")
@@ -247,7 +338,8 @@ export async function addDependsOnEdge(productId: string, rawInput: unknown, act
     .executeTakeFirst();
   if (!component) throw notFound("Component");
 
-  await db.transaction().execute(async (trx) => {
+  let created = false;
+  await run(async (trx) => {
     const inserted = await trx
       .insertInto("product_depends_on_component")
       .values({ productId, componentId })
@@ -255,6 +347,7 @@ export async function addDependsOnEdge(productId: string, rawInput: unknown, act
       .returning("componentId")
       .execute();
     if (inserted.length === 0) return;
+    created = true;
     await writeEdgeChange(
       "DEPENDS_ON_COMPONENT",
       { entityType: "digital_product", entityId: productId },
@@ -264,7 +357,9 @@ export async function addDependsOnEdge(productId: string, rawInput: unknown, act
       null,
       trx,
     );
+    await supersedeSuggestionPairs(trx, productId, [componentId], actor);
   });
+  return { created };
 }
 
 export async function removeDependsOnEdge(
@@ -273,27 +368,45 @@ export async function removeDependsOnEdge(
   kind: "component" | "group",
   actor: Actor,
 ) {
-  const removed =
-    kind === "group"
-      ? await db
-          .deleteFrom("product_depends_on_component_group")
-          .where("productId", "=", productId)
-          .where("componentGroupId", "=", targetId)
-          .executeTakeFirst()
-      : await db
-          .deleteFrom("product_depends_on_component")
-          .where("productId", "=", productId)
-          .where("componentId", "=", targetId)
-          .executeTakeFirst();
-  if (!Number(removed.numDeletedRows)) throw notFound("Edge");
-  await writeEdgeChange(
-    "DEPENDS_ON_COMPONENT",
-    { entityType: "digital_product", entityId: productId },
-    {
-      entityType: kind === "group" ? "component_group" : "component",
-      entityId: targetId,
-    },
-    "removed",
-    actor,
-  );
+  await db.transaction().execute(async (trx) => {
+    const removed =
+      kind === "group"
+        ? await trx
+            .deleteFrom("product_depends_on_component_group")
+            .where("productId", "=", productId)
+            .where("componentGroupId", "=", targetId)
+            .executeTakeFirst()
+        : await trx
+            .deleteFrom("product_depends_on_component")
+            .where("productId", "=", productId)
+            .where("componentId", "=", targetId)
+            .executeTakeFirst();
+    if (!Number(removed.numDeletedRows)) throw notFound("Edge");
+    // FR-006: the pair was once covered — ensure the tombstone exists even
+    // for edges that predate this feature, so removal can never resurrect
+    // a suggestion. Group removal covers the group's current members.
+    const componentIds =
+      kind === "group"
+        ? (
+            await trx
+              .selectFrom("components")
+              .select("id")
+              .where("componentGroupId", "=", targetId)
+              .execute()
+          ).map((c) => c.id)
+        : [targetId];
+    await supersedeSuggestionPairs(trx, productId, componentIds, actor);
+    await writeEdgeChange(
+      "DEPENDS_ON_COMPONENT",
+      { entityType: "digital_product", entityId: productId },
+      {
+        entityType: kind === "group" ? "component_group" : "component",
+        entityId: targetId,
+      },
+      "removed",
+      actor,
+      null,
+      trx,
+    );
+  });
 }

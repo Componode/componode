@@ -12,6 +12,9 @@ import {
 import { db } from "../db/connection.js";
 import { writeEntityChange, writeEdgeChange, type Actor } from "./audit-service.js";
 import { computeHealthForProducts } from "./product-health-service.js";
+import { runSuggestionPass } from "./edge-suggestion-service.js";
+import { tagsDiffer } from "./suggestion-signals.js";
+import { supersedeSuggestionPairs } from "./product-edge-service.js";
 
 const PRODUCT_SELECT = [
   "digital_products.id",
@@ -459,7 +462,7 @@ export async function createProduct(input: CreateProductInput, actor: Actor) {
 
   const id = uuidv7();
   const now = new Date().toISOString();
-  return db.transaction().execute(async (trx) => {
+  const product = await db.transaction().execute(async (trx) => {
     await trx
       .insertInto("digital_products")
       .values({
@@ -495,7 +498,10 @@ export async function createProduct(input: CreateProductInput, actor: Actor) {
         .onConflict((oc) => oc.doNothing())
         .returning("componentId")
         .execute();
-      for (const { componentId } of inserted) {
+      const wiredIds = inserted
+        .map((r) => r.componentId)
+        .filter((cid): cid is string => typeof cid === "string");
+      for (const componentId of wiredIds) {
         await writeEdgeChange(
           "DEPENDS_ON_COMPONENT",
           { entityType: "digital_product", entityId: id },
@@ -506,6 +512,9 @@ export async function createProduct(input: CreateProductInput, actor: Actor) {
           trx,
         );
       }
+      // ADR-113: these edges bypass addDependsOnEdge — tombstone the pairs
+      // inline so decidedBy records the wiring actor, not NULL.
+      await supersedeSuggestionPairs(trx, id, wiredIds, actor);
     }
     return trx
       .selectFrom("digital_products")
@@ -513,6 +522,10 @@ export async function createProduct(input: CreateProductInput, actor: Actor) {
       .where("id", "=", id)
       .executeTakeFirst();
   });
+  // ADR-113: stage suggestions for the new product — post-commit and
+  // failure-isolated so a suggestion bug can't reject the write.
+  await runSuggestionPass({ productId: id }, { productId: id });
+  return product;
 }
 
 /**
@@ -589,7 +602,7 @@ export async function updateProduct(id: string, input: UpdateProductInput, actor
   updates.updatedBy = actor.id;
   updates.updatedAt = new Date().toISOString();
 
-  return db.transaction().execute(async (trx) => {
+  const updated = await db.transaction().execute(async (trx) => {
     await trx.updateTable("digital_products").set(updates).where("id", "=", id).execute();
     const action =
       parsed.lifecycle === "RETIRED" && prevLifecycle !== "RETIRED"
@@ -610,6 +623,18 @@ export async function updateProduct(id: string, input: UpdateProductInput, actor
       .where("id", "=", id)
       .executeTakeFirst();
   });
+
+  // ADR-113: signal-affecting fields (the product name/tag side of every
+  // signal — slug is not a signal input, so slug-only changes are dead
+  // work) re-stage this product's pairs — post-commit, failure-isolated.
+  // Guard on real changes, not mere presence in the PATCH body (FR-002).
+  if (
+    (parsed.name !== undefined && parsed.name !== existing.name) ||
+    (parsed.tags !== undefined && tagsDiffer(parsed.tags, existing.tags))
+  ) {
+    await runSuggestionPass({ productId: id }, { productId: id });
+  }
+  return updated;
 }
 
 export async function deleteProduct(id: string, actor: Actor) {

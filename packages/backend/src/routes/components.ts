@@ -1,5 +1,4 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { ZodError } from "zod";
 import { listComponentsQuerySchema, updateComponentSchema } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
@@ -11,34 +10,7 @@ import {
   listComponentDependents,
   promoteComponentToPlatform,
 } from "../services/platform-promotion-service.js";
-
-type ServiceError = {
-  statusCode?: number;
-  code?: string;
-  message?: string;
-  details?: unknown;
-};
-
-function sendServiceError(reply: FastifyReply, err: unknown) {
-  if (err instanceof ZodError) {
-    return validationFailed(reply, err.issues);
-  }
-  const error = err as ServiceError;
-  if (error.statusCode && error.statusCode < 500) {
-    return reply.status(error.statusCode).send({
-      code: error.code ?? "CONFLICT",
-      message: error.message ?? "Request failed",
-      ...(error.details ? { details: error.details } : {}),
-    });
-  }
-  throw err;
-}
-
-function validationFailed(reply: FastifyReply, issues: unknown) {
-  return reply
-    .status(400)
-    .send({ code: "VALIDATION_FAILED", message: "Invalid input", details: issues });
-}
+import { sendServiceError } from "./route-helpers.js";
 
 export async function componentRoutes(app: FastifyInstance): Promise<void> {
   // Static route — find-my-way resolves it ahead of /components/:id.

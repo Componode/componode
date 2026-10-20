@@ -22,6 +22,7 @@ import { traceDbQuery } from "../plugins/tracing.js";
 import type { Kysely } from "kysely";
 import type { DB } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
+import { runSuggestionPass } from "./edge-suggestion-service.js";
 
 const maxConcurrency = parseInt(process.env.IMPORTER_MAX_CONCURRENCY ?? "3", 10);
 if (isNaN(maxConcurrency) || maxConcurrency < 1) {
@@ -562,6 +563,19 @@ async function worker(runId: string): Promise<void> {
       instancesOrphaned,
       componentsRetired,
     });
+
+    // ADR-113: stage edge suggestions for the components this run touched.
+    // Failure-isolated — a suggestion bug must never flip a completed run.
+    const suggestionReport = await runSuggestionPass(
+      { componentIds: [...yieldedComponentIds] },
+      { runId },
+    );
+    if (suggestionReport) {
+      appLogger.info(
+        { runId, ...suggestionReport },
+        "edge suggestions staged after import run",
+      );
+    }
   } catch (err) {
     if (isAbortError(err)) {
       terminalStatus = "CANCELLED";

@@ -96,6 +96,7 @@ user identity + sign-out (right).
 | `/products`, `/products/:slug` | Products tree, product detail | Catalog |
 | `/components`, `/components/:id` | Component catalog, detail | Catalog |
 | `/component-groups` | Component groups | Catalog |
+| `/suggestions` | Edge suggestion queue | Catalog |
 | `/importers`, `/importers/:configId/runs/:runId` | Importer configs and runs | Sources |
 | `/lobs`, `/teams` | Org entities | Organization |
 | `/users` | User management | Admin |

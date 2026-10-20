@@ -15,6 +15,8 @@ import {
   type Actor,
 } from "./audit-service.js";
 import { findConsumesFromConsumers, toSlug } from "./product-service.js";
+import { runSuggestionPass } from "./edge-suggestion-service.js";
+import { supersedeSuggestionPairs } from "./product-edge-service.js";
 import type { Link } from "@componode/core";
 
 export const BOOTSTRAP_REASON = "catalog bootstrap import";
@@ -456,6 +458,7 @@ async function applyItem(
       outcome = "updated";
     }
 
+    const wiredIds: string[] = [];
     for (const componentId of plan.edgeComponentIds) {
       const inserted = await trx
         .insertInto("product_depends_on_component")
@@ -466,6 +469,7 @@ async function applyItem(
       // onConflict no-op means the edge already exists — no audit row.
       if (!inserted) continue;
       edgesAdded++;
+      wiredIds.push(componentId);
       await writeEdgeChange(
         "DEPENDS_ON_COMPONENT",
         { entityType: "digital_product", entityId: productId },
@@ -475,6 +479,11 @@ async function applyItem(
         BOOTSTRAP_REASON,
         trx,
       );
+    }
+    // ADR-113: bootstrap edges bypass addDependsOnEdge — tombstone the wired
+    // pairs inline so decidedBy records the wiring actor, not NULL.
+    if (productId) {
+      await supersedeSuggestionPairs(trx, productId, wiredIds, actor);
     }
     return { outcome, edgesAdded };
   });
@@ -535,6 +544,13 @@ export async function bootstrapCatalog(
       else if (plan.hasChanges) report.updated++;
       report.edgesAdded += plan.edgeComponentIds.length;
     }
+  }
+
+  // ADR-113: a post-apply pass tombstones pairs this document wired (they
+  // bypassed addDependsOnEdge) and stages candidates for created/renamed
+  // products — failure-isolated so a suggestion bug can't fail a bootstrap.
+  if (!opts.dryRun && report.created + report.updated + report.edgesAdded > 0) {
+    await runSuggestionPass({ all: true }, { source: "catalog-bootstrap" });
   }
   return report;
 }

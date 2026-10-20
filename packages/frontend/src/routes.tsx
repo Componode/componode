@@ -12,6 +12,7 @@ import { TeamsPage } from "@/pages/teams";
 import { ComponentsPage } from "@/pages/components";
 import { ComponentDetailPage } from "@/pages/component-detail";
 import { ComponentGroupsPage } from "@/pages/component-groups";
+import { SuggestionsPage } from "@/pages/suggestions";
 import { ImportersPage } from "@/pages/importers";
 import { ImporterRunPage } from "@/pages/importer-run";
 import { UsersPage } from "@/pages/users";
@@ -42,6 +43,7 @@ export const routes: RouteObject[] = [
       { path: "components", element: authed(<ComponentsPage />) },
       { path: "components/:id", element: authed(<ComponentDetailPage />) },
       { path: "component-groups", element: authed(<ComponentGroupsPage />) },
+      { path: "suggestions", element: authed(<SuggestionsPage />) },
       { path: "importers", element: authed(<ImportersPage />) },
       {
         path: "importers/:configId/runs/:runId",

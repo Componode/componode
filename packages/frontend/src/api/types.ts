@@ -380,3 +380,14 @@ export interface PromoteToPlatformResult {
 }
 
 export type { BootstrapReport, BootstrapSkippedItem } from "@componode/core";
+
+// Edge suggestions (spec 022 / ADR-113) — contracts live in core; re-export
+// so the API layer stays the single import site.
+export type {
+  EdgeSuggestion,
+  EdgeSuggestionReason,
+  EdgeSuggestionStatus,
+  SuggestionQueueItem,
+  SuggestionListResult,
+  SuggestionRescanReport,
+} from "@componode/core";

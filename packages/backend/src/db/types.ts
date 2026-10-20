@@ -259,6 +259,18 @@ export interface JunctionRow {
   createdAt: Generated<string>;
 }
 
+export interface EdgeSuggestionRow {
+  id: string;
+  productId: string;
+  componentId: string;
+  reason: string | null;
+  score: number | null;
+  status: string;
+  createdAt: Generated<string>;
+  decidedAt: string | null;
+  decidedBy: string | null;
+}
+
 export interface KyselyMigrationRow {
   name: string;
   timestamp: number;
@@ -294,6 +306,7 @@ export interface DB {
   import_run_errors: ImportRunErrorRow;
   entity_changes: EntityChangeRow;
   edge_changes: EdgeChangeRow;
+  edge_suggestions: EdgeSuggestionRow;
   kysely_migration: KyselyMigrationRow;
   kysely_migration_lock: KyselyMigrationLockRow;
 }

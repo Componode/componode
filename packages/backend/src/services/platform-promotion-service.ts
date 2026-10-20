@@ -12,6 +12,8 @@ import { uuidv7 } from "uuidv7";
 import { db } from "../db/connection.js";
 import { writeEdgeChange, writeEntityChange, type Actor } from "./audit-service.js";
 import { toSlug } from "./product-service.js";
+import { supersedeSuggestionPairs } from "./product-edge-service.js";
+import { runSuggestionPass } from "./edge-suggestion-service.js";
 
 function notFound(entity: string) {
   return Object.assign(new Error(`${entity} not found`), {
@@ -177,7 +179,7 @@ export async function promoteComponentToPlatform(
 ): Promise<PromoteToPlatformResult> {
   const parsed = promoteToPlatformSchema.parse(rawInput);
 
-  return db.transaction().execute(async (trx) => {
+  const result = await db.transaction().execute(async (trx) => {
     const component = await trx
       .selectFrom("components")
       .select(["id", "name", "slug", "lifecycle"])
@@ -306,6 +308,9 @@ export async function promoteComponentToPlatform(
       PROMOTION_REASON,
       trx,
     );
+    // ADR-113: this edge bypasses addDependsOnEdge — tombstone the pair
+    // inline so decidedBy records the wiring actor, not NULL.
+    await supersedeSuggestionPairs(trx, id, [componentId], actor);
 
     for (const consumer of consumers) {
       await trx
@@ -322,6 +327,9 @@ export async function promoteComponentToPlatform(
         PROMOTION_REASON,
         trx,
       );
+      // The consumer still reaches the component through the platform —
+      // tombstone the pair so a pre-feature edge can't regenerate (ADR-113).
+      await supersedeSuggestionPairs(trx, consumer.id, [componentId], actor);
       await trx
         .insertInto("product_consumes_from")
         .values({ consumerId: consumer.id, platformId: id })
@@ -370,4 +378,13 @@ export async function promoteComponentToPlatform(
 
     return { product, consumers };
   });
+
+  // ADR-113: the promotion writes its DEPENDS_ON edge directly (no
+  // tombstone) and the new PLATFORM product never saw a createProduct
+  // trigger — a scoped pass covers both; failure-isolated, post-commit.
+  await runSuggestionPass(
+    { productId: result.product.id },
+    { productId: result.product.id },
+  );
+  return result;
 }

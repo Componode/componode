@@ -12,6 +12,8 @@ import {
 } from "@componode/core";
 import { db } from "../db/connection.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
+import { runSuggestionPass } from "./edge-suggestion-service.js";
+import { tagsDiffer } from "./suggestion-signals.js";
 
 function isValidSlug(slug: string): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && slug.length <= 100;
@@ -332,7 +334,7 @@ export async function updateComponent(
     return getComponentGroupByComponentId(componentId);
   }
 
-  return db.transaction().execute(async (trx) => {
+  const result = await db.transaction().execute(async (trx) => {
     await trx
       .updateTable("components")
       .set(updates)
@@ -352,6 +354,18 @@ export async function updateComponent(
 
     return getComponentGroupByComponentIdWithTrx(trx, componentId);
   });
+
+  // ADR-113: a scoped pass re-scores this component's pairs and tombstones
+  // pairs newly covered by a group move — post-commit, failure-isolated.
+  // Guard on real changes, not mere presence in the PATCH body.
+  if (
+    (parsed.componentGroupId !== undefined &&
+      parsed.componentGroupId !== existing.componentGroupId) ||
+    (parsed.tags !== undefined && tagsDiffer(parsed.tags, existing.tags))
+  ) {
+    await runSuggestionPass({ componentIds: [componentId] }, { componentId });
+  }
+  return result;
 }
 
 async function getComponentGroupByComponentIdWithTrx(
