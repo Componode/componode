@@ -168,6 +168,14 @@ flattens the tree to a normal list.
 - A product with multiple parents (legal in a DAG) appears under each parent;
   a "shared" indicator marks duplicates.
 - Retired products excluded by default (constitution IV) with a visible toggle.
+- Each row carries a **completeness chip** (spec 023): three independent
+  facets — Owner, Desc, Deps — never merged into a score. Satisfied facets
+  render muted; missing facets render in the warning tone so gaps draw the
+  eye. The same chip repeats in the detail-page header.
+- `PLATFORM` rows additionally show their consumer count
+  ("consumed by N", muted "not consumed" at zero); non-platform rows never
+  do. A **Completeness** facet filters the list by gap
+  (`?missing=owner,dependencies,description`, values OR'd).
 
 ### Product detail tabs
 
@@ -264,12 +272,18 @@ The dashboard is a **health + attention** overview, not a navigation hub
 (the sidebar already navigates):
 
 1. **Attention needed** (top; hidden when empty): failed importer runs,
-   `ERROR`/`GONE` instances, reconciliation anomalies.
+   `ERROR`/`GONE` instances, reconciliation anomalies — then, below the
+   operational items, overdue `sunsetAt` on non-retired products and
+   components, labeled "Sunset overdue" (spec 023).
 2. **Stat cards**: products (by type), components (by lifecycle), instances
    (by status), last import time.
-3. **Importer status**: last run per configured importer — status, when,
+3. **Catalog coverage** (spec 023): wired share of the default-visible
+   component set and the three product hygiene gaps (missing owner,
+   missing dependencies, missing description). Every figure links to its
+   filtered worklist; a zero denominator renders `—`, never `0%`.
+4. **Importer status**: last run per configured importer — status, when,
    assets found/created/updated.
-4. **Empty install**: getting-started strip ("Configure your first importer")
+5. **Empty install**: getting-started strip ("Configure your first importer")
    replaces all of the above.
 
 This section records *layout intent only*; the dashboard as shipped (specs

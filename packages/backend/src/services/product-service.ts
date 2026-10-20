@@ -12,6 +12,10 @@ import {
 import { db } from "../db/connection.js";
 import { writeEntityChange, writeEdgeChange, type Actor } from "./audit-service.js";
 import { computeHealthForProducts } from "./product-health-service.js";
+import {
+  computeDependencySurfaces,
+  productCompleteness,
+} from "./catalog-coverage-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
 import { tagsDiffer } from "./suggestion-signals.js";
 import { supersedeSuggestionPairs } from "./product-edge-service.js";
@@ -102,8 +106,22 @@ export async function listProducts(parsed: ListProductsQuery) {
   }
 
   const products = await query.execute();
-  const ids = products.map((p) => p.id);
-  const [edges, healthByProduct] = await Promise.all([
+
+  // Spec 023: the dependency surface feeds both the `missing=dependencies`
+  // facet and every row's completeness.dependencies — compute once.
+  const surfaces = await computeDependencySurfaces();
+
+  // Schema-validated + CSV-split values; a gap facet matches when the
+  // corresponding completeness facet is false (shared derivation).
+  const missingValues = parsed.missing ?? [];
+  const rows = missingValues.length
+    ? products.filter((p) =>
+        missingValues.some((m) => !productCompleteness(p, surfaces)[m]),
+      )
+    : products;
+
+  const ids = rows.map((p) => p.id);
+  const [edges, healthByProduct, consumedByRows] = await Promise.all([
     ids.length
       ? db
           .selectFrom("product_composes")
@@ -113,12 +131,29 @@ export async function listProducts(parsed: ListProductsQuery) {
           .execute()
       : Promise.resolve([]),
     computeHealthForProducts(ids),
+    // Spec 023 US5: CONSUMES_FROM in-degree for the listed products.
+    ids.length
+      ? db
+          .selectFrom("product_consumes_from")
+          .select((eb) => [
+            "platformId",
+            eb.fn.count("consumerId").as("n"),
+          ])
+          .where("platformId", "in", ids)
+          .groupBy("platformId")
+          .execute()
+      : Promise.resolve([]),
   ]);
+  const consumedByCount = new Map(
+    consumedByRows.map((r) => [r.platformId, Number(r.n)]),
+  );
 
   return {
-    products: products.map((p) => ({
+    products: rows.map((p) => ({
       ...p,
       status: healthByProduct.get(p.id)?.status ?? null,
+      consumedByCount: consumedByCount.get(p.id) ?? 0,
+      completeness: productCompleteness(p, surfaces),
     })),
     edges,
   };
@@ -141,7 +176,7 @@ export async function getProductDetail(slug: string) {
   const product = await getProductBySlug(slug);
   if (!product) return null;
 
-  const [composedBy, composes, consumesFrom, consumedBy] = await Promise.all([
+  const [composedBy, composes, consumesFrom, consumedBy, surfaces] = await Promise.all([
     db
       .selectFrom("product_composes")
       .innerJoin("digital_products", "product_composes.parentId", "digital_products.id")
@@ -166,6 +201,7 @@ export async function getProductDetail(slug: string) {
       .select(REF_SELECT)
       .where("product_consumes_from.platformId", "=", product.id)
       .execute(),
+    computeDependencySurfaces(),
   ]);
 
   // Descendant products reachable via COMPOSES (inherited dependency scope).
@@ -386,7 +422,10 @@ export async function getProductDetail(slug: string) {
   }
 
   return {
-    product,
+    product: {
+      ...product,
+      completeness: productCompleteness(product, surfaces),
+    },
     composedBy,
     composes,
     consumesFrom,

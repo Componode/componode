@@ -58,6 +58,7 @@ export type { DiscoveredAsset, DiscoveredAssetInstance, DiscoveredAssetEnvironme
 export type { Importer, ImporterContext, SecretResolver, ImporterSecretDeclaration } from "./contracts/importer.js";
 export type { Credential, CredentialDependents, CredentialDetail, CredentialTestResult } from "./contracts/credential.js";
 export type { EdgeSuggestion, SuggestionQueueItem, SuggestionListResult, SuggestionRescanReport } from "./contracts/edge-suggestion.js";
+export type { CatalogCoverage, ProductCompleteness } from "./contracts/catalog-coverage.js";
 
 // Observability
 export type { Logger } from "./observability/logger.js";

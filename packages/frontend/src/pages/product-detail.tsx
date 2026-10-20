@@ -39,6 +39,7 @@ import { roleAtLeast } from "@/lib/roles";
 import { useSetCrumbLabel } from "@/components/layout/crumb-context";
 import { ProductForm } from "@/components/products/product-form";
 import { HealthBadge } from "@/components/products/health-badge";
+import { CompletenessChip } from "@/components/products/completeness-chip";
 import { EdgePicker, type EdgeTarget } from "@/components/products/edge-picker";
 import { EntityHistory } from "@/components/entity-history";
 import { cn } from "@/lib/utils";
@@ -324,6 +325,16 @@ export function ProductDetailPage() {
                 status={data.health?.status ?? null}
                 perEnv={data.health?.perEnv}
               />
+              <CompletenessChip completeness={product.completeness} />
+              {/* Spec 023 US5: platform consumer count in the header —
+                  same figure as the composition tab's Consumed-by list. */}
+              {product.type === "PLATFORM" && (
+                <span className="text-sm text-muted-foreground">
+                  {data.consumedBy.length > 0
+                    ? `consumed by ${data.consumedBy.length} product${data.consumedBy.length === 1 ? "" : "s"}`
+                    : "not consumed"}
+                </span>
+              )}
             </div>
             <p className={cn("text-sm text-muted-foreground", MONO_CLASS)}>
               {product.slug}

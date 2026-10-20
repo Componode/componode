@@ -622,6 +622,16 @@ paths:
         - in: query
           name: includeRetired
           schema: { type: string, enum: ['true', 'false'] }
+        - in: query
+          name: missing
+          schema: { type: string }
+          description: >-
+            Completeness-gap facet (spec 023). Comma-separated or repeated
+            values from `owner`, `dependencies`, `description`; products
+            matching ANY listed gap are returned. `dependencies` means the
+            recursive dependency surface is empty (no own DEPENDS_ON /
+            CONSUMES_FROM and no non-RETIRED COMPOSES descendant declaring
+            dependencies). Values outside the set return `400`.
       responses:
         '200':
           description: Product list
@@ -780,8 +790,8 @@ paths:
       x-permission: "product:edge:add"
       description: |
         Requires the `product:edge:add` role. `COMPOSES` forms a DAG — adding an
-        edge that creates a cycle returns `409` (`CYCLE_DETECTED`). The parent
-        must be `BUSINESS_CAPABILITY` or `CUSTOMER_FACING`.
+        edge that creates a cycle returns `409` (`CYCLE_DETECTED`). Any product
+        type may be a parent (ADR-109).
       parameters:
         - { $ref: '#/components/parameters/Id' }
       requestBody:
@@ -1019,6 +1029,17 @@ paths:
         - in: query
           name: includeGone
           schema: { type: boolean, default: false }
+        - in: query
+          name: wired
+          schema: { type: string }
+          description: >-
+            Coverage facet (spec 023): comma-separated or repeated values
+            from `wired`, `unwired`. Restricts results to the default-visible
+            coverage population (ACTIVE, not instances-all-GONE) regardless
+            of includeRetired/includeGone. `wired` = reachable from a
+            non-RETIRED product via a direct or group-expanded DEPENDS_ON
+            edge; `unwired` = its complement. Selecting both returns the
+            full population. Values outside the set return `400`.
       responses:
         '200':
           description: Paginated component list
@@ -1850,7 +1871,18 @@ paths:
           description: Dashboard summary
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  counts: { type: object }
+                  lastImportAt: { type: string, format: date-time, nullable: true }
+                  attention:
+                    type: array
+                    items: { $ref: '#/components/schemas/AttentionItem' }
+                  lastRuns:
+                    type: array
+                    items: { type: object }
+                  coverage: { $ref: '#/components/schemas/CatalogCoverage' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   # ----------------------------------------------------------------- Search
@@ -2570,10 +2602,75 @@ components:
           description: >-
             Derived product health headline (ADR-112), present on list
             responses — `null` when there are no contributing instances
+        completeness: { $ref: '#/components/schemas/ProductCompleteness' }
+        consumedByCount:
+          type: integer
+          description: >-
+            Spec 023 US5: CONSUMES_FROM in-degree — every consumer edge,
+            including retired consumers, so the figure always equals
+            `consumedBy.length` on the detail payload. `0` for
+            non-platforms (only PLATFORM can be a CONSUMES_FROM target).
         createdBy: { type: string, format: uuid, nullable: true }
         updatedBy: { type: string, format: uuid, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    AttentionItem:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+            - FAILED_RUN
+            - INSTANCE_ERROR
+            - INSTANCE_GONE
+            - PRODUCT_ERROR
+            - SUNSET_OVERDUE_PRODUCT
+            - SUNSET_OVERDUE_COMPONENT
+          description: >-
+            Sunset kinds (spec 023) surface overdue `sunsetAt` on
+            non-RETIRED entities; they rank below operational attention.
+        label: { type: string }
+        href: { type: string }
+        at: { type: string, format: date-time }
+    CatalogCoverage:
+      type: object
+      description: >-
+        Spec 023: read-only catalog coverage derived per request — no
+        persisted state. The component population is the default-visible
+        set (ACTIVE, not instances-all-GONE).
+      properties:
+        components:
+          type: object
+          properties:
+            active: { type: integer }
+            wired: { type: integer }
+            wiredPct:
+              type: number
+              nullable: true
+              description: "`null` when `active` is zero"
+        products:
+          type: object
+          properties:
+            total: { type: integer, description: Non-RETIRED products }
+            missingOwner: { type: integer }
+            missingDependencies: { type: integer }
+            missingDescription: { type: integer }
+    ProductCompleteness:
+      type: object
+      description: >-
+        Spec 023 US4: three independent completeness facets — never a
+        score. `dependencies` is false when the recursive dependency
+        surface is empty.
+      properties:
+        owner:
+          type: boolean
+          description: Product has a LOB or team owner assigned
+        description:
+          type: boolean
+          description: Product has a non-empty description
+        dependencies:
+          type: boolean
+          description: Recursive dependency surface is non-empty
     ComponentDependent:
       type: object
       description: >-

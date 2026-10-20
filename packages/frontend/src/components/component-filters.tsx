@@ -35,7 +35,21 @@ const STATUS_OPTIONS: FacetOption[] = INSTANCE_STATUS.map((v) => ({
   label: INSTANCE_STATUS_META[v].label,
 }));
 
-const FACET_KEYS = ["category", "provider", "lifecycle", "status", "group"] as const;
+const FACET_KEYS = [
+  "category",
+  "provider",
+  "lifecycle",
+  "status",
+  "group",
+  "wired",
+] as const;
+
+// Spec 023: wiring classification — the backend restricts both values to
+// the default-visible component population.
+const WIRING_OPTIONS: FacetOption[] = [
+  { value: "wired", label: "Wired" },
+  { value: "unwired", label: "Unwired" },
+];
 
 function split(value: string | undefined): string[] {
   return value ? value.split(",").filter(Boolean) : [];
@@ -64,6 +78,7 @@ export function ComponentFilters({ filters, onChange }: ComponentFiltersProps) {
       lifecycle: undefined,
       status: undefined,
       group: undefined,
+      wired: undefined,
       page: 1,
     });
   }
@@ -101,6 +116,12 @@ export function ComponentFilters({ filters, onChange }: ComponentFiltersProps) {
         options={groupOptions}
         selected={split(filters.group)}
         onChange={(v) => update("group", v)}
+      />
+      <FacetFilter
+        title="Wiring"
+        options={WIRING_OPTIONS}
+        selected={split(filters.wired)}
+        onChange={(v) => update("wired", v)}
       />
       {hasActive && (
         <Button variant="ghost" size="sm" onClick={clearAll}>

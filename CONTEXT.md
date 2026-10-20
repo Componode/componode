@@ -96,9 +96,10 @@ _Avoid_: end-of-life state, deprecation gate
 
 **Candidate edge**:
 A staged, server-generated suggestion that a product may `DEPENDS_ON` a
-component — computed from stored import data, reviewed in the Suggestions
-queue, and decided by a human (ADR-113). `PENDING` until accepted (a real
-edge) or dismissed; decided and superseded pairs never resurface.
+component — computed from stored catalog data (names, tags, topics,
+namespaces), reviewed in the Suggestions queue, and decided by a human
+(ADR-113). `PENDING` until accepted (a real edge) or dismissed; decided
+and superseded pairs never resurface.
 _Avoid_: auto-wiring, recommendation
 
 **Bootstrap import**:

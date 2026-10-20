@@ -48,8 +48,16 @@ databases, TLS, reverse proxies, and OIDC setup.
   (25 categories × 10 providers × free-form `resourceType`),
   environment-as-instance modeling, and component groups.
 - **Product hierarchy**: typed product→product edges (`COMPOSES`,
-  `CONSUMES_FROM`) and product→component dependencies, with DAG cycle
-  detection and LOB/Team ownership.
+  `CONSUMES_FROM`) and product→component dependencies — including
+  component-group targets and bulk wiring — with DAG cycle detection and
+  LOB/Team ownership.
+- **Catalog curation**: YAML/JSON bootstrap import of existing app
+  inventories, staged edge suggestions a human accepts or dismisses, and a
+  guided promote-to-platform workflow — the meaning layer without the
+  manual grind.
+- **Coverage & health**: derived product health from instance status,
+  dashboard coverage metrics with worklist filters, product completeness
+  chips, and sunset-overdue attention.
 - **Importer framework**: scheduled, pull-only importers with run history,
   reconciliation, and cancellation.
 - **Credential store**: AES-256-GCM encrypted integration secrets, managed
@@ -131,7 +139,7 @@ packages/
 docs/                      # Source documentation (see table above)
 docs-site/                 # VitePress documentation site
 researches/                # Research docs + ADRs (adrs/, architecture-decisions.md)
-specs/                     # spec-kit feature specs (001-foundation … 016-bugfix-login-redirect)
+specs/                     # spec-kit feature specs (001-foundation … 023-coverage-and-hygiene)
 .specify/                  # spec-kit config, constitution, workflows
 scripts/                   # Deployment and validation scripts
 ```
@@ -234,7 +242,10 @@ Componode is governed by seven constitution principles:
 
 Componode v1.0.0 shipped spec-kit features 001–016 (foundation, importer
 framework, component catalog, UX shell, product hierarchy, audit, deployment,
-plus post-v1 hardening and fixes). What's next lives in
+plus post-v1 hardening and fixes). Features 017–023 delivered the
+practical-DPAM stream: catalog metadata, edge-rule ergonomics, group
+dependencies, product health, the platform product workflow, catalog
+bootstrap, edge suggestions, and coverage & hygiene. What's next lives in
 [docs/roadmap.md](docs/roadmap.md).
 
 ## License

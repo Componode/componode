@@ -4,6 +4,7 @@ import { ChevronRight, ChevronDown, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/states/status-badge";
 import { HealthBadge } from "@/components/products/health-badge";
+import { CompletenessChip } from "@/components/products/completeness-chip";
 import { CriticalityBadge } from "@/components/metadata/criticality-badge";
 import { SunsetBadge } from "@/components/metadata/sunset-badge";
 import { cn } from "@/lib/utils";
@@ -129,7 +130,16 @@ export function ProductTree({ products, edges, flattened = false, onContextMenu 
               aria-label="Shared — has multiple parents"
             />
           )}
+          {/* Spec 023 US5: platform consumer count — muted zero state. */}
+          {product.type === "PLATFORM" && (
+            <span className="text-xs text-muted-foreground">
+              {product.consumedByCount
+                ? `consumed by ${product.consumedByCount} product${product.consumedByCount === 1 ? "" : "s"}`
+                : "not consumed"}
+            </span>
+          )}
           <span className="ml-auto flex items-center gap-2">
+            <CompletenessChip completeness={product.completeness} />
             <HealthBadge status={product.status} />
             <CriticalityBadge criticality={product.criticality} />
             <SunsetBadge sunsetAt={product.sunsetAt} lifecycle={product.lifecycle} />

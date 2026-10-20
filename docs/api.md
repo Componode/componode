@@ -197,11 +197,16 @@ Notes:
   (slug auto-derives from name). Update accepts the same fields plus
   `lifecycle`.
 - `COMPOSES` forms a DAG — adding an edge that creates a cycle returns
-  `409 CYCLE_DETECTED`. The parent must be `BUSINESS_CAPABILITY` or
-  `CUSTOMER_FACING`.
+  `409 CYCLE_DETECTED`. Any product type may be a parent (ADR-109).
 - `CONSUMES_FROM` targets must be `PLATFORM` products (`INVALID_EDGE_TYPE`
   on violation).
 - All edge mutations return `204` on success.
+- Query params for `GET /products` also include `missing` — CSV or repeated
+  values of `owner`, `dependencies`, `description` (spec 023 completeness
+  worklists; OR semantics, invalid values return `400 VALIDATION_FAILED`).
+- List rows carry `completeness` (`{owner, description, dependencies}` —
+  the same three facets `missing` filters on) and `consumedByCount`
+  (number of consumers; equals detail `consumedBy.length`).
 
 ## Components
 
@@ -217,8 +222,10 @@ Notes:
 <!-- /GENERATED:table:Components -->
 
 Query params for `GET /components`: `page`, `pageSize` (max 100), `category`,
-`provider`, `lifecycle`, `status`, `componentGroup`, `group`, `search`, `sort`
-(`name`/`lastSeenAt`/`createdAt`), `order`, `includeRetired`, `includeGone`.
+`provider`, `lifecycle`, `status`, `componentGroup`, `group`, `tag`, `search`,
+`sort` (`name`/`lastSeenAt`/`createdAt`), `order`, `includeRetired`,
+`includeGone`, `wired` (`wired`/`unwired`, CSV or repeated — coverage
+classification from spec 023; invalid values return `400 VALIDATION_FAILED`).
 
 Components are created/updated by importers, not via the API — `PATCH` only
 reassigns `{ componentGroupId?, teamOwnerId? }` (nullable).

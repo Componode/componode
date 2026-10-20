@@ -3,16 +3,21 @@ import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   Download,
+  FileText,
+  Link2,
   Package,
   Boxes,
   Layers,
   Rocket,
+  Unlink,
+  UserX,
 } from "lucide-react";
 import { useDashboardSummary } from "@/api/hooks/dashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardGridSkeleton, TableSkeleton } from "@/components/states/skeletons";
 import { ErrorState } from "@/components/states/error-state";
 import { StatusBadge } from "@/components/states/status-badge";
+import { SunsetBadge } from "@/components/metadata/sunset-badge";
 import { ImporterRunChart } from "@/components/importer-run-chart";
 import { PlatformCandidatesSection } from "@/components/platform-candidates";
 import { PromoteToPlatformDialog } from "@/components/products/promote-to-platform-dialog";
@@ -24,7 +29,28 @@ const ATTENTION_LABEL: Record<AttentionItem["kind"], string> = {
   INSTANCE_ERROR: "Instance in error",
   INSTANCE_GONE: "Instance gone",
   PRODUCT_ERROR: "Product affected by error",
+  SUNSET_OVERDUE_PRODUCT: "Product sunset overdue",
+  SUNSET_OVERDUE_COMPONENT: "Component sunset overdue",
 };
+
+function attentionBadge(item: AttentionItem) {
+  if (item.kind.startsWith("SUNSET_OVERDUE_")) {
+    // The SunsetBadge derivation renders "Sunset overdue" for a past date —
+    // same semantic, no new status color (spec 023, docs/ux.md §6).
+    return <SunsetBadge sunsetAt={item.at} lifecycle="ACTIVE" />;
+  }
+  return (
+    <StatusBadge
+      status={
+        item.kind === "FAILED_RUN"
+          ? "FAILED"
+          : item.kind === "INSTANCE_ERROR" || item.kind === "PRODUCT_ERROR"
+            ? "ERROR"
+            : "GONE"
+      }
+    />
+  );
+}
 
 /**
  * Health-and-attention dashboard per docs/ux.md §10: attention-needed first
@@ -52,7 +78,7 @@ export function DashboardPage() {
     );
   }
 
-  const { counts, attention, lastRuns, lastImportAt } = data;
+  const { counts, attention, lastRuns, lastImportAt, coverage } = data;
   const isEmptyInstall =
     counts.components.total === 0 && lastRuns.length === 0;
 
@@ -110,16 +136,7 @@ export function DashboardPage() {
                       className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <span className="flex items-center gap-3 min-w-0">
-                        <StatusBadge
-                          status={
-                            item.kind === "FAILED_RUN"
-                              ? "FAILED"
-                              : item.kind === "INSTANCE_ERROR" ||
-                                  item.kind === "PRODUCT_ERROR"
-                                ? "ERROR"
-                                : "GONE"
-                          }
-                        />
+                        {attentionBadge(item)}
                         <span className="truncate">
                           <span className="text-muted-foreground">
                             {ATTENTION_LABEL[item.kind]}:
@@ -167,6 +184,50 @@ export function DashboardPage() {
               detail={`${counts.instances.byStatus.RUNNING ?? 0} running · ${counts.instances.byStatus.ERROR ?? 0} error`}
               to="/components"
             />
+          </section>
+
+          {/* Spec 023 US1: catalog coverage — every figure links to its
+              filtered worklist (US2); "—" renders on zero denominator. */}
+          <section aria-labelledby="coverage-heading">
+            <h2 id="coverage-heading" className="mb-3 text-lg font-semibold">
+              Catalog coverage
+            </h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <StatCard
+                icon={Link2}
+                label="Components wired"
+                total={
+                  coverage.components.wiredPct === null
+                    ? "—"
+                    : `${coverage.components.wiredPct}%`
+                }
+                detail={`${coverage.components.wired} wired · ${
+                  coverage.components.active - coverage.components.wired
+                } unwired of ${coverage.components.active}`}
+                to="/components?wired=unwired"
+              />
+              <StatCard
+                icon={UserX}
+                label="Missing owner"
+                total={coverage.products.missingOwner}
+                detail={`of ${coverage.products.total} products`}
+                to="/products?missing=owner"
+              />
+              <StatCard
+                icon={Unlink}
+                label="Missing dependencies"
+                total={coverage.products.missingDependencies}
+                detail={`of ${coverage.products.total} products`}
+                to="/products?missing=dependencies"
+              />
+              <StatCard
+                icon={FileText}
+                label="Missing description"
+                total={coverage.products.missingDescription}
+                detail={`of ${coverage.products.total} products`}
+                to="/products?missing=description"
+              />
+            </div>
           </section>
 
           <section aria-labelledby="importers-heading">
@@ -268,7 +329,7 @@ function StatCard({
 }: {
   icon: typeof Package;
   label: string;
-  total: number;
+  total: number | string;
   detail: string;
   to: string;
 }) {
@@ -284,7 +345,9 @@ function StatCard({
           </span>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-bold">{total.toLocaleString()}</p>
+          <p className="text-3xl font-bold">
+            {typeof total === "number" ? total.toLocaleString() : total}
+          </p>
           <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
         </CardContent>
       </Card>
