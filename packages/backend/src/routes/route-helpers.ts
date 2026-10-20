@@ -1,8 +1,6 @@
 import type { FastifyReply } from "fastify";
 import { ZodError } from "zod";
 import { isErrorCode } from "@componode/core";
-import type { AuthenticatedRequest } from "../plugins/session.js";
-import type { Actor } from "../services/audit-service.js";
 
 /** Shape service-layer errors carry: HTTP status + optional controlled code. */
 export type ServiceError = {
@@ -12,13 +10,8 @@ export type ServiceError = {
   details?: unknown;
 };
 
-/** Actor attribution from the authenticated session (ADR-054). */
-export function actor(req: AuthenticatedRequest): Actor {
-  return {
-    id: req.user?.id ?? null,
-    name: req.user?.displayName ?? req.user?.username ?? null,
-  };
-}
+/** Actor attribution: use `toActor` from `services/actor.ts` (ADR-054) —
+ * the one canonical implementation, shared by every route file. */
 
 const STATUS_CODE_FALLBACKS: Record<number, string> = {
   400: "VALIDATION_FAILED",

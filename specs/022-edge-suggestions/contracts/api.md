@@ -64,9 +64,10 @@ Decides a pending candidate by wiring the real `DEPENDS_ON` edge through
 - **x-permission**: `product:edge:add` (EDITOR+)
 - **Path param**: `id` — suggestion id (uuid)
 - **Body**: none (empty JSON body allowed)
-- **Response 200**: the suggestion object, `status` = `ACCEPTED` (or
-  `SUPERSEDED` if the pair was wired concurrently — idempotent, edge is
-  not duplicated), `decidedAt`/`decidedBy` set.
+- **Response 200**: `{ suggestion }` envelope — the suggestion object,
+  `status` = `ACCEPTED` (or `SUPERSEDED` if the pair was wired
+  concurrently — idempotent, edge is not duplicated),
+  `decidedAt`/`decidedBy` set.
 - **Errors**:
 
 | Status | Code | When |
@@ -88,8 +89,8 @@ Permanently dismisses a pending candidate — no un-dismiss (spec FR-012).
 - **x-permission**: `product:edge:add` (EDITOR+)
 - **Path param**: `id` — suggestion id (uuid)
 - **Body**: none
-- **Response 200**: the suggestion object, `status` = `DISMISSED`,
-  `decidedAt`/`decidedBy` set.
+- **Response 200**: `{ suggestion }` envelope — the suggestion object,
+  `status` = `DISMISSED`, `decidedAt`/`decidedBy` set.
 - **Errors**: same table as accept minus the component/product `404` (no
   edge write occurs).
 

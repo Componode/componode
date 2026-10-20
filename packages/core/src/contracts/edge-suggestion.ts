@@ -20,7 +20,7 @@ export interface EdgeSuggestion {
 export interface SuggestionQueueItem extends EdgeSuggestion {
   product: { id: string; name: string; slug: string };
   component: { id: string; name: string; slug: string; category: string };
-  /** persons.name join for the dismissed view; NULL when undecided/deleted. */
+  /** persons displayName/username coalesce for the dismissed view; NULL when undecided/deleted. */
   decidedByName: string | null;
 }
 

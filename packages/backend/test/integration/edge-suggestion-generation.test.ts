@@ -504,6 +504,30 @@ describe("edge suggestion generation", () => {
     expect(row!.status).toBe("SUPERSEDED"); // tombstone — never PENDING again
   });
 
+  it("removing a pre-feature edge (no tombstone row) still suppresses regen", async () => {
+    // Simulates catalog data from before edge_suggestions existed: a real
+    // edge row with no suggestion behind it. Removal must write the
+    // tombstone, or the next pass would stage it as PENDING.
+    const productId = await mkProduct("waxwing");
+    const componentId = await mkComponent("waxwing-cache");
+    await testDb.db
+      .insertInto("product_depends_on_component")
+      .values({ productId, componentId } as never)
+      .execute();
+
+    const unwire = await app.inject({
+      method: "DELETE",
+      url: `/api/v1/products/${productId}/depends-on/${componentId}?kind=component`,
+      ...authed(),
+    });
+    expect([200, 204]).toContain(unwire.statusCode);
+
+    await rescan();
+    const row = await suggestionRow(productId, componentId);
+    expect(row).toBeDefined();
+    expect(row!.status).toBe("SUPERSEDED");
+  });
+
   it("decided rows never resurface across passes", async () => {
     const componentId = await mkComponent("raven-box");
     const productId = await mkProduct("raven");

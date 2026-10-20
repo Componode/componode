@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import {
   activityFeedQuerySchema,
@@ -6,30 +6,15 @@ import {
   correctionInputSchema,
 } from "@componode/core";
 import { requireRole } from "../plugins/rbac.js";
+import type { AuthenticatedRequest } from "../plugins/session.js";
 import { getActivityFeed, getEntityHistory } from "../services/audit-query-service.js";
-import { writeCorrection, type Actor } from "../services/audit-service.js";
-
-interface AuthenticatedRequest extends FastifyRequest {
-  user?: {
-    id: string;
-    username: string;
-    role: string;
-    displayName: string | null;
-  };
-}
+import { writeCorrection } from "../services/audit-service.js";
+import { toActor } from "../services/actor.js";
 
 const paramsSchema = z.object({
   entityType: z.string().min(1).max(100),
   entityId: z.string().uuid(),
 });
-
-function toActor(req: AuthenticatedRequest): Actor {
-  const user = req.user;
-  if (!user) {
-    return { id: null, name: null };
-  }
-  return { id: user.id, name: user.displayName ?? user.username };
-}
 
 export async function auditRoutes(app: FastifyInstance): Promise<void> {
   app.get("/audit/activity", {

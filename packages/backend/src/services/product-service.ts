@@ -13,6 +13,7 @@ import { db } from "../db/connection.js";
 import { writeEntityChange, writeEdgeChange, type Actor } from "./audit-service.js";
 import { computeHealthForProducts } from "./product-health-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
+import { tagsDiffer } from "./suggestion-signals.js";
 import { supersedeSuggestionPairs } from "./product-edge-service.js";
 
 const PRODUCT_SELECT = [
@@ -623,12 +624,13 @@ export async function updateProduct(id: string, input: UpdateProductInput, actor
       .executeTakeFirst();
   });
 
-  // ADR-113: signal-affecting fields (name/slug/tag side of every signal)
-  // re-stage this product's pairs — post-commit and failure-isolated.
+  // ADR-113: signal-affecting fields (the product name/tag side of every
+  // signal — slug is not a signal input, so slug-only changes are dead
+  // work) re-stage this product's pairs — post-commit, failure-isolated.
+  // Guard on real changes, not mere presence in the PATCH body (FR-002).
   if (
-    parsed.name !== undefined ||
-    parsed.slug !== undefined ||
-    parsed.tags !== undefined
+    (parsed.name !== undefined && parsed.name !== existing.name) ||
+    (parsed.tags !== undefined && tagsDiffer(parsed.tags, existing.tags))
   ) {
     await runSuggestionPass({ productId: id }, { productId: id });
   }

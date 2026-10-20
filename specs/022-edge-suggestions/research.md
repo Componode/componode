@@ -73,7 +73,8 @@ generation is idempotent so a retry story adds nothing.
 - `tokenize(value)`: lowercase, split on `[^a-z0-9]+`, drop tokens `< 2`
   chars and stop-words (`api`, `svc`, `service`, `app`, `the`, `and`,
   `for`, `com`, `org`, `net`, `io`, `dev`). Product tokens come from
-  `name` + `slug`; component tokens from `name` + `slug`.
+  `name` only (the product slug is not a signal source — FR-004 names
+  the product *name* and *tags*); component tokens from `name` + `slug`.
 - `NAME_MATCH`: product token set vs component token set — `1.0` if either
   set fully contains the other; `0.5` if they share ≥1 token.
 - `TOPIC_TAG_MATCH`: union of product `tags` + product name tokens vs union

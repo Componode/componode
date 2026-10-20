@@ -8,13 +8,26 @@ import type {
 
 export type SuggestionView = "PENDING" | "DISMISSED";
 
-/** Read queue — any authenticated role (ADR-113). `offset` pages the list. */
-export function useSuggestions(view: SuggestionView = "PENDING", offset = 0) {
+/** Read queue — any authenticated role (ADR-113). `offset`/`limit` page the list. */
+export function useSuggestions(
+  view: SuggestionView = "PENDING",
+  offset = 0,
+  limit = 50,
+) {
   return useQuery({
-    queryKey: ["suggestions", view, offset],
+    queryKey: ["suggestions", view, offset, limit],
     queryFn: () =>
-      api<SuggestionListResult>(`/suggestions?status=${view}&offset=${offset}`),
-    placeholderData: (prev) => prev,
+      api<SuggestionListResult>(
+        `/suggestions?${new URLSearchParams({
+          status: view,
+          offset: String(offset),
+          limit: String(limit),
+        })}`,
+      ),
+    // Keep the previous page only within the same view — carrying PENDING
+    // rows into the DISMISSED header would flash the wrong category.
+    placeholderData: (prev, prevQuery) =>
+      prevQuery?.queryKey[1] === view ? prev : undefined,
   });
 }
 

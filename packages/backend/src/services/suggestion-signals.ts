@@ -1,4 +1,7 @@
-import type { EdgeSuggestionReason } from "@componode/core";
+import type {
+  ComponentProvider,
+  EdgeSuggestionReason,
+} from "@componode/core";
 
 /**
  * Spec 022 / research.md D3 — the three ratified suggestion signals, their
@@ -63,6 +66,7 @@ export interface SignalProduct {
 export interface SignalComponent {
   name: string;
   slug: string;
+  provider: ComponentProvider;
   tags: string[] | null;
   details: Record<string, unknown> | null;
 }
@@ -83,42 +87,87 @@ const REASON_PRECEDENCE: EdgeSuggestionReason[] = [
 export const SCORE_FLOOR = 0.5;
 
 /**
- * Score a (product, component) pair across the three ratified signals.
- * Reason = strongest signal (precedence on ties); score = best signal +
- * 0.05 per additional signal, capped +0.1. Returns null below the floor.
+ * Order-insensitive tag-set comparison — used by write-path triggers to
+ * tell whether a tag field actually changed (ADR-113 scoped passes).
  */
-export function scorePair(
-  product: SignalProduct,
-  component: SignalComponent,
-): PairScore | null {
-  const productTokens = union(
-    tokenize(product.name),
-    tokenize(product.slug),
-  );
-  const componentTokens = union(
-    tokenize(component.name),
-    tokenize(component.slug),
-  );
+export function tagsDiffer(
+  next: readonly string[],
+  prev: readonly string[],
+): boolean {
+  if (next.length !== prev.length) return true;
+  const a = [...next].sort();
+  const b = [...prev].sort();
+  return a.some((t, i) => t !== b[i]);
+}
 
+/**
+ * Per-entity token sets, computed once and reused across the whole
+ * product×component scoring matrix (SC-002 — a whole-catalog pass must
+ * not re-tokenize each entity for every pair).
+ */
+export interface PreparedProduct {
+  nameTokens: Set<string>;
+  tagSide: Set<string>;
+}
+
+export interface PreparedComponent {
+  nameTokens: Set<string>;
+  tagSide: Set<string>;
+  nsTokens: Set<string>;
+}
+
+export function prepareProduct(product: SignalProduct): PreparedProduct {
+  // FR-004 lists the product's *name* (and tags) — the slug is not a
+  // signal source on the product side.
+  const nameTokens = tokenize(product.name);
+  return {
+    nameTokens,
+    tagSide: union(nameTokens, tokenizeAll(product.tags)),
+  };
+}
+
+export function prepareComponent(component: SignalComponent): PreparedComponent {
+  return {
+    nameTokens: union(tokenize(component.name), tokenize(component.slug)),
+    tagSide: union(
+      tokenizeAll(component.tags),
+      tokenizeAll(component.details?.["topics"]),
+    ),
+    // FR-004(c): only a Kubernetes component's imported namespace counts.
+    nsTokens:
+      component.provider === "KUBERNETES"
+        ? tokenize(
+            typeof component.details?.["namespace"] === "string"
+              ? (component.details["namespace"] as string)
+              : null,
+          )
+        : new Set<string>(),
+  };
+}
+
+/**
+ * Score a prepared (product, component) pair across the three ratified
+ * signals. Reason = strongest signal (precedence on ties); score = best
+ * signal + 0.05 per additional signal, capped +0.1. Null below the floor.
+ */
+export function scorePrepared(
+  product: PreparedProduct,
+  component: PreparedComponent,
+): PairScore | null {
   const signals: { reason: EdgeSuggestionReason; score: number }[] = [];
 
   // NAME_MATCH — token-set containment → 1.0; any shared token → 0.5.
-  const shared = intersection(productTokens, componentTokens);
+  const shared = intersection(product.nameTokens, component.nameTokens);
   if (shared.length > 0) {
     const contained =
-      isSubset(productTokens, componentTokens) ||
-      isSubset(componentTokens, productTokens);
+      isSubset(product.nameTokens, component.nameTokens) ||
+      isSubset(component.nameTokens, product.nameTokens);
     signals.push({ reason: "NAME_MATCH", score: contained ? 1.0 : 0.5 });
   }
 
   // TOPIC_TAG_MATCH — (product tags + name tokens) vs (component tags +
   // details.topics): 0.5 for the first overlap, +0.1 each extra, cap 0.8.
-  const productTagSide = union(productTokens, tokenizeAll(product.tags));
-  const componentTagSide = union(
-    tokenizeAll(component.tags),
-    tokenizeAll(component.details?.["topics"]),
-  );
-  const tagOverlap = intersection(productTagSide, componentTagSide).length;
+  const tagOverlap = intersection(product.tagSide, component.tagSide).length;
   if (tagOverlap > 0) {
     signals.push({
       reason: "TOPIC_TAG_MATCH",
@@ -127,12 +176,7 @@ export function scorePair(
   }
 
   // NAMESPACE_MATCH — details.namespace token overlap → 0.6.
-  const nsTokens = tokenize(
-    typeof component.details?.["namespace"] === "string"
-      ? (component.details["namespace"] as string)
-      : null,
-  );
-  if (intersection(productTokens, nsTokens).length > 0) {
+  if (intersection(product.nameTokens, component.nsTokens).length > 0) {
     signals.push({ reason: "NAMESPACE_MATCH", score: 0.6 });
   }
 

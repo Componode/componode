@@ -164,7 +164,7 @@ describe("SuggestionsPage", () => {
     fireEvent.change(screen.getByLabelText("Suggestion status"), {
       target: { value: "DISMISSED" },
     });
-    expect(mockSuggestions).toHaveBeenCalledWith("DISMISSED", 0);
+    expect(mockSuggestions).toHaveBeenCalledWith("DISMISSED", 0, 50);
   });
 
   it("shows empty and error states", () => {

@@ -13,6 +13,7 @@ import {
 } from "@/api/hooks/suggestions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -62,41 +63,49 @@ export function SuggestionsPage() {
   };
   const [dismissing, setDismissing] = useState<SuggestionQueueItem | null>(null);
 
-  const { data, isPending, error } = useSuggestions(view, offset);
+  const { data, isPending, error } = useSuggestions(view, offset, PAGE_SIZE);
   const accept = useAcceptSuggestion();
   const dismiss = useDismissSuggestion();
   const rescan = useRescanSuggestions();
 
-  async function handleRescan() {
+  // fn returns the success message; failure toasts the ApiError message.
+  async function withToast(fn: () => Promise<string>, fallback: string) {
     try {
-      const report = await rescan.mutateAsync();
-      toast.success(
-        `Rescan complete — ${report.staged} staged, ${report.superseded} superseded across ${report.productsScanned} products`,
-      );
+      toast.success(await fn());
+      return true;
     } catch (err) {
-      toast.error((err as ApiError).message ?? "Rescan failed");
+      toast.error((err as ApiError).message ?? fallback);
+      return false;
     }
   }
 
-  async function handleAccept(item: SuggestionQueueItem) {
-    try {
-      await accept.mutateAsync(item.id);
-      toast.success(
-        `${item.product.name} now depends on ${item.component.name}`,
-      );
-    } catch (err) {
-      toast.error((err as ApiError).message ?? "Accept failed");
-    }
+  function handleRescan() {
+    return withToast(async () => {
+      const report = await rescan.mutateAsync();
+      return `Rescan complete — ${report.staged} staged, ${report.superseded} superseded across ${report.productsScanned} products`;
+    }, "Rescan failed");
+  }
+
+  function handleAccept(item: SuggestionQueueItem) {
+    return withToast(
+      async () => {
+        await accept.mutateAsync(item.id);
+        return `${item.product.name} now depends on ${item.component.name}`;
+      },
+      "Accept failed",
+    );
   }
 
   async function handleDismiss() {
     if (!dismissing) return;
-    try {
-      await dismiss.mutateAsync(dismissing.id);
-      setDismissing(null);
-    } catch (err) {
-      toast.error((err as ApiError).message ?? "Dismiss failed");
-    }
+    const ok = await withToast(
+      async () => {
+        await dismiss.mutateAsync(dismissing.id);
+        return "Suggestion dismissed";
+      },
+      "Dismiss failed",
+    );
+    if (ok) setDismissing(null);
   }
 
   return (
@@ -111,15 +120,15 @@ export function SuggestionsPage() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <select
+          <Select
             aria-label="Suggestion status"
             value={view}
             onChange={(e) => setView(e.target.value as SuggestionView)}
-            className="h-10 w-40 rounded-md border border-input bg-background px-3 text-sm"
+            className="h-10 w-40"
           >
             <option value="PENDING">Pending</option>
             <option value="DISMISSED">Dismissed</option>
-          </select>
+          </Select>
           {canEdit && (
             <Button
               variant="outline"

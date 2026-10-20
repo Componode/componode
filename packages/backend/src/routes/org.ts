@@ -8,7 +8,8 @@ import {
   updateOrgEntity,
   deleteOrgEntity,
 } from "../services/org-service.js";
-import { actor, sendServiceError } from "./route-helpers.js";
+import { toActor } from "../services/actor.js";
+import { sendServiceError } from "./route-helpers.js";
 
 type OrgTable = "line_of_businesses" | "teams";
 
@@ -33,7 +34,7 @@ export async function orgRoutes(app: FastifyInstance): Promise<void> {
       { preHandler: [app.verifySession, requireRole(`${prefix}:create`)] },
       async (req: AuthenticatedRequest, reply: FastifyReply) => {
         try {
-          const row = await createOrgEntity(table, req.body as never, actor(req));
+          const row = await createOrgEntity(table, req.body as never, toActor(req));
           return reply.status(201).send({ [prefix]: row });
         } catch (err) {
           return sendServiceError(reply, err);
@@ -47,7 +48,7 @@ export async function orgRoutes(app: FastifyInstance): Promise<void> {
       async (req: AuthenticatedRequest, reply: FastifyReply) => {
         const { id } = req.params as { id: string };
         try {
-          const row = await updateOrgEntity(table, id, req.body as never, actor(req));
+          const row = await updateOrgEntity(table, id, req.body as never, toActor(req));
           if (!row) {
             return reply
               .status(404)
@@ -66,7 +67,7 @@ export async function orgRoutes(app: FastifyInstance): Promise<void> {
       async (req: AuthenticatedRequest, reply: FastifyReply) => {
         const { id } = req.params as { id: string };
         try {
-          const row = await deleteOrgEntity(table, id, actor(req));
+          const row = await deleteOrgEntity(table, id, toActor(req));
           if (!row) {
             return reply
               .status(404)

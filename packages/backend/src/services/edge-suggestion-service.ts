@@ -3,9 +3,14 @@ import { db } from "../db/connection.js";
 import { logger as appLogger } from "../plugins/logging.js";
 import { metrics } from "../plugins/metrics.js";
 import { addDependsOnEdge, supersedeSuggestionPairs } from "./product-edge-service.js";
-import { scorePair } from "./suggestion-signals.js";
+import {
+  prepareProduct,
+  prepareComponent,
+  scorePrepared,
+} from "./suggestion-signals.js";
 import type { Actor } from "./audit-service.js";
 import type {
+  ComponentProvider,
   EdgeSuggestion,
   EdgeSuggestionReason,
   ListSuggestionsQuery,
@@ -52,15 +57,7 @@ interface JoinedRow {
 
 function toQueueItem(row: JoinedRow): SuggestionQueueItem {
   return {
-    id: row.id,
-    productId: row.productId,
-    componentId: row.componentId,
-    reason: (row.reason as EdgeSuggestionReason | null) ?? null,
-    score: row.score === null ? null : row.score / 100,
-    status: row.status as EdgeSuggestion["status"],
-    createdAt: row.createdAt,
-    decidedAt: row.decidedAt,
-    decidedBy: row.decidedBy,
+    ...toContract(row),
     decidedByName: row.decidedByName,
     product: {
       id: row.productId,
@@ -76,17 +73,20 @@ function toQueueItem(row: JoinedRow): SuggestionQueueItem {
   };
 }
 
-function toContract(row: {
-  id: string;
-  productId: string;
-  componentId: string;
-  reason: string | null;
-  score: number | null;
-  status: string;
-  createdAt: string;
-  decidedAt: string | null;
-  decidedBy: string | null;
-}): EdgeSuggestion {
+function toContract(
+  row: Pick<
+    JoinedRow,
+    | "id"
+    | "productId"
+    | "componentId"
+    | "reason"
+    | "score"
+    | "status"
+    | "createdAt"
+    | "decidedAt"
+    | "decidedBy"
+  >,
+): EdgeSuggestion {
   return {
     id: row.id,
     productId: row.productId,
@@ -165,7 +165,9 @@ export async function listSuggestions(
       .orderBy("edge_suggestions.createdAt", "asc")
       .orderBy("edge_suggestions.id", "asc");
   } else {
-    rowsQuery = rowsQuery.orderBy("edge_suggestions.decidedAt", "desc");
+    rowsQuery = rowsQuery
+      .orderBy("edge_suggestions.decidedAt", "desc")
+      .orderBy("edge_suggestions.id", "desc");
   }
   const rows = await rowsQuery
     .limit(query.limit)
@@ -173,7 +175,7 @@ export async function listSuggestions(
     .execute();
 
   return {
-    items: rows.map((r) => toQueueItem(r as unknown as JoinedRow)),
+    items: rows.map(toQueueItem),
     total,
   };
 }
@@ -291,6 +293,13 @@ export async function generateSuggestions(
   // Scoping: a {productId} pass pairs that product with every active
   // component; a {componentIds} pass pairs every active product with the
   // given components (research.md D2).
+  // An empty componentIds scope means nothing to score — short-circuit
+  // before either query and skip finishPass: a deliberate no-op isn't a
+  // pass, so it shouldn't inflate suggestion_passes_total or log noise.
+  if ("componentIds" in scope && scope.componentIds.length === 0) {
+    return { productsScanned: 0, componentsScanned: 0, staged: 0, superseded: 0 };
+  }
+
   let productsQuery = db
     .selectFrom("digital_products")
     .select(["id", "name", "slug", "tags"])
@@ -306,6 +315,7 @@ export async function generateSuggestions(
       "id",
       "name",
       "slug",
+      "provider",
       "tags",
       "details",
       "componentGroupId",
@@ -314,12 +324,7 @@ export async function generateSuggestions(
   if ("componentIds" in scope) {
     componentsQuery = componentsQuery.where("id", "in", scope.componentIds);
   }
-  // An empty componentIds scope means nothing to score — skip the query
-  // entirely rather than faking an empty result with an impossible id.
-  const components =
-    "componentIds" in scope && scope.componentIds.length === 0
-      ? []
-      : await componentsQuery.execute();
+  const components = await componentsQuery.execute();
 
   const report: SuggestionRescanReport = {
     productsScanned: products.length,
@@ -372,23 +377,34 @@ export async function generateSuggestions(
     reason: EdgeSuggestionReason;
     score: number;
   }[] = [];
-  for (const product of products) {
-    for (const component of components) {
+  // SC-002: token sets are per-entity — prepare once, score the matrix.
+  const preparedProducts = products.map((row) => ({
+    row,
+    sig: prepareProduct(row),
+  }));
+  const preparedComponents = components.map((row) => ({
+    row,
+    // DB column is plain string; the controlled ComponentProvider enum
+    // lives in core — one boundary cast here.
+    sig: prepareComponent({ ...row, provider: row.provider as ComponentProvider }),
+  }));
+  for (const product of preparedProducts) {
+    for (const component of preparedComponents) {
       if (
-        directCoverage.has(`${product.id}:${component.id}`) ||
-        isCovered(product.id, component.componentGroupId)
+        directCoverage.has(`${product.row.id}:${component.row.id}`) ||
+        isCovered(product.row.id, component.row.componentGroupId)
       ) {
         tombstonePairs.push({
-          productId: product.id,
-          componentId: component.id,
+          productId: product.row.id,
+          componentId: component.row.id,
         });
         continue;
       }
-      const hit = scorePair(product, component);
+      const hit = scorePrepared(product.sig, component.sig);
       if (hit) {
         stagedPairs.push({
-          productId: product.id,
-          componentId: component.id,
+          productId: product.row.id,
+          componentId: component.row.id,
           reason: hit.reason,
           score: hit.score,
         });

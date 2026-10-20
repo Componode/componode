@@ -198,3 +198,36 @@ Re-review (`git diff origin/main` + untracked) residuals; apply and re-verify.
 - [X] T044 Extracted shared route helpers — `ServiceError`/`actor`/`validationFailed`/`sendServiceError` now live in `routes/route-helpers.ts` with the status-map fallback + `isErrorCode` check; migrated products/components/org/suggestions (also fixes components/org emitting unvalidated `error.code`)
 - [X] T045 Tombstone attribution — bypass-path writes (createProduct componentIds fast-path, promotion's own platform edge, bootstrap edge inserts) now call `supersedeSuggestionPairs(trx, …, actor)` inline so `decidedBy` records the wiring actor per data-model.md
 - [X] T046 Polish — `suggestions.tsx` uses `roleAtLeast` from `lib/roles`; bodiless POSTs dropped `JSON.stringify({})`; `suggestionReasonCheck`/`suggestionStatusCheck` exports added to `check-constraint-helper.ts` (per plan/data-model — migration keeps the bare-`sql` convention since helper fragments embed `CHECK` and can't feed `addCheckConstraint`); `/suggestions` added to `docs/ux.md` route map
+
+## Phase 10: Review follow-ups (round 3)
+
+Re-review (committed diff `174ab5e` vs `origin/main`) residuals.
+
+- [X] T047 Tombstone on edge removal — `removeDependsOnEdge` deletes + audits but never tombstones; a pair wired pre-feature and removed before any pass observed it can regenerate (FR-006 is unconditional). Call `supersedeSuggestionPairs` for the removed pair — expanding current members for `kind: "group"` — inside a transaction with the delete
+- [X] T048 Signal fidelity per FR-004 — NAMESPACE_MATCH must only fire for `provider === "KUBERNETES"` components (spec: "a Kubernetes component's imported details.namespace"), and `product.slug` must leave the product token set (spec lists product *name* and *tags* only; component side keeps name+slug). Update `SignalComponent`, the components query, and signal unit tests
+- [X] T049 One actor helper — `route-helpers.ts` `actor()` duplicates the pre-existing `services/actor.ts` `toActor()` (used by ~9 routes) plus a third copy in `routes/audit.ts`. Re-export `toActor` from route-helpers (or migrate call sites) and delete the audit.ts local
+- [X] T050 Service polish — `toQueueItem` reuses `toContract` for the shared field mapping; DISMISSED ordering gains an `id` tiebreaker for stable offset pagination; an empty `componentIds` scope early-returns before the products query (`productsScanned: 0`); `updateProduct`/`updateComponent` suggestion triggers fire only on actual signal-field *changes*, not mere presence in the body
+- [X] T051 Frontend polish — swap the raw `<select>` for the `ui/select.tsx` `Select` component (focus ring + consistent styling); pass `limit` explicitly so `PAGE_SIZE` doesn't silently couple to the Zod default
+
+## Phase 11: Convergence
+
+- [X] T052 Update the signal table in `docs/digital-products.md` to match T048: NAME_MATCH is product *name* vs component name/slug (product slug is not a signal source), and NAMESPACE_MATCH is Kubernetes components' `details.namespace` only per FR-004 (partial)
+
+## Phase 12: Review follow-ups (round 4)
+
+Re-review (working tree vs `origin/main`, incl. uncommitted round-3 fixes) residuals.
+
+- [X] T053 SC-002 performance — hoist per-entity tokenization out of the product×component loop: add `prepareProduct`/`prepareComponent` (precomputed name/tag-side/namespace token Sets) and `scorePrepared` to `suggestion-signals.ts`; `scorePair` becomes a thin wrapper; `generateSuggestions` prepares each entity once then scores prepared pairs (10k-component rescan must stay under a minute)
+- [X] T054 Drop the dead `slug` trigger in `updateProduct` — post-T048 the product slug is not a signal input, so a slug-only PATCH runs a scoped pass that can never change any score
+- [X] T055 Dedupe + convention — shared `tagsDiffer` helper (exported from `suggestion-signals.ts`, used by `updateProduct`/`updateComponent`); `routes/audit.ts` drops its local `AuthenticatedRequest` interface for the `plugins/session.js` import; `toContract` param narrows to `Pick<JoinedRow,…>`; remove the `as unknown as JoinedRow` cast if the query type infers cleanly; `useSuggestions` builds its query with `URLSearchParams` like every other hook
+- [X] T056 Drift + metric — `contracts/edge-suggestion.ts:23` and `data-model.md:99` say "persons.name join" (actual: `coalesce(displayName, username)`); `research.md` D3 still says product tokens come from `name` + `slug` (post-T048: name only); the rescan route's catch should increment `suggestion_pass_errors_total` so user-initiated failures count too
+
+## Phase 13: Review follow-ups (round 5)
+
+Re-review (working tree vs `origin/main`) residuals — polish only, no spec gaps.
+
+- [X] T057 One name for the actor helper — migrate `actor(` call sites in `products.ts`/`org.ts`/`suggestions.ts` to the canonical `toActor` from `services/actor.ts` (used by ~8 other routes) and drop the `toActor as actor` re-export from `route-helpers.ts`
+- [X] T058 Type `SignalComponent.provider` as `ComponentProvider` (core controlled enum, constitution III) instead of `string`; the DB row's `string` needs one honest cast at the `prepareComponent` call site
+- [X] T059 Delete production-dead `scorePair` — post-T053 only the unit suite calls it; the test file gets a local `score(p, c)` helper built on `prepareProduct`/`prepareComponent`/`scorePrepared`
+- [X] T060 Frontend — extract a `withToast(fn, fallback)` helper deduping the three near-identical try/toast handlers in `suggestions.tsx`; scope `placeholderData` to same-view only (`prevQuery?.queryKey[1] === view`) so switching PENDING→DISMISSED doesn't flash stale rows
+- [X] T061 Nits — the empty-`componentIds` no-op returns its zero-report directly without `finishPass` (a deliberate no-op shouldn't inflate `suggestion_passes_total` or log "pass complete"); `contracts/api.md` accept/dismiss 200 wording corrected to the `{suggestion:…}` envelope

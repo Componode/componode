@@ -368,27 +368,45 @@ export async function removeDependsOnEdge(
   kind: "component" | "group",
   actor: Actor,
 ) {
-  const removed =
-    kind === "group"
-      ? await db
-          .deleteFrom("product_depends_on_component_group")
-          .where("productId", "=", productId)
-          .where("componentGroupId", "=", targetId)
-          .executeTakeFirst()
-      : await db
-          .deleteFrom("product_depends_on_component")
-          .where("productId", "=", productId)
-          .where("componentId", "=", targetId)
-          .executeTakeFirst();
-  if (!Number(removed.numDeletedRows)) throw notFound("Edge");
-  await writeEdgeChange(
-    "DEPENDS_ON_COMPONENT",
-    { entityType: "digital_product", entityId: productId },
-    {
-      entityType: kind === "group" ? "component_group" : "component",
-      entityId: targetId,
-    },
-    "removed",
-    actor,
-  );
+  await db.transaction().execute(async (trx) => {
+    const removed =
+      kind === "group"
+        ? await trx
+            .deleteFrom("product_depends_on_component_group")
+            .where("productId", "=", productId)
+            .where("componentGroupId", "=", targetId)
+            .executeTakeFirst()
+        : await trx
+            .deleteFrom("product_depends_on_component")
+            .where("productId", "=", productId)
+            .where("componentId", "=", targetId)
+            .executeTakeFirst();
+    if (!Number(removed.numDeletedRows)) throw notFound("Edge");
+    // FR-006: the pair was once covered — ensure the tombstone exists even
+    // for edges that predate this feature, so removal can never resurrect
+    // a suggestion. Group removal covers the group's current members.
+    const componentIds =
+      kind === "group"
+        ? (
+            await trx
+              .selectFrom("components")
+              .select("id")
+              .where("componentGroupId", "=", targetId)
+              .execute()
+          ).map((c) => c.id)
+        : [targetId];
+    await supersedeSuggestionPairs(trx, productId, componentIds, actor);
+    await writeEdgeChange(
+      "DEPENDS_ON_COMPONENT",
+      { entityType: "digital_product", entityId: productId },
+      {
+        entityType: kind === "group" ? "component_group" : "component",
+        entityId: targetId,
+      },
+      "removed",
+      actor,
+      null,
+      trx,
+    );
+  });
 }

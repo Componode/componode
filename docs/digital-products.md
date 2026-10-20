@@ -400,9 +400,9 @@ product × component pair on three ratified signals:
 
 | Signal | What matches | Score |
 |---|---|---|
-| `NAME_MATCH` | Token overlap between product and component names/slugs | 1.0 on containment, 0.5 on any shared token |
+| `NAME_MATCH` | Token overlap between the product name and the component name/slug | 1.0 on containment, 0.5 on any shared token |
 | `TOPIC_TAG_MATCH` | Product tags/name tokens vs component `tags` + `details.topics` | 0.5 first hit, +0.1 each extra, cap 0.8 |
-| `NAMESPACE_MATCH` | Product name tokens vs `details.namespace` tokens | 0.6 |
+| `NAMESPACE_MATCH` | Product name tokens vs a Kubernetes component's `details.namespace` tokens | 0.6 |
 
 A pair hitting multiple signals keeps the strongest reason and gets a small
 multi-signal bonus (+0.05 each, cap +0.1). Pairs below the 0.5 floor are

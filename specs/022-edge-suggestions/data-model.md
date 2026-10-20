@@ -96,7 +96,7 @@ interface EdgeSuggestion {
 interface SuggestionQueueItem extends EdgeSuggestion {
   product: { id: string; name: string; slug: string };
   component: { id: string; name: string; slug: string; category: string };
-  decidedByName: string | null;          // persons.name join, for the dismissed view
+  decidedByName: string | null;          // persons.displayName/username coalesce, for the dismissed view
 }
 
 interface SuggestionListResult {

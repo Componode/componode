@@ -1,9 +1,18 @@
 import { describe, it, expect } from "vitest";
 import {
   tokenize,
-  scorePair,
+  prepareProduct,
+  prepareComponent,
+  scorePrepared,
   SCORE_FLOOR,
+  type SignalProduct,
+  type SignalComponent,
 } from "../../src/services/suggestion-signals.js";
+
+// One-off scoring helper — production code prepares once via
+// prepare*/scorePrepared directly (T053); tests compose them here.
+const scorePair = (p: SignalProduct, c: SignalComponent) =>
+  scorePrepared(prepareProduct(p), prepareComponent(c));
 
 /**
  * Spec 022 / research.md D3 — the three ratified signals, their weights,
@@ -56,6 +65,7 @@ const component = (
 ) => ({
   name: "orders-repo",
   slug: "orders-repo",
+  provider: "GITHUB",
   tags: [],
   details: null,
   ...over,
@@ -81,6 +91,16 @@ describe("scorePair — NAME_MATCH", () => {
   it("returns null when nothing matches", () => {
     expect(
       scorePair(product({ name: "Inventory", slug: "inventory" }), component()),
+    ).toBeNull();
+  });
+
+  it("ignores product slug tokens — FR-004 names the product *name*", () => {
+    // Token shared only via the product slug must not match.
+    expect(
+      scorePair(
+        product({ name: "Storefront", slug: "billing-portal" }),
+        component({ name: "billing repo", slug: "billing-repo" }),
+      ),
     ).toBeNull();
   });
 });
@@ -117,12 +137,26 @@ describe("scorePair — TOPIC_TAG_MATCH", () => {
 });
 
 describe("scorePair — NAMESPACE_MATCH", () => {
-  it("scores 0.6 on a shared namespace token", () => {
+  it("scores 0.6 on a shared namespace token (Kubernetes only)", () => {
     const hit = scorePair(
       product({ name: "Inventory Hub", slug: "inventory-hub" }),
-      component({ details: { namespace: "prod-inventory" } }),
+      component({
+        provider: "KUBERNETES",
+        details: { namespace: "prod-inventory" },
+      }),
     );
     expect(hit).toEqual({ reason: "NAMESPACE_MATCH", score: 0.6 });
+  });
+
+  it("ignores details.namespace on non-Kubernetes components (FR-004c)", () => {
+    const hit = scorePair(
+      product({ name: "Inventory Hub", slug: "inventory-hub" }),
+      component({
+        provider: "GITHUB",
+        details: { namespace: "prod-inventory" },
+      }),
+    );
+    expect(hit).toBeNull();
   });
 });
 
@@ -135,6 +169,7 @@ describe("scorePair — multi-signal merge and floor", () => {
       component({
         name: "billing repo",
         slug: "billing-repo",
+        provider: "KUBERNETES",
         details: { namespace: "billing", topics: ["billing"] },
       }),
     );
