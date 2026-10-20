@@ -36,9 +36,11 @@
   "packageManager": "pnpm@9.15.2",
   "pnpm": {
     "overrides": {
+      "brace-expansion@<1.1.21": "^1.1.21",
       "fast-uri@^3": "^3.1.7",
       "fast-uri@^4": "^4.1.4",
       "js-yaml@^4": "^4.3.2",
+      "source-map-js@<1.2.2": "^1.2.2",
       "vitepress>vite": "^7.3.6",
       "vitepress>@vitejs/plugin-vue": "^6.0.9",
       "vite@^7>esbuild": "^0.28.1"
