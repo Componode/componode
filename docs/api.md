@@ -197,8 +197,7 @@ Notes:
   (slug auto-derives from name). Update accepts the same fields plus
   `lifecycle`.
 - `COMPOSES` forms a DAG — adding an edge that creates a cycle returns
-  `409 CYCLE_DETECTED`. The parent must be `BUSINESS_CAPABILITY` or
-  `CUSTOMER_FACING`.
+  `409 CYCLE_DETECTED`. Any product type may be a parent (ADR-109).
 - `CONSUMES_FROM` targets must be `PLATFORM` products (`INVALID_EDGE_TYPE`
   on violation).
 - All edge mutations return `204` on success.

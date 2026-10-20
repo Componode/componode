@@ -51,6 +51,17 @@ apply are avoidable complexity for a bootstrap tool). Atomic
 all-or-nothing apply — rejected (one typo in row 190 shouldn't void the
 file).
 
+> **AMENDMENT (spec `021-catalog-bootstrap`, shipped)**: the apply phase
+> shipped with refinements on top of "upsert by slug" — merge semantics per
+> product (absent fields preserved, present fields applied, explicit
+> `null`/`[]` clears); per-item atomicity (each product in its own
+> transaction); a `RETIRED` product matched by slug is updated but stays
+> retired; a type change that would invalidate existing `CONSUMES_FROM`
+> consumers is skipped per the normal update guard; and the import is
+> idempotent — re-applying an unchanged file reports all zeros and writes
+> no audit rows. The UI auto-runs `?dryRun=true` on file selection before
+> the user clicks *Apply*.
+
 ## Amendments
 
 - **2026-02**: The shipped UI entry point is an **"Import products" button**

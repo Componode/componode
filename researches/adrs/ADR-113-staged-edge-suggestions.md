@@ -71,3 +71,15 @@ contract and blocks the feature on importers emitting relationships.
 Computed-on-read + dismissal table — rejected (unstable queue, no decision
 audit, regenerates dismissed candidates). Auto-wiring accepted pairs —
 rejected outright (violates constitution V).
+
+> **AMENDMENT (spec `022-edge-suggestions`, shipped)**: generation triggers
+> were broadened during implementation — in addition to import-run
+> completion, generation also runs on signal-affecting product writes
+> (create, name/tag updates) and component writes (tag/group changes),
+> after a catalog bootstrap apply and a platform promotion, and on demand via
+> `POST /api/v1/suggestions/rescan` (EDITOR+) — the backfill path for
+> catalogs that predate the feature. Also shipped: `SUPERSEDED` tombstones
+> are written at edge-write time (real *or* group-covered), and decided
+> pairs never resurface. The manual rescan supersedes the original
+> no-manual-regen intent — justified because PENDING rows that stop
+> matching are left untouched, so rescan can never un-decide a human.

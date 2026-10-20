@@ -97,7 +97,7 @@ flowchart TD
         S -.->|"logs / metrics / spans"| OBS
     end
 
-    K --> PG[("PostgreSQL<br/>24 tables")]
+    K --> PG[("PostgreSQL<br/>26 tables")]
     S --> AUD["append-only audit<br/>entity_changes / edge_changes"]
     AUD --> PG
 ```
@@ -228,7 +228,7 @@ plus the master key together form the backup unit.
 
 ## Persistence model
 
-PostgreSQL holds 24 tables (migrations `001`–`011`). Entity IDs are UUID v7
+PostgreSQL holds 26 tables (migrations `001`–`014`). Entity IDs are UUID v7
 generated application-side; enum-like fields use `CHECK` constraints driven by
 `packages/core` constants rather than native ENUMs.
 
@@ -245,11 +245,16 @@ erDiagram
     digital_products ||--o{ product_consumes_from : "consumes PLATFORM"
     digital_products ||--o{ product_depends_on_component : "depends on"
     components ||--o{ product_depends_on_component : "depended on by"
+    digital_products ||--o{ product_depends_on_component_group : "depends on"
+    component_groups ||--o{ product_depends_on_component_group : "depended on by"
 
     component_groups ||--o{ components : "groups"
     teams ||--o{ components : "team owns"
     teams ||--o{ component_groups : "team owns"
     components ||--o{ component_instances : "deployed as"
+
+    digital_products ||--o{ edge_suggestions : "candidate for"
+    components ||--o{ edge_suggestions : "suggested for"
 
     importer_configs ||--o{ import_runs : "produces"
     import_runs ||--o{ import_run_errors : "records"
@@ -259,9 +264,13 @@ erDiagram
 
 Edge rules enforced in the service layer:
 
-- `COMPOSES` is a DAG — cycle attempts return `409 CYCLE_DETECTED`; parents
-  must be `BUSINESS_CAPABILITY` or `CUSTOMER_FACING`.
+- `COMPOSES` is a DAG — cycle attempts return `409 CYCLE_DETECTED`; any
+  product type may be a parent (ADR-109).
 - `CONSUMES_FROM` targets must be `PLATFORM`.
+- `DEPENDS_ON` targets a concrete component or a `ComponentGroup` (expanded
+  to members at read time, ADR-110); `componentIds[]` bulk form allowed.
+- `edge_suggestions` stages server-generated `DEPENDS_ON` candidates —
+  human-decided via accept/dismiss, never auto-wired (ADR-113).
 - Audit tables (`entity_changes`, `edge_changes`) are append-only via
   database triggers (migration `002`); terminal run states are locked by
   triggers as well (migration `003`). They reference audited rows by

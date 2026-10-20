@@ -790,8 +790,8 @@ paths:
       x-permission: "product:edge:add"
       description: |
         Requires the `product:edge:add` role. `COMPOSES` forms a DAG — adding an
-        edge that creates a cycle returns `409` (`CYCLE_DETECTED`). The parent
-        must be `BUSINESS_CAPABILITY` or `CUSTOMER_FACING`.
+        edge that creates a cycle returns `409` (`CYCLE_DETECTED`). Any product
+        type may be a parent (ADR-109).
       parameters:
         - { $ref: '#/components/parameters/Id' }
       requestBody:
