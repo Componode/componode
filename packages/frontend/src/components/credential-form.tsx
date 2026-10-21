@@ -33,6 +33,65 @@ export function collectSecrets(
   return { secrets };
 }
 
+// Shared shell for the dynamic key-row editors (secrets and secret refs):
+// header text, keyed rows with a remove button, and a trailing add button.
+// The render prop supplies each row's fields between the key input and the
+// remove button.
+interface EntryRowsProps<T extends { key: string }> {
+  entries: T[];
+  onChange: (entries: T[]) => void;
+  makeEmpty: () => T;
+  label: string;
+  description: React.ReactNode;
+  addLabel: string;
+  removeLabel: (index: number) => string;
+  children: (entry: T, index: number, setEntry: (index: number, patch: Partial<T>) => void) => React.ReactNode;
+}
+
+function EntryRows<T extends { key: string }>({
+  entries,
+  onChange,
+  makeEmpty,
+  label,
+  description,
+  addLabel,
+  removeLabel,
+  children,
+}: EntryRowsProps<T>) {
+  const setEntry = (index: number, patch: Partial<T>) =>
+    onChange(entries.map((e, i) => (i === index ? { ...e, ...patch } : e)));
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <p className="text-xs text-muted-foreground">{description}</p>
+      {entries.map((entry, i) => (
+        <div key={i} className="flex items-center gap-2">
+          {children(entry, i, setEntry)}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => onChange(entries.filter((_, j) => j !== i))}
+            disabled={entries.length === 1}
+            aria-label={removeLabel(i)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => onChange([...entries, makeEmpty()])}
+      >
+        <Plus className="mr-1 h-4 w-4" /> {addLabel}
+      </Button>
+    </div>
+  );
+}
+
 interface SecretEntriesEditorProps {
   entries: SecretEntry[];
   onChange: (entries: SecretEntry[]) => void;
@@ -40,19 +99,23 @@ interface SecretEntriesEditorProps {
 
 // Dynamic key/value rows for a write-only credential bundle.
 export function SecretEntriesEditor({ entries, onChange }: SecretEntriesEditorProps) {
-  function setEntry(index: number, patch: Partial<SecretEntry>) {
-    onChange(entries.map((e, i) => (i === index ? { ...e, ...patch } : e)));
-  }
-
   return (
-    <div className="space-y-2">
-      <Label>Secret values</Label>
-      <p className="text-xs text-muted-foreground">
-        Stored encrypted and never shown again. Each key becomes available to
-        importers by name (e.g. <code>token</code>).
-      </p>
-      {entries.map((entry, i) => (
-        <div key={i} className="flex items-center gap-2">
+    <EntryRows
+      entries={entries}
+      onChange={onChange}
+      makeEmpty={() => ({ key: "", value: "" })}
+      label="Secret values"
+      description={
+        <>
+          Stored encrypted and never shown again. Each key becomes available to
+          importers by name (e.g. <code>token</code>).
+        </>
+      }
+      addLabel="Add secret"
+      removeLabel={(i) => `Remove secret ${i + 1}`}
+    >
+      {(entry, i, setEntry) => (
+        <>
           <Input
             value={entry.key}
             onChange={(e) => setEntry(i, { key: e.target.value })}
@@ -69,27 +132,9 @@ export function SecretEntriesEditor({ entries, onChange }: SecretEntriesEditorPr
             className="flex-1"
             aria-label={`Secret value ${i + 1}`}
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => onChange(entries.filter((_, j) => j !== i))}
-            disabled={entries.length === 1}
-            aria-label={`Remove secret ${i + 1}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ))}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => onChange([...entries, { key: "", value: "" }])}
-      >
-        <Plus className="mr-1 h-4 w-4" /> Add secret
-      </Button>
-    </div>
+        </>
+      )}
+    </EntryRows>
   );
 }
 
@@ -136,19 +181,18 @@ interface SecretRefEntriesEditorProps {
 
 // Key + source-type + reference rows for an agent-managed credential.
 export function SecretRefEntriesEditor({ entries, onChange }: SecretRefEntriesEditorProps) {
-  function setEntry(index: number, patch: Partial<SecretRefEntry>) {
-    onChange(entries.map((e, i) => (i === index ? { ...e, ...patch } : e)));
-  }
-
   return (
-    <div className="space-y-2">
-      <Label>Secret references</Label>
-      <p className="text-xs text-muted-foreground">
-        Names of env vars or files under the agent&apos;s secrets directory.
-        Secret values never leave the agent host.
-      </p>
-      {entries.map((entry, i) => (
-        <div key={i} className="flex items-center gap-2">
+    <EntryRows
+      entries={entries}
+      onChange={onChange}
+      makeEmpty={() => ({ key: "", source: "env" as const, reference: "" })}
+      label="Secret references"
+      description="Names of env vars or files under the agent's secrets directory. Secret values never leave the agent host."
+      addLabel="Add reference"
+      removeLabel={(i) => `Remove reference ${i + 1}`}
+    >
+      {(entry, i, setEntry) => (
+        <>
           <Input
             value={entry.key}
             onChange={(e) => setEntry(i, { key: e.target.value })}
@@ -174,27 +218,9 @@ export function SecretRefEntriesEditor({ entries, onChange }: SecretRefEntriesEd
             className="flex-1"
             aria-label={`Reference ${i + 1}`}
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => onChange(entries.filter((_, j) => j !== i))}
-            disabled={entries.length === 1}
-            aria-label={`Remove reference ${i + 1}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ))}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => onChange([...entries, { key: "", source: "env", reference: "" }])}
-      >
-        <Plus className="mr-1 h-4 w-4" /> Add reference
-      </Button>
-    </div>
+        </>
+      )}
+    </EntryRows>
   );
 }
 

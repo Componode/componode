@@ -133,17 +133,16 @@ export function CredentialsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {cred.kind === "AGENT_MANAGED"
-                            ? Object.entries(cred.secretRefMap ?? {}).map(([key, ref]) => (
-                                <Badge key={key} variant="outline" className="font-mono text-xs">
-                                  {key} · {"env" in ref ? "env" : "file"}
-                                </Badge>
-                              ))
-                            : Object.entries(cred.keyHints).map(([key, hint]) => (
-                                <Badge key={key} variant="outline" className="font-mono text-xs">
-                                  {key} •••{hint}
-                                </Badge>
-                              ))}
+                          {/* keyHints carries last-4 for STORED and the ref
+                              source type (env/file) for AGENT_MANAGED —
+                              reference names stay detail-only (ADR-117). */}
+                          {Object.entries(cred.keyHints).map(([key, hint]) => (
+                            <Badge key={key} variant="outline" className="font-mono text-xs">
+                              {cred.kind === "AGENT_MANAGED"
+                                ? `${key} · ${hint}`
+                                : `${key} •••${hint}`}
+                            </Badge>
+                          ))}
                         </div>
                       </TableCell>
                       <TableCell>

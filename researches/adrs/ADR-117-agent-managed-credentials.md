@@ -131,7 +131,10 @@ part of this decision and change only via further amendment:
   defense-in-depth).
 - **Audit action** — `credential_test_dispatched` added to
   `AGENT_AUDIT_ACTIONS` (agent entity_changes row when the hub dispatches
-  a remote test; the credential keeps its own `tested` entry).
+  a remote test; the credential keeps its own `tested` entry). Dispatch
+  audit and `lastUsedAt` record **at send time**, and a failed outcome
+  (`ok:false` + error code) is audited on timeout or mid-test
+  disconnect — an unanswered dispatch never escapes the trail.
 - **Metric** — `agent_credential_tests_total{agent,result}` counter;
   `result` is `ok` | `error` | `offline` | `timeout` (each bound agent
   tried increments once per dispatch attempt).

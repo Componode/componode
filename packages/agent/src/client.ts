@@ -94,7 +94,9 @@ async function defaultLoadImporters(): Promise<
 
 // Remote credential test handler (spec 026 US4): resolve the reference map
 // against the agent's own env/SECRETS_DIR, run the importer's probe, reply.
-// Failures produce {ok:false} naming the key + source — never values.
+// Failures produce {ok:false} naming the key + source — never values, never
+// filesystem paths (SecretResolutionError/SecretRefError messages are
+// sanitized by construction; ADR-096).
 export async function handleCredentialTest(
   payload: AgentCredentialTestPayload,
   deps: {
@@ -109,7 +111,7 @@ export async function handleCredentialTest(
 
   try {
     const secrets = await resolveRefMap(
-      payload.secrets,
+      payload.secretRefMap,
       createAgentResolver(deps.secretsDir),
       deps.log,
     );
@@ -117,7 +119,7 @@ export async function handleCredentialTest(
     if (typeof importer.testSecrets !== "function") {
       return reply(
         false,
-        `Importer ${payload.importerName} does not support credential testing`,
+        `MANIFEST_NO_TEST: importer "${payload.importerName}" does not support credential testing`,
       );
     }
     const result = await importer.testSecrets(secrets, payload.scope);

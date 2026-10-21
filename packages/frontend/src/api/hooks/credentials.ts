@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import type { Credential, CredentialDetail, CredentialTestResult, SecretRefMap } from "@/api/types";
+import type { Credential, CredentialDetail, CredentialKind, CredentialTestResult, SecretRefMap } from "@/api/types";
 
 export function useCredentials() {
   return useQuery({
@@ -20,7 +20,7 @@ export function useCredential(id: string | null) {
 export interface CreateCredentialInput {
   label: string;
   expiresAt?: string | null;
-  kind?: "STORED" | "AGENT_MANAGED";
+  kind?: CredentialKind;
   secrets?: Record<string, string>;
   secretRefMap?: SecretRefMap;
 }

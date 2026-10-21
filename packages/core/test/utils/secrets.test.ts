@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { EnvSecretResolver, resolveSecretsFromMap } from "../../src/utils/secrets.js";
-import { writeFileSync, mkdirSync, rmSync, mkdtempSync } from "node:fs";
+import {
+  EnvSecretResolver,
+  SecretRefError,
+  SecretResolutionError,
+  refSource,
+  resolveSecretsFromMap,
+} from "../../src/utils/secrets.js";
+import { writeFileSync, mkdirSync, rmSync, mkdtempSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -19,6 +25,12 @@ describe("shared secret resolver", () => {
 
     it("rejects a missing env var", async () => {
       await expect(new EnvSecretResolver().resolve({ env: "CORE_TEST_MISSING" })).rejects.toThrow("CORE_TEST_MISSING");
+    });
+
+    it("throws a typed SecretRefError (ENV_NOT_SET)", async () => {
+      await expect(
+        new EnvSecretResolver().resolve({ env: "CORE_TEST_MISSING" }),
+      ).rejects.toMatchObject({ name: "SecretRefError", code: "ENV_NOT_SET" });
     });
 
     it("reads env at resolve time — nothing is cached at construction", async () => {
@@ -65,6 +77,38 @@ describe("shared secret resolver", () => {
     it("rejects traversal outside secretsDir", async () => {
       const r = new EnvSecretResolver(secretsDir);
       await expect(r.resolve({ file: "../escape.txt" })).rejects.toThrow("escapes");
+    });
+
+    it("rejects a symlink inside secretsDir pointing outside it (realpath confinement)", async () => {
+      const outside = mkdtempSync(join(tmpdir(), "componode-outside-"));
+      writeFileSync(join(outside, "hidden.txt"), "outside-value", "utf8");
+      try {
+        // Junction works unprivileged on Windows; symlink elsewhere.
+        const linkPath = join(secretsDir, "linked");
+        try {
+          symlinkSync(outside, linkPath, process.platform === "win32" ? "junction" : "dir");
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException).code === "EPERM") return; // no symlink privilege — skip
+          throw err;
+        }
+        const r = new EnvSecretResolver(secretsDir);
+        await expect(r.resolve({ file: "linked/hidden.txt" })).rejects.toMatchObject({
+          name: "SecretRefError",
+          code: "FILE_ESCAPES_DIR",
+        });
+      } finally {
+        rmSync(outside, { recursive: true, force: true });
+      }
+    });
+
+    it("rejects an unreadable/missing file with FILE_NOT_READABLE, naming the ref not the path", async () => {
+      const r = new EnvSecretResolver(secretsDir);
+      await expect(r.resolve({ file: "nope.txt" })).rejects.toMatchObject({
+        name: "SecretRefError",
+        code: "FILE_NOT_READABLE",
+        message: expect.stringContaining('"nope.txt"'),
+      });
+      await expect(r.resolve({ file: "nope.txt" })).rejects.not.toThrow(secretsDir);
     });
 
     it("defaults secretsDir to /run/secrets", async () => {
@@ -117,6 +161,56 @@ describe("shared secret resolver", () => {
       } finally {
         delete process.env.CORE_TEST_A;
       }
+    });
+
+    it("names the failing key and source type in SecretResolutionError", async () => {
+      await expect(
+        resolveSecretsFromMap(
+          { token: { env: "CORE_TEST_MISSING" } },
+          new EnvSecretResolver(),
+        ),
+      ).rejects.toMatchObject({
+        name: "SecretResolutionError",
+        key: "token",
+        source: "env",
+      });
+      await expect(
+        resolveSecretsFromMap(
+          { pem: { file: "../escape" } },
+          new EnvSecretResolver(),
+        ),
+      ).rejects.toMatchObject({
+        name: "SecretResolutionError",
+        key: "pem",
+        source: "file",
+      });
+    });
+
+    it("fires onResolved per key with the source type", async () => {
+      process.env.CORE_TEST_A = "a";
+      process.env.CORE_TEST_B = "b";
+      const seen: Array<[string, string]> = [];
+      try {
+        await resolveSecretsFromMap(
+          { token: { env: "CORE_TEST_A" }, other: { env: "CORE_TEST_B" } },
+          new EnvSecretResolver(),
+          (key, source) => seen.push([key, source]),
+        );
+        expect(seen).toEqual([
+          ["token", "env"],
+          ["other", "env"],
+        ]);
+      } finally {
+        delete process.env.CORE_TEST_A;
+        delete process.env.CORE_TEST_B;
+      }
+    });
+  });
+
+  describe("refSource", () => {
+    it("reports env or file", () => {
+      expect(refSource({ env: "X" })).toBe("env");
+      expect(refSource({ file: "y" })).toBe("file");
     });
   });
 });

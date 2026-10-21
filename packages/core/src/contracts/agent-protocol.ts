@@ -79,7 +79,7 @@ export const credentialTestPayloadSchema = z
     credentialId: z.string().uuid(),
     importerName: z.string().min(1),
     scope: z.record(z.unknown()).optional(),
-    secrets: secretRefMapSchema,
+    secretRefMap: secretRefMapSchema,
   })
   .strict();
 

@@ -1,4 +1,7 @@
-import { EnvSecretResolver } from "@componode/core/secrets";
+import {
+  EnvSecretResolver,
+  resolveSecretsFromMap,
+} from "@componode/core/secrets";
 
 // Agent-side secret resolution (spec 026 US4, ADR-117). Agent-managed
 // credentials carry references — env var names or files under SECRETS_DIR —
@@ -19,21 +22,15 @@ export function createAgentResolver(secretsDir?: string): EnvSecretResolver {
 
 // Resolves every entry of a credential.test ref map into values for the
 // importer probe. Emits one resolution event per key — key name and source
-// type only, never the resolved value (ADR-090).
+// type only, never the resolved value (ADR-090). On failure the thrown
+// SecretResolutionError names the key and source type (spec 026 US4 edge
+// case); resolver messages are sanitized and carry no absolute paths.
 export async function resolveRefMap(
   refMap: Record<string, { env?: string; file?: string }>,
   resolver: EnvSecretResolver,
   log: AgentLog,
 ): Promise<Record<string, string>> {
-  const resolved: Record<string, string> = {};
-  for (const [key, ref] of Object.entries(refMap)) {
-    const source = ref.env !== undefined ? "env" : "file";
-    resolved[key] = await resolver.resolve({
-      key,
-      env: ref.env,
-      file: ref.file,
-    });
-    log.info({ key, source }, "resolved secret reference");
-  }
-  return resolved;
+  return resolveSecretsFromMap(refMap, resolver, (key, source) =>
+    log.info({ key, source }, "resolved secret reference"),
+  );
 }

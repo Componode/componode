@@ -246,8 +246,21 @@ mismatched use is already rejected.
 
 ## Phase 9: Convergence
 
-- [ ] T042 Align the `agent_credential_tests_total{result}` label enumeration in `docs/agent-protocol.md` and ADR-117 Amendment 1 with the emitted values (`ok`/`error`/`offline`/`timeout` in `credential-service.ts`) per FR-020 (partial)
-- [ ] T043 Rename the credential-form kind selector label/options to the spec's "Where do the values live?" framing (`Stored in Componode` / `Resolved on an Import Agent`) per FR-021 (partial)
-- [ ] T044 Map the new remote-test error codes (`AGENT_OFFLINE`, `CREDENTIAL_NO_BOUND_AGENT`, `AGENT_TEST_TIMEOUT`) to actionable hint copy in `credential-test-dialog.tsx` per T028 (partial)
-- [ ] T045 Run the `quickstart.md` live walkthrough (running hub + real agent container over a real channel) and fix any fallout before merge per T041 (partial)
-- [ ] T046 Isolate core's node-only secret-resolver exports from the browser-bundled barrel (`node:fs`/`node:path` are stubbed by rolldown in the frontend build — a browser call would silently fail) per plan/core-leaf decision (contradicts)
+- [X] T042 Align the `agent_credential_tests_total{result}` label enumeration in `docs/agent-protocol.md` and ADR-117 Amendment 1 with the emitted values (`ok`/`error`/`offline`/`timeout` in `credential-service.ts`) per FR-020 (partial)
+- [X] T043 Rename the credential-form kind selector label/options to the spec's "Where do the values live?" framing (`Stored in Componode` / `Resolved on an Import Agent`) per FR-021 (partial)
+- [X] T044 Map the new remote-test error codes (`AGENT_OFFLINE`, `CREDENTIAL_NO_BOUND_AGENT`, `AGENT_TEST_TIMEOUT`) to actionable hint copy in `credential-test-dialog.tsx` per T028 (partial)
+- [X] T045 Run the `quickstart.md` live walkthrough (running hub + real agent container over a real channel) and fix any fallout before merge per T041 (partial)
+- [X] T046 Isolate core's node-only secret-resolver exports from the browser-bundled barrel (`node:fs`/`node:path` are stubbed by rolldown in the frontend build — a browser call would silently fail) per plan/core-leaf decision (contradicts)
+
+## Phase 10: Review Hardening (code-review round 1 — `4a4463c`)
+
+- [X] T047 [CRITICAL] Filter the no-master-key fatal check to `kind = 'STORED'` so a hub holding only AGENT_MANAGED credentials boots without a keyring per ADR-117 (`credential-boot.ts` — the re-encrypt query has the filter, the count does not); add a regression test in `credential-boot.test.ts`
+- [X] T048 Restrict `secretRefMap` to the credential detail/mutation responses — `GET /credentials` list exposes `keyHints` (source types) only per ADR-117 Amendment 1 (`credential-service.ts` `toApi`/`listCredentials`, `openapi.yaml` Credential schemas, `credentials.tsx` list badges via `keyHints`, `credential-lifecycle-dialogs.tsx` detail/rotate fetch `useCredential` for the ref map); regen `docs/api.md`
+- [X] T049 Sanitize agent `credential.test` failures: typed `SecretRefError` codes in the core resolver with messages that name the ref and never absolute paths (ADR-096), per-key wrap naming key + source type per US4 edge case, and `MANIFEST_NO_TEST…` token for missing `testSecrets` per contracts/agent-protocol.md (`core/utils/secrets.ts`, `agent/secrets.ts`, `agent/client.ts`)
+- [X] T050 Write `credential_test_dispatched` audit + `lastUsedAt` at dispatch (send) time, and a `tested` outcome row on timeout/close-reject, per FR-018 (`agent-session-service.ts` `onDispatched` seam, `credential-service.ts`)
+- [X] T051 Add pino `redact` paths to the agent logger mirroring the hub's discipline per FR-013 (`agent/src/logging.ts`, both `pino()` sites in `agent/src/main.ts`)
+- [X] T052 Confine `file` refs through `realpath` so a symlink inside `SECRETS_DIR` cannot escape per FR-011 (`core/utils/secrets.ts` + test — junction/dir-symlink with EPERM skip on Windows)
+- [X] T053 Rename the `credential.test` payload field `secrets` → `secretRefMap` across schema, hub dispatch, agent handler, tests, and contract/protocol docs (`agent-protocol.ts`, `credential-service.ts`, `agent/client.ts`, `contracts/agent-protocol.md`, `docs/agent-protocol.md`)
+- [X] T054 Consolidate resolution: core `resolveSecretsFromMap` gains an `onResolved(key, source)` callback and `refSource()` helper; agent `resolveRefMap` delegates (kills the duplicated loop and the repeated env/file switches); `kind?: CredentialKind` in `api/hooks/credentials.ts`
+- [X] T055 Extract the shared row-editor shell from `SecretEntriesEditor`/`SecretRefEntriesEditor` (Duplicated Code) in `credential-form.tsx`
+- [X] T056 Fix docs drift: `docs/api.md` credential-create note (`kind`/`secretRefMap`), `docs/agents.md` `SECRETS_DIR` config row → active, add `AGENT_CREDENTIAL_TEST_TIMEOUT_MS` to hub timing overrides, note realpath confinement (`docs/api.md`, `docs/agents.md`)

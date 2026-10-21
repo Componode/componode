@@ -90,11 +90,11 @@ describe("credential.test frames", () => {
         testId: "018c5e60-0000-7000-8000-000000000001",
         credentialId: "018c5e60-0000-7000-8000-000000000002",
         importerName: "github",
-        secrets,
+        secretRefMap: secrets,
       },
     };
     const parsed = agentMessageSchemas["credential.test"].parse(frame);
-    expect(parsed.payload.secrets).toEqual(secrets);
+    expect(parsed.payload.secretRefMap).toEqual(secrets);
   });
 
   it("parses a credential.test.result frame", () => {

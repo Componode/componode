@@ -178,7 +178,7 @@ describe("agent-managed credentials (spec 026)", () => {
   });
 
   describe("GET /api/v1/credentials", () => {
-    it("exposes kind and secretRefMap on list and detail", async () => {
+    it("list exposes kind + keyHints but keeps reference names detail-only (ADR-117 A1)", async () => {
       const created = await app.inject({
         method: "POST",
         url: "/api/v1/credentials",
@@ -193,7 +193,12 @@ describe("agent-managed credentials (spec 026)", () => {
       });
       const found = list.json().credentials.find((c: { id: string }) => c.id === credential.id);
       expect(found.kind).toBe("AGENT_MANAGED");
-      expect(found.secretRefMap).toEqual(refMap);
+      // Source-type hints render the badges; the ref names themselves
+      // (env var names / file paths) stay on the detail response.
+      expect(found.keyHints).toEqual({ token: "env", clientSecret: "file" });
+      expect(found.secretRefMap).toBeUndefined();
+      expect(JSON.stringify(found)).not.toContain("PROD_GH_TOKEN");
+      expect(JSON.stringify(found)).not.toContain("gh-secret");
 
       const detail = await app.inject({
         method: "GET",

@@ -20,6 +20,7 @@ import {
 import { getImporter } from "./importer-registry.js";
 import type { AgentSessionService } from "./agent-session-service.js";
 import { metrics } from "../plugins/metrics.js";
+import { refSource } from "@componode/core/secrets";
 
 // Credential service (spec 013, ADR-107). Secret values are write-only:
 // they are encrypted via credential-crypto before persistence and never
@@ -50,7 +51,7 @@ export function computeKeyHints(secrets: Record<string, string>): Record<string,
 export function computeRefHints(refMap: Record<string, { env?: string; file?: string }>): Record<string, string> {
   const hints: Record<string, string> = {};
   for (const [key, ref] of Object.entries(refMap)) {
-    hints[key] = ref.env !== undefined ? "env" : ref.file !== undefined ? "file" : "ref";
+    hints[key] = refSource(ref);
   }
   return hints;
 }
@@ -105,7 +106,13 @@ export async function listCredentials(): Promise<Credential[]> {
     .selectAll()
     .orderBy("createdAt", "desc")
     .execute();
-  return rows.map(toApi);
+  // ADR-117 Amendment 1: list views get `keyHints` (key + source type)
+  // only — reference names stay visible in `secretRefMap` on detail.
+  return rows.map((row) => {
+    const credential = toApi(row);
+    delete credential.secretRefMap;
+    return credential;
+  });
 }
 
 export async function getDependents(credentialId: string): Promise<CredentialDependents> {
@@ -259,55 +266,75 @@ export async function testCredential(
     let lastOffline: Error | null = null;
     for (const candidate of bound) {
       const testId = uuidv7();
-      try {
-        const result = await sessions.dispatchCredentialTest(candidate.agentId!, {
-          testId,
-          credentialId,
-          importerName: input.importerName,
-          scope: input.scope,
-          secrets: row.secretRefMap as NonNullable<Credential["secretRefMap"]>,
-        });
-
-        const now = new Date().toISOString();
-        await db
-          .updateTable("credentials")
-          .set({ lastUsedAt: now })
-          .where("id", "=", credentialId)
-          .execute();
-        metrics.agentCredentialTestsTotal.inc({
-          agent: candidate.agentName,
-          result: result.ok ? "ok" : "error",
-        });
-        await writeEntityChange({
-          entityType: "import_agent",
-          entityId: candidate.agentId,
-          action: "credential_test_dispatched",
-          changes: {
-            credentialId,
-            credentialLabel: row.label,
-            importerName: input.importerName,
-          },
-          actor,
-        });
-        await writeEntityChange({
+      // The dispatch audit + lastUsedAt stamp fire at send time (FR-018):
+      // a timeout or mid-test disconnect still leaves the audit trail.
+      let didDispatch = false;
+      let dispatched: Promise<void> | null = null;
+      const markDispatched = () => {
+        didDispatch = true;
+        dispatched = (async () => {
+          await db
+            .updateTable("credentials")
+            .set({ lastUsedAt: new Date().toISOString() })
+            .where("id", "=", credentialId)
+            .execute();
+          await writeEntityChange({
+            entityType: "import_agent",
+            entityId: candidate.agentId!,
+            action: "credential_test_dispatched",
+            changes: {
+              credentialId,
+              credentialLabel: row.label,
+              importerName: input.importerName,
+            },
+            actor,
+          });
+        })();
+      };
+      const recordOutcome = (ok: boolean, errorCode?: string) =>
+        writeEntityChange({
           entityType: "credential",
           entityId: row.id,
           action: "tested",
           changes: {
             importer: input.importerName,
-            ok: result.ok,
+            ok,
             agent: candidate.agentName,
+            ...(errorCode ? { error: errorCode } : {}),
           },
           actor,
         });
+      try {
+        const result = await sessions.dispatchCredentialTest(
+          candidate.agentId!,
+          {
+            testId,
+            credentialId,
+            importerName: input.importerName,
+            scope: input.scope,
+            secretRefMap: row.secretRefMap as NonNullable<Credential["secretRefMap"]>,
+          },
+          markDispatched,
+        );
+
+        await dispatched;
+        metrics.agentCredentialTestsTotal.inc({
+          agent: candidate.agentName,
+          result: result.ok ? "ok" : "error",
+        });
+        await recordOutcome(result.ok);
         return { ok: result.ok, error: result.error, agent: candidate.agentName };
       } catch (err) {
+        await dispatched;
         const code = (err as { code?: string }).code;
         if (code === "AGENT_OFFLINE") {
           metrics.agentCredentialTestsTotal.inc({
             agent: candidate.agentName,
             result: "offline",
           });
+          // A mid-test disconnect dispatched the frame — record the failed
+          // outcome before trying the next bound agent.
+          if (didDispatch) await recordOutcome(false, code);
           lastOffline = err as Error;
           continue; // try the next bound agent
         }
@@ -315,6 +342,7 @@ export async function testCredential(
           agent: candidate.agentName,
           result: code === "AGENT_TEST_TIMEOUT" ? "timeout" : "error",
         });
+        if (didDispatch) await recordOutcome(false, code ?? "error");
         throw err;
       }
     }

@@ -132,7 +132,7 @@ Hub → agent:
     credentialId: "<uuid>",
     importerName: "github",
     scope?: { … },            // optional importer scope overrides
-    secrets: { token: { env: "GH_TOKEN" } },  // secretRefMap — refs only
+    secretRefMap: { token: { env: "GH_TOKEN" } },  // refs only — never values
   },
 }
 ```
@@ -151,7 +151,8 @@ Semantics:
   `importerName`, and calls its `testSecrets` hook.
 - Refs carry source names only; resolved values never cross the wire in
   either direction. `error` must name the failing key and source type,
-  never a value.
+  never a value, and never an absolute filesystem path — a missing
+  `testSecrets` hook replies `error:"MANIFEST_NO_TEST: …"`.
 - The hub correlates results by `testId`; results with unknown ids are
   ignored. One outstanding test per dispatch — a hub-side timer
   (`AGENT_CREDENTIAL_TEST_TIMEOUT_MS`, 30 s) fails the request with

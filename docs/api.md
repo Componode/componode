@@ -303,8 +303,15 @@ Notes:
 
 - Credential secret values are **write-only**: they are encrypted at rest
   (AES-256-GCM) and never returned by any endpoint. `keyHints` shows the
-  last 4 characters of each stored key for identification.
-- `POST /credentials` accepts `{ label, expiresAt?, secrets: { key: value } }`.
+  last 4 characters of each stored key for identification; for
+  `AGENT_MANAGED` credentials it instead carries the reference source
+  type (`env`/`file`) per key.
+- `POST /credentials` accepts `{ label, kind?, expiresAt?, secrets? | secretRefMap? }`:
+  `kind: "STORED"` (default) requires `secrets: { key: value }`;
+  `kind: "AGENT_MANAGED"` requires `secretRefMap: { key: {env|file} }` —
+  references resolved on an Import Agent, never secret values.
+- Reference names (`secretRefMap`) appear only on detail and mutation
+  responses; the list endpoint exposes `keyHints` source types instead.
 
 ## Organization
 

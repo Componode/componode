@@ -5,7 +5,7 @@ import {
   useUpdateCredential,
 } from "@/api/hooks/credentials";
 import type { ApiError } from "@/api/client";
-import type { Credential, CredentialDependents } from "@/api/types";
+import type { Credential, CredentialDependents, SecretRefMap } from "@/api/types";
 import {
   collectSecrets,
   collectSecretRefs,
@@ -31,8 +31,7 @@ interface DialogProps {
   onClose: () => void;
 }
 
-function refMapToEntries(credential: Credential): SecretRefEntry[] {
-  const refs = credential.secretRefMap ?? {};
+function refMapToEntries(refs: SecretRefMap): SecretRefEntry[] {
   const entries = Object.entries(refs).map(([key, ref]) =>
     "env" in ref
       ? { key, source: "env" as const, reference: ref.env }
@@ -43,23 +42,23 @@ function refMapToEntries(credential: Credential): SecretRefEntry[] {
 
 // Rotate: replace the stored secret bundle in place, or — for agent-managed
 // credentials — edit the reference map. The credential id and all
-// importer-config links are preserved (spec 013 US4, spec 026).
+// importer-config links are preserved (spec 013 US4, spec 026). The ref map
+// is detail-only data (ADR-117) — fetched here, not read off the list row.
 export function RotateCredentialDialog({ credential, onClose }: DialogProps) {
   const update = useUpdateCredential(credential?.id ?? "");
   const isAgentManaged = credential?.kind === "AGENT_MANAGED";
+  const detail = useCredential(isAgentManaged ? (credential?.id ?? null) : null);
   const [entries, setEntries] = useState<SecretEntry[]>([{ key: "", value: "" }]);
   const [refEntries, setRefEntries] = useState<SecretRefEntry[]>([
     { key: "", source: "env", reference: "" },
   ]);
   const [error, setError] = useState<string | null>(null);
 
-  // Seed the ref editor from the credential's current map whenever the
-  // dialog target changes (agent-managed only).
+  // Seed the ref editor once the detail fetch lands (agent-managed only).
+  const refMap = detail.data?.credential.secretRefMap;
   useEffect(() => {
-    if (credential?.kind === "AGENT_MANAGED") {
-      setRefEntries(refMapToEntries(credential));
-    }
-  }, [credential]);
+    if (refMap) setRefEntries(refMapToEntries(refMap));
+  }, [refMap]);
 
   const submit = async () => {
     setError(null);
@@ -104,10 +103,14 @@ export function RotateCredentialDialog({ credential, onClose }: DialogProps) {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {isAgentManaged ? (
-          <SecretRefEntriesEditor
-            entries={refEntries}
-            onChange={setRefEntries}
-          />
+          detail.isPending ? (
+            <p className="text-sm text-muted-foreground">Loading references…</p>
+          ) : (
+            <SecretRefEntriesEditor
+              entries={refEntries}
+              onChange={setRefEntries}
+            />
+          )
         ) : (
           <SecretEntriesEditor entries={entries} onChange={setEntries} />
         )}
@@ -115,7 +118,10 @@ export function RotateCredentialDialog({ credential, onClose }: DialogProps) {
           <Button variant="outline" onClick={onClose} disabled={update.isPending}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={update.isPending}>
+          <Button
+            onClick={submit}
+            disabled={update.isPending || (isAgentManaged && detail.isPending)}
+          >
             {update.isPending ? "Saving…" : isAgentManaged ? "Save" : "Rotate"}
           </Button>
         </DialogFooter>
@@ -203,7 +209,9 @@ export function CredentialDetailDialog({ credential, onClose }: DialogProps) {
               </dt>
               <dd className="flex flex-wrap justify-end gap-1">
                 {credential.kind === "AGENT_MANAGED"
-                  ? Object.entries(credential.secretRefMap ?? {}).map(([key, ref]) => (
+                  ? Object.entries(
+                      detail.data?.credential.secretRefMap ?? {},
+                    ).map(([key, ref]) => (
                       <Badge
                         key={key}
                         variant="outline"

@@ -396,10 +396,14 @@ export class AgentSessionService {
   // Dispatch a remote credential test to a connected agent (spec 026 US3).
   // The payload carries secret *references*, never values (ADR-117).
   // Rejects with AGENT_OFFLINE when the agent has no live session and
-  // AGENT_TEST_TIMEOUT when no result arrives in the window.
+  // AGENT_TEST_TIMEOUT when no result arrives in the window. `onDispatched`
+  // fires the moment the frame is on the wire — the caller stamps its
+  // dispatch audit/lastUsedAt there so a timeout or mid-test disconnect
+  // still leaves an audit trail (FR-018).
   dispatchCredentialTest(
     agentId: string,
     payload: AgentCredentialTestPayload,
+    onDispatched?: () => void,
   ): Promise<AgentCredentialTestResultPayload> {
     const session = this.live.get(agentId);
     if (!session) {
@@ -431,6 +435,7 @@ export class AgentSessionService {
         timer,
       });
       this.send(session.socket, "credential.test", payload);
+      onDispatched?.();
       this.log.info(
         { agent: session.agentName, testId: payload.testId },
         "credential test dispatched to agent",

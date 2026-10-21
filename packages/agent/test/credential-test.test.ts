@@ -55,7 +55,7 @@ describe("agent credential.test handling", () => {
           testId,
           credentialId: "018c5e60-0000-7000-8000-000000000002",
           importerName: "github",
-          secrets: { token: { env: "AGENT_TEST_TOKEN" } },
+          secretRefMap: { token: { env: "AGENT_TEST_TOKEN" } },
         },
         { registry, log, send: tx.send },
       );
@@ -91,13 +91,16 @@ describe("agent credential.test handling", () => {
         testId,
         credentialId: "018c5e60-0000-7000-8000-000000000002",
         importerName: "github",
-        secrets: { token: { env: "AGENT_MISSING_VAR" } },
+        secretRefMap: { token: { env: "AGENT_MISSING_VAR" } },
       },
       { registry, log, send: tx.send },
     );
 
     const frame = tx.last();
     expect(frame.payload.ok).toBe(false);
+    // US4 edge case: the failure names the credential key + source type.
+    expect(frame.payload.error).toContain('"token"');
+    expect(frame.payload.error).toContain("env");
     expect(frame.payload.error).toContain("AGENT_MISSING_VAR");
   });
 
@@ -129,18 +132,22 @@ describe("agent credential.test handling", () => {
         importerName: "github",
       };
       await handleCredentialTest(
-        { ...payload, secrets: { token: { file: "../escape" } } },
+        { ...payload, secretRefMap: { token: { file: "../escape" } } },
         { secretsDir: dir, registry, log, send: tx.send },
       );
       expect(tx.last().payload.ok).toBe(false);
+      expect(tx.last().payload.error).toContain('"token"');
+      expect(tx.last().payload.error).toContain("file");
       expect(tx.last().payload.error).toContain("escapes");
 
       await handleCredentialTest(
-        { ...payload, secrets: { token: { file: join(dir, "abs") } } },
+        { ...payload, secretRefMap: { token: { file: join(dir, "abs") } } },
         { secretsDir: dir, registry, log, send: tx.send },
       );
       expect(tx.last().payload.ok).toBe(false);
       expect(tx.last().payload.error).toContain("relative");
+      // Sanitized: the absolute SECRETS_DIR path must not cross the wire.
+      expect(tx.last().payload.error).not.toContain(dir);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -157,12 +164,13 @@ describe("agent credential.test handling", () => {
           testId,
           credentialId: "018c5e60-0000-7000-8000-000000000002",
           importerName: "web-url",
-          secrets: { token: { env: "AGENT_TEST_TOKEN" } },
+          secretRefMap: { token: { env: "AGENT_TEST_TOKEN" } },
         },
         { registry, log, send: tx.send },
       );
       const frame = tx.last();
       expect(frame.payload.ok).toBe(false);
+      expect(frame.payload.error).toContain("MANIFEST_NO_TEST");
       expect(frame.payload.error).toContain("does not support credential testing");
     } finally {
       delete process.env.AGENT_TEST_TOKEN;
@@ -178,7 +186,7 @@ describe("agent credential.test handling", () => {
         testId,
         credentialId: "018c5e60-0000-7000-8000-000000000002",
         importerName: "nonexistent",
-        secrets: {},
+        secretRefMap: {},
       },
       { registry, log, send: tx.send },
     );
@@ -199,7 +207,7 @@ describe("agent credential.test handling", () => {
           testId,
           credentialId: "018c5e60-0000-7000-8000-000000000002",
           importerName: "github",
-          secrets: { token: { env: "AGENT_TEST_TOKEN" } },
+          secretRefMap: { token: { env: "AGENT_TEST_TOKEN" } },
         },
         { registry, log, send: tx.send },
       );

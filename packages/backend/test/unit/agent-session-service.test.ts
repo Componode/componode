@@ -19,7 +19,7 @@ describe("AgentSessionService credential test dispatch", () => {
     testId: "018c5e60-0000-7000-8000-000000000001",
     credentialId: "018c5e60-0000-7000-8000-000000000002",
     importerName: "github",
-    secrets: { token: { env: "GH_TOKEN" } },
+    secretRefMap: { token: { env: "GH_TOKEN" } },
   };
 
   // Fake ws peer — send() guards on readyState === OPEN.
@@ -100,6 +100,25 @@ describe("AgentSessionService credential test dispatch", () => {
       svc.dispatchCredentialTest("agent-1", payload),
     ).rejects.toMatchObject({ statusCode: 504, code: "AGENT_TEST_TIMEOUT" });
     expect(internals(svc).pendingTests.size).toBe(0);
+  });
+
+  it("fires onDispatched once the frame is on the wire — not when offline", async () => {
+    const svc = new AgentSessionService();
+    const session = fakeSession("agent-1");
+    internals(svc).live.set("agent-1", session);
+    internals(svc).credentialTestTimeoutMs = 20;
+
+    const onDispatched = vi.fn();
+    await expect(
+      svc.dispatchCredentialTest("agent-1", payload, onDispatched),
+    ).rejects.toMatchObject({ code: "AGENT_TEST_TIMEOUT" });
+    expect(onDispatched).toHaveBeenCalledTimes(1);
+
+    const offline = vi.fn();
+    await expect(
+      svc.dispatchCredentialTest("no-such-agent", payload, offline),
+    ).rejects.toMatchObject({ code: "AGENT_OFFLINE" });
+    expect(offline).not.toHaveBeenCalled();
   });
 
   it("rejects all pending dispatches when the session closes", async () => {

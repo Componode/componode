@@ -223,7 +223,7 @@ describe("remote credential test", () => {
     expect(payload.credentialId).toBe(cred.id);
     expect(payload.importerName).toBe("github");
     // The frame carries references — never values.
-    expect(payload.secrets).toEqual({ token: { env: "GH_TOKEN" } });
+    expect(payload.secretRefMap).toEqual({ token: { env: "GH_TOKEN" } });
     expect(JSON.stringify(frame)).not.toMatch(/ghp_|secret-value/i);
 
     ws.send(
@@ -318,7 +318,7 @@ describe("remote credential test", () => {
     expect(res.json().code).toBe("AGENT_OFFLINE");
   });
 
-  it("504s AGENT_TEST_TIMEOUT when the agent never answers", async () => {
+  it("504s AGENT_TEST_TIMEOUT when the agent never answers — audit still recorded (FR-018)", async () => {
     const { agent, enrollment } = await createAgent("edge-silent");
     const ws = await connectAgent(enrollment.token);
     const cred = await createAgentManagedCredential();
@@ -327,10 +327,38 @@ describe("remote credential test", () => {
     const res = await postTest(cred.id);
     expect(res.statusCode).toBe(504);
     expect(res.json().code).toBe("AGENT_TEST_TIMEOUT");
+
+    // The frame WAS sent: dispatch audit + lastUsedAt + a failed tested
+    // outcome must exist even though no result ever arrived.
+    const dispatchAudit = await testDb!.db
+      .selectFrom("entity_changes")
+      .selectAll()
+      .where("entityType", "=", "import_agent")
+      .where("entityId", "=", agent.id)
+      .where("action", "=", "credential_test_dispatched")
+      .execute();
+    expect(dispatchAudit).toHaveLength(1);
+
+    const tested = await testDb!.db
+      .selectFrom("entity_changes")
+      .selectAll()
+      .where("entityType", "=", "credential")
+      .where("entityId", "=", cred.id)
+      .where("action", "=", "tested")
+      .execute();
+    expect(tested).toHaveLength(1);
+    expect(JSON.stringify(tested[0]!.changes)).toContain("AGENT_TEST_TIMEOUT");
+
+    const credRow = await testDb!.db
+      .selectFrom("credentials")
+      .select("lastUsedAt")
+      .where("id", "=", cred.id)
+      .executeTakeFirstOrThrow();
+    expect(credRow.lastUsedAt).not.toBeNull();
     ws.close();
   });
 
-  it("fails the request (not hangs) when the agent disconnects mid-test", async () => {
+  it("fails the request (not hangs) when the agent disconnects mid-test — audits the dispatch", async () => {
     const { agent, enrollment } = await createAgent("edge-flaky");
     const ws = await connectAgent(enrollment.token);
     const cred = await createAgentManagedCredential();
@@ -343,6 +371,25 @@ describe("remote credential test", () => {
     const res = await request;
     expect(res.statusCode).toBe(503);
     expect(res.json().code).toBe("AGENT_OFFLINE");
+
+    const dispatchAudit = await testDb!.db
+      .selectFrom("entity_changes")
+      .selectAll()
+      .where("entityType", "=", "import_agent")
+      .where("entityId", "=", agent.id)
+      .where("action", "=", "credential_test_dispatched")
+      .execute();
+    expect(dispatchAudit).toHaveLength(1);
+
+    const tested = await testDb!.db
+      .selectFrom("entity_changes")
+      .selectAll()
+      .where("entityType", "=", "credential")
+      .where("entityId", "=", cred.id)
+      .where("action", "=", "tested")
+      .execute();
+    expect(tested).toHaveLength(1);
+    expect(JSON.stringify(tested[0]!.changes)).toContain("AGENT_OFFLINE");
   });
 
   it("ignores credential.test.result frames with an unknown testId", async () => {

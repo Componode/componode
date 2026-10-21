@@ -1556,7 +1556,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  credential: { $ref: '#/components/schemas/Credential' }
+                  credential: { $ref: '#/components/schemas/CredentialDetail' }
                   config: { $ref: '#/components/schemas/ImporterConfig' }
         '400':
           description: No legacy refs to convert (`CONVERSION_NOTHING_TO_CONVERT`)
@@ -2130,7 +2130,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  credential: { $ref: '#/components/schemas/Credential' }
+                  credential: { $ref: '#/components/schemas/CredentialDetail' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -2155,7 +2155,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  credential: { $ref: '#/components/schemas/Credential' }
+                  credential: { $ref: '#/components/schemas/CredentialDetail' }
                   dependents: { $ref: '#/components/schemas/CredentialDependents' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -2209,7 +2209,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  credential: { $ref: '#/components/schemas/Credential' }
+                  credential: { $ref: '#/components/schemas/CredentialDetail' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -3318,11 +3318,13 @@ components:
     Credential:
       type: object
       description: >-
-        Credential metadata. Secret values are write-only — `keyHints` shows
-        the last 4 characters of each stored key, never the value. For
-        `AGENT_MANAGED` credentials the value lives on the agent host;
-        `keyHints` instead carries the source type (`env`/`file`) per key and
-        `secretRefMap` exposes the reference names.
+        Credential metadata, as returned by list and detail responses.
+        Secret values are write-only — `keyHints` shows the last 4
+        characters of each stored key, never the value. For `AGENT_MANAGED`
+        credentials the value lives on the agent host and `keyHints`
+        instead carries the source type (`env`/`file`) per key; reference
+        names are exposed only on `CredentialDetail` (`secretRefMap`),
+        never in list views (ADR-117 Amendment 1).
       properties:
         id: { type: string, format: uuid }
         slug: { type: string }
@@ -3337,17 +3339,6 @@ components:
             `STORED` — values encrypted on the hub (AES-256-GCM).
             `AGENT_MANAGED` — references only; values live on the Import
             Agent host and never transit the hub (ADR-117).
-        secretRefMap:
-          type: object
-          nullable: true
-          additionalProperties:
-            type: object
-            properties:
-              env: { type: string }
-              file: { type: string }
-          description: >-
-            AGENT_MANAGED only — maps secret key → `{env}` or `{file}`
-            reference on the agent host. Never returned for STORED.
         keyHints:
           type: object
           additionalProperties: { type: string }
@@ -3360,6 +3351,25 @@ components:
         updatedBy: { type: string, format: uuid, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    CredentialDetail:
+      description: >-
+        A `Credential` plus the agent-managed reference map — returned by
+        `GET /credentials/{id}` and by create/update responses. Reference
+        names (env vars, file paths) are detail-only data (ADR-117).
+      allOf:
+        - $ref: '#/components/schemas/Credential'
+        - type: object
+          properties:
+            secretRefMap:
+              type: object
+              additionalProperties:
+                type: object
+                properties:
+                  env: { type: string }
+                  file: { type: string }
+              description: >-
+                AGENT_MANAGED only — maps secret key → `{env}` or `{file}`
+                reference on the agent host. Never present for STORED.
     CredentialDependents:
       type: object
       properties:

@@ -81,9 +81,10 @@ Credential precedence: `AGENT_TOKEN_FILE` → `AGENT_TOKEN` → persisted
   set and protocol version or the handshake is rejected — rebuild the
   agent image from the same commit as the hub.
 - **Hub-side timing overrides**: `AGENT_STALE_AFTER_MS` (default 90 000),
-  `AGENT_SESSION_SWEEP_MS` (15 000), and `AGENT_HELLO_TIMEOUT_MS` (5 000)
-  can be overridden via environment on the **hub** — intended for tests
-  and tuning; the spec-fixed defaults are the supported values.
+  `AGENT_SESSION_SWEEP_MS` (15 000), `AGENT_HELLO_TIMEOUT_MS` (5 000), and
+  `AGENT_CREDENTIAL_TEST_TIMEOUT_MS` (30 000 — remote credential-test
+  window) can be overridden via environment on the **hub** — intended for
+  tests and tuning; the spec-fixed defaults are the supported values.
 
 ## Agent-managed credentials (spec 026)
 
@@ -96,7 +97,8 @@ values; secret material never crosses the WebSocket in either direction.
   purely agent-side: update the env var or remount the file; the hub
   record needs no change and nothing re-encrypts.
 - `file` refs are confined to `SECRETS_DIR` (default `/run/secrets`);
-  contents are trimmed.
+  contents are trimmed. Confinement is enforced through `realpath` — a
+  symlink inside `SECRETS_DIR` pointing outside it is rejected.
 - Resolution events are logged with key name + source type only —
   never values.
 

@@ -30,9 +30,13 @@ export async function bootstrapCredentialStore(
   const keyring = await loadKeyring();
 
   if (!keyring) {
+    // Only STORED rows are unreadable without a key — AGENT_MANAGED rows
+    // carry no payload, so an all-agent-managed store still boots
+    // degraded (ADR-117, spec 026).
     const count = await db
       .selectFrom("credentials")
       .select(({ fn }) => fn.countAll<number>().as("c"))
+      .where("kind", "=", "STORED")
       .executeTakeFirstOrThrow();
     if (Number(count.c) > 0) {
       throw new Error(

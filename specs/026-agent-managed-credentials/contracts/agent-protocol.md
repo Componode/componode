@@ -17,26 +17,29 @@ credential test is not an import run (research R3).
   credentialId: string,                        // uuid — audit/label context
   importerName: string,                        // importer to probe with
   scope?: Record<string, unknown>,             // optional test scope
-  secrets: Record<string, SecretRef>,          // the credential's ref map
+  secretRefMap: Record<string, SecretRef>,     // the credential's ref map
 }
 
 type SecretRef = { env: string } | { file: string };  // exactly one key
 ```
 
 The payload carries **references, never values** (ADR-117 — the one
-property the whole feature exists for). `secrets` is the credential's
-`secretRefMap` verbatim.
+property the whole feature exists for). `secretRefMap` is the credential's
+stored map verbatim.
 
 Agent behavior:
 
 1. Resolve each ref agent-side — `env` → `process.env[name]`, non-empty;
    `file` → file under `SECRETS_DIR` (default `/run/secrets`), absolute
-   paths and `..` escapes rejected.
+   paths, `..` escapes, and symlink escapes (realpath confinement) rejected.
 2. On any resolution failure → reply `{ok:false, error}` naming the key +
-   source type, never a value.
+   source type, never a value and never an absolute path
+   (`SecretResolutionError`: `secret reference for key "K" (env|file)
+   failed: …`).
 3. Otherwise invoke `importer.testSecrets(secrets, scope)` from the
    compiled registry; missing hook → `{ok:false, error:"MANIFEST_NO_TEST…"}`.
-4. Log resolution events as `{key, source:"env"|"file"}` only.
+4. Log resolution events as `{key, source:"env"|"file"}` only; the agent
+   logger mirrors the hub's pino `redact` paths (FR-013).
 
 ## `credential.test.result` — agent → hub
 
