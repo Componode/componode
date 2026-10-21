@@ -4,7 +4,7 @@ All routes unchanged in number and shape — `/api/v1/credentials[...]` per
 ADR-070/104. This is the payload-contract delta; `docs/openapi.yaml` is
 updated in the same change (FR-022).
 
-## `Credential` response object (all credential endpoints)
+## `Credential` response object (detail & mutation responses)
 
 ```ts
 {
@@ -16,6 +16,13 @@ updated in the same change (FR-022).
   //        secret material, so they are readable (ADR-117 #2)
 }
 ```
+
+**List vs detail**: `GET /credentials` (list) omits `secretRefMap` —
+`keyHints` carries the `{env|file}` source types so the UI can render
+source badges without exposing reference names in list views
+(ADR-117 Amendment 1). Detail and mutation responses (`GET /{id}`,
+`POST`, `PATCH`) include the map — the openapi schema splits this as
+`Credential` (list) vs `CredentialDetail` (detail/mutation).
 
 `keyHints` convention: STORED → last-4 fragments (unchanged);
 AGENT_MANAGED → `{keyName: "env"|"file"}` source-type hints (research R2).

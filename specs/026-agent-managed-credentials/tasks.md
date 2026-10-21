@@ -264,3 +264,7 @@ mismatched use is already rejected.
 - [X] T054 Consolidate resolution: core `resolveSecretsFromMap` gains an `onResolved(key, source)` callback and `refSource()` helper; agent `resolveRefMap` delegates (kills the duplicated loop and the repeated env/file switches); `kind?: CredentialKind` in `api/hooks/credentials.ts`
 - [X] T055 Extract the shared row-editor shell from `SecretEntriesEditor`/`SecretRefEntriesEditor` (Duplicated Code) in `credential-form.tsx`
 - [X] T056 Fix docs drift: `docs/api.md` credential-create note (`kind`/`secretRefMap`), `docs/agents.md` `SECRETS_DIR` config row → active, add `AGENT_CREDENTIAL_TEST_TIMEOUT_MS` to hub timing overrides, note realpath confinement (`docs/api.md`, `docs/agents.md`)
+
+## Phase 11: Convergence
+
+- [X] T057 Amend `contracts/credential-api.md` — the response-object section claims `secretRefMap` is present on "all credential endpoints"; state it is detail/mutation-only with `keyHints` source types on list responses per ADR-117 Amendment 1 (partial)
