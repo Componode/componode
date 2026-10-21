@@ -13,7 +13,7 @@ export default defineConfig({
       { text: "Architecture", link: "/architecture" },
       { text: "Deployment", link: "/deployment" },
       { text: "API", link: "/api" },
-      { text: "Importers", link: "/importer-development" },
+      { text: "Importers", link: "/importers/" },
     ],
     sidebar: [
       {
@@ -22,6 +22,20 @@ export default defineConfig({
           { text: "Deployment", link: "/deployment" },
           { text: "Release Process", link: "/release" },
           { text: "Roadmap", link: "/roadmap" },
+        ],
+      },
+      {
+        text: "Importers",
+        items: [
+          { text: "Overview", link: "/importers/" },
+          { text: "GitHub", link: "/importers/github" },
+          { text: "Alibaba Cloud", link: "/importers/alibaba-cloud" },
+          { text: "API URL", link: "/importers/api-url" },
+          { text: "Web URL", link: "/importers/web-url" },
+          { text: "AWS (scaffold)", link: "/importers/aws" },
+          { text: "Azure (scaffold)", link: "/importers/azure" },
+          { text: "Kubernetes (scaffold)", link: "/importers/kubernetes" },
+          { text: "MCP Server (scaffold)", link: "/importers/mcp-server" },
         ],
       },
       {

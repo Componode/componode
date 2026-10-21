@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@componode/core": "workspace:*",
+    "@componode/importer-alibaba-cloud": "workspace:*",
     "@componode/importer-api-url": "workspace:*",
     "@componode/importer-aws": "workspace:*",
     "@componode/importer-azure": "workspace:*",

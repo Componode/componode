@@ -3,6 +3,7 @@ export const COMPONENT_PROVIDERS = [
   "AWS",
   "AZURE",
   "GOOGLE_CLOUD",
+  "ALIBABA_CLOUD",
   "KUBERNETES",
   "DOCKER",
   "WEB_URL",
@@ -32,6 +33,10 @@ export const COMPONENT_PROVIDER_META: Record<
   GOOGLE_CLOUD: {
     label: "Google Cloud",
     description: "Cloud assets discovered from Google Cloud Platform",
+  },
+  ALIBABA_CLOUD: {
+    label: "Alibaba Cloud",
+    description: "Cloud assets discovered from Alibaba Cloud",
   },
   KUBERNETES: {
     label: "Kubernetes",

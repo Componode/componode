@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–023)
+## Shipped (features 001–024)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -67,6 +67,16 @@ file tracks shipped and upcoming work — update it when a spec completes.
   on product rows and detail headers, platform consumer counts, and
   overdue-`sunsetAt` items in the attention feed — all derived per read,
   no persisted state.
+- `024-alibaba-cloud-importer` — the eighth in-tree importer
+  (`@componode/importer-alibaba-cloud`, ADR-115): Resource Center
+  `SearchResources` backbone discovers an account's resources across all
+  regions, `sts:GetCallerIdentity` powers the credential test and the
+  ACCOUNT component, `GetResourceCounts` feeds a coverage summary that
+  surfaces unmapped `ACS::*::*` skips, and opt-in
+  `enrichResources`/`includeCosts` (`GetResourceConfiguration`,
+  `DescribeInstanceBill`) degrade to capability markers. Adds the
+  `ALIBABA_CLOUD` provider constant, metadata, and CHECK-constraint
+  migration.
 
 ## Next — v1.1
 

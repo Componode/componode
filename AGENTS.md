@@ -63,7 +63,7 @@ Constraints and the relevant ADRs.
 │   ├── core/                      # Shared contracts and types (leaf — zero @componode/* deps)
 │   ├── backend/                   # Fastify API + Kysely services
 │   ├── frontend/                  # React/Vite dashboard
-│   └── importer-*/                # 7 in-tree importers (api-url, aws, azure, github, kubernetes, mcp-server, web-url)
+│   └── importer-*/                # 8 in-tree importers (alibaba-cloud, api-url, aws, azure, github, kubernetes, mcp-server, web-url)
 ├── researches/                    # Research docs ({topic}_research.md), adrs/, architecture-decisions.md index
 ├── specs/{NNN-feature-name}/      # DYNAMIC — spec.md, plan.md, tasks.md, created per feature/bugfix
 ├── docs/                          # Source documentation (see Key References)
@@ -108,6 +108,12 @@ constitution.
   `packages/backend` or from other importers. See `ADR-065`.
 - The core owns upsert, dedup, reconciliation, and run history. See
   `ADR-035`, `ADR-036`, `ADR-037`, `ADR-038`.
+- Every importer MUST have a user-facing setup guide at
+  `docs/importers/<name>.md` covering: what it imports, what to set up in
+  the **external tool** (accounts, services to enable, permissions/scopes),
+  required/optional credentials, every config field, and common failures.
+  Creating or changing an importer (config fields, secrets, capability
+  behavior) without updating its guide leaves the work incomplete.
 
 ### Environment & lifecycle
 
@@ -138,7 +144,7 @@ constitution.
 ### Package dependencies
 
 - `packages/core` is a leaf with zero `@componode/*` deps.
-- `packages/backend` depends on `core` + all 7 importer packages (manifest
+- `packages/backend` depends on `core` + all 8 importer packages (manifest
   import only).
 - `packages/frontend` depends on `core` for types and calls the backend over
   HTTP. See `ADR-065`.
@@ -312,7 +318,7 @@ specification:
 
 | Document | When to read it |
 |---|---|
-| `docs/importer-development.md` | When building or editing an importer |
+| `docs/importer-development.md`, `docs/importers/` | When building or editing an importer — dev guide + mandatory per-importer user docs |
 | `docs/api.md`, `docs/openapi.yaml`, `docs/openapi-reference.md` | When adding, changing, or removing any API endpoint (ADR-104) |
 | `docs/ux.md` | Before writing or reviewing any frontend spec or UI code |
 | `specs/{NNN-feature-name}/data-model.md`, `packages/backend/src/db/migrations/` | When changing schema or entities |

@@ -21,6 +21,7 @@ const IMPORTER_PACKAGES = [
   "@componode/importer-web-url",
   "@componode/importer-api-url",
   "@componode/importer-mcp-server",
+  "@componode/importer-alibaba-cloud",
 ];
 
 const manifestCache = new Map<string, ImporterManifest>();
