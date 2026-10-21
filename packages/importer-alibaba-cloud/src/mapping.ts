@@ -118,14 +118,15 @@ export function componentSlug(name: string, resourceId: string): string {
 }
 
 // Stable across renames: prefer the provider ARN when present, else
-// type + resourceId (both immutable identifiers).
+// type + resourceId (both immutable identifiers). Callers must have
+// already verified resourceType/resourceId are present.
 export function externalIdFor(record: {
   arn?: string;
-  resourceType?: string;
-  resourceId?: string;
+  resourceType: string;
+  resourceId: string;
 }): string {
   if (record.arn) return record.arn;
-  return `${record.resourceType ?? "ACS::Unknown"}:${record.resourceId ?? "unknown"}`;
+  return `${record.resourceType}:${record.resourceId}`;
 }
 
 // Best-effort provider status → InstanceStatus. Unknown strings map to null

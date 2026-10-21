@@ -16,10 +16,10 @@ export type CapabilityMap = Record<string, CapabilityMarker>;
 function statusFromError(err: unknown): Exclude<CapabilityStatus, "OK"> {
   const e = err as { code?: string; statusCode?: number; status?: number };
   const status = e?.statusCode ?? e?.status;
-  const name = String(e?.code ?? "");
-  if (status === 403 || /forbidden|denied|unauthoriz|NoPermission|not\.authorized/i.test(name))
+  const errorCode = String(e?.code ?? "");
+  if (status === 403 || /forbidden|denied|unauthoriz|NoPermission|not\.authorized/i.test(errorCode))
     return "FORBIDDEN";
-  if (status === 404 || /notfound|not\.found/i.test(name)) return "UNAVAILABLE";
+  if (status === 404 || /notfound|not\.found/i.test(errorCode)) return "UNAVAILABLE";
   return "ERROR";
 }
 

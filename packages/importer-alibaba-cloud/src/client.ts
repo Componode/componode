@@ -56,9 +56,6 @@ export interface BillItem {
   pretaxGrossAmount?: number;
   currency?: string;
   productName?: string;
-  productCode?: string;
-  billingItem?: string;
-  region?: string;
 }
 
 export interface BillPage {
@@ -105,11 +102,14 @@ export function buildClients(
   secrets: Record<string, string>,
   config: AlibabaCloudConfig,
 ): AlibabaClients {
-  const endpoint = config.endpoint;
-  const sdkConfig = buildSdkConfig(secrets, endpoint);
-  const rc = new ResourceCenter20221201(sdkConfig);
-  const sts = new Sts20150401(sdkConfig);
-  const bss = new BssOpenApi20171214(sdkConfig);
+  // Alibaba endpoints are per-product — a single override can only target
+  // one service, so `config.endpoint` scopes to Resource Center (the
+  // discovery backbone where VPC/private routing actually varies). STS and
+  // BSS keep default endpoint resolution, which already handles
+  // international vs. China; BSS is a global endpoint anyway.
+  const rc = new ResourceCenter20221201(buildSdkConfig(secrets, config.endpoint));
+  const sts = new Sts20150401(buildSdkConfig(secrets, undefined));
+  const bss = new BssOpenApi20171214(buildSdkConfig(secrets, undefined));
 
   return {
     async getCallerIdentity() {

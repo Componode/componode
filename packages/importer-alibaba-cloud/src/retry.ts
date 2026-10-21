@@ -23,8 +23,9 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 // Retries a throttled call with exponential backoff (max 3). Any other
-// error propagates; an abort during backoff resolves early and rethrows
-// so the caller's abort checks see a rejection, not a result.
+// error propagates; an abort during backoff resolves early and throws the
+// signal's AbortError so a cancelled run isn't recorded as a Throttling
+// failure.
 export async function withThrottleRetry<T>(
   fn: () => Promise<T>,
   signal: AbortSignal,
@@ -35,7 +36,7 @@ export async function withThrottleRetry<T>(
     } catch (err) {
       if (isThrottling(err) && attempt < MAX_THROTTLE_RETRIES && !signal.aborted) {
         await sleep(100 * 2 ** attempt + Math.floor(Math.random() * 100), signal);
-        if (signal.aborted) throw err;
+        signal.throwIfAborted();
         continue;
       }
       throw err;

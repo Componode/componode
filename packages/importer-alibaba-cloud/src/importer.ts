@@ -55,6 +55,15 @@ export class AlibabaCloudImporter implements Importer {
           `Enable Resource Center in the Alibaba Cloud console, then retry the import.`,
       );
     }
+    // Enabled but still initialising — the resource index is incomplete, so
+    // the import below may silently undercount. Surface it instead.
+    const initialStatus = String(status.initialStatus ?? "").toLowerCase();
+    if (initialStatus === "pending") {
+      context.logger.warn(
+        "Alibaba Cloud Resource Center is still building its resource index " +
+          "(initialStatus: Pending) — this import may return an incomplete resource list.",
+      );
+    }
 
     const capabilities: CapabilityMap = {};
 

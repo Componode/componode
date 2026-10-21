@@ -243,3 +243,14 @@ US5/US6 are additive opt-ins.
 - [x] T062 Tighten `ENABLED_STATUSES` to `{"enabled"}` — documented `serviceStatus` values are `Enabled`/`Disabled`; accepting `activated`/`active`/`opened` weakens the fail-closed gate (FR-003)
 - [x] T063 Include `billingPeriod` on each `details.billing` entry — FR-011/T032 require `{period, pretaxAmount, currency}` so consumers know which period the amounts came from
 - [x] T064 Document in `data-model.md`/spec Assumptions that `component_instances.status` is `NOT NULL DEFAULT 'RUNNING'` — null importer status persists as RUNNING platform-wide (pre-existing schema semantic; nullable status would need a separate ADR, out of scope)
+
+---
+
+## Phase 14: Convergence (review round 4 findings)
+
+- [x] T065 Scope `endpoint` to the Resource Center SDK client only — Alibaba endpoints are per-product, so one URL cannot repoint STS and BSS without breaking them; STS/BSS keep default endpoint resolution (handles international/China automatically; BSS is a global endpoint). Update `data-model.md`, spec Assumptions, and contract wording
+- [x] [P] T066 Warn when `initialStatus` indicates the Resource Center index is still building — `ServiceStatus=Enabled` + `InitialStatus=Pending` currently passes the gate silently, risking an incomplete import (SC-002); `context.logger.warn` the gap
+- [x] [P] T067 Fix abort-during-backoff in `withThrottleRetry` — `signal.throwIfAborted()` after the abort-aware sleep so cancellation surfaces as AbortError instead of rethrowing a misleading Throttling error
+- [x] [P] T068 Remove unused `BillItem` fields (`productCode`, `billingItem`, `region`) — declared but never read (Speculative Generality)
+- [x] [P] T069 Rename `name`→`errorCode` in `capabilities.ts statusFromError` (it binds `e.code`); stop sharing the `warnedTypes` set with the `"__incomplete__"` sentinel in `resources.ts`; drop the now-unreachable `"unknown"` fallback in `externalIdFor`
+- [x] T070 Tests for the round-4 behaviors reachable at the seam — abort during retry backoff surfaces AbortError; InitialStatus=Pending logs a warning

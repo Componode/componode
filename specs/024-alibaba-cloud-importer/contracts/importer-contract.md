@@ -29,7 +29,8 @@ Class: `AlibabaCloudImporter` (registry derives it from `alibaba-cloud` →
 
 1. `awsConfigSchema`-equivalent parse → `alibabaCloudConfigSchema.parse` —
    invalid config throws before any network call.
-2. Build clients from `secrets` (+`endpoint` override).
+2. Build clients from `secrets` (+`endpoint` override applied to the
+   Resource Center client only).
 3. `GetCallerIdentity` → account identity (auth failure → throw).
 4. `GetResourceCenterServiceStatus` → disabled → throw actionable error.
 5. `GetResourceCounts` (guarded → `capabilities.resourceCounts`).

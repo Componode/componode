@@ -277,8 +277,11 @@ verify a capability marker instead of a failure.
   (Resource Directory) aggregation is out of scope.
 - Billing data is lagged; the default period is the latest closed billing
   cycle.
-- Provider-specific network endpoints (China vs. international, VPC) are
-  handled via the optional endpoint override.
+- Provider-specific network endpoints are handled via the optional
+  `endpoint` override, which applies to **Resource Center only** — Alibaba
+  endpoints are per-product, so one URL cannot repoint every SDK client.
+  STS and BSS keep default endpoint resolution (regional/China-aware; BSS
+  is a global endpoint).
 - Deleted resources are not imported in v1 — disappearance is handled by
   the backend's reconciliation marking instances gone.
 - The provider's list of supported resource types grows over time; the

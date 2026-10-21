@@ -11,7 +11,7 @@
 | `enrichResources` | `boolean` | `false` | per-resource `GetResourceConfiguration` |
 | `includeCosts` | `boolean` | `false` | BSS `DescribeInstanceBill` (per-instance, keyed by `instanceID`) |
 | `billingPeriod` | `string?` (`YYYY-MM`) | latest closed cycle | required-shape when `includeCosts`; rejected format → config error |
-| `endpoint` | `string?` (URL) | unset | `.superRefine(urlSafetyError)`; overrides SDK endpoint (VPC/private/intl) |
+| `endpoint` | `string?` (URL) | unset | `.superRefine(urlSafetyError)`; overrides the **Resource Center** endpoint only (VPC/private gateway) |
 
 Zod `.strict()` — unknown fields rejected per ADR-095 (schema sits inside the
 importer-config payload validated at the route boundary).

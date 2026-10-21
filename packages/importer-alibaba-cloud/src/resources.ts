@@ -66,7 +66,7 @@ export function buildResourceAsset(
     provider: "ALIBABA_CLOUD",
     resourceType,
     name,
-    externalId: externalIdFor(record),
+    externalId: externalIdFor({ arn: record.arn, resourceType, resourceId }),
     slug: componentSlug(name, resourceId),
     details,
     instances: [
@@ -91,6 +91,7 @@ export async function* iterResourceAssets(
   const { filter, resourceGroupId } = buildSearchFilters(config);
   let nextToken: string | undefined;
   const warnedTypes = new Set<string>();
+  let warnedIncomplete = false;
 
   do {
     if (context.signal.aborted) return;
@@ -123,8 +124,8 @@ export async function* iterResourceAssets(
       if (!record.resourceId || !record.resourceType) {
         coverage.skippedCount++;
         coverage.skippedReasons.incomplete++;
-        if (!warnedTypes.has("__incomplete__")) {
-          warnedTypes.add("__incomplete__");
+        if (!warnedIncomplete) {
+          warnedIncomplete = true;
           context.logger.warn("Skipping Alibaba Cloud record missing resourceId/resourceType", {
             resourceType: record.resourceType ?? null,
             resourceId: record.resourceId ?? null,
@@ -164,6 +165,9 @@ export async function* iterResourceAssets(
             context.signal,
           ),
         );
+        // withCapability turns an AbortError into an ERROR marker — don't
+        // let a cancelled run yield on top of it.
+        if (context.signal.aborted) return;
         // Markers exist to flag degraded capability — success isn't a marker.
         if (result.status !== "OK") enrichmentMarker = capabilityMarker(result);
         else if (result.data.configuration) enrichedConfig = result.data.configuration;

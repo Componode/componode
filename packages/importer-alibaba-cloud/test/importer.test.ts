@@ -269,6 +269,44 @@ describe("AlibabaCloudImporter — US1 discovery", () => {
     expect(account.coverage.skippedTypes).toEqual(["ACS::Foo::Bar"]);
   });
 
+  it("warns when the Resource Center index is still initialising", async () => {
+    const context = makeContext();
+    mockBuildClients.mockReturnValue(makeClients({
+      getServiceStatus: vi.fn(async () => ({
+        serviceStatus: "Enabled",
+        initialStatus: "Pending",
+      })),
+      searchResourcesPage: vi.fn(async () => ({ resources: [makeSearchRecord()] })),
+    }));
+
+    const assets = await collect(new AlibabaCloudImporter(), {}, context);
+    expect(assets).toHaveLength(2); // resource + account — import proceeds
+    expect(context.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("still building"),
+    );
+  });
+
+  it("surfaces AbortError, not Throttling, when aborted during retry backoff", async () => {
+    const controller = new AbortController();
+    const throttle = Object.assign(new Error("slow down"), { code: "Throttling" });
+    const search = vi.fn(async () => {
+      setTimeout(() => controller.abort(), 10);
+      throw throttle;
+    });
+    mockBuildClients.mockReturnValue(makeClients({ searchResourcesPage: search }));
+
+    const err = await collect(
+      new AlibabaCloudImporter(),
+      {},
+      makeContext({ signal: controller.signal }),
+    ).then(
+      () => null,
+      (e) => e,
+    );
+    expect((err as Error).name).toBe("AbortError");
+    expect(search).toHaveBeenCalledTimes(1);
+  });
+
   it("fails when GetCallerIdentity returns no AccountId", async () => {
     mockBuildClients.mockReturnValue(makeClients({
       getCallerIdentity: vi.fn(async () => ({ identityType: "RAMUser" })),
