@@ -199,6 +199,24 @@ Rules:
 
 5. Run `pnpm install`, `pnpm -r build`, and `pnpm -r typecheck`.
 6. Add unit tests for the new importer and an integration test through the backend run service.
+7. Write the user-facing setup guide at `docs/importers/<name>.md` (required — see below) and add it to `docs/importers/index.md` and the VitePress sidebar in `docs-site/.vitepress/config.ts`.
+
+## User documentation (required)
+
+Every importer MUST ship a user guide at `docs/importers/<name>.md`, and
+any importer change that alters what a user configures or provisions MUST
+update it. The guide covers, at minimum:
+
+- **What it imports** — the components/instances a run produces.
+- **External-tool setup** — exactly what the user must do in the provider's
+  console/API before the importer works: services to enable, accounts or
+  roles to create, minimum permissions/scopes, and which optional sections
+  degrade without them.
+- **Credentials** — each `manifest.secrets` key, required vs optional, and
+  where to obtain the value.
+- **Configuration** — a table of every config field: type, default, effect.
+- **Troubleshooting** — common failure modes (disabled service, missing
+  permission, bad URL) and their fix.
 
 ---
 

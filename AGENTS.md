@@ -108,6 +108,12 @@ constitution.
   `packages/backend` or from other importers. See `ADR-065`.
 - The core owns upsert, dedup, reconciliation, and run history. See
   `ADR-035`, `ADR-036`, `ADR-037`, `ADR-038`.
+- Every importer MUST have a user-facing setup guide at
+  `docs/importers/<name>.md` covering: what it imports, what to set up in
+  the **external tool** (accounts, services to enable, permissions/scopes),
+  required/optional credentials, every config field, and common failures.
+  Creating or changing an importer (config fields, secrets, capability
+  behavior) without updating its guide leaves the work incomplete.
 
 ### Environment & lifecycle
 
@@ -312,7 +318,7 @@ specification:
 
 | Document | When to read it |
 |---|---|
-| `docs/importer-development.md` | When building or editing an importer |
+| `docs/importer-development.md`, `docs/importers/` | When building or editing an importer — dev guide + mandatory per-importer user docs |
 | `docs/api.md`, `docs/openapi.yaml`, `docs/openapi-reference.md` | When adding, changing, or removing any API endpoint (ADR-104) |
 | `docs/ux.md` | Before writing or reviewing any frontend spec or UI code |
 | `specs/{NNN-feature-name}/data-model.md`, `packages/backend/src/db/migrations/` | When changing schema or entities |
