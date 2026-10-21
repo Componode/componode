@@ -25,11 +25,7 @@ export async function fetchCostMap(
 
   do {
     if (signal.aborted) return costs;
-    const page = await client.describeInstanceBillPage({
-      billingCycle,
-      nextToken,
-      maxResults: 300,
-    });
+    const page = await client.describeInstanceBillPage({ billingCycle, nextToken });
 
     for (const item of page.items) {
       const id = item.instanceID;

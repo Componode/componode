@@ -35,6 +35,11 @@ export class AlibabaCloudImporter implements Importer {
     const client = buildClients(secrets, parsed);
 
     const identity = await client.getCallerIdentity();
+    // Without an AccountId the account asset's externalId would be the
+    // collision-prone "unknown" — fail rather than emit a bogus component.
+    if (!identity.accountId) {
+      throw new Error("Alibaba Cloud GetCallerIdentity returned no AccountId");
+    }
 
     context.reportPhase("Checking service");
     const status = await client.getServiceStatus();
@@ -80,6 +85,7 @@ export class AlibabaCloudImporter implements Importer {
       mappedCount: 0,
       skippedCount: 0,
       skippedTypes: new Set(),
+      skippedReasons: { deleted: 0, incomplete: 0, unmappedType: 0 },
     };
 
     context.reportPhase("Searching resources");
@@ -101,6 +107,7 @@ export class AlibabaCloudImporter implements Importer {
       mappedCount: coverage.mappedCount,
       skippedCount: coverage.skippedCount,
       skippedTypes: [...coverage.skippedTypes].sort(),
+      skippedReasons: coverage.skippedReasons,
       ...(totals ? { totals } : {}),
     };
 
@@ -120,18 +127,24 @@ export class AlibabaCloudImporter implements Importer {
     secrets: Record<string, string>,
     config?: Record<string, unknown>,
   ): Promise<CredentialTestResult> {
-    const parsed = alibabaCloudConfigSchema.partial().parse(config ?? {});
-    const client = buildClients(secrets, parsed as AlibabaCloudConfig);
     try {
+      const parsed = alibabaCloudConfigSchema.partial().parse(config ?? {});
+      const client = buildClients(secrets, parsed as AlibabaCloudConfig);
       await client.getCallerIdentity();
       return { ok: true };
     } catch (err) {
       const code = (err as { code?: string })?.code;
+      const rawMessage = err instanceof Error ? err.message : "";
+      const sanitized = Object.values(secrets)
+        .filter(Boolean)
+        .reduce((m, s) => m.split(s).join("[redacted]"), rawMessage)
+        .slice(0, 200);
+      const detail = code ? ` (${String(code)})` : sanitized ? `: ${sanitized}` : "";
       return {
         ok: false,
         error: /invalid|forbidden|denied|unauthorized/i.test(String(code ?? ""))
           ? `Authentication failed (${String(code)})`
-          : `Alibaba Cloud request failed${code ? ` (${String(code)})` : ""}`,
+          : `Alibaba Cloud request failed${detail}`,
       };
     }
   }

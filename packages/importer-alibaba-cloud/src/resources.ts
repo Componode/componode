@@ -19,6 +19,7 @@ export interface SearchCoverage {
   mappedCount: number;
   skippedCount: number;
   skippedTypes: Set<string>;
+  skippedReasons: { deleted: number; incomplete: number; unmappedType: number };
 }
 
 export interface BillingMap {
@@ -35,6 +36,7 @@ function isThrottling(err: unknown): boolean {
 }
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
   return new Promise((resolve) => {
     const timer = setTimeout(done, ms);
     function done() {
@@ -58,7 +60,8 @@ export function buildResourceAsset(
 ): DiscoveredAsset {
   const resourceType = record.resourceType ?? "ACS::Unknown";
   const resourceId = record.resourceId ?? "unknown";
-  const name = record.resourceName || resourceId;
+  // DiscoveredAsset caps name at 255 chars.
+  const name = (record.resourceName || resourceId).slice(0, 255);
   const status =
     extras.enrichedConfig !== undefined
       ? mapStatus(statusFromConfiguration(extras.enrichedConfig))
@@ -136,6 +139,7 @@ export async function* iterResourceAssets(
       // still arrive rather than importing tombstones.
       if (record.deleted === true) {
         coverage.skippedCount++;
+        coverage.skippedReasons.deleted++;
         continue;
       }
 
@@ -143,6 +147,7 @@ export async function* iterResourceAssets(
       // rather than colliding on "ACS::Unknown:unknown".
       if (!record.resourceId || !record.resourceType) {
         coverage.skippedCount++;
+        coverage.skippedReasons.incomplete++;
         if (!warnedTypes.has("__incomplete__")) {
           warnedTypes.add("__incomplete__");
           context.logger.warn("Skipping Alibaba Cloud record missing resourceId/resourceType", {
@@ -154,9 +159,11 @@ export async function* iterResourceAssets(
       }
 
       const resourceType = record.resourceType;
+      const resourceId = record.resourceId;
       const category = mapResourceType(resourceType);
       if (!category) {
         coverage.skippedCount++;
+        coverage.skippedReasons.unmappedType++;
         coverage.skippedTypes.add(resourceType);
         if (!warnedTypes.has(resourceType)) {
           warnedTypes.add(resourceType);
@@ -170,22 +177,21 @@ export async function* iterResourceAssets(
 
       let enrichmentMarker: CapabilityMarker | undefined;
       let enrichedConfig: Record<string, unknown> | undefined;
-      if (config.enrichResources && record.resourceId && resourceType) {
+      if (config.enrichResources) {
         const result = await withCapability(() =>
           client.getResourceConfiguration({
             resourceType,
-            resourceId: record.resourceId!,
+            resourceId,
             resourceRegionId: record.regionId,
           }),
         );
-        enrichmentMarker = capabilityMarker(result);
-        if (result.status === "OK" && result.data.configuration) {
-          enrichedConfig = result.data.configuration;
-        }
+        // Markers exist to flag degraded capability — success isn't a marker.
+        if (result.status !== "OK") enrichmentMarker = capabilityMarker(result);
+        else if (result.data.configuration) enrichedConfig = result.data.configuration;
       }
 
       yield buildResourceAsset(record, config, category, {
-        billing: record.resourceId ? billing?.get(record.resourceId) : undefined,
+        billing: billing?.get(resourceId),
         enrichmentMarker,
         enrichedConfig,
       });

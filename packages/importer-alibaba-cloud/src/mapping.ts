@@ -106,8 +106,11 @@ export function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+// DiscoveredAsset caps slug at 100 chars; reserve 9 for "-"+8-char id suffix.
+const SLUG_BASE_MAX = 91;
+
 export function componentSlug(name: string, resourceId: string): string {
-  const base = slugify(name) || "resource";
+  const base = (slugify(name) || "resource").slice(0, SLUG_BASE_MAX).replace(/-+$/g, "");
   const suffix = resourceId.slice(-8).toLowerCase().replace(/[^a-z0-9]+/g, "-");
   return `${base}-${suffix}`;
 }
@@ -129,11 +132,12 @@ export function externalIdFor(record: {
 export function mapStatus(status: string | undefined | null): InstanceStatus | null {
   if (!status) return null;
   const s = status.toLowerCase();
-  if (/^(running|inuse|in_use|available|active|normal|ok|serving|online)/.test(s))
-    return "RUNNING";
-  if (/^(stopped|stopping|shutdown|inactive|paused|offline)/.test(s)) return "STOPPED";
-  if (/(error|fail|exception|abnormal)/.test(s)) return "ERROR";
-  if (/(deleted|released|gone|destroyed)/.test(s)) return "GONE";
+  // Per data-model: Running|InUse|Available|Active → RUNNING, Stopped* →
+  // STOPPED, *Error*|*Fail* → ERROR, Deleted|Released → GONE, unknown → null.
+  if (/^(running|inuse|in_use|available|active)/.test(s)) return "RUNNING";
+  if (/^stopped/.test(s)) return "STOPPED";
+  if (/(error|fail)/.test(s)) return "ERROR";
+  if (/(deleted|released)/.test(s)) return "GONE";
   return null;
 }
 

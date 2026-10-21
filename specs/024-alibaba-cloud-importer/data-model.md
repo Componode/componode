@@ -58,9 +58,9 @@ importer-config payload validated at the route boundary).
 {
   discoveredCount: number,   // resources returned by search
   mappedCount: number,       // yielded as components
-  skippedCount: number,       // resources skipped (unmapped), not types —
-                              // mapped + skipped = discovered
+  skippedCount: number,       // resources skipped — mapped + skipped = discovered
   skippedTypes: string[],    // unmapped ACS::*::* codes
+  skippedReasons: { deleted: number, incomplete: number, unmappedType: number },
   totals?: Record<string, number> // GetResourceCounts GroupBy=ResourceType (guarded)
 }
 ```

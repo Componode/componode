@@ -232,6 +232,52 @@ describe("AlibabaCloudImporter — US1 discovery", () => {
     const assets = await collect(new AlibabaCloudImporter(), {});
     expect(assets[0].externalId).toBe(arn);
   });
+
+  it("yields a valid asset for an oversized resourceName (slug/name clamped)", async () => {
+    mockBuildClients.mockReturnValue(makeClients({
+      searchResourcesPage: vi.fn(async () => ({
+        resources: [makeSearchRecord({ resourceName: "x".repeat(300) })],
+      })),
+    }));
+
+    const [asset] = await collect(new AlibabaCloudImporter(), {});
+    expect(validateDiscoveredAsset(asset)).toBe(true);
+    expect(asset.slug!.length).toBeLessThanOrEqual(100);
+    expect(asset.name.length).toBeLessThanOrEqual(255);
+  });
+
+  it("attributes skipped resources by reason in coverage", async () => {
+    mockBuildClients.mockReturnValue(makeClients({
+      searchResourcesPage: vi.fn(async () => ({
+        resources: [
+          makeSearchRecord(),
+          makeSearchRecord({ deleted: true }),
+          makeSearchRecord({ resourceId: undefined }),
+          makeSearchRecord({ resourceType: "ACS::Foo::Bar" }),
+        ],
+      })),
+    }));
+
+    const assets = await collect(new AlibabaCloudImporter(), {});
+    const account = assets[1].details as Record<string, any>;
+    expect(account.coverage.skippedCount).toBe(3);
+    expect(account.coverage.skippedReasons).toEqual({
+      deleted: 1,
+      incomplete: 1,
+      unmappedType: 1,
+    });
+    expect(account.coverage.skippedTypes).toEqual(["ACS::Foo::Bar"]);
+  });
+
+  it("fails when GetCallerIdentity returns no AccountId", async () => {
+    mockBuildClients.mockReturnValue(makeClients({
+      getCallerIdentity: vi.fn(async () => ({ identityType: "RAMUser" })),
+    }));
+
+    await expect(collect(new AlibabaCloudImporter(), {})).rejects.toThrow(
+      /no AccountId/,
+    );
+  });
 });
 
 describe("AlibabaCloudImporter — US3 filters", () => {
@@ -299,6 +345,20 @@ describe("AlibabaCloudImporter — US5 enrichment", () => {
     });
     expect(asset.instances[0].status).toBe("RUNNING");
     expect((asset.instances[0].rawConfig as any).Cpu).toBe(4);
+    // markers exist for degraded capability — success isn't a marker
+    expect((asset.details as Record<string, any>).capabilities).toBeUndefined();
+  });
+
+  it("leaves status unset for transitional/unknown provider states", async () => {
+    mockBuildClients.mockReturnValue(makeClients({
+      searchResourcesPage: vi.fn(async () => ({ resources: [makeSearchRecord()] })),
+      getResourceConfiguration: vi.fn(async () => ({
+        configuration: { Status: "Stopping" },
+      })),
+    }));
+
+    const [asset] = await collect(new AlibabaCloudImporter(), { enrichResources: true });
+    expect(asset.instances[0].status).toBeNull();
   });
 
   it("degrades per-resource on enrichment failure without failing the run", async () => {

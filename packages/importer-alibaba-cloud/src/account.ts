@@ -8,6 +8,7 @@ export interface CoverageSummary {
   mappedCount: number;
   skippedCount: number;
   skippedTypes: string[];
+  skippedReasons: { deleted: number; incomplete: number; unmappedType: number };
   totals?: Record<string, number>;
 }
 

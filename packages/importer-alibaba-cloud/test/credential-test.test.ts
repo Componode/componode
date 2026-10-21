@@ -58,5 +58,27 @@ describe("AlibabaCloudImporter.testSecrets — US2", () => {
     const result = await new AlibabaCloudImporter().testSecrets(makeSecrets());
     expect(result.ok).toBe(false);
     expect(result.error).toContain("Alibaba Cloud request failed");
+    expect(result.error).toContain("ReadTimeout");
+  });
+
+  it("includes sanitized problem detail when the SDK error has no code", async () => {
+    mockBuildClients.mockReturnValue(makeClients({
+      getCallerIdentity: vi.fn(async () => {
+        throw new Error("socket hang up");
+      }),
+    }));
+
+    const result = await new AlibabaCloudImporter().testSecrets(makeSecrets());
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("socket hang up");
+  });
+
+  it("returns ok:false instead of throwing on invalid config shape", async () => {
+    const result = await new AlibabaCloudImporter().testSecrets(makeSecrets(), {
+      endpoint: "http://169.254.169.254/latest/meta-data",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).toBeTruthy();
+    expect(mockBuildClients).not.toHaveBeenCalled();
   });
 });

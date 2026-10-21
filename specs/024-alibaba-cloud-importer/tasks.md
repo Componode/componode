@@ -217,3 +217,15 @@ US5/US6 are additive opt-ins.
 - [x] T046 Remove the per-record `reportPhase("Processing …")` call in `src/resources.ts` — contract fixes the phase list; per-resource phases are scope creep and noise on large accounts
 - [x] T047 Make the throttle backoff in `src/resources.ts` abort-aware — resolve the sleep early on `signal.abort` so FR-013 prompt-stop holds during retry waits
 - [x] T048 Guard records missing `resourceId` or `resourceType` — skip with a distinct warn + skipped-resource count instead of collapsing to `externalId` `"ACS::Unknown:unknown"` collisions per FR-005
+
+---
+
+## Phase 12: Convergence (re-review findings)
+
+- [x] T049 Truncate `componentSlug` base and clamp `name` in `src/mapping.ts`/`resources.ts` — schema caps `slug` at 100 and `name` at 255; a long `resourceName` currently yields an invalid asset that kills the whole run mid-discovery (both review axes). Truncate base to ~91 chars, clamp name; add unit test with an oversized `resourceName`
+- [x] T050 Add `skippedReasons` attribution to coverage in `src/resources.ts`/`account.ts` — deleted/incomplete/unmapped skips currently increment `skippedCount` with no reason breakdown (FR-007 partial); update data-model + unit test
+- [x] T051 Align `mapStatus` in `src/mapping.ts` to the data-model table — `Running|InUse|Available|Active`→RUNNING, `Stopped*`→STOPPED, `*Error*|*Fail*`→ERROR, `Deleted|Released`→GONE, unknown→null; remove speculative mappings (Stopping/Normal/Destroyed etc.)
+- [x] T052 Emit `details.capabilities.enrichment` only when degraded — `resources.ts` currently attaches `{status:"OK"}` to every enriched component; spec reserves markers for degradation (US5-AC2/FR-010)
+- [x] T053 Fail fast on missing `accountId` in `src/importer.ts` — `buildAccountAsset` falls back to `externalId:"unknown"` which collides across accounts; throw after `GetCallerIdentity` instead
+- [x] T054 Harden `testSecrets` in `src/importer.ts` — move `buildClients` + schema parse inside `try` so config/secret-shape errors return `{ok:false}`; include safe problem detail when no error `code` is present (US2-AC2)
+- [x] T055 Cleanup: simplify the redundant `record.resourceId && resourceType` enrichment guard and drop the `!` assertion (resources.ts); remove duplicated `maxResults:300` in `costs.ts` (client defaults it); resolve `sleep` immediately when the signal is already aborted
