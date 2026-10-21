@@ -18,7 +18,10 @@ export function buildAccountAsset(
   capabilities: CapabilityMap,
   coverage: CoverageSummary,
 ): DiscoveredAsset {
-  const accountId = identity.accountId ?? "unknown";
+  if (!identity.accountId) {
+    throw new Error("Cannot build account asset: GetCallerIdentity returned no AccountId");
+  }
+  const accountId = identity.accountId;
   return {
     category: "ACCOUNT",
     provider: "ALIBABA_CLOUD",

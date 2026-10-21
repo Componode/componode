@@ -229,3 +229,17 @@ US5/US6 are additive opt-ins.
 - [x] T053 Fail fast on missing `accountId` in `src/importer.ts` — `buildAccountAsset` falls back to `externalId:"unknown"` which collides across accounts; throw after `GetCallerIdentity` instead
 - [x] T054 Harden `testSecrets` in `src/importer.ts` — move `buildClients` + schema parse inside `try` so config/secret-shape errors return `{ok:false}`; include safe problem detail when no error `code` is present (US2-AC2)
 - [x] T055 Cleanup: simplify the redundant `record.resourceId && resourceType` enrichment guard and drop the `!` assertion (resources.ts); remove duplicated `maxResults:300` in `costs.ts` (client defaults it); resolve `sleep` immediately when the signal is already aborted
+
+---
+
+## Phase 13: Convergence (review round 3 findings)
+
+- [x] T056 Move collision-guard invariants inside the builders — `buildAccountAsset` throws on missing `accountId`, `buildResourceAsset` throws on missing `resourceId`/`resourceType`; drop the `"unknown"`/`"ACS::Unknown"` fallbacks so direct calls can't reintroduce the bug
+- [x] T057 Fix slug suffix edge in `componentSlug` — strip leading/trailing `-` from the sanitized suffix (FQDN-style ids produce `base-suffix-` today)
+- [x] T058 Sanitize the error `code` in `testSecrets` too (currently concatenated unredacted) and skip secrets shorter than 4 chars in the redaction pass (1-char secrets mangle messages into noise)
+- [x] T059 Apply throttle retry to `getResourceConfiguration` and `describeInstanceBillPage`, not just `searchResourcesPage` — extract a shared `withThrottleRetry` helper (abort-aware) and reuse in `resources.ts`/`costs.ts`
+- [x] T060 Type `extras.billing` as `ResourceBilling` in `buildResourceAsset` (was `unknown`); rename the mislabeled `code` variable in `capabilities.ts` (it binds the error object, not a code)
+- [x] T061 Add abort checks between the pre-discovery provider calls in `run` — identity → service status → counts → costs currently fire back-to-back with no `signal.aborted` checks (FR-013 literal gap)
+- [x] T062 Tighten `ENABLED_STATUSES` to `{"enabled"}` — documented `serviceStatus` values are `Enabled`/`Disabled`; accepting `activated`/`active`/`opened` weakens the fail-closed gate (FR-003)
+- [x] T063 Include `billingPeriod` on each `details.billing` entry — FR-011/T032 require `{period, pretaxAmount, currency}` so consumers know which period the amounts came from
+- [x] T064 Document in `data-model.md`/spec Assumptions that `component_instances.status` is `NOT NULL DEFAULT 'RUNNING'` — null importer status persists as RUNNING platform-wide (pre-existing schema semantic; nullable status would need a separate ADR, out of scope)

@@ -14,9 +14,9 @@ export interface CapabilityMarker {
 export type CapabilityMap = Record<string, CapabilityMarker>;
 
 function statusFromError(err: unknown): Exclude<CapabilityStatus, "OK"> {
-  const code = (err as { code?: string; statusCode?: number; status?: number });
-  const status = code?.statusCode ?? code?.status;
-  const name = String(code?.code ?? "");
+  const e = err as { code?: string; statusCode?: number; status?: number };
+  const status = e?.statusCode ?? e?.status;
+  const name = String(e?.code ?? "");
   if (status === 403 || /forbidden|denied|unauthoriz|NoPermission|not\.authorized/i.test(name))
     return "FORBIDDEN";
   if (status === 404 || /notfound|not\.found/i.test(name)) return "UNAVAILABLE";

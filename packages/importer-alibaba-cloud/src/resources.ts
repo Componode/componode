@@ -10,9 +10,10 @@ import {
   mapStatus,
   statusFromConfiguration,
 } from "./mapping.js";
+import { withThrottleRetry } from "./retry.js";
+import type { ResourceBilling } from "./costs.js";
 
 const MAX_RESULTS = 100;
-const MAX_THROTTLE_RETRIES = 3;
 
 export interface SearchCoverage {
   discoveredCount: number;
@@ -23,29 +24,7 @@ export interface SearchCoverage {
 }
 
 export interface BillingMap {
-  get(resourceId: string): unknown | undefined;
-}
-
-function isThrottling(err: unknown): boolean {
-  const code = String(
-    (err as { code?: string; name?: string })?.code ??
-      (err as { name?: string })?.name ??
-      "",
-  );
-  return /throttl/i.test(code);
-}
-
-function sleep(ms: number, signal: AbortSignal): Promise<void> {
-  if (signal.aborted) return Promise.resolve();
-  return new Promise((resolve) => {
-    const timer = setTimeout(done, ms);
-    function done() {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", done);
-      resolve();
-    }
-    signal.addEventListener("abort", done, { once: true });
-  });
+  get(resourceId: string): ResourceBilling | undefined;
 }
 
 export function buildResourceAsset(
@@ -53,13 +32,18 @@ export function buildResourceAsset(
   config: AlibabaCloudConfig,
   category: NonNullable<ReturnType<typeof mapResourceType>>,
   extras: {
-    billing?: unknown;
+    billing?: ResourceBilling;
     enrichmentMarker?: CapabilityMarker;
     enrichedConfig?: Record<string, unknown>;
   },
 ): DiscoveredAsset {
-  const resourceType = record.resourceType ?? "ACS::Unknown";
-  const resourceId = record.resourceId ?? "unknown";
+  if (!record.resourceType || !record.resourceId) {
+    throw new Error(
+      "Cannot build resource asset: record missing resourceType/resourceId",
+    );
+  }
+  const resourceType = record.resourceType;
+  const resourceId = record.resourceId;
   // DiscoveredAsset caps name at 255 chars.
   const name = (record.resourceName || resourceId).slice(0, 255);
   const status =
@@ -111,25 +95,16 @@ export async function* iterResourceAssets(
   do {
     if (context.signal.aborted) return;
 
-    let page;
-    for (let attempt = 0; ; attempt++) {
-      try {
-        page = await client.searchResourcesPage({
+    const page = await withThrottleRetry(
+      () =>
+        client.searchResourcesPage({
           filter: filter.length > 0 ? filter : undefined,
           resourceGroupId,
           maxResults: MAX_RESULTS,
           nextToken,
-        });
-        break;
-      } catch (err) {
-        if (isThrottling(err) && attempt < MAX_THROTTLE_RETRIES) {
-          await sleep(100 * 2 ** attempt + Math.floor(Math.random() * 100), context.signal);
-          if (context.signal.aborted) return;
-          continue;
-        }
-        throw err;
-      }
-    }
+        }),
+      context.signal,
+    );
 
     for (const record of page.resources) {
       if (context.signal.aborted) return;
@@ -179,11 +154,15 @@ export async function* iterResourceAssets(
       let enrichedConfig: Record<string, unknown> | undefined;
       if (config.enrichResources) {
         const result = await withCapability(() =>
-          client.getResourceConfiguration({
-            resourceType,
-            resourceId,
-            resourceRegionId: record.regionId,
-          }),
+          withThrottleRetry(
+            () =>
+              client.getResourceConfiguration({
+                resourceType,
+                resourceId,
+                resourceRegionId: record.regionId,
+              }),
+            context.signal,
+          ),
         );
         // Markers exist to flag degraded capability — success isn't a marker.
         if (result.status !== "OK") enrichmentMarker = capabilityMarker(result);

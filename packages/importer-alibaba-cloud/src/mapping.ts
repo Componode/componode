@@ -111,7 +111,9 @@ const SLUG_BASE_MAX = 91;
 
 export function componentSlug(name: string, resourceId: string): string {
   const base = (slugify(name) || "resource").slice(0, SLUG_BASE_MAX).replace(/-+$/g, "");
-  const suffix = resourceId.slice(-8).toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const suffix =
+    resourceId.slice(-8).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") ||
+    "id";
   return `${base}-${suffix}`;
 }
 

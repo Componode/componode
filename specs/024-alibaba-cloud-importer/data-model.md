@@ -78,6 +78,12 @@ Provider status strings → `InstanceStatus` via a per-family table
 `*Error*|*Fail* → ERROR`, `Deleted|Released → GONE`); unknown → `null`
 (unset) rather than a wrong guess.
 
+**Platform note**: `component_instances.status` is `NOT NULL DEFAULT
+'RUNNING'` — the backend persists a `null` importer status as `RUNNING`
+(`import-run-service.ts`). That coercion is a pre-existing schema semantic
+shared by all importers; making status nullable would require a separate
+ADR and migration and is out of scope for this feature.
+
 ## DB impact
 
 - Migration `015_alibaba_cloud_provider.ts`: drop +

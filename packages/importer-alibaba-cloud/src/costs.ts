@@ -1,6 +1,8 @@
 import type { AlibabaClients } from "./client.js";
+import { withThrottleRetry } from "./retry.js";
 
 export interface ResourceBilling {
+  billingPeriod: string;
   pretaxAmount: number;
   pretaxGrossAmount: number;
   currency: string | null;
@@ -25,12 +27,16 @@ export async function fetchCostMap(
 
   do {
     if (signal.aborted) return costs;
-    const page = await client.describeInstanceBillPage({ billingCycle, nextToken });
+    const page = await withThrottleRetry(
+      () => client.describeInstanceBillPage({ billingCycle, nextToken }),
+      signal,
+    );
 
     for (const item of page.items) {
       const id = item.instanceID;
       if (!id) continue;
       const existing = costs.get(id) ?? {
+        billingPeriod: billingCycle,
         pretaxAmount: 0,
         pretaxGrossAmount: 0,
         currency: item.currency ?? null,

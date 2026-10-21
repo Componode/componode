@@ -17,7 +17,9 @@ import {
   type CapabilityMap,
 } from "./capabilities.js";
 
-const ENABLED_STATUSES = new Set(["enabled", "activated", "active", "opened"]);
+// Documented serviceStatus values are "Enabled"/"Disabled" — anything else
+// fails closed rather than passing on a guess.
+const ENABLED_STATUSES = new Set(["enabled"]);
 
 export class AlibabaCloudImporter implements Importer {
   readonly name = "alibaba-cloud";
@@ -40,6 +42,7 @@ export class AlibabaCloudImporter implements Importer {
     if (!identity.accountId) {
       throw new Error("Alibaba Cloud GetCallerIdentity returned no AccountId");
     }
+    if (context.signal.aborted) return;
 
     context.reportPhase("Checking service");
     const status = await client.getServiceStatus();
@@ -55,6 +58,7 @@ export class AlibabaCloudImporter implements Importer {
 
     const capabilities: CapabilityMap = {};
 
+    if (context.signal.aborted) return;
     context.reportPhase("Counting resources");
     const counts = await withCapability(() => client.getResourceCounts("ResourceType"));
     capabilities.resourceCounts = capabilityMarker(counts);
@@ -70,6 +74,7 @@ export class AlibabaCloudImporter implements Importer {
 
     let billing: Map<string, ResourceBilling> | undefined;
     if (parsed.includeCosts) {
+      if (context.signal.aborted) return;
       context.reportPhase("Fetching costs");
       const period = parsed.billingPeriod ?? defaultBillingPeriod();
       const costs = await withCapability(() =>
@@ -135,15 +140,24 @@ export class AlibabaCloudImporter implements Importer {
     } catch (err) {
       const code = (err as { code?: string })?.code;
       const rawMessage = err instanceof Error ? err.message : "";
-      const sanitized = Object.values(secrets)
-        .filter(Boolean)
-        .reduce((m, s) => m.split(s).join("[redacted]"), rawMessage)
-        .slice(0, 200);
-      const detail = code ? ` (${String(code)})` : sanitized ? `: ${sanitized}` : "";
+      // Redact any secret value long enough to be a plausible credential;
+      // shorter strings would mangle the message into [redacted] noise.
+      const sanitize = (text: string) =>
+        Object.values(secrets)
+          .filter((s) => s.length >= 4)
+          .reduce((m, s) => m.split(s).join("[redacted]"), text)
+          .slice(0, 200);
+      const sanitizedCode = code ? sanitize(String(code)) : undefined;
+      const sanitizedMessage = sanitize(rawMessage);
+      const detail = sanitizedCode
+        ? ` (${sanitizedCode})`
+        : sanitizedMessage
+          ? `: ${sanitizedMessage}`
+          : "";
       return {
         ok: false,
         error: /invalid|forbidden|denied|unauthorized/i.test(String(code ?? ""))
-          ? `Authentication failed (${String(code)})`
+          ? `Authentication failed (${sanitizedCode})`
           : `Alibaba Cloud request failed${detail}`,
       };
     }
