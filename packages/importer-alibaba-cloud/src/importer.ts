@@ -76,6 +76,7 @@ export class AlibabaCloudImporter implements Importer {
     const coverage: SearchCoverage = {
       discoveredCount: 0,
       mappedCount: 0,
+      skippedCount: 0,
       skippedTypes: new Set(),
     };
 
@@ -96,7 +97,7 @@ export class AlibabaCloudImporter implements Importer {
     const summary: CoverageSummary = {
       discoveredCount: coverage.discoveredCount,
       mappedCount: coverage.mappedCount,
-      skippedCount: coverage.skippedTypes.size,
+      skippedCount: coverage.skippedCount,
       skippedTypes: [...coverage.skippedTypes].sort(),
       ...(totals ? { totals } : {}),
     };

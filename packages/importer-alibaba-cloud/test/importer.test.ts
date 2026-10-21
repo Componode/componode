@@ -167,7 +167,7 @@ describe("AlibabaCloudImporter — US1 discovery", () => {
     const assets = await collect(new AlibabaCloudImporter(), {}, context);
     expect(assets).toHaveLength(2); // 1 mapped + account
     const account = assets[1].details as Record<string, any>;
-    expect(account.coverage.skippedCount).toBe(1);
+    expect(account.coverage.skippedCount).toBe(2);
     expect(account.coverage.skippedTypes).toEqual(["ACS::Foo::Bar"]);
     expect(account.coverage.discoveredCount).toBe(3);
     expect(context.logger.warn).toHaveBeenCalledTimes(1);

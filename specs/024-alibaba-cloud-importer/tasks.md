@@ -198,3 +198,10 @@ component, migration, and integration coverage. Ship-able alone.
 
 US2 (credential test) → US3 (filters) → US4 (coverage) harden the core path;
 US5/US6 are additive opt-ins.
+
+---
+
+## Phase 10: Convergence
+
+- [x] T040 [US4] Track skipped **resource** count in `packages/importer-alibaba-cloud/src/resources.ts`/`account.ts` — `coverage.skippedCount` currently counts distinct unmapped *types* while `discoveredCount`/`mappedCount` count resources; increment a skipped-resources counter per skipped record so `mapped + skipped = discovered` per FR-007 (partial)
+- [x] T041 [US3] Correct `specs/024-alibaba-cloud-importer/data-model.md` — `resourceGroupId` is passed as the dedicated top-level `SearchResources` request field in `src/filters.ts`, not as `Filter{Key:"ResourceGroupId"}`; update the doc wording per plan:data-model (partial)

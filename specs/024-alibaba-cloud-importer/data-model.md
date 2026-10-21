@@ -6,7 +6,7 @@
 |---|---|---|---|
 | `regionIds` | `string[]` | `[]` (all) | `Filter{Key:"RegionId",MatchType:"Equals",Value:[...]}` |
 | `resourceTypes` | `string[]` | `[]` (all) | allowlist of `ACS::<Service>::<Type>` codes → `ResourceType` filter |
-| `resourceGroupId` | `string?` | unset | `Filter{Key:"ResourceGroupId",MatchType:"Equals"}` |
+| `resourceGroupId` | `string?` | unset | dedicated top-level `SearchResources.resourceGroupId` request field |
 | `environment` | `Environment` enum | `"PRODUCTION"` | applied to every produced instance |
 | `enrichResources` | `boolean` | `false` | per-resource `GetResourceConfiguration` |
 | `includeCosts` | `boolean` | `false` | BSS `DescribeInstanceBill` (per-instance, keyed by `instanceID`) |
@@ -58,7 +58,8 @@ importer-config payload validated at the route boundary).
 {
   discoveredCount: number,   // resources returned by search
   mappedCount: number,       // yielded as components
-  skippedCount: number,
+  skippedCount: number,       // resources skipped (unmapped), not types —
+                              // mapped + skipped = discovered
   skippedTypes: string[],    // unmapped ACS::*::* codes
   totals?: Record<string, number> // GetResourceCounts GroupBy=ResourceType (guarded)
 }

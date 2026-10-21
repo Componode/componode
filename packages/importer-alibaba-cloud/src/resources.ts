@@ -17,6 +17,7 @@ const MAX_THROTTLE_RETRIES = 3;
 export interface SearchCoverage {
   discoveredCount: number;
   mappedCount: number;
+  skippedCount: number;
   skippedTypes: Set<string>;
 }
 
@@ -125,6 +126,7 @@ export async function* iterResourceAssets(
       const resourceType = record.resourceType ?? "";
       const category = mapResourceType(resourceType);
       if (!category) {
+        coverage.skippedCount++;
         coverage.skippedTypes.add(resourceType || "UNKNOWN");
         if (!warnedTypes.has(resourceType)) {
           warnedTypes.add(resourceType);
