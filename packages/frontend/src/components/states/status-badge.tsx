@@ -8,12 +8,10 @@ import { cn } from "@/lib/utils";
  */
 const STATUS_STYLES: Record<string, string> = {
   // Healthy / active
-  ACTIVE:
-    "bg-success/15 text-success border-success/30 dark:bg-success/20",
-  RUNNING:
-    "bg-success/15 text-success border-success/30 dark:bg-success/20",
-  COMPLETED:
-    "bg-success/15 text-success border-success/30 dark:bg-success/20",
+  CONNECTED: "bg-success/15 text-success border-success/30 dark:bg-success/20",
+  ACTIVE: "bg-success/15 text-success border-success/30 dark:bg-success/20",
+  RUNNING: "bg-success/15 text-success border-success/30 dark:bg-success/20",
+  COMPLETED: "bg-success/15 text-success border-success/30 dark:bg-success/20",
   // In progress
   PENDING: "bg-warning/15 text-warning border-warning/30",
   QUEUED: "bg-warning/15 text-warning border-warning/30",
@@ -25,7 +23,9 @@ const STATUS_STYLES: Record<string, string> = {
   EXPIRED: "bg-destructive/15 text-destructive border-destructive/30",
   // Warning
   EXPIRING: "bg-warning/15 text-warning border-warning/30",
+  NEVER_CONNECTED: "bg-warning/15 text-warning border-warning/30",
   // Neutral / inactive
+  OFFLINE: "bg-secondary text-secondary-foreground border-border",
   STOPPED: "bg-secondary text-secondary-foreground border-border",
   CANCELLED: "bg-secondary text-secondary-foreground border-border",
   INTERRUPTED: "bg-secondary text-secondary-foreground border-border",
@@ -42,7 +42,11 @@ export function StatusBadge({
   return (
     <Badge
       variant="outline"
-      className={cn("gap-1.5", STATUS_STYLES[status] ?? "bg-muted text-muted-foreground border-border", className)}
+      className={cn(
+        "gap-1.5",
+        STATUS_STYLES[status] ?? "bg-muted text-muted-foreground border-border",
+        className,
+      )}
     >
       <span
         data-status-dot

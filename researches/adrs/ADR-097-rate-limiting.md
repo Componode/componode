@@ -20,3 +20,11 @@ concurrent run polls at 2s intervals = ~150/min) plus normal UI
 interactions. Per-user keying (not per-IP) prevents a corporate NAT with
 100 users from sharing a single limit. Importer trigger keyed per-user
 ([ADR-039](./ADR-039-importer-trigger-auth-boundary.md)'s per-config in-flight guard handles per-config spam).
+
+---
+
+**Amended by ADR-116**: the "all `/api/v1/*` routes are authenticated"
+clause gains a non-session exception — `GET /api/v1/agent/stream` is
+authenticated by a dedicated agent bearer-credential middleware (not
+`verifySession`), and `POST /api/v1/agent/enroll` is public (single-use
+enrollment-token exchange). Session-authed routes are unchanged.

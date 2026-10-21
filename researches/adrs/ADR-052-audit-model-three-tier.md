@@ -39,3 +39,13 @@ high-frequency, low-judgment — logging every import-driven attribute change is
 noise. The transition-logging answers "what did this importer run change that
 matters?" at row granularity, while the run summary answers "what was the
 overall blast radius?"
+
+---
+
+**Amended by ADR-116**: the model gains the `import_agent` entity type for
+agent lifecycle transitions (`created`/`enrolled`/`token_rotated`/
+`revoked`/`deleted`; actor is the admin, or `agent:<name>` for
+agent-originated events). High-frequency connection events are recorded
+in the operational `agent_sessions` table instead of append-only audit —
+the same "consequential transitions audited, routine noise is not"
+asymmetry. Rejected connection attempts write no audit rows.

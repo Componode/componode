@@ -25,15 +25,15 @@ later phase).
 
 ### Foundational documents (read these first)
 
-| Document | Role |
-|---|---|
-| `.specify/memory/constitution.md` | **7 binding principles that govern every spec** |
-| `researches/architecture-decisions.md` | **ADR index** |
-| `researches/adrs/ADR-XXX-*.md` | **Individual ADRs for every rule in this file** |
-| `CONTEXT.md` | **Domain vocabulary — canonical terms + `Avoid:` list; read before writing specs, UI copy, or entity names** |
-| `specs/{NNN-feature-name}/spec.md` | **Feature specifications (authoritative for current work)** |
-| `specs/{NNN-feature-name}/plan.md` | **Implementation plan for the current feature** |
-| `specs/{NNN-feature-name}/tasks.md` | **Executable tasks for the current feature** |
+| Document                               | Role                                                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `.specify/memory/constitution.md`      | **7 binding principles that govern every spec**                                                              |
+| `researches/architecture-decisions.md` | **ADR index**                                                                                                |
+| `researches/adrs/ADR-XXX-*.md`         | **Individual ADRs for every rule in this file**                                                              |
+| `CONTEXT.md`                           | **Domain vocabulary — canonical terms + `Avoid:` list; read before writing specs, UI copy, or entity names** |
+| `specs/{NNN-feature-name}/spec.md`     | **Feature specifications (authoritative for current work)**                                                  |
+| `specs/{NNN-feature-name}/plan.md`     | **Implementation plan for the current feature**                                                              |
+| `specs/{NNN-feature-name}/tasks.md`    | **Executable tasks for the current feature**                                                                 |
 
 Never implement from `.devin/plans`, one-off notes, or temporary locations.
 Always implement from the generated `tasks.md` artifact under `specs/`.
@@ -63,6 +63,7 @@ Constraints and the relevant ADRs.
 │   ├── core/                      # Shared contracts and types (leaf — zero @componode/* deps)
 │   ├── backend/                   # Fastify API + Kysely services
 │   ├── frontend/                  # React/Vite dashboard
+│   ├── agent/                     # Import Agent runtime (ADR-116 — enrolls, outbound WSS stream)
 │   └── importer-*/                # 8 in-tree importers (alibaba-cloud, api-url, aws, azure, github, kubernetes, mcp-server, web-url)
 ├── researches/                    # Research docs ({topic}_research.md), adrs/, architecture-decisions.md index
 ├── specs/{NNN-feature-name}/      # DYNAMIC — spec.md, plan.md, tasks.md, created per feature/bugfix
@@ -146,6 +147,9 @@ constitution.
 - `packages/core` is a leaf with zero `@componode/*` deps.
 - `packages/backend` depends on `core` + all 8 importer packages (manifest
   import only).
+- `packages/agent` depends on `core` + all 8 importer packages (manifest
+  import only) — the lockstep handshake requires the same importer set
+  (ADR-116 amendment to ADR-065).
 - `packages/frontend` depends on `core` for types and calls the backend over
   HTTP. See `ADR-065`.
 
@@ -261,6 +265,26 @@ when switching features); it is ignored by git on purpose.
 and revise the **Next** entry so the roadmap always reflects the current
 state.
 
+**ADR fidelity**: `specs/` artifacts are working documents; ADRs are the
+durable decision record. During `speckit-plan` and `speckit-implement`,
+whenever a design choice extends a surface an ADR presents as closed —
+enumerated lists such as env vars, error codes, message/disconnect
+reasons, endpoints, permission sets — or conflicts with ratified ADR
+language, ratify it in the same change, not just in `research.md`/`plan.md`:
+
+- Refinement of an existing ratified ADR → append `## Amendment N — …`
+  to that ADR (precedent: ADR-087 Amendment 1).
+- New ratified decision → new `ADR-NNN-{slug}.md` listing its
+  "Amendments to earlier ADRs" (precedent: ADR-116).
+- Either way, add a `---` + `**Amended by ADR-XXX**:` back-pointer to
+  every ADR it amends, and keep each ADR's amends list in
+  `researches/architecture-decisions.md` current.
+
+Decisions inside ratified boundaries (library choices, in-memory
+mechanics, naming) stay in `research.md`/`plan.md` — cite the anchor with
+a `Ratified in:` line. Done means: no contract surface lives only in a
+spec artifact, and every amended ADR points back.
+
 ## Bugfix Spec Workflow
 
 Bugfixes are a lightweight variant of the feature spec workflow. They still live
@@ -305,8 +329,10 @@ specification:
 2. Record ratified decisions as ADRs in the existing standard —
    `researches/adrs/ADR-NNN-{slug}.md` (next sequential number; Context,
    Decision, Consequences, Amendments to earlier ADRs, Rationale,
-   Alternatives considered) — and register each in the
-   `researches/architecture-decisions.md` index under the right section.
+   Alternatives considered) — register each in the
+   `researches/architecture-decisions.md` index under the right section,
+   and add `**Amended by ADR-XXX**:` back-pointers to every ADR the new
+   one amends (see **ADR fidelity** above).
 3. Only then run the spec-kit flow (`speckit-specify` → `speckit-plan` →
    `speckit-tasks` → `speckit-implement`). Implementation is driven from
    `specs/{NNN-feature-name}/tasks.md`, never directly from the research
@@ -316,11 +342,11 @@ specification:
 
 ## Key References
 
-| Document | When to read it |
-|---|---|
-| `docs/importer-development.md`, `docs/importers/` | When building or editing an importer — dev guide + mandatory per-importer user docs |
-| `docs/api.md`, `docs/openapi.yaml`, `docs/openapi-reference.md` | When adding, changing, or removing any API endpoint (ADR-104) |
-| `docs/ux.md` | Before writing or reviewing any frontend spec or UI code |
-| `specs/{NNN-feature-name}/data-model.md`, `packages/backend/src/db/migrations/` | When changing schema or entities |
-| `docs/deployment.md` | When changing Docker Compose or deployment |
-| `docs/release.md` | When changing the changeset or release process |
+| Document                                                                        | When to read it                                                                     |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `docs/importer-development.md`, `docs/importers/`                               | When building or editing an importer — dev guide + mandatory per-importer user docs |
+| `docs/api.md`, `docs/openapi.yaml`, `docs/openapi-reference.md`                 | When adding, changing, or removing any API endpoint (ADR-104)                       |
+| `docs/ux.md`                                                                    | Before writing or reviewing any frontend spec or UI code                            |
+| `specs/{NNN-feature-name}/data-model.md`, `packages/backend/src/db/migrations/` | When changing schema or entities                                                    |
+| `docs/deployment.md`                                                            | When changing Docker Compose or deployment                                          |
+| `docs/release.md`                                                               | When changing the changeset or release process                                      |

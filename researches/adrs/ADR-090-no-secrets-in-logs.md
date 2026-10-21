@@ -22,3 +22,10 @@ persistent. The redaction filter catches known field names. The
 `importer_configs.scope` redaction catches the case where scope contains
 account IDs or tokens. Stack trace sanitization is deferred (the risk of
 embedded credentials in URLs is mitigated by `secrets.*` redaction).
+
+---
+
+**Amended by ADR-117**: the rule extends to the Import Agent process —
+agent-side secret resolution logs key names and source types only, never
+values; the agent applies `redactSecrets`-equivalent discipline to all
+log emission.

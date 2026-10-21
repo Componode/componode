@@ -7,7 +7,8 @@
  *
  *  - every registered path+method exists in the spec (and vice versa);
  *  - `x-permission` in the spec equals the tagged `requireRole` permission;
- *  - `security: []` in the spec ⇔ no `verifySession` in the route preHandlers;
+ *  - `security: []` in the spec ⇔ no `verifySession`/`verifyAgentCredential` in
+ *    the route preHandlers (agent bearer routes declare `agentBearer`);
  *  - `ERROR_CODES` (core) === the `Error.code` enum in the spec;
  *  - `docs/api.md` equals the generator output for the current spec.
  *
@@ -24,6 +25,9 @@ process.env.COOKIE_SECRET ??= "test-secret-test-secret-test-secret";
 const API_PREFIX = "/api/v1";
 // Sentinel used to detect `app.verifySession` in route preHandler arrays.
 const VERIFY_SESSION = async () => {};
+// Sentinel for `app.verifyAgentCredential` (agent bearer auth — these routes
+// are session-less but not public; the spec models them as `agentBearer`).
+const VERIFY_AGENT = async () => {};
 
 interface CollectedRoute {
   method: string;
@@ -61,6 +65,8 @@ beforeAll(async () => {
     { auditRoutes },
     { metricsRoutes },
     { credentialRoutes },
+    { agentRoutes },
+    { agentChannelRoutes },
     { loadSpec, generateApiDoc, API_MD_PATH },
   ] = await Promise.all([
     import("../../src/routes/auth.js"),
@@ -79,6 +85,8 @@ beforeAll(async () => {
     import("../../src/routes/audit.js"),
     import("../../src/routes/metrics.js"),
     import("../../src/routes/credentials.js"),
+    import("../../src/routes/agents.js"),
+    import("../../src/routes/agent-channel.js"),
     import("../../scripts/generate-api-doc.js"),
   ]);
 
@@ -86,6 +94,8 @@ beforeAll(async () => {
   const app: FastifyInstance = Fastify();
   app.addHook("onRoute", (r) => raw.push(r));
   app.decorate("verifySession", VERIFY_SESSION);
+  // Agent bearer-auth + session stubs so the channel route registers.
+  app.decorate("verifyAgentCredential", VERIFY_AGENT);
 
   for (const plugin of [
     authRoutes,
@@ -103,9 +113,14 @@ beforeAll(async () => {
     orgRoutes,
     auditRoutes,
     credentialRoutes,
+    agentRoutes,
   ]) {
     await app.register(plugin, { prefix: API_PREFIX });
   }
+  await app.register(agentChannelRoutes, {
+    prefix: API_PREFIX,
+    sessions: {} as never, // unused during route registration
+  });
   await app.register(metricsRoutes); // no /api/v1 prefix (ADR-069)
   await app.ready();
 
@@ -154,7 +169,10 @@ describe("openapi.yaml route coverage", () => {
         }
       }
     }
-    expect(extra, `Spec operations with no matching route: ${extra.join(", ")}`).toEqual([]);
+    expect(
+      extra,
+      `Spec operations with no matching route: ${extra.join(", ")}`,
+    ).toEqual([]);
   });
 });
 
@@ -177,17 +195,33 @@ describe("openapi.yaml access annotations", () => {
     expect(mismatches).toEqual([]);
   });
 
-  it("security: [] in the spec iff the route has no verifySession preHandler", () => {
+  it("security: [] in the spec iff the route has no verifySession/verifyAgentCredential preHandler", () => {
     const mismatches: string[] = [];
     for (const r of collected) {
       const op = specOperation(r.path, r.method);
       if (!op) continue;
-      const isPublic = r.preHandlers.includes(VERIFY_SESSION) === false;
+      const isPublic =
+        !r.preHandlers.includes(VERIFY_SESSION) &&
+        !r.preHandlers.includes(VERIFY_AGENT);
       const specPublic = Array.isArray(op.security) && op.security.length === 0;
       if (isPublic !== specPublic) {
         mismatches.push(
           `${r.method} ${r.path}: ${isPublic ? "public route, spec requires auth" : "authenticated route, spec marks public"}`,
         );
+      }
+      // Bearer-auth agent routes must name the scheme — a session-free route
+      // is not automatically public.
+      if (r.preHandlers.includes(VERIFY_AGENT)) {
+        const hasBearer =
+          Array.isArray(op.security) &&
+          op.security.some(
+            (s) => s !== null && typeof s === "object" && "agentBearer" in s,
+          );
+        if (!hasBearer) {
+          mismatches.push(
+            `${r.method} ${r.path}: agent credential route, spec missing agentBearer`,
+          );
+        }
       }
     }
     expect(mismatches).toEqual([]);
@@ -197,14 +231,16 @@ describe("openapi.yaml access annotations", () => {
 describe("error codes", () => {
   it("spec Problem.code enum matches ERROR_CODES from @componode/core", async () => {
     const { ERROR_CODES } = await import("@componode/core");
-    const specCodes: string[] = spec.components.schemas.Problem.properties.code.enum;
+    const specCodes: string[] =
+      spec.components.schemas.Problem.properties.code.enum;
     expect([...specCodes].sort()).toEqual([...ERROR_CODES].sort());
   });
 });
 
 describe("docs/api.md generated regions", () => {
   it("is up to date with docs/openapi.yaml", async () => {
-    const { generateApiDoc } = await import("../../scripts/generate-api-doc.js");
+    const { generateApiDoc } =
+      await import("../../scripts/generate-api-doc.js");
     expect(generateApiDoc(spec, apiMd)).toEqual(apiMd);
   });
 });

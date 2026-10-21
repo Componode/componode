@@ -13,7 +13,7 @@ This document is the contributor contract for adding new importers to Componode.
 5. **Validate with `validateDiscoveredAsset`.** The backend validates each yielded asset, but importers should avoid emitting invalid data.
 6. **Use structured logging.** Write progress through `context.logger` and `context.reportPhase`.
 7. **No `relationships` in v1.** `DiscoveredAsset.relationships` is not part of the v1 contract.
-8. **URL-fetching importers must use `urlSafetyError` from `@componode/core`.** Any importer config field that accepts a URL to fetch must validate it with the shared SSRF guard (applied via `.superRefine` on the Zod config schema, as `importer-web-url` and `importer-api-url` do). It rejects non-HTTP(S) schemes, `localhost`, `.local`, loopback/private/link-local/CGNAT IPv4, IPv6 loopback/ULA/link-local, and cloud-metadata addresses. The guard checks the URL *as written* and cannot prevent DNS rebinding — a public hostname may resolve to a private address at request time — so deployments that expose importer configuration should additionally restrict container egress (see ADR-106).
+8. **URL-fetching importers must use `urlSafetyError` from `@componode/core`.** Any importer config field that accepts a URL to fetch must validate it with the shared SSRF guard (applied via `.superRefine` on the Zod config schema, as `importer-web-url` and `importer-api-url` do). It rejects non-HTTP(S) schemes, `localhost`, `.local`, loopback/private/link-local/CGNAT IPv4, IPv6 loopback/ULA/link-local, and cloud-metadata addresses. The guard checks the URL _as written_ and cannot prevent DNS rebinding — a public hostname may resolve to a private address at request time — so deployments that expose importer configuration should additionally restrict container egress (see ADR-106).
 
 ---
 
@@ -75,7 +75,11 @@ export type GithubConfig = z.infer<typeof githubConfigSchema>;
 ### `importer.ts`
 
 ```ts
-import type { DiscoveredAsset, Importer, ImporterContext } from "@componode/core";
+import type {
+  DiscoveredAsset,
+  Importer,
+  ImporterContext,
+} from "@componode/core";
 import type { GithubConfig } from "./config.js";
 
 export class GithubImporter implements Importer {
@@ -187,14 +191,20 @@ Rules:
 
 1. Copy `packages/importer-github` to `packages/importer-<provider>`.
 2. Replace the SDK, config schema, and `run` implementation.
-3. Add the package to `packages/backend/package.json` as a `workspace:*` dependency.
-4. Register the package in `packages/backend/src/services/importer-registry.ts`:
+3. Add the package to `packages/backend/package.json` **and**
+   `packages/agent/package.json` as a `workspace:*` dependency. Import Agents
+   ship all in-tree importers and the hub/agent handshake enforces lockstep
+   parity (ADR-116) — forgetting either manifest produces `importer_mismatch`
+   at agent connect.
+4. Register the package in `packages/core/src/importer-registry.ts`
+   (`IMPORTER_PACKAGES` is shared by the hub and the agent — spec 025 moved
+   the list into core):
 
    ```ts
-   const IMPORTER_PACKAGES = [
+   export const IMPORTER_PACKAGES = [
      "@componode/importer-github",
      "@componode/importer-<provider>",
-   ];
+   ] as const;
    ```
 
 5. Run `pnpm install`, `pnpm -r build`, and `pnpm -r typecheck`.

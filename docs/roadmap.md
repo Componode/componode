@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–024)
+## Shipped (features 001–025)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -77,6 +77,15 @@ file tracks shipped and upcoming work — update it when a spec completes.
   `DescribeInstanceBill`) degrade to capability markers. Adds the
   `ALIBABA_CLOUD` provider constant, metadata, and CHECK-constraint
   migration.
+- `025-import-agents-foundation` — Import Agents (ADR-116): an agent process
+  inside private/egress-only networks enrolls with a single-use token,
+  receives a durable bearer credential, and streams to the hub over an
+  outbound WebSocket with a lockstep `hello` handshake (protocol version +
+  exact importer manifest). Hub tracks presence (`CONNECTED`/`OFFLINE`/
+  `NEVER_CONNECTED`), session history, and six audited lifecycle actions;
+  the UI adds agent management with a show-once enrollment dialog and
+  copy-ready install command. Job dispatch and agent-managed credentials
+  are deferred to 026/027.
 
 ## Next — v1.1
 

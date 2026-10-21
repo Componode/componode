@@ -28,3 +28,8 @@
 provisioned users). Editor owns the meaning layer (architect/curator). Admin
 owns everything including destructive/organizational actions. Session
 revocation is self-service for Viewer/Editor; Admin can revoke anyone's.
+
+---
+
+**Amended by ADR-116**: the matrix gains `agent:read|create|update|delete`
+(admin default) governing `/api/v1/agents[...]` management routes.

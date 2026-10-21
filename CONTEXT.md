@@ -71,6 +71,27 @@ _Avoid_: department, org unit
 A pull-only integration that discovers Components from an external source.
 _Avoid_: connector, sync
 
+**Import Agent**:
+A remotely deployed executor that runs importers inside a restricted network
+and streams discovered assets to the hub over an agent-initiated outbound
+WebSocket (ADR-116). Stateless, opt-in per importer config; secrets resolve
+agent-side via agent-managed credentials (ADR-117).
+_Avoid_: runner, worker, satellite
+
+**Enrollment Token**:
+A single-use, short-lived (~24 h) secret issued when an Import Agent is
+created or rotated; exchanged once at `POST /api/v1/agent/enroll` for the
+agent's durable credential. Stored hashed, never re-displayed.
+_Avoid_: join token, bootstrap secret (when precision matters, say
+"enrollment token"; the durable result is the "agent credential")
+
+**Agent Session**:
+One connected episode of an Import Agent — recorded in `agent_sessions`
+with connected/disconnected times, disconnect reason, remote address, and
+reported versions. Operational telemetry (connection history), distinct
+from audit entries in `entity_changes`.
+_Avoid_: socket, connection record
+
 **Link**:
 A curated `{ title, url }` reference attached to a Digital Product or
 Component (runbook, repo, dashboard). Human-authored, ordered, max 20;

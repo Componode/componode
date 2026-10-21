@@ -20,3 +20,10 @@ durability — if the backend crashes between the cancel API call and the abort
 reaching the importer, the flag survives. The distinction matters for the
 audit log ([ADR-052](./ADR-052-audit-model-three-tier.md)): "admin cancelled run X" vs. "backend crashed during run
 X" are different operational events.
+
+---
+
+**Amended by ADR-116**: cancellation extends across the process boundary
+— the hub sets `cancelRequestedAt` and sends a `cancel` frame that fires
+the agent's `AbortController`. `cancelRequestedAt` remains the source of
+truth.

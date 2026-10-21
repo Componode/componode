@@ -44,6 +44,12 @@ export const ERROR_TYPES: Record<ErrorCode, ErrorType> = {
   MANIFEST_NO_TEST: { code: "MANIFEST_NO_TEST", status: 400, title: "Importer does not support credential testing" },
   CONVERSION_NOTHING_TO_CONVERT: { code: "CONVERSION_NOTHING_TO_CONVERT", status: 400, title: "No legacy secret references to convert" },
   LEGACY_SECRET_UNRESOLVABLE: { code: "LEGACY_SECRET_UNRESOLVABLE", status: 502, title: "Legacy secret reference could not be resolved" },
+  AGENT_NOT_FOUND: { code: "AGENT_NOT_FOUND", status: 404, title: "Import agent not found" },
+  AGENT_NAME_TAKEN: { code: "AGENT_NAME_TAKEN", status: 409, title: "Agent name already in use" },
+  AGENT_IN_USE: { code: "AGENT_IN_USE", status: 409, title: "Agent is in use" },
+  AGENT_ENROLLMENT_INVALID: { code: "AGENT_ENROLLMENT_INVALID", status: 401, title: "Invalid or expired enrollment token" },
+  AGENT_CREDENTIAL_INVALID: { code: "AGENT_CREDENTIAL_INVALID", status: 401, title: "Invalid or revoked agent credential" },
+  AGENT_VERSION_MISMATCH: { code: "AGENT_VERSION_MISMATCH", status: 403, title: "Agent or importer version mismatch" },
 };
 
 export function getErrorType(code: ErrorCode): ErrorType {
