@@ -920,6 +920,11 @@ Backstage can be mapped without loss.
 
 ### 12.3 Proposed `Component.provider` enum (controlled, extensible)
 
+> **Ratification note (2026-10-21)**: `ALIBABA_CLOUD` was ratified and shipped
+> under [ADR-115](./adrs/ADR-115-alibaba-cloud-importer.md) / spec
+> `024-alibaba-cloud-importer` — it is now a live value in
+> `COMPONENT_PROVIDERS`, not just a proposal.
+
 ```
 AWS, AZURE, GCP, ALIBABA_CLOUD, CLOUDFLARE,
 OPENSHIFT, KUBERNETES, DOCKER, PODMAN,

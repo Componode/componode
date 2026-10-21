@@ -3,7 +3,8 @@
 > **Sessions**: 2026-08-16 grilling sessions (Session 1: ADR-001–032,
 > Session 2 Architecture: ADR-033–083, Session 2 Security: ADR-084–102),
 > Practical DPAM improvements: ADR-109–112,
-> DPAM review grilling (2026-10-18): ADR-113–114
+> DPAM review grilling (2026-10-18): ADR-113–114,
+> Alibaba Cloud importer grilling (2026-10-21): ADR-115
 > **Status**: Ratified — these decisions are the foundation for Componode v1.
 > **How to use**: Each ADR is in its own file under `researches/adrs/`.
 > Read the relevant ADRs before starting implementation work. Changes to any
@@ -62,6 +63,7 @@
 | [ADR-024](./adrs/ADR-024-importer-registry-in-tree-code-registered.md) | Importer registry: in-tree, code-registered |
 | [ADR-025](./adrs/ADR-025-importer-interface-pull-only-asyncgenerator.md) | Importer interface: pull-only AsyncGenerator (superseded by ADR-056/057) |
 | [ADR-026](./adrs/ADR-026-v1-importer-scope-7-importers.md) | v1 importer scope: 7 importers |
+| [ADR-115](./adrs/ADR-115-alibaba-cloud-importer.md) | Alibaba Cloud importer: Resource Center discovery |
 
 ### Auth & Security
 
