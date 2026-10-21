@@ -89,12 +89,20 @@ export interface ImporterConfig {
 }
 
 export type CredentialStatus = "ACTIVE" | "REVOKED";
+export type CredentialKind = "STORED" | "AGENT_MANAGED";
+
+// AGENT_MANAGED reference — names a source on the agent host, never a value
+// (ADR-117).
+export type SecretRef = { env: string } | { file: string };
+export type SecretRefMap = Record<string, SecretRef>;
 
 export interface Credential {
   id: string;
   slug: string;
   label: string;
   status: CredentialStatus;
+  kind: CredentialKind;
+  secretRefMap?: SecretRefMap;
   keyHints: Record<string, string>;
   expiresAt: string | null;
   lastUsedAt: string | null;
@@ -117,6 +125,8 @@ export interface CredentialDetail {
 export interface CredentialTestResult {
   ok: boolean;
   error?: string;
+  // Set when the test ran on an Import Agent — the executing agent's name.
+  agent?: string;
 }
 
 export interface ImportRun {

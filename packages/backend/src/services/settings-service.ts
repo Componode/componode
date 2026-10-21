@@ -196,7 +196,7 @@ export async function updateOidcConfig(input: UpdateOidcConfigInput, actor: Acto
   if (input.clientSecretCredentialId) {
     const credential = await db
       .selectFrom("credentials")
-      .select(["id", "label", "status"])
+      .select(["id", "label", "status", "kind"])
       .where("id", "=", input.clientSecretCredentialId)
       .executeTakeFirst();
     if (!credential) {
@@ -204,6 +204,14 @@ export async function updateOidcConfig(input: UpdateOidcConfigInput, actor: Acto
         statusCode: 404,
         code: "CREDENTIAL_NOT_FOUND",
       });
+    }
+    // OIDC client secrets resolve in-process — agent-managed credentials can
+    // never supply them (spec 026, ADR-117).
+    if (credential.kind === "AGENT_MANAGED") {
+      throw Object.assign(
+        new Error(`Credential "${credential.label}" is agent-managed and cannot supply an OIDC client secret`),
+        { statusCode: 400, code: "CREDENTIAL_KIND_MISMATCH" },
+      );
     }
     if (credential.status === "REVOKED") {
       throw Object.assign(

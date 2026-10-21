@@ -6,9 +6,13 @@ import {
   AGENT_HEARTBEAT_INTERVAL_MS,
   AGENT_PROTOCOL_VERSION,
   IMPORTER_PACKAGES,
+  createImporterRegistry,
   parseAgentMessage,
+  type AgentCredentialTestPayload,
+  type ImporterRegistry,
 } from "@componode/core";
 import { proxyForUrl, type AgentConfig } from "./config.js";
+import { createAgentResolver, resolveRefMap, type AgentLog } from "./secrets.js";
 import { createRequire } from "node:module";
 
 // One outbound agent session (spec 025 US2/US5): bearer upgrade → hello →
@@ -63,6 +67,7 @@ export interface SessionDeps {
   ) => MinimalSocket;
   heartbeatMs?: number;
   loadImporters?: () => Promise<{ name: string; version: string }[]>;
+  registry?: ImporterRegistry;
   log?: {
     info: (o: object, m: string) => void;
     warn: (o: object, m: string) => void;
@@ -87,6 +92,41 @@ async function defaultLoadImporters(): Promise<
   return manifests.map((m) => ({ name: m.name, version: m.version }));
 }
 
+// Remote credential test handler (spec 026 US4): resolve the reference map
+// against the agent's own env/SECRETS_DIR, run the importer's probe, reply.
+// Failures produce {ok:false} naming the key + source — never values.
+export async function handleCredentialTest(
+  payload: AgentCredentialTestPayload,
+  deps: {
+    secretsDir?: string;
+    registry: ImporterRegistry;
+    log: AgentLog;
+    send: (type: string, frame: unknown) => void;
+  },
+): Promise<void> {
+  const reply = (ok: boolean, error?: string) =>
+    deps.send("credential.test.result", { testId: payload.testId, ok, error });
+
+  try {
+    const secrets = await resolveRefMap(
+      payload.secrets,
+      createAgentResolver(deps.secretsDir),
+      deps.log,
+    );
+    const importer = await deps.registry.getImporter(payload.importerName);
+    if (typeof importer.testSecrets !== "function") {
+      return reply(
+        false,
+        `Importer ${payload.importerName} does not support credential testing`,
+      );
+    }
+    const result = await importer.testSecrets(secrets, payload.scope);
+    return reply(result.ok, result.error);
+  } catch (err) {
+    return reply(false, err instanceof Error ? err.message : String(err));
+  }
+}
+
 function wsOptions(cfg: AgentConfig, token: string): Record<string, unknown> {
   const opts: Record<string, unknown> = {
     headers: { authorization: `Bearer ${token}` },
@@ -108,6 +148,9 @@ export async function runSession(
 ): Promise<SessionEnd> {
   const log = deps.log ?? { info: () => {}, warn: () => {} };
   const importers = await (deps.loadImporters ?? defaultLoadImporters)();
+  const registry =
+    deps.registry ??
+    createImporterRegistry(IMPORTER_PACKAGES, (spec) => import(spec));
   const heartbeatMs = deps.heartbeatMs ?? AGENT_HEARTBEAT_INTERVAL_MS;
 
   const WS =
@@ -230,8 +273,19 @@ export async function runSession(
         );
         return;
       }
-      // Any other frame type (job.*/credential.* reserved for 026/027, or
-      // unknown) means a drifted hub — flag it, don't ignore it.
+      if (msg.type === "credential.test") {
+        // Remote credential test (spec 026): refs resolve HERE against the
+        // agent's own env/SECRETS_DIR — values never cross the stream.
+        void handleCredentialTest(msg.payload as AgentCredentialTestPayload, {
+          secretsDir: cfg.secretsDir,
+          registry,
+          log,
+          send: sendFrame,
+        });
+        return;
+      }
+      // Any other frame type (job.* reserved for 027, or unknown) means a
+      // drifted hub — flag it, don't ignore it.
       rejectFrame(
         AGENT_ERROR_CODES.UNSUPPORTED_FRAME,
         `frame type "${msg.type}" is not implemented by this build`,

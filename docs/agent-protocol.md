@@ -117,6 +117,49 @@ rule is symmetric: an agent that receives an unparseable or reserved frame
 from the hub answers `error` + socket close and exits terminally
 (`protocol_mismatch` → exit 2).
 
+## Credential test (spec 026)
+
+Remote test of an `AGENT_MANAGED` credential — the hub never sends secret
+values, only reference names the agent resolves locally.
+
+Hub → agent:
+
+```ts
+{
+  type: "credential.test",
+  payload: {
+    testId: "<uuid>",        // correlation id
+    credentialId: "<uuid>",
+    importerName: "github",
+    scope?: { … },            // optional importer scope overrides
+    secrets: { token: { env: "GH_TOKEN" } },  // secretRefMap — refs only
+  },
+}
+```
+
+Agent → hub:
+
+```ts
+{ type: "credential.test.result", payload: { testId: "<uuid>", ok: true, error?: "…" } }
+```
+
+Semantics:
+
+- The agent resolves each ref against its env / `SECRETS_DIR` (identical
+  semantics to hub-side `env`/`file` refs — shared code in
+  `packages/core/src/utils/secrets.ts`), loads the importer by
+  `importerName`, and calls its `testSecrets` hook.
+- Refs carry source names only; resolved values never cross the wire in
+  either direction. `error` must name the failing key and source type,
+  never a value.
+- The hub correlates results by `testId`; results with unknown ids are
+  ignored. One outstanding test per dispatch — a hub-side timer
+  (`AGENT_CREDENTIAL_TEST_TIMEOUT_MS`, 30 s) fails the request with
+  `AGENT_TEST_TIMEOUT`; a disconnect mid-test rejects the pending request.
+- An agent that cannot run the test (unknown importer, no `testSecrets`
+  hook, unresolvable ref) still answers `credential.test.result` with
+  `ok:false` — it must not silently drop the frame.
+
 ## Session records
 
 Every accepted session persists: `connectedAt`, `disconnectedAt`,
@@ -125,15 +168,17 @@ Every accepted session persists: `connectedAt`, `disconnectedAt`,
 `protocolVersion`, `importerVersions`. Deleting an agent cascades this
 history.
 
-## Reserved types (026/027)
+## Reserved types (027)
 
 Schema-defined but unhandled in this spec — receiving one yields `error` +
 close (version drift signal):
 
 `job.assign`, `job.ack`, `asset.batch`, `phase`, `run.complete`,
-`run.error`, `cancel`, `credential.test`, `credential.test.result`.
+`run.error`, `cancel`.
 
 ## Metrics
 
 `import_agents_connected` (gauge), `agent_sessions_total{agent,reason}`,
-`agent_stream_rejected_total{reason}`.
+`agent_stream_rejected_total{reason}`,
+`agent_credential_tests_total{agent,result}` — `result` is `ok` |
+`error` | `offline` | `timeout`.

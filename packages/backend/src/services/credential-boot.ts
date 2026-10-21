@@ -48,15 +48,17 @@ export async function bootstrapCredentialStore(
     return { keyring: null, rotated: 0 };
   }
 
+  // AGENT_MANAGED rows have no payload — nothing to re-encrypt (spec 026).
   const stale = await db
     .selectFrom("credentials")
     .select(["id", "encryptedPayload"])
     .where("keyVersion", "<>", keyring.current.version)
+    .where("kind", "=", "STORED")
     .execute();
 
   let rotated = 0;
   for (const row of stale) {
-    const next = reencryptIfNeeded(row.encryptedPayload, keyring);
+    const next = reencryptIfNeeded(row.encryptedPayload!, keyring);
     if (!next) continue;
     await db
       .updateTable("credentials")

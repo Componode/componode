@@ -1,6 +1,7 @@
 import type { WebSocket } from "ws";
 import { uuidv7 } from "uuidv7";
 import {
+  AGENT_CREDENTIAL_TEST_TIMEOUT_MS,
   AGENT_ERROR_CODES,
   AGENT_HELLO_TIMEOUT_MS,
   AGENT_HEARTBEAT_INTERVAL_MS,
@@ -9,6 +10,8 @@ import {
   AGENT_STALE_AFTER_MS,
   helloPayloadSchema,
   parseAgentMessage,
+  type AgentCredentialTestPayload,
+  type AgentCredentialTestResultPayload,
   type AgentDisconnectReason,
   type AgentHelloPayload,
 } from "@componode/core";
@@ -96,8 +99,20 @@ function envInt(key: string, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+interface PendingTest {
+  session: LiveSession;
+  resolve: (result: AgentCredentialTestResultPayload) => void;
+  reject: (err: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
 export class AgentSessionService {
   private live = new Map<string, LiveSession>();
+  private pendingTests = new Map<string, PendingTest>();
+  private credentialTestTimeoutMs = envInt(
+    "AGENT_CREDENTIAL_TEST_TIMEOUT_MS",
+    AGENT_CREDENTIAL_TEST_TIMEOUT_MS,
+  );
   private sweepTimer: ReturnType<typeof setInterval> | null = null;
   private staleAfterMs = envInt("AGENT_STALE_AFTER_MS", AGENT_STALE_AFTER_MS);
   private sweepMs = envInt("AGENT_SESSION_SWEEP_MS", AGENT_SESSION_SWEEP_MS);
@@ -378,6 +393,59 @@ export class AgentSessionService {
     });
   }
 
+  // Dispatch a remote credential test to a connected agent (spec 026 US3).
+  // The payload carries secret *references*, never values (ADR-117).
+  // Rejects with AGENT_OFFLINE when the agent has no live session and
+  // AGENT_TEST_TIMEOUT when no result arrives in the window.
+  dispatchCredentialTest(
+    agentId: string,
+    payload: AgentCredentialTestPayload,
+  ): Promise<AgentCredentialTestResultPayload> {
+    const session = this.live.get(agentId);
+    if (!session) {
+      return Promise.reject(
+        Object.assign(new Error("Agent has no connected session"), {
+          statusCode: 503,
+          code: "AGENT_OFFLINE",
+        }),
+      );
+    }
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingTests.delete(payload.testId);
+        reject(
+          Object.assign(
+            new Error(
+              `Agent did not answer the credential test within ${this.credentialTestTimeoutMs} ms`,
+            ),
+            { statusCode: 504, code: "AGENT_TEST_TIMEOUT" },
+          ),
+        );
+      }, this.credentialTestTimeoutMs);
+      timer.unref?.();
+
+      this.pendingTests.set(payload.testId, {
+        session,
+        resolve,
+        reject,
+        timer,
+      });
+      this.send(session.socket, "credential.test", payload);
+      this.log.info(
+        { agent: session.agentName, testId: payload.testId },
+        "credential test dispatched to agent",
+      );
+    });
+  }
+
+  private settleTest(
+    entry: PendingTest,
+    settle: (e: PendingTest) => void,
+  ): void {
+    clearTimeout(entry.timer);
+    settle(entry);
+  }
+
   private async onFrame(session: LiveSession, raw: unknown): Promise<void> {
     let msg;
     try {
@@ -391,10 +459,23 @@ export class AgentSessionService {
       return;
     }
 
+    if (msg.type === "credential.test.result") {
+      // Correlate by testId — results with no pending test are ignored
+      // (a late answer after timeout must not reject the session).
+      const payload = msg.payload as AgentCredentialTestResultPayload;
+      const pending = this.pendingTests.get(payload.testId);
+      if (pending) {
+        this.pendingTests.delete(payload.testId);
+        this.settleTest(pending, (e) => e.resolve(payload));
+      }
+      session.lastContactAt = Date.now();
+      return;
+    }
+
     if (msg.type !== "heartbeat" && msg.type !== "close") {
-      // Reserved-but-unhandled types (job.*/credential.* land in 026/027):
-      // a peer sending one now is on a different protocol — error + close
-      // (1008 policy violation) per contract, never silently ignored.
+      // Reserved-but-unhandled types (job.* land in 027): a peer sending one
+      // now is on a different protocol — error + close (1008 policy
+      // violation) per contract, never silently ignored.
       this.send(session.socket, "error", {
         code: AGENT_ERROR_CODES.UNSUPPORTED_FRAME,
         message: `frame type "${msg.type}" is not implemented by this build`,
@@ -462,6 +543,22 @@ export class AgentSessionService {
     if (this.live.get(session.agentId)?.sessionId === session.sessionId) {
       this.live.delete(session.agentId);
       metrics.importAgentsConnected.set(this.live.size);
+    }
+
+    // A disconnect must not leave a credential test hanging — fail every
+    // pending dispatch on this session.
+    for (const [testId, pending] of [...this.pendingTests.entries()]) {
+      if (pending.session.sessionId === session.sessionId) {
+        this.pendingTests.delete(testId);
+        this.settleTest(pending, (e) =>
+          e.reject(
+            Object.assign(new Error("Agent disconnected during the credential test"), {
+              statusCode: 503,
+              code: "AGENT_OFFLINE",
+            }),
+          ),
+        );
+      }
     }
 
     const now = new Date().toISOString();

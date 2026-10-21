@@ -45,6 +45,7 @@ export const AGENT_AUDIT_ACTIONS = [
   "updated",
   "revoked",
   "deleted",
+  "credential_test_dispatched",
 ] as const;
 
 export type AgentAuditAction = (typeof AGENT_AUDIT_ACTIONS)[number];
@@ -68,3 +69,4 @@ export const AGENT_STALE_AFTER_MS = 90_000; // hub marks offline
 export const AGENT_SESSION_SWEEP_MS = 15_000; // hub sweep interval
 export const AGENT_ENROLLMENT_TTL_MS = 86_400_000; // 24 h
 export const AGENT_HELLO_TIMEOUT_MS = 5_000; // upgrade -> hello window
+export const AGENT_CREDENTIAL_TEST_TIMEOUT_MS = 30_000; // credential.test -> result window (hub)

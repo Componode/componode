@@ -50,6 +50,10 @@ export const ERROR_TYPES: Record<ErrorCode, ErrorType> = {
   AGENT_ENROLLMENT_INVALID: { code: "AGENT_ENROLLMENT_INVALID", status: 401, title: "Invalid or expired enrollment token" },
   AGENT_CREDENTIAL_INVALID: { code: "AGENT_CREDENTIAL_INVALID", status: 401, title: "Invalid or revoked agent credential" },
   AGENT_VERSION_MISMATCH: { code: "AGENT_VERSION_MISMATCH", status: 403, title: "Agent or importer version mismatch" },
+  AGENT_OFFLINE: { code: "AGENT_OFFLINE", status: 503, title: "Import agent is offline" },
+  AGENT_TEST_TIMEOUT: { code: "AGENT_TEST_TIMEOUT", status: 504, title: "Agent did not answer the credential test in time" },
+  CREDENTIAL_NO_BOUND_AGENT: { code: "CREDENTIAL_NO_BOUND_AGENT", status: 400, title: "No agent-bound config references the credential" },
+  CREDENTIAL_KIND_MISMATCH: { code: "CREDENTIAL_KIND_MISMATCH", status: 400, title: "Credential kind incompatible with this binding" },
 };
 
 export function getErrorType(code: ErrorCode): ErrorType {

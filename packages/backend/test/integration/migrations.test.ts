@@ -206,4 +206,75 @@ describe("migrations", () => {
         .execute(),
     ).rejects.toThrow();
   });
+
+  it("enforces CHECK constraints on credentials.kind and payload coherence", async () => {
+    testDb = await startTestDb();
+    const now = new Date().toISOString();
+    const base = {
+      id: uuidv7(),
+      slug: "k",
+      label: "k",
+      status: "ACTIVE",
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    // STORED row with payload — valid.
+    await testDb.db
+      .insertInto("credentials")
+      .values({ ...base, encryptedPayload: "enc", keyVersion: 1, keyHints: {} })
+      .execute();
+
+    // AGENT_MANAGED row with secretRefMap — valid.
+    await testDb.db
+      .insertInto("credentials")
+      .values({
+        ...base,
+        id: uuidv7(),
+        slug: "am",
+        kind: "AGENT_MANAGED",
+        secretRefMap: { token: { env: "GH_TOKEN" } },
+        keyHints: { token: "env" },
+      })
+      .execute();
+
+    // Unknown kind — rejected.
+    await expect(
+      testDb.db
+        .insertInto("credentials")
+        .values({ ...base, id: uuidv7(), slug: "bad", kind: "VAULT", encryptedPayload: "enc" })
+        .execute(),
+    ).rejects.toThrow();
+
+    // STORED without payload — rejected.
+    await expect(
+      testDb.db
+        .insertInto("credentials")
+        .values({ ...base, id: uuidv7(), slug: "bad2" })
+        .execute(),
+    ).rejects.toThrow();
+
+    // AGENT_MANAGED without secretRefMap — rejected.
+    await expect(
+      testDb.db
+        .insertInto("credentials")
+        .values({ ...base, id: uuidv7(), slug: "bad3", kind: "AGENT_MANAGED" })
+        .execute(),
+    ).rejects.toThrow();
+
+    // AGENT_MANAGED with an encrypted payload — rejected.
+    await expect(
+      testDb.db
+        .insertInto("credentials")
+        .values({
+          ...base,
+          id: uuidv7(),
+          slug: "bad4",
+          kind: "AGENT_MANAGED",
+          secretRefMap: { token: { env: "X" } },
+          encryptedPayload: "enc",
+        })
+        .execute(),
+    ).rejects.toThrow();
+  });
 });

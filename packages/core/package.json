@@ -29,6 +29,10 @@
     "./validation": {
       "types": "./dist/validation/index.d.ts",
       "import": "./dist/validation/index.js"
+    },
+    "./secrets": {
+      "types": "./dist/utils/secrets.d.ts",
+      "import": "./dist/utils/secrets.js"
     }
   },
   "scripts": {

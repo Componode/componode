@@ -118,14 +118,32 @@ export function CredentialsPage() {
                   const expiring = exp !== null && !expired && exp - now <= EXPIRY_WARNING_MS;
                   return (
                     <TableRow key={cred.id}>
-                      <TableCell className="font-medium">{cred.label}</TableCell>
+                      <TableCell className="font-medium">
+                        <span className="inline-flex items-center gap-2">
+                          {cred.label}
+                          {cred.kind === "AGENT_MANAGED" && (
+                            <Badge
+                              variant="secondary"
+                              title="Secret values live on the agent host; this credential stores references only"
+                            >
+                              AGENT
+                            </Badge>
+                          )}
+                        </span>
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {Object.entries(cred.keyHints).map(([key, hint]) => (
-                            <Badge key={key} variant="outline" className="font-mono text-xs">
-                              {key} •••{hint}
-                            </Badge>
-                          ))}
+                          {cred.kind === "AGENT_MANAGED"
+                            ? Object.entries(cred.secretRefMap ?? {}).map(([key, ref]) => (
+                                <Badge key={key} variant="outline" className="font-mono text-xs">
+                                  {key} · {"env" in ref ? "env" : "file"}
+                                </Badge>
+                              ))
+                            : Object.entries(cred.keyHints).map(([key, hint]) => (
+                                <Badge key={key} variant="outline" className="font-mono text-xs">
+                                  {key} •••{hint}
+                                </Badge>
+                              ))}
                         </div>
                       </TableCell>
                       <TableCell>

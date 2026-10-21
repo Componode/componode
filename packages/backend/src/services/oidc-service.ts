@@ -243,7 +243,7 @@ export async function resolveClientSecret(config: {
     }
     const credential = await db
       .selectFrom("credentials")
-      .select(["id", "label", "status", "encryptedPayload"])
+      .select(["id", "label", "status", "kind", "encryptedPayload"])
       .where("id", "=", config.clientSecretCredentialId)
       .executeTakeFirst();
     if (!credential) {
@@ -258,7 +258,15 @@ export async function resolveClientSecret(config: {
         { statusCode: 409, code: "CREDENTIAL_REVOKED" },
       );
     }
-    const payload = decryptSecrets(credential.encryptedPayload, keyring);
+    // OIDC client secrets resolve in-process — agent-managed credentials can
+    // never supply them (spec 026, ADR-117).
+    if (credential.kind === "AGENT_MANAGED") {
+      throw Object.assign(
+        new Error(`Credential "${credential.label}" is agent-managed and cannot supply an OIDC client secret`),
+        { statusCode: 400, code: "CREDENTIAL_KIND_MISMATCH" },
+      );
+    }
+    const payload = decryptSecrets(credential.encryptedPayload!, keyring);
     const secret = payload.clientSecret ?? Object.values(payload)[0];
     if (!secret) {
       throw Object.assign(

@@ -100,6 +100,7 @@ describe("secret resolver", () => {
         id: rest.id ?? "cred-1",
         label: rest.label ?? "Test credential",
         status: rest.status ?? "ACTIVE",
+        kind: rest.kind ?? "STORED",
         encryptedPayload,
         keyVersion,
         expiresAt: rest.expiresAt ?? null,
@@ -173,6 +174,15 @@ describe("secret resolver", () => {
       await expect(
         resolveImportSecrets({ credentialIds: ["missing"] }, depsFor([])),
       ).rejects.toMatchObject({ code: "CREDENTIAL_NOT_FOUND" });
+    });
+
+    it("fails with CREDENTIAL_KIND_MISMATCH before decrypting an AGENT_MANAGED record", async () => {
+      const cred = makeCredential({ id: "am", label: "Agent cred", secrets: { token: "t" } });
+      cred.kind = "AGENT_MANAGED";
+      cred.encryptedPayload = null;
+      await expect(
+        resolveImportSecrets({ credentialIds: ["am"] }, depsFor([cred])),
+      ).rejects.toMatchObject({ code: "CREDENTIAL_KIND_MISMATCH" });
     });
 
     it("fails with CREDENTIAL_REVOKED naming the credential", async () => {

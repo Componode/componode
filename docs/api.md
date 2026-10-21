@@ -82,6 +82,10 @@ exception is `GET /metrics`, which is served at the root.
 | `AGENT_ENROLLMENT_INVALID` | Unknown, used, or expired agent enrollment token (401) |
 | `AGENT_CREDENTIAL_INVALID` | Invalid or revoked agent credential (401) |
 | `AGENT_VERSION_MISMATCH` | Agent protocol/importer version mismatch (403) |
+| `AGENT_OFFLINE` | Bound import agent is not connected (503) |
+| `AGENT_TEST_TIMEOUT` | Agent did not answer the credential test in time (504) |
+| `CREDENTIAL_NO_BOUND_AGENT` | No agent-bound config references this credential (400) |
+| `CREDENTIAL_KIND_MISMATCH` | Credential kind does not match the execution mode (400) |
 <!-- /GENERATED:error-codes -->
 
 ---

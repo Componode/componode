@@ -64,7 +64,12 @@ export function ImporterConfigForm({
   const [showNewCredential, setShowNewCredential] = useState(false);
   const credentialsQuery = useCredentials();
   const createCredential = useCreateCredential();
-  const credentials = credentialsQuery.data?.credentials ?? [];
+  // Hub-executed configs can only consume STORED credentials — agent-managed
+  // refs are resolved on the agent host, so they never appear here
+  // (CREDENTIAL_KIND_MISMATCH, spec 026).
+  const credentials = (credentialsQuery.data?.credentials ?? []).filter(
+    (c) => c.kind !== "AGENT_MANAGED",
+  );
 
   // GitHub scope fields
   const [org, setOrg] = useState<string>("");
@@ -337,6 +342,7 @@ export function ImporterConfigForm({
           <p className="text-sm font-medium">Store new credential</p>
           <CredentialForm
             submitting={createCredential.isPending}
+            lockStored
             onCancel={() => setShowNewCredential(false)}
             onSubmit={async (input) => {
               const res = await createCredential.mutateAsync(input);

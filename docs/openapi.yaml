@@ -2086,17 +2086,23 @@ paths:
       summary: Create a credential
       x-permission: "credential:create"
       description: >-
-        Requires the `credential:create` role (Admin). The `secrets` bundle is
-        encrypted at rest (AES-256-GCM) and never returned.
+        Requires the `credential:create` role (Admin). For `STORED` (default)
+        the `secrets` bundle is encrypted at rest (AES-256-GCM) and never
+        returned. For `AGENT_MANAGED` only `secretRefMap` is stored — no
+        secret values transit the hub (ADR-117).
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [label, secrets]
+              required: [label]
               properties:
                 label: { type: string, minLength: 1, maxLength: 200 }
+                kind:
+                  type: string
+                  enum: [STORED, AGENT_MANAGED]
+                  default: STORED
                 expiresAt:
                   type: string
                   format: date-time
@@ -2106,7 +2112,16 @@ paths:
                   type: object
                   additionalProperties: { type: string }
                   minProperties: 1
-                  description: 'Key/value bundle (e.g. `{ "token": "ghp_…" }`)'
+                  description: 'STORED only — key/value bundle (e.g. `{ "token": "ghp_…" }`)'
+                secretRefMap:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    properties:
+                      env: { type: string }
+                      file: { type: string }
+                  minProperties: 1
+                  description: 'AGENT_MANAGED only — e.g. `{ "token": { "env": "GH_TOKEN" } }`'
       responses:
         '201':
           description: Credential created
@@ -2173,7 +2188,16 @@ paths:
                   type: object
                   additionalProperties: { type: string }
                   minProperties: 1
-                  description: Present = rotate the bundle in place
+                  description: STORED only — present = rotate the bundle in place
+                secretRefMap:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    properties:
+                      env: { type: string }
+                      file: { type: string }
+                  minProperties: 1
+                  description: AGENT_MANAGED only — present = replace the reference map in place
                 status:
                   type: string
                   enum: [REVOKED]
@@ -2218,10 +2242,16 @@ paths:
       x-permission: "credential:update"
       description: >-
         Dry-runs the credential against an importer's `testSecrets` hook — a
-        minimal authenticated probe, no data is imported. Returns `400
-        MANIFEST_NO_TEST` when the importer does not implement the hook and
-        `400 CREDENTIAL_REVOKED` for revoked credentials. An upstream auth
-        failure is reported in the body, never as a 4xx.
+        minimal authenticated probe, no data is imported. `STORED` runs
+        in-process; `AGENT_MANAGED` dispatches `credential.test` to the bound
+        Import Agent, which resolves the references locally — secret values
+        never transit the channel. Returns `400 MANIFEST_NO_TEST` when the
+        importer does not implement the hook, `400 CREDENTIAL_REVOKED` for
+        revoked credentials, `400 CREDENTIAL_NO_BOUND_AGENT` when no bound
+        agent exists, `503 AGENT_OFFLINE` when the bound agent is not
+        connected, and `504 AGENT_TEST_TIMEOUT` when the agent never
+        responds. An upstream auth failure is reported in the body, never as
+        a 4xx.
       parameters:
         - { $ref: '#/components/parameters/Id' }
       requestBody:
@@ -2250,7 +2280,12 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '503':
-          description: Credential store key unavailable (`CREDENTIAL_KEY_UNAVAILABLE`)
+          description: Key unavailable (`CREDENTIAL_KEY_UNAVAILABLE`) or bound agent offline (`AGENT_OFFLINE`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '504':
+          description: Bound agent did not answer in time (`AGENT_TEST_TIMEOUT`)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -2726,6 +2761,10 @@ components:
             - AGENT_ENROLLMENT_INVALID
             - AGENT_CREDENTIAL_INVALID
             - AGENT_VERSION_MISMATCH
+            - AGENT_OFFLINE
+            - AGENT_TEST_TIMEOUT
+            - CREDENTIAL_NO_BOUND_AGENT
+            - CREDENTIAL_KIND_MISMATCH
         message: { type: string }
         details: { type: object, nullable: true, description: Optional machine-readable context (e.g. Zod issues, retryAfter). }
         invalid-params:
@@ -3280,7 +3319,10 @@ components:
       type: object
       description: >-
         Credential metadata. Secret values are write-only — `keyHints` shows
-        the last 4 characters of each stored key, never the value.
+        the last 4 characters of each stored key, never the value. For
+        `AGENT_MANAGED` credentials the value lives on the agent host;
+        `keyHints` instead carries the source type (`env`/`file`) per key and
+        `secretRefMap` exposes the reference names.
       properties:
         id: { type: string, format: uuid }
         slug: { type: string }
@@ -3288,10 +3330,30 @@ components:
         status:
           type: string
           enum: [ACTIVE, REVOKED]
+        kind:
+          type: string
+          enum: [STORED, AGENT_MANAGED]
+          description: >-
+            `STORED` — values encrypted on the hub (AES-256-GCM).
+            `AGENT_MANAGED` — references only; values live on the Import
+            Agent host and never transit the hub (ADR-117).
+        secretRefMap:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: object
+            properties:
+              env: { type: string }
+              file: { type: string }
+          description: >-
+            AGENT_MANAGED only — maps secret key → `{env}` or `{file}`
+            reference on the agent host. Never returned for STORED.
         keyHints:
           type: object
           additionalProperties: { type: string }
-          description: Last-4 hint per stored key
+          description: >-
+            STORED: last-4 hint per key. AGENT_MANAGED: ref source type
+            (`env`/`file`) per key.
         expiresAt: { type: string, format: date-time, nullable: true }
         lastUsedAt: { type: string, format: date-time, nullable: true }
         createdBy: { type: string, format: uuid, nullable: true }
@@ -3322,6 +3384,11 @@ components:
         error:
           type: string
           description: Failure reason (e.g. "Authentication failed (401)")
+        agent:
+          type: string
+          description: >-
+            Present for AGENT_MANAGED credentials — name of the Import Agent
+            that executed the remote test.
     Team:
       type: object
       properties:

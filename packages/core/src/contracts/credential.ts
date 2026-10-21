@@ -1,13 +1,21 @@
 import type { CredentialStatus } from "../constants/credential-status.js";
+import type { CredentialKind } from "../constants/credential-kind.js";
+import type { SecretRefMap } from "../schemas/credential.js";
 
 // API representation of a stored credential. Plaintext secret values are
-// never present in this shape — they are write-only.
+// never present in this shape — they are write-only. AGENT_MANAGED records
+// carry references (names, not values — ADR-117), which are non-secret and
+// safe to return.
 export interface Credential {
   id: string;
   slug: string;
   label: string;
   status: CredentialStatus;
-  // Non-reversible display hints per secret key (e.g. { token: "wxyz" }).
+  kind: CredentialKind;
+  // AGENT_MANAGED only: per-key references resolved on the agent host.
+  secretRefMap?: SecretRefMap;
+  // Non-reversible display hints per secret key — last-4 for STORED,
+  // source type ("env"|"file") for AGENT_MANAGED.
   keyHints: Record<string, string>;
   expiresAt: string | null;
   lastUsedAt: string | null;
@@ -30,4 +38,7 @@ export interface CredentialDetail {
 export interface CredentialTestResult {
   ok: boolean;
   error?: string;
+  // Set when the test ran on an Import Agent (spec 026) — the executing
+  // agent's name.
+  agent?: string;
 }

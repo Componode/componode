@@ -45,7 +45,7 @@ creates them.
 | `AGENT_ENROLLMENT_TOKEN_FILE`             | one of   | —                                      | Preferred: path to a file containing the token                                                                                               |
 | `AGENT_TOKEN` / `AGENT_TOKEN_FILE`        | no       | —                                      | Skip enrollment by supplying a durable credential directly                                                                                   |
 | `AGENT_STATE_DIR`                         | no       | `./.agent-state` (container: `/state`) | Must be writable and persistent; holds `agent-token`                                                                                         |
-| `SECRETS_DIR`                             | no       | —                                      | Reserved for importer secrets in later specs                                                                                                 |
+| `SECRETS_DIR`                             | no       | `/run/secrets`                         | Base directory for `{file: "…"}` secret references of `AGENT_MANAGED` credentials; paths must stay relative — absolute paths and `..` escapes are rejected |
 | `CA_BUNDLE`                               | no       | system CAs                             | Path to a PEM bundle for internal/private CAs                                                                                                |
 | `MAX_JOBS`                                | no       | `1`                                    | Reported to the hub in `hello` capabilities                                                                                                  |
 | `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | no       | —                                      | Standard egress proxy support                                                                                                                |
@@ -85,9 +85,35 @@ Credential precedence: `AGENT_TOKEN_FILE` → `AGENT_TOKEN` → persisted
   can be overridden via environment on the **hub** — intended for tests
   and tuning; the spec-fixed defaults are the supported values.
 
+## Agent-managed credentials (spec 026)
+
+`AGENT_MANAGED` credentials store **reference names only** on the hub —
+`{env: "VAR"}` or `{file: "relative/path"}` per secret key. The agent
+resolves them on its host when a credential test (and later, a run) needs
+values; secret material never crosses the WebSocket in either direction.
+
+- `env` refs read `process.env` **at resolve time** — rotating a value is
+  purely agent-side: update the env var or remount the file; the hub
+  record needs no change and nothing re-encrypts.
+- `file` refs are confined to `SECRETS_DIR` (default `/run/secrets`);
+  contents are trimmed.
+- Resolution events are logged with key name + source type only —
+  never values.
+
 ## Hardening
 
-- Prefer `*_FILE` secrets (Docker secrets / mounted files) over env vars.
+- Prefer `*_FILE` secrets (Docker secrets / mounted files) over env vars —
+  env values leak via `/proc/<pid>/environ`, `docker inspect`, and crash
+  dumps; mounted files do not. The same applies to the agent token itself —
+  use `AGENT_TOKEN_FILE` where the platform supports it.
+- Importer secrets for `AGENT_MANAGED` credentials follow the same rule:
+  mount them under `SECRETS_DIR` (Kubernetes secrets → volumes, Docker
+  secrets → `/run/secrets`, Vault agent → files) rather than baking them
+  into env vars.
+- Encryption at rest for the secrets directory is delegated to the
+  platform (`encryptionConfiguration` on Kubernetes, encrypted Swarm
+  secrets, Vault-managed mounts); the agent reads plaintext files at
+  resolve time.
 - Mount `AGENT_STATE_DIR` on a persistent volume with tight permissions;
   the `agent-token` file is a durable credential.
 - Use `CA_BUNDLE` for hubs on internal CAs — never disable verification.
