@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance, type FastifyLoggerOptions, type FastifyServerOptions } from "fastify";
 import cookie from "@fastify/cookie";
+import websocket from "@fastify/websocket";
 import staticPlugin from "@fastify/static";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -28,6 +29,10 @@ import { productRoutes } from "./routes/products.js";
 import { suggestionRoutes } from "./routes/suggestions.js";
 import { orgRoutes } from "./routes/org.js";
 import { auditRoutes } from "./routes/audit.js";
+import { agentRoutes } from "./routes/agents.js";
+import { agentChannelRoutes } from "./routes/agent-channel.js";
+import { agentAuthPlugin } from "./plugins/agent-auth.js";
+import { AgentSessionService } from "./services/agent-session-service.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -78,6 +83,16 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Session plugin (decorates app with verifySession)
   await sessionPlugin(app);
 
+  // Agent bearer auth + outbound WebSocket stream (spec 025, ADR-116)
+  await app.register(websocket);
+  await agentAuthPlugin(app);
+  const agentSessions = new AgentSessionService(app.log);
+  agentSessions.start();
+  app.decorate("agentSessions", agentSessions);
+  app.addHook("onClose", async () => {
+    await agentSessions.stop();
+  });
+
   // Register routes
   await app.register(authRoutes, { prefix: "/api/v1" });
   await app.register(healthRoutes, { prefix: "/api/v1" });
@@ -94,6 +109,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(suggestionRoutes, { prefix: "/api/v1" });
   await app.register(orgRoutes, { prefix: "/api/v1" });
   await app.register(auditRoutes, { prefix: "/api/v1" });
+  await app.register(agentRoutes, { prefix: "/api/v1" });
+  await app.register(agentChannelRoutes, { prefix: "/api/v1", sessions: agentSessions });
 
   // Metrics endpoint — unauthenticated, no prefix (ADR-069)
   await app.register(metricsRoutes);

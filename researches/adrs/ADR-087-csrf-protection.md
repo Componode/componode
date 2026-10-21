@@ -29,3 +29,17 @@ succeed because the browser had no token yet.
 first safe `GET`/`HEAD` response when the request does not already have one.
 This gives the frontend a token before any login attempt without changing the
 double-submit verification on `POST`/`PUT`/`PATCH`/`DELETE`.
+
+## Amendment 2 — Non-cookie-authenticated routes (2026-10-21, via ADR-116)
+
+**Context**: `POST /api/v1/agent/enroll` (Import Agent enrollment,
+ADR-116) is called by the agent process, which holds no cookie jar — the
+universal check would 403 every legitimate enrollment.
+
+**Refinement**: The double-submit requirement applies to routes that
+authenticate via the session cookie. Routes under `/api/v1/agent/` —
+authenticated by bearer credential (enrollment token or agent token),
+never ambient cookies — are exempt by path prefix. CSRF's threat model
+is ambient cookie auth; on bearer-authed machine endpoints the check has
+no value. All session-authenticated state-changing routes remain covered
+without exception.

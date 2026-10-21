@@ -78,3 +78,12 @@ single encrypted store with a managed master key, write-only API surface,
 and dedicated permissions delivers rotation, revocation, expiry, usage
 tracking, and testability without turning Componode into a general-purpose
 KMS — scope is deliberately limited to integration credentials.
+
+---
+
+**Amended by ADR-116 / ADR-117**: `credentials` gains a `kind`
+discriminator (`STORED` | `AGENT_MANAGED`) and a `secretRefMap` jsonb
+payload type. `AGENT_MANAGED` records hold per-key references (names, not
+values) resolved on the Import Agent host; `STORED` behavior is
+unchanged and the write-only-values rule is preserved —
+`AGENT_MANAGED` stores no values at all.

@@ -24,6 +24,10 @@ export async function csrfPlugin(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", async (req: FastifyRequest, reply: FastifyReply) => {
     if (!STATE_CHANGING_METHODS.has(req.method)) return;
 
+    // Agent endpoints authenticate with bearer tokens, not browser sessions —
+    // agents hold no cookie/CSRF header (ADR-087 amendment, spec 025).
+    if (req.raw.url?.startsWith("/api/v1/agent/")) return;
+
     const cookieToken = req.cookies?.[CSRF_COOKIE_NAME];
     const headerToken = req.headers[CSRF_HEADER_NAME] as string | undefined;
 

@@ -23,3 +23,9 @@ OIDC client secrets now persist, AES-256-GCM encrypted, in the `credentials`
 table. `env`/`file` resolvers remain during a deprecation window.
 Infrastructure-only secrets (DB password, registry, deployment/monitoring)
 remain external per the original rule.
+
+**Amended by ADR-117**: for remote execution the original posture is
+realized literally — `AGENT_MANAGED` credential values live exclusively
+in external stores (env vars, `SECRETS_DIR` files) adjacent to the
+Import Agent; the hub record holds only references. No behavioral change
+to `STORED` credentials.

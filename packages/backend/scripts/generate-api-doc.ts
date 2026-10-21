@@ -34,7 +34,8 @@ const CODE_MEANINGS: Record<string, string> = {
   OIDC_INVALID_CODE: "Missing or invalid OIDC code",
   OIDC_TOKEN_VERIFICATION_FAILED: "OIDC token verification failed",
   OIDC_DISCOVERY_FAILED: "OIDC issuer discovery failed",
-  CSRF_TOKEN_MISMATCH: "Missing/mismatched CSRF token on a state-changing request (403)",
+  CSRF_TOKEN_MISMATCH:
+    "Missing/mismatched CSRF token on a state-changing request (403)",
   VALIDATION_FAILED: "Zod input validation failed (400)",
   NOT_FOUND: "Resource not found (404)",
   CONFLICT: "Generic conflict (409)",
@@ -45,19 +46,32 @@ const CODE_MEANINGS: Record<string, string> = {
   TYPE_CHANGE_BLOCKED: "Product type change not allowed",
   SLUG_TAKEN: "Slug uniqueness conflict",
   SLUG_CONFLICT: "Component-group slug already in use (409)",
-  CONFIG_NOT_FOUND: "Importer config missing at run time (surfaced via run error fields)",
+  CONFIG_NOT_FOUND:
+    "Importer config missing at run time (surfaced via run error fields)",
   RUN_IN_PROGRESS: "An import run is already in progress for this config (409)",
   RUN_NOT_ACTIVE: "Run is not PENDING/RUNNING and cannot be cancelled (409)",
   INTERNAL_ERROR: "Unhandled server error",
   CREDENTIAL_NOT_FOUND: "Credential not found (404)",
-  CREDENTIAL_IN_USE: "Credential delete/update blocked by existing references (409)",
+  CREDENTIAL_IN_USE:
+    "Credential delete/update blocked by existing references (409)",
   CREDENTIAL_REVOKED: "Revoked credential cannot be resolved (409)",
-  CREDENTIAL_MISSING_KEY: "Required secret key not covered by referenced credentials (400)",
-  CREDENTIAL_KEY_COLLISION: "Same secret key provided by more than one source (400)",
+  CREDENTIAL_MISSING_KEY:
+    "Required secret key not covered by referenced credentials (400)",
+  CREDENTIAL_KEY_COLLISION:
+    "Same secret key provided by more than one source (400)",
   CREDENTIAL_KEY_UNAVAILABLE: "Credential store master key unavailable (503)",
   MANIFEST_NO_TEST: "Importer does not support credential testing (400)",
-  CONVERSION_NOTHING_TO_CONVERT: "Config has no legacy env/file secret refs to convert (400)",
-  LEGACY_SECRET_UNRESOLVABLE: "Legacy env/file secret reference could not be resolved (502)",
+  CONVERSION_NOTHING_TO_CONVERT:
+    "Config has no legacy env/file secret refs to convert (400)",
+  LEGACY_SECRET_UNRESOLVABLE:
+    "Legacy env/file secret reference could not be resolved (502)",
+  AGENT_NOT_FOUND: "Import agent not found (404)",
+  AGENT_NAME_TAKEN: "Agent name already in use (409)",
+  AGENT_IN_USE: "Agent delete blocked by bound importer configs (409)",
+  AGENT_ENROLLMENT_INVALID:
+    "Unknown, used, or expired agent enrollment token (401)",
+  AGENT_CREDENTIAL_INVALID: "Invalid or revoked agent credential (401)",
+  AGENT_VERSION_MISMATCH: "Agent protocol/importer version mismatch (403)",
 };
 
 interface Operation {
@@ -70,7 +84,9 @@ interface Operation {
 
 export interface Spec {
   paths: Record<string, Record<string, Operation>>;
-  components: { schemas: { Problem: { properties: { code: { enum: string[] } } } } };
+  components: {
+    schemas: { Problem: { properties: { code: { enum: string[] } } } };
+  };
 }
 
 export function loadSpec(path = OPENAPI_PATH): Spec {
@@ -80,6 +96,14 @@ export function loadSpec(path = OPENAPI_PATH): Spec {
 function accessOf(op: Operation): string {
   if (Array.isArray(op.security) && op.security.length === 0) return "Public";
   if (op["x-permission"]) return `\`${op["x-permission"]}\``;
+  if (
+    Array.isArray(op.security) &&
+    op.security.some(
+      (s) => s !== null && typeof s === "object" && "agentBearer" in s,
+    )
+  ) {
+    return "Agent credential";
+  }
   return "Authenticated";
 }
 
@@ -121,7 +145,8 @@ export function renderErrorCodeTable(spec: Spec): string {
   return rows.join("\n");
 }
 
-const MARKER_RE = /<!--\s*GENERATED:([A-Za-z0-9:-]+)\s*-->([\s\S]*?)<!--\s*\/GENERATED:\1\s*-->/g;
+const MARKER_RE =
+  /<!--\s*GENERATED:([A-Za-z0-9:-]+)\s*-->([\s\S]*?)<!--\s*\/GENERATED:\1\s*-->/g;
 
 export function generateApiDoc(spec: Spec, current: string): string {
   const seen = new Set<string>();
@@ -150,7 +175,9 @@ export function generateApiDoc(spec: Spec, current: string): string {
   }
   const missing = [...specTags].filter((t) => !seen.has(t));
   if (missing.length) {
-    throw new Error(`docs/api.md is missing GENERATED markers for: ${missing.join(", ")}`);
+    throw new Error(
+      `docs/api.md is missing GENERATED markers for: ${missing.join(", ")}`,
+    );
   }
 
   return eol === "\n" ? result : result.replace(/\n/g, eol);
@@ -172,5 +199,6 @@ export function run(check: boolean): void {
   console.log("docs/api.md regenerated");
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain =
+  process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isMain) run(process.argv.includes("--check"));

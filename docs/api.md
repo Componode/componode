@@ -76,6 +76,12 @@ exception is `GET /metrics`, which is served at the root.
 | `MANIFEST_NO_TEST` | Importer does not support credential testing (400) |
 | `CONVERSION_NOTHING_TO_CONVERT` | Config has no legacy env/file secret refs to convert (400) |
 | `LEGACY_SECRET_UNRESOLVABLE` | Legacy env/file secret reference could not be resolved (502) |
+| `AGENT_NOT_FOUND` | Import agent not found (404) |
+| `AGENT_NAME_TAKEN` | Agent name already in use (409) |
+| `AGENT_IN_USE` | Agent delete blocked by bound importer configs (409) |
+| `AGENT_ENROLLMENT_INVALID` | Unknown, used, or expired agent enrollment token (401) |
+| `AGENT_CREDENTIAL_INVALID` | Invalid or revoked agent credential (401) |
+| `AGENT_VERSION_MISMATCH` | Agent protocol/importer version mismatch (403) |
 <!-- /GENERATED:error-codes -->
 
 ---
@@ -360,3 +366,25 @@ and decided pairs never resurface.
 | POST | `/api/v1/suggestions/:id/dismiss` | Dismiss a suggestion permanently | `product:edge:add` |
 | POST | `/api/v1/suggestions/rescan` | Run a whole-catalog generation pass | `product:edge:add` |
 <!-- /GENERATED:table:Suggestions -->
+
+## Agents
+
+Import Agent management (ADR-116, spec 025): remote agents that enroll via a
+single-use token and hold an outbound WebSocket session. Admin-only.
+Enrollment tokens and credential material are shown once at issuance and
+never retrievable from any endpoint.
+
+<!-- GENERATED:table:Agents -->
+| Method | Path | Description | Access |
+|---|---|---|---|
+| GET | `/api/v1/agents` | List import agents | `agent:read` |
+| POST | `/api/v1/agents` | Create an import agent | `agent:create` |
+| GET | `/api/v1/agents/:id` | Get an import agent | `agent:read` |
+| PATCH | `/api/v1/agents/:id` | Update an import agent | `agent:update` |
+| DELETE | `/api/v1/agents/:id` | Delete an import agent | `agent:delete` |
+| GET | `/api/v1/agents/:id/sessions` | Agent connection history | `agent:read` |
+| POST | `/api/v1/agents/:id/enroll` | Issue a fresh enrollment token (credential rotation) | `agent:update` |
+| POST | `/api/v1/agents/:id/revoke` | Revoke the agent credential | `agent:update` |
+| POST | `/api/v1/agent/enroll` | Exchange an enrollment token for a durable agent credential | Public |
+| GET | `/api/v1/agent/stream` | Agent control stream (WebSocket upgrade) | Agent credential |
+<!-- /GENERATED:table:Agents -->

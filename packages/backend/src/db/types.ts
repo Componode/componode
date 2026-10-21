@@ -160,10 +160,45 @@ export interface ImporterConfigRow {
   secretRefs: Array<{ key: string; env?: string; file?: string }> | null;
   schedule: string | null;
   enabled: boolean;
+  agentId: string | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: Generated<string>;
   updatedAt: Generated<string>;
+}
+
+export interface ImportAgentRow {
+  id: string;
+  name: string;
+  status: Generated<string>;
+  agentVersion: string | null;
+  protocolVersion: number | null;
+  importerVersions: Generated<Array<{ name: string; version: string }>>;
+  allowedImporters: Generated<string[]>;
+  maxConcurrentJobs: number | null;
+  credentialHash: string | null;
+  credentialIssuedAt: string | null;
+  enrollmentTokenHash: string | null;
+  enrollmentTokenExpiresAt: string | null;
+  enrollmentTokenUsedAt: string | null;
+  revokedAt: string | null;
+  lastSeenAt: string | null;
+  createdBy: string | null;
+  updatedBy: string | null;
+  createdAt: Generated<string>;
+  updatedAt: Generated<string>;
+}
+
+export interface AgentSessionRow {
+  id: string;
+  agentId: string;
+  connectedAt: Generated<string>;
+  disconnectedAt: string | null;
+  disconnectReason: string | null;
+  remoteAddress: string | null;
+  agentVersion: string | null;
+  protocolVersion: number | null;
+  importerVersions: Generated<Array<{ name: string; version: string }>>;
 }
 
 export interface ImportRunRow {
@@ -302,6 +337,8 @@ export interface DB {
   importer_configs: ImporterConfigRow;
   importer_config_credentials: ImporterConfigCredentialRow;
   credentials: CredentialRow;
+  import_agents: ImportAgentRow;
+  agent_sessions: AgentSessionRow;
   import_runs: ImportRunRow;
   import_run_errors: ImportRunErrorRow;
   entity_changes: EntityChangeRow;

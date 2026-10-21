@@ -27,3 +27,9 @@ denormalized name snapshot preserves the audit trail's usefulness while
 respecting hard-delete of persons. The name snapshot tradeoff is documented
 (audit integrity wins over complete right-to-be-forgotten for historical
 records).
+
+---
+
+**Amended by ADR-116**: `agent_sessions` is explicitly outside the
+append-only trigger protection — it is operational connection telemetry,
+not an audit guarantee.

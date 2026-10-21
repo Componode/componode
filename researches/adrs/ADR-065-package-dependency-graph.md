@@ -18,3 +18,10 @@ The ESLint boundary rule (importers MUST NOT import `backend`) is enforceable
 only if `core` is the sole shared dep. One container (backend serves
 frontend) matches [ADR-028](./ADR-028-deployment-docker-compose-only-for-v1.md)'s minimalism (Docker Compose = `postgres` + `app`);
 a separate nginx container is an additive change later if needed.
+
+---
+
+**Amended by ADR-116**: `packages/agent` joins backend as a permitted
+importer-package aggregator (manifest import only); `importer-registry`
+moves to `packages/core` as an injected-package-list factory so `core`
+remains a leaf with zero `@componode/*` deps.

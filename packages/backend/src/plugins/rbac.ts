@@ -24,6 +24,11 @@ const PERMISSIONS: Record<string, Role> = {
   "credential:read": "ADMIN",
   "credential:update": "ADMIN",
   "credential:delete": "ADMIN",
+  // Import Agent management (ADR-116, spec 025)
+  "agent:read": "ADMIN",
+  "agent:create": "ADMIN",
+  "agent:update": "ADMIN",
+  "agent:delete": "ADMIN",
   "importer:run:trigger": "EDITOR",
   "importer:run:cancel": "EDITOR",
   "component:update": "EDITOR",

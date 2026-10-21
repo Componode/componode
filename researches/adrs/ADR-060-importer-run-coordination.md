@@ -21,3 +21,10 @@ configs aligning). Re-enqueuing on restart is dangerous (flap storm);
 `INTERRUPTED` lets the next cron tick or manual trigger re-run cleanly. SSE/
 WebSocket push is post-v1; polling every 2-3s is adequate for a "refresh AWS"
 interaction that takes 30-60s.
+
+---
+
+**Amended by ADR-116**: run coordination gains an agent-capacity
+dimension — remote runs wait `PENDING` for the bound agent's advertised
+`maxConcurrentJobs` (replacing `IMPORTER_MAX_CONCURRENCY` for remote
+runs) up to a dispatch timeout.

@@ -139,6 +139,24 @@ const suggestionPassErrorsTotal = getOrCreateCounter(
   [],
 );
 
+// Import Agent metrics (ADR-116, spec 025)
+const importAgentsConnected = getOrCreateGauge(
+  "import_agents_connected",
+  "Import agents holding a live stream session",
+);
+
+const agentSessionsTotal = getOrCreateCounter(
+  "agent_sessions_total",
+  "Total agent stream sessions closed",
+  ["agent", "reason"],
+);
+
+const agentStreamRejectedTotal = getOrCreateCounter(
+  "agent_stream_rejected_total",
+  "Rejected agent stream/enrollment attempts (bad credential, bad token, version mismatch)",
+  ["reason"],
+);
+
 // Collect default Node.js metrics (event loop, GC, memory, CPU) once per process.
 const collectDefaultMetrics = promClient.collectDefaultMetrics;
 if (!promClient.register.getSingleMetric("process_cpu_user_seconds_total")) {
@@ -164,6 +182,9 @@ export const metrics = {
   suggestionStagedTotal,
   suggestionSupersededTotal,
   suggestionPassErrorsTotal,
+  importAgentsConnected,
+  agentSessionsTotal,
+  agentStreamRejectedTotal,
 };
 
 export async function metricsPlugin(app: FastifyInstance): Promise<void> {

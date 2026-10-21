@@ -77,6 +77,8 @@ user identity + sign-out (right).
 │  Users     │                                          │
 │  Sessions  │                                          │
 │  Credential│                                          │
+│  Import    │                                          │
+│   Agents   │                                          │
 │  Activity  │                                          │
 │  Settings  │                                          │
 └────────────┴──────────────────────────────────────────┘
@@ -102,6 +104,7 @@ user identity + sign-out (right).
 | `/users` | User management | Admin |
 | `/sessions` | Active sessions | Admin |
 | `/credentials` | Credential store | Admin |
+| `/agents`, `/agents/:id` | Import Agent fleet + detail (overview, connection history) | Admin |
 | `/activity` | Audit activity feed | Admin |
 | `/settings` | App settings (OIDC, registration) | Admin |
 | `/login`, `/register`, `/auth/oidc/callback` | Auth (no shell) | — |
@@ -215,10 +218,16 @@ Every page and every async region implements these states. Toast feedback
 - **Timestamps**: relative for recent events ("3m ago"), absolute ISO on
   hover/tooltip.
 - **Enums → badges** with a fixed color map, identical everywhere:
-  `ACTIVE`/`RUNNING` green-ish, `STOPPED` neutral, `ERROR`/`GONE` red,
-  `RETIRED` muted, `PENDING`/`QUEUED` yellow. Status color must mean one thing
-  across the whole app.
+  `ACTIVE`/`RUNNING`/`CONNECTED` green-ish, `STOPPED`/`OFFLINE` neutral,
+  `ERROR`/`GONE` red, `RETIRED` muted, `PENDING`/`QUEUED`/`NEVER_CONNECTED`
+  yellow. Status color must mean one thing across the whole app.
 - **Identifiers**: slugs rendered in `font-mono` where shown.
+- **Import Agents**: `agentVersion`, `protocolVersion`, `importerVersions`,
+  and `maxConcurrentJobs` on the agent detail page are *agent-reported*
+  (labeled as such); `allowedImporters` is hub-managed policy. The
+  enrollment token surfaces exactly once in a copy-dialog after create or
+  rotate — the hub URL field is editable and prefilled from the browser
+  origin.
 
 ---
 

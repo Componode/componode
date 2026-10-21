@@ -39,6 +39,13 @@ export default defineConfig({
         ],
       },
       {
+        text: "Import Agents",
+        items: [
+          { text: "Deployment & Hardening", link: "/agents" },
+          { text: "Wire Protocol", link: "/agent-protocol" },
+        ],
+      },
+      {
         text: "Reference",
         items: [
           { text: "Digital Products", link: "/digital-products" },

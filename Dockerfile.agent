@@ -1,0 +1,42 @@
+# Import Agent image for Componode (spec 025, ADR-116).
+# Same monorepo build as the hub image; runs the agent runtime instead.
+#
+#   docker build -f Dockerfile.agent -t componode-agent:latest .
+#
+# The agent needs a state volume for its durable credential:
+#   docker run -d --name componode-agent \
+#     -e HUB_URL=https://hub.example.com \
+#     -e AGENT_ENROLLMENT_TOKEN_FILE=/run/secrets/enroll_token \
+#     -v ./enroll_token:/run/secrets/enroll_token:ro \
+#     -v componode-agent-state:/state \
+#     -e AGENT_STATE_DIR=/state \
+#     componode-agent:latest
+
+FROM node:24.21.0-alpine
+
+RUN addgroup -g 10001 componode && \
+    adduser -u 10001 -G componode -D componode
+
+RUN corepack enable pnpm
+
+WORKDIR /app
+
+COPY . .
+
+RUN pnpm install --frozen-lockfile
+RUN pnpm build
+
+# /state must be writable by the agent user BEFORE dropping privileges —
+# an anonymous/named volume initialized from this mountpoint keeps these
+# ownership bits; without them persistToken fails EACCES on first enroll.
+RUN mkdir -p /state && chown componode:componode /state
+
+USER componode
+
+ENV NODE_ENV=production \
+    AGENT_STATE_DIR=/state
+
+# Durable credential lives here — mount a volume so restarts don't re-enroll.
+VOLUME ["/state"]
+
+CMD ["node", "packages/agent/dist/main.js"]

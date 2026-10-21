@@ -15,3 +15,9 @@ change (concurrency limits are infrastructure-sizing decisions).
 headroom). Env-var approach matches the "deployer brings infra" posture. A
 deployer who knows their Postgres has `max_connections = 50` can tune down.
 No per-config concurrency field (it's always 1 per [ADR-039](./ADR-039-importer-trigger-auth-boundary.md)).
+
+---
+
+**Amended by ADR-116**: `maxConcurrentJobs` advertised in the agent's
+`hello` replaces `IMPORTER_MAX_CONCURRENCY` for remote runs; in-process
+runs are unchanged.

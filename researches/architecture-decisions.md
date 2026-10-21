@@ -5,6 +5,7 @@
 > Practical DPAM improvements: ADR-109–112,
 > DPAM review grilling (2026-10-18): ADR-113–114,
 > Alibaba Cloud importer grilling (2026-10-21): ADR-115
+> Remote import agents grilling (2026-10-21): ADR-116–117
 > **Status**: Ratified — these decisions are the foundation for Componode v1.
 > **How to use**: Each ADR is in its own file under `researches/adrs/`.
 > Read the relevant ADRs before starting implementation work. Changes to any
@@ -64,6 +65,7 @@
 | [ADR-025](./adrs/ADR-025-importer-interface-pull-only-asyncgenerator.md) | Importer interface: pull-only AsyncGenerator (superseded by ADR-056/057) |
 | [ADR-026](./adrs/ADR-026-v1-importer-scope-7-importers.md) | v1 importer scope: 7 importers |
 | [ADR-115](./adrs/ADR-115-alibaba-cloud-importer.md) | Alibaba Cloud importer: Resource Center discovery |
+| [ADR-116](./adrs/ADR-116-remote-import-agents.md) | Remote import execution via outbound Import Agents (amends ADR-022, 052, 054, 055, 058, 060, 061, 065, 087, 097, 100, 107) |
 
 ### Auth & Security
 
@@ -165,6 +167,7 @@
 | [ADR-106](./adrs/ADR-106-security-hardening-2026-09-assessment.md) | Security hardening from the 2026-09-10 assessment |
 | [ADR-107](./adrs/ADR-107-credential-store.md) | Application credential store for integration secrets (supersedes ADR-023 no-secrets-at-rest clause) |
 | [ADR-108](./adrs/ADR-108-mobile-nav-drawer.md) | Mobile navigation drawer below `md` (narrows `docs/ux.md` §9) |
+| [ADR-117](./adrs/ADR-117-agent-managed-credentials.md) | Agent-managed credentials: reference-only credential flavor (amends ADR-107, 055, 023, 090) |
 
 ### Frontend & SPA
 

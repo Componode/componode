@@ -55,12 +55,7 @@ export interface OidcStatus {
 }
 
 export type ImportRunStatus =
-  | "PENDING"
-  | "RUNNING"
-  | "COMPLETED"
-  | "FAILED"
-  | "CANCELLED"
-  | "INTERRUPTED";
+  "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED" | "INTERRUPTED";
 
 export interface ImportRunError {
   id: string;
@@ -406,3 +401,22 @@ export type {
   SuggestionListResult,
   SuggestionRescanReport,
 } from "@componode/core";
+
+// Import Agents (spec 025 / ADR-116) — contracts live in core.
+export type {
+  ImportAgent,
+  AgentSession,
+  AgentEnrollment,
+} from "@componode/core";
+
+export interface CreateAgentResult {
+  agent: import("@componode/core").ImportAgent;
+  enrollment: import("@componode/core").AgentEnrollment;
+}
+
+/** Show-once enrollment material plus the owning agent's display name —
+ *  the state the enrollment dialog needs (create + rotate flows). */
+export interface EnrollmentGrant {
+  agentName: string;
+  enrollment: import("@componode/core").AgentEnrollment;
+}

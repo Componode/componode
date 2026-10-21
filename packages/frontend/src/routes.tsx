@@ -19,6 +19,8 @@ import { UsersPage } from "@/pages/users";
 import { SettingsPage } from "@/pages/settings";
 import { SessionsPage } from "@/pages/sessions";
 import { CredentialsPage } from "@/pages/credentials";
+import { AgentsPage } from "@/pages/agents";
+import { AgentDetailPage } from "@/pages/agent-detail";
 import { ActivityPage } from "@/pages/activity";
 import { NotFoundPage } from "@/pages/not-found";
 
@@ -53,6 +55,8 @@ export const routes: RouteObject[] = [
       { path: "settings", element: authed(<SettingsPage />, "ADMIN") },
       { path: "sessions", element: authed(<SessionsPage />) },
       { path: "credentials", element: authed(<CredentialsPage />, "ADMIN") },
+      { path: "agents", element: authed(<AgentsPage />, "ADMIN") },
+      { path: "agents/:id", element: authed(<AgentDetailPage />, "ADMIN") },
       { path: "activity", element: authed(<ActivityPage />, "ADMIN") },
       { path: "*", element: authed(<NotFoundPage />) },
     ],

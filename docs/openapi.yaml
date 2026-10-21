@@ -50,6 +50,7 @@ tags:
   - name: Dashboard
   - name: Search
   - name: Audit
+  - name: Agents
 paths:
   # ------------------------------------------------------------------ Auth
   /auth/login:
@@ -2353,6 +2354,256 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
 
   # ------------------------------------------------- Metrics (outside v1)
+  /agents:
+    get:
+      tags: [Agents]
+      summary: List import agents
+      x-permission: "agent:read"
+      description: Requires the `agent:read` role (Admin). Credential and enrollment-token material is never returned.
+      responses:
+        '200':
+          description: Import agents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items: { $ref: '#/components/schemas/ImportAgent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Agents]
+      summary: Create an import agent
+      x-permission: "agent:create"
+      description: >-
+        Requires the `agent:create` role (Admin). Returns the single-use
+        enrollment token **once** — it is stored hashed and can never be
+        retrieved again (spec 025, ADR-116).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 63
+                  pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'
+                allowedImporters:
+                  type: array
+                  items: { type: string }
+                  description: Empty/omitted = all compiled importers. Unknown names are rejected.
+      responses:
+        '201':
+          description: Agent created with enrollment material
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent: { $ref: '#/components/schemas/ImportAgent' }
+                  enrollment: { $ref: '#/components/schemas/AgentEnrollment' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /agents/{id}:
+    get:
+      tags: [Agents]
+      summary: Get an import agent
+      x-permission: "agent:read"
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Agent detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent: { $ref: '#/components/schemas/ImportAgent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Agents]
+      summary: Update an import agent
+      x-permission: "agent:update"
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 63
+                  pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'
+                allowedImporters:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200':
+          description: Agent updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent: { $ref: '#/components/schemas/ImportAgent' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Agents]
+      summary: Delete an import agent
+      x-permission: "agent:delete"
+      description: >-
+        Deletes the agent identity and cascades its connection history
+        (`agent_sessions`). Blocked with `AGENT_IN_USE` while importer
+        configs are bound to the agent.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '204': { description: Agent deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /agents/{id}/sessions:
+    get:
+      tags: [Agents]
+      summary: Agent connection history
+      x-permission: "agent:read"
+      description: >-
+        Operational session episodes (not append-only audit), newest first.
+        Includes remote address, reported versions, and disconnect reason.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+      responses:
+        '200':
+          description: Session episodes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items: { $ref: '#/components/schemas/AgentSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /agents/{id}/enroll:
+    post:
+      tags: [Agents]
+      summary: Issue a fresh enrollment token (credential rotation)
+      x-permission: "agent:update"
+      description: >-
+        Returns a new single-use enrollment token, shown once. The previous
+        durable credential keeps working until the new token is exchanged —
+        then the old credential and its live session are superseded. Rotating
+        a revoked agent clears the revocation (re-enablement path).
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Fresh enrollment material
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent: { $ref: '#/components/schemas/ImportAgent' }
+                  enrollment: { $ref: '#/components/schemas/AgentEnrollment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /agents/{id}/revoke:
+    post:
+      tags: [Agents]
+      summary: Revoke the agent credential
+      x-permission: "agent:update"
+      description: >-
+        Invalidates the durable credential and drops any live session. The
+        agent identity is preserved; re-enablement requires rotation
+        (`POST /agents/{id}/enroll`).
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Agent revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent: { $ref: '#/components/schemas/ImportAgent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /agent/enroll:
+    post:
+      tags: [Agents]
+      summary: Exchange an enrollment token for a durable agent credential
+      description: >-
+        Agent-facing endpoint (no browser session). The single-use enrollment
+        token shown at agent creation/rotation is exchanged for a durable
+        bearer credential. Rejects unknown, used, or expired tokens with
+        `AGENT_ENROLLMENT_INVALID`. CSRF-exempt (ADR-087 amendment).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Durable credential issued (shown once)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agentToken: { type: string }
+                  agent: { $ref: '#/components/schemas/ImportAgent' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /agent/stream:
+    get:
+      tags: [Agents]
+      summary: Agent control stream (WebSocket upgrade)
+      description: >-
+        Outbound-only agent channel (ADR-116). The agent connects with
+        `Authorization: Bearer <durable credential>` and upgrades to
+        WebSocket; the first frame must be `hello` (lockstep version check).
+        See `docs/agent-protocol.md` for the message contract. Rejects bad or
+        revoked credentials with `AGENT_CREDENTIAL_INVALID` before upgrade.
+      security:
+        - agentBearer: []
+      responses:
+        '101':
+          description: WebSocket upgrade accepted
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /metrics:
     get:
       tags: [Health]
@@ -2469,6 +2720,12 @@ components:
             - MANIFEST_NO_TEST
             - CONVERSION_NOTHING_TO_CONVERT
             - LEGACY_SECRET_UNRESOLVABLE
+            - AGENT_NOT_FOUND
+            - AGENT_NAME_TAKEN
+            - AGENT_IN_USE
+            - AGENT_ENROLLMENT_INVALID
+            - AGENT_CREDENTIAL_INVALID
+            - AGENT_VERSION_MISMATCH
         message: { type: string }
         details: { type: object, nullable: true, description: Optional machine-readable context (e.g. Zod issues, retryAfter). }
         invalid-params:
@@ -2922,6 +3179,68 @@ components:
         updatedBy: { type: string, format: uuid, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    ImportAgent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status:
+          type: string
+          enum: [NEVER_CONNECTED, CONNECTED, OFFLINE]
+        agentVersion: { type: string, nullable: true }
+        protocolVersion: { type: integer, nullable: true }
+        importerVersions:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              version: { type: string }
+        allowedImporters:
+          type: array
+          items: { type: string }
+          description: Hub-managed policy; empty = all importers
+        maxConcurrentJobs: { type: integer, nullable: true }
+        lastSeenAt: { type: string, format: date-time, nullable: true }
+        revokedAt: { type: string, format: date-time, nullable: true }
+        hasCredential:
+          type: boolean
+          description: Durable credential has been issued (hash never exposed)
+        pendingEnrollment:
+          type: boolean
+          description: An unused, unexpired enrollment token exists
+        boundConfigCount:
+          type: integer
+          description: Importer configs bound to this agent
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AgentEnrollment:
+      type: object
+      description: Shown exactly once at issuance; never retrievable afterwards
+      properties:
+        token: { type: string }
+        expiresAt: { type: string, format: date-time }
+    AgentSession:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        agentId: { type: string, format: uuid }
+        connectedAt: { type: string, format: date-time }
+        disconnectedAt: { type: string, format: date-time, nullable: true }
+        disconnectReason:
+          type: string
+          nullable: true
+          enum: [client_close, heartbeat_timeout, revoked, shutdown, superseded, replaced]
+        remoteAddress: { type: string, nullable: true }
+        agentVersion: { type: string, nullable: true }
+        protocolVersion: { type: integer, nullable: true }
+        importerVersions:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              version: { type: string }
     ImportRun:
       type: object
       properties:
@@ -3048,6 +3367,10 @@ components:
       in: cookie
       name: componode_session
       description: Session cookie set by login/register/OIDC callback
+    agentBearer:
+      type: http
+      scheme: bearer
+      description: Durable Import Agent credential (spec 025, ADR-116)
     csrfToken:
       type: apiKey
       in: header

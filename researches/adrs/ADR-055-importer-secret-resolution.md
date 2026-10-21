@@ -22,3 +22,12 @@ Secrets are resolved once, not per-importer-call. Avoids string parsing
 **Amended by ADR-107**: importer configs gain `credentialIds` (stored
 credential references) beside `secretRefs`; both resolve through the unified
 `resolveSecrets` path. Importer manifests may declare required `secrets` keys.
+
+**Amended by ADR-116**: secret resolution may occur agent-side when a
+config's credentials are `AGENT_MANAGED` (ADR-117); the resolver
+interface is unchanged.
+
+**Amended by ADR-117**: adds an agent-side resolution path — the agent
+resolves `env`/`file` refs against its own environment (`SECRETS_DIR`
+confinement, traversal rejected). Ref semantics are identical on hub and
+agent.
