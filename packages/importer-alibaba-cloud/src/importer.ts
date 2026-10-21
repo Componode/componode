@@ -39,9 +39,11 @@ export class AlibabaCloudImporter implements Importer {
     context.reportPhase("Checking service");
     const status = await client.getServiceStatus();
     const serviceStatus = String(status.serviceStatus ?? "").toLowerCase();
-    if (serviceStatus && !ENABLED_STATUSES.has(serviceStatus)) {
+    // Fail closed: an absent or unrecognized status means we could not verify
+    // Resource Center is enabled — the run must not proceed on a guess.
+    if (!ENABLED_STATUSES.has(serviceStatus)) {
       throw new Error(
-        `Alibaba Cloud Resource Center is not enabled for this account (serviceStatus: ${status.serviceStatus}). ` +
+        `Alibaba Cloud Resource Center is not enabled for this account (serviceStatus: ${status.serviceStatus ?? "unknown"}). ` +
           `Enable Resource Center in the Alibaba Cloud console, then retry the import.`,
       );
     }

@@ -84,6 +84,16 @@ describe("AlibabaCloudImporter — US1 discovery", () => {
     );
   });
 
+  it("fails fast when service status is absent (fail-closed)", async () => {
+    mockBuildClients.mockReturnValue(makeClients({
+      getServiceStatus: vi.fn(async () => ({})),
+    }));
+
+    await expect(collect(new AlibabaCloudImporter(), {})).rejects.toThrow(
+      /Resource Center is not enabled/,
+    );
+  });
+
   it("propagates authentication failure from identity call", async () => {
     mockBuildClients.mockReturnValue(makeClients({
       getCallerIdentity: vi.fn(async () => {
@@ -171,6 +181,56 @@ describe("AlibabaCloudImporter — US1 discovery", () => {
     expect(account.coverage.skippedTypes).toEqual(["ACS::Foo::Bar"]);
     expect(account.coverage.discoveredCount).toBe(3);
     expect(context.logger.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips deleted records without emitting them", async () => {
+    const context = makeContext();
+    mockBuildClients.mockReturnValue(makeClients({
+      searchResourcesPage: vi.fn(async () => ({
+        resources: [
+          makeSearchRecord(),
+          makeSearchRecord({ deleted: true, resourceId: "i-deleted000000000" }),
+        ],
+      })),
+    }));
+
+    const assets = await collect(new AlibabaCloudImporter(), {}, context);
+    expect(assets).toHaveLength(2); // 1 live + account
+    const account = assets[1].details as Record<string, any>;
+    expect(account.coverage.discoveredCount).toBe(2);
+    expect(account.coverage.skippedCount).toBe(1);
+    expect(account.coverage.skippedTypes).toEqual([]);
+  });
+
+  it("skips records missing resourceId rather than colliding on a placeholder", async () => {
+    const context = makeContext();
+    mockBuildClients.mockReturnValue(makeClients({
+      searchResourcesPage: vi.fn(async () => ({
+        resources: [
+          makeSearchRecord(),
+          makeSearchRecord({ resourceId: undefined }),
+          makeSearchRecord({ resourceId: undefined, resourceName: "also-idless" }),
+        ],
+      })),
+    }));
+
+    const assets = await collect(new AlibabaCloudImporter(), {}, context);
+    expect(assets).toHaveLength(2); // 1 complete + account
+    const account = assets[1].details as Record<string, any>;
+    expect(account.coverage.skippedCount).toBe(2);
+    expect(context.logger.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("prefers the provider ARN as externalId when present", async () => {
+    const arn = "acs:ecs:cn-hangzhou:1234567890123456:instance/i-bp1234567890abcdef";
+    mockBuildClients.mockReturnValue(makeClients({
+      searchResourcesPage: vi.fn(async () => ({
+        resources: [makeSearchRecord({ arn })],
+      })),
+    }));
+
+    const assets = await collect(new AlibabaCloudImporter(), {});
+    expect(assets[0].externalId).toBe(arn);
   });
 });
 

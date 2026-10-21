@@ -63,7 +63,7 @@ Constraints and the relevant ADRs.
 │   ├── core/                      # Shared contracts and types (leaf — zero @componode/* deps)
 │   ├── backend/                   # Fastify API + Kysely services
 │   ├── frontend/                  # React/Vite dashboard
-│   └── importer-*/                # 7 in-tree importers (api-url, aws, azure, github, kubernetes, mcp-server, web-url)
+│   └── importer-*/                # 8 in-tree importers (alibaba-cloud, api-url, aws, azure, github, kubernetes, mcp-server, web-url)
 ├── researches/                    # Research docs ({topic}_research.md), adrs/, architecture-decisions.md index
 ├── specs/{NNN-feature-name}/      # DYNAMIC — spec.md, plan.md, tasks.md, created per feature/bugfix
 ├── docs/                          # Source documentation (see Key References)
@@ -138,7 +138,7 @@ constitution.
 ### Package dependencies
 
 - `packages/core` is a leaf with zero `@componode/*` deps.
-- `packages/backend` depends on `core` + all 7 importer packages (manifest
+- `packages/backend` depends on `core` + all 8 importer packages (manifest
   import only).
 - `packages/frontend` depends on `core` for types and calls the backend over
   HTTP. See `ADR-065`.

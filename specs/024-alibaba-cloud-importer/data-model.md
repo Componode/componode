@@ -36,7 +36,7 @@ importer-config payload validated at the route boundary).
 | `name` | `Alibaba Cloud account <AccountId>` |
 | `externalId` | `AccountId` from `GetCallerIdentity` |
 | `slug` | `alibaba-cloud-account-<accountId>` |
-| `details` | `{ arn, identityType, principalId, capabilities, coverage, billing? }` |
+| `details` | `{ arn, identityType, principalId, capabilities, coverage }` |
 | `instances[0]` | `{ environment: config.environment, externalId: "<AccountId>", status: "RUNNING" }` |
 
 ### Resource component (one per discovered resource)

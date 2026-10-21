@@ -115,9 +115,11 @@ export function componentSlug(name: string, resourceId: string): string {
 // Stable across renames: prefer the provider ARN when present, else
 // type + resourceId (both immutable identifiers).
 export function externalIdFor(record: {
+  arn?: string;
   resourceType?: string;
   resourceId?: string;
 }): string {
+  if (record.arn) return record.arn;
   return `${record.resourceType ?? "ACS::Unknown"}:${record.resourceId ?? "unknown"}`;
 }
 

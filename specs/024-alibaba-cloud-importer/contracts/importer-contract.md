@@ -34,15 +34,13 @@ Class: `AlibabaCloudImporter` (registry derives it from `alibaba-cloud` →
 4. `GetResourceCenterServiceStatus` → disabled → throw actionable error.
 5. `GetResourceCounts` (guarded → `capabilities.resourceCounts`).
 6. `includeCosts` → `DescribeInstanceBill` (guarded → `capabilities.costs`).
-7. Yield ACCOUNT asset (details carry `capabilities` + `coverage` shell).
-8. `SearchResources` paginate (filters from config):
+7. `SearchResources` paginate (filters from config):
    - mapped type → build asset (+ optional `GetResourceConfiguration`
      enrichment, guarded per-resource) → `validateDiscoveredAsset` → yield;
    - unmapped → record skip, `logger.warn` once per type.
-9. Finalize `coverage` on the already-yielded account asset is **not**
-   possible post-yield → coverage is computed *before* yielding the account
-   asset? No — see ordering note below.
-10. `reportPhase` transitions: `Authenticating` → `Checking service` →
+8. Yield ACCOUNT asset **last**, carrying `capabilities` + the final
+   `coverage` summary (see ordering note below).
+9. `reportPhase` transitions: `Authenticating` → `Checking service` →
     `Counting resources` → `Fetching costs` → `Searching resources` →
     `Completed`.
 

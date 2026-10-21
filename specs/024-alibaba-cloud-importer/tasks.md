@@ -205,3 +205,15 @@ US5/US6 are additive opt-ins.
 
 - [x] T040 [US4] Track skipped **resource** count in `packages/importer-alibaba-cloud/src/resources.ts`/`account.ts` — `coverage.skippedCount` currently counts distinct unmapped *types* while `discoveredCount`/`mappedCount` count resources; increment a skipped-resources counter per skipped record so `mapped + skipped = discovered` per FR-007 (partial)
 - [x] T041 [US3] Correct `specs/024-alibaba-cloud-importer/data-model.md` — `resourceGroupId` is passed as the dedicated top-level `SearchResources` request field in `src/filters.ts`, not as `Filter{Key:"ResourceGroupId"}`; update the doc wording per plan:data-model (partial)
+
+---
+
+## Phase 11: Convergence (code-review findings)
+
+- [x] T042 Update `AGENTS.md` — "7 in-tree importers" → 8 and "depends on `core` + all 7 importer packages" → 8; add `alibaba-cloud` to the importer list (standards: AGENTS.md is source of truth)
+- [x] T043 Fail fast on absent/unknown `serviceStatus` in `src/importer.ts` — `if (serviceStatus && !ENABLED_STATUSES.has(...))` fails open; throw the actionable Resource-Center error when status is missing or not enabled per FR-003; add unit test for missing status
+- [x] T044 Skip `record.deleted === true` records in `iterResourceAssets` — count as skipped resources (not unmapped types), never emit per spec edge case; add unit test
+- [x] T045 Prefer provider ARN for `externalId` when the record carries one — add `arn?: string` to `SearchRecord` in `src/client.ts`, use it in `externalIdFor` (`src/mapping.ts`) per FR-005/data-model; remove `billing?` from account `details` in `data-model.md`; fix the stale step-7 "yield ACCOUNT" ordering in `contracts/importer-contract.md` (account-last is authoritative)
+- [x] T046 Remove the per-record `reportPhase("Processing …")` call in `src/resources.ts` — contract fixes the phase list; per-resource phases are scope creep and noise on large accounts
+- [x] T047 Make the throttle backoff in `src/resources.ts` abort-aware — resolve the sleep early on `signal.abort` so FR-013 prompt-stop holds during retry waits
+- [x] T048 Guard records missing `resourceId` or `resourceType` — skip with a distinct warn + skipped-resource count instead of collapsing to `externalId` `"ACS::Unknown:unknown"` collisions per FR-005

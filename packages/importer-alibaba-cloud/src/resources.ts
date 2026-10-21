@@ -34,8 +34,16 @@ function isThrottling(err: unknown): boolean {
   return /throttl/i.test(code);
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(done, ms);
+    function done() {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", done);
+      resolve();
+    }
+    signal.addEventListener("abort", done, { once: true });
+  });
 }
 
 export function buildResourceAsset(
@@ -112,7 +120,8 @@ export async function* iterResourceAssets(
         break;
       } catch (err) {
         if (isThrottling(err) && attempt < MAX_THROTTLE_RETRIES) {
-          await sleep(100 * 2 ** attempt + Math.floor(Math.random() * 100));
+          await sleep(100 * 2 ** attempt + Math.floor(Math.random() * 100), context.signal);
+          if (context.signal.aborted) return;
           continue;
         }
         throw err;
@@ -123,11 +132,32 @@ export async function* iterResourceAssets(
       if (context.signal.aborted) return;
       coverage.discoveredCount++;
 
-      const resourceType = record.resourceType ?? "";
+      // Deleted resources are excluded by default server-side; skip any that
+      // still arrive rather than importing tombstones.
+      if (record.deleted === true) {
+        coverage.skippedCount++;
+        continue;
+      }
+
+      // Without both identifiers we can't build a stable externalId — skip
+      // rather than colliding on "ACS::Unknown:unknown".
+      if (!record.resourceId || !record.resourceType) {
+        coverage.skippedCount++;
+        if (!warnedTypes.has("__incomplete__")) {
+          warnedTypes.add("__incomplete__");
+          context.logger.warn("Skipping Alibaba Cloud record missing resourceId/resourceType", {
+            resourceType: record.resourceType ?? null,
+            resourceId: record.resourceId ?? null,
+          });
+        }
+        continue;
+      }
+
+      const resourceType = record.resourceType;
       const category = mapResourceType(resourceType);
       if (!category) {
         coverage.skippedCount++;
-        coverage.skippedTypes.add(resourceType || "UNKNOWN");
+        coverage.skippedTypes.add(resourceType);
         if (!warnedTypes.has(resourceType)) {
           warnedTypes.add(resourceType);
           context.logger.warn("Skipping unmapped Alibaba Cloud resource type", {
@@ -137,8 +167,6 @@ export async function* iterResourceAssets(
         continue;
       }
       coverage.mappedCount++;
-
-      context.reportPhase(`Processing ${resourceType} ${record.resourceId ?? ""}`.trim());
 
       let enrichmentMarker: CapabilityMarker | undefined;
       let enrichedConfig: Record<string, unknown> | undefined;

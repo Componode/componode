@@ -26,6 +26,7 @@ export interface ResourceCount {
 
 export interface SearchRecord {
   accountId?: string;
+  arn?: string;
   createTime?: string;
   deleted?: boolean;
   expireTime?: string;
@@ -142,7 +143,12 @@ export function buildClients(
         }),
       );
       return {
-        resources: res.body?.resources ?? [],
+        resources: (res.body?.resources ?? []).map((r) => ({
+          ...r,
+          // Resource Center spells the ARN field "ResourceARN" on some API
+          // versions; normalize to `arn` when present.
+          arn: r.arn ?? (r as unknown as { resourceARN?: string }).resourceARN,
+        })),
         nextToken: res.body?.nextToken,
       };
     },
