@@ -77,7 +77,7 @@
 
 | ADR | Title |
 |---|---|
-| [ADR-028](./adrs/ADR-028-deployment-docker-compose-only-for-v1.md) | Deployment: Docker Compose only for v1 |
+| [ADR-028](./adrs/ADR-028-deployment-docker-compose-only-for-v1.md) | Deployment: Docker Compose only for v1; Amendment 1 — `agent` service builds `Dockerfile.agent` with the stack but starts 0 replicas (ADR-116) |
 | [ADR-029](./adrs/ADR-029-testing-shared-importer-harness-integration-tests.md) | Testing: shared importer harness + integration tests |
 | [ADR-030](./adrs/ADR-030-documentation-readme-docs-folder-markdown-only.md) | Documentation: README + docs/ folder, Markdown only |
 | [ADR-031](./adrs/ADR-031-ci-cd-github-actions-changesets.md) | CI/CD: GitHub Actions + changesets |
@@ -152,7 +152,7 @@
 | [ADR-090](./adrs/ADR-090-no-secrets-in-logs.md) | No secrets in logs |
 | [ADR-091](./adrs/ADR-091-no-secrets-in-commits.md) | No secrets in commits |
 | [ADR-092](./adrs/ADR-092-dependency-scanning.md) | Dependency scanning |
-| [ADR-093](./adrs/ADR-093-tls-https-for-production.md) | TLS / HTTPS for production |
+| [ADR-093](./adrs/ADR-093-tls-https-for-production.md) | TLS / HTTPS for production; amendment — bundled `caddy` enabled with `tls internal` (self-signed), app bound to loopback, `TRUSTED_PROXY_IP=1` default, `hub` alias + mounted root CA for the agent |
 | [ADR-094](./adrs/ADR-094-get-routes-must-not-have-side-effects.md) | GET routes must not have side effects |
 | [ADR-095](./adrs/ADR-095-input-validation.md) | Input validation |
 | [ADR-096](./adrs/ADR-096-error-responses-must-not-leak-internals.md) | Error responses must not leak internals |
