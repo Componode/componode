@@ -19,7 +19,7 @@
     "version": "changeset version"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.10",
+    "@changesets/cli": "^3.0.3",
     "@eslint/js": "^9.17.0",
     "@types/node": "^26.6.5",
     "eslint": "^10.13.0",
@@ -43,7 +43,10 @@
       "source-map-js@<1.2.2": "^1.2.2",
       "vitepress>vite": "^7.3.6",
       "vitepress>@vitejs/plugin-vue": "^6.0.9",
-      "vite@^7>esbuild": "^0.28.1"
+      "vite@^7>esbuild": "^0.28.1",
+      "@types/react": "^19.3.0",
+      "react": "^19.3.1",
+      "react-dom": "^19.3.1"
     }
   },
   "engines": {
