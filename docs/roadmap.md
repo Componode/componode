@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–025)
+## Shipped (features 001–026)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -84,8 +84,18 @@ file tracks shipped and upcoming work — update it when a spec completes.
   exact importer manifest). Hub tracks presence (`CONNECTED`/`OFFLINE`/
   `NEVER_CONNECTED`), session history, and six audited lifecycle actions;
   the UI adds agent management with a show-once enrollment dialog and
-  copy-ready install command. Job dispatch and agent-managed credentials
-  are deferred to 026/027.
+  copy-ready install command. Job dispatch is deferred to 027.
+- `026-agent-managed-credentials` — a second credential kind beside
+  `STORED` (ADR-117): `AGENT_MANAGED` rows hold only secret *references*
+  (`env` names or files under the agent's `SECRETS_DIR`); values resolve
+  on the agent host at test time and never cross the hub-agent channel.
+  Kind is immutable and executor-checked (`AGENT_MANAGED` requires
+  agent-bound configs; `STORED` can't bind to them; OIDC stays `STORED`).
+  Remote `credential.test` dispatches over the agent stream with
+  coverage checks (`CREDENTIAL_MISSING_KEY`), dispatch-time audit +
+  `lastUsedAt`, timeout/disconnect handling, and sanitized,
+  path-and-value-free errors both directions. Job dispatch and run-time
+  secret delivery remain 027.
 
 ## Next — v1.1
 
