@@ -3,6 +3,7 @@ import {
   EnvSecretResolver,
   SecretRefError,
   SecretResolutionError,
+  maskSecretValues,
   refSource,
   resolveSecretsFromMap,
 } from "../../src/utils/secrets.js";
@@ -211,6 +212,20 @@ describe("shared secret resolver", () => {
     it("reports env or file", () => {
       expect(refSource({ env: "X" })).toBe("env");
       expect(refSource({ file: "y" })).toBe("file");
+    });
+  });
+
+  describe("maskSecretValues", () => {
+    it("masks every resolved value inside arbitrary text", () => {
+      const text = "auth failed: token=abc123 retry with abc123; detail stays";
+      expect(maskSecretValues(text, { token: "abc123" })).toBe(
+        "auth failed: token=*** retry with ***; detail stays",
+      );
+      expect(
+        maskSecretValues(text, { token: "abc123", other: "zzz" }),
+      ).toBe("auth failed: token=*** retry with ***; detail stays");
+      expect(maskSecretValues(text, {})).toBe(text);
+      expect(maskSecretValues(text, { empty: "" })).toBe(text);
     });
   });
 });

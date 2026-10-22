@@ -97,7 +97,8 @@ export const updateCredentialSchema = z
 
 export const testCredentialSchema = z
   .object({
-    importerName: z.string().min(1, "Importer name is required"),
+    // Bounded: the name is echoed into error messages.
+    importerName: z.string().min(1, "Importer name is required").max(100),
     scope: z.record(z.unknown()).optional(),
   })
   .strict();

@@ -2250,8 +2250,10 @@ paths:
         revoked credentials, `400 CREDENTIAL_NO_BOUND_AGENT` when no bound
         agent exists, `503 AGENT_OFFLINE` when the bound agent is not
         connected, and `504 AGENT_TEST_TIMEOUT` when the agent never
-        responds. An upstream auth failure is reported in the body, never as
-        a 4xx.
+        responds, and `400 CREDENTIAL_MISSING_KEY` when every bound config's
+        credential set no longer covers a required importer key (a reference
+        map edited to drop a required key fails here naming the key). An
+        upstream auth failure is reported in the body, never as a 4xx.
       parameters:
         - { $ref: '#/components/parameters/Id' }
       requestBody:
@@ -2264,6 +2266,8 @@ paths:
               properties:
                 importerName:
                   type: string
+                  minLength: 1
+                  maxLength: 100
                   description: Importer manifest name (e.g. `github`)
                 scope:
                   type: object

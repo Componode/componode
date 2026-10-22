@@ -222,13 +222,17 @@ describe("agent credential.test handling", () => {
   });
 
   it("sanitizes thrown importer errors — internals stay on the agent", async () => {
-    process.env.AGENT_TEST_TOKEN = "v";
+    process.env.AGENT_TEST_TOKEN = "secret-token-value";
     try {
       const { log, events } = makeLog();
       const registry = makeRegistry({
         name: "github",
+        // An importer throwing its resolved secret into the message must
+        // not leak it into logs (FR-012) or across the wire (ADR-096).
         testSecrets: vi.fn(async () => {
-          throw new Error("ENOENT: no such file /private/abs/secret.pem");
+          throw new Error(
+            "ENOENT /private/abs/secret.pem for token secret-token-value",
+          );
         }),
       });
       const tx = captureSend();
@@ -244,10 +248,11 @@ describe("agent credential.test handling", () => {
       const frame = tx.last();
       expect(frame.payload.ok).toBe(false);
       expect(frame.payload.error).toContain("credential test failed on agent");
-      // ADR-096: absolute paths/internals must not cross the wire — the
-      // detail stays in the agent's local log.
       expect(frame.payload.error).not.toContain("/private/abs");
+      expect(frame.payload.error).not.toContain("secret-token-value");
+      // Detail stays in the agent's local log — with values masked.
       expect(JSON.stringify(events)).toContain("/private/abs/secret.pem");
+      expect(JSON.stringify(events)).not.toContain("secret-token-value");
     } finally {
       delete process.env.AGENT_TEST_TOKEN;
     }

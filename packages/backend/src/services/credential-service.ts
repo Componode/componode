@@ -19,6 +19,7 @@ import {
 } from "../utils/credential-crypto.js";
 import { getImporter, getManifest } from "./importer-registry.js";
 import { assertSecretCoverage } from "../utils/secret-resolver.js";
+import { logger as appLogger } from "../plugins/logging.js";
 import type { AgentSessionService } from "./agent-session-service.js";
 import { metrics } from "../plugins/metrics.js";
 import { refSource } from "@componode/core/secrets";
@@ -269,54 +270,84 @@ export async function testCredential(
     // Coverage (spec edge case): a reference map edited to drop a required
     // key must fail the test with CREDENTIAL_MISSING_KEY naming the key —
     // the same check save-time validation runs, over the bound config's
-    // full credential+legacy-ref set.
+    // full credential+legacy-ref set. One grouped query for every bound
+    // config's credential keys.
     const manifest = await getManifest(input.importerName);
     const declarations = manifest.secrets ?? [];
+    const linked = await db
+      .selectFrom("importer_config_credentials")
+      .innerJoin(
+        "credentials",
+        "credentials.id",
+        "importer_config_credentials.credentialId",
+      )
+      .select([
+        "importer_config_credentials.configId as configId",
+        "credentials.keyHints",
+      ])
+      .where(
+        "importer_config_credentials.configId",
+        "in",
+        bound.map((b) => b.configId),
+      )
+      .execute();
+    const keysByConfig = new Map<string, string[]>();
+    for (const l of linked) {
+      const keys = keysByConfig.get(l.configId) ?? [];
+      keys.push(
+        ...Object.keys((l.keyHints ?? {}) as Record<string, string>),
+      );
+      keysByConfig.set(l.configId, keys);
+    }
 
     let lastOffline: Error | null = null;
+    let missingKey: Error | null = null;
     for (const candidate of bound) {
-      const linked = await db
-        .selectFrom("importer_config_credentials")
-        .innerJoin(
-          "credentials",
-          "credentials.id",
-          "importer_config_credentials.credentialId",
-        )
-        .select("credentials.keyHints")
-        .where("importer_config_credentials.configId", "=", candidate.configId)
-        .execute();
-      const providedKeys = [
-        ...(candidate.secretRefs ?? []).map((r) => r.key),
-        ...linked.flatMap((l) =>
-          Object.keys((l.keyHints ?? {}) as Record<string, string>),
-        ),
-      ];
-      assertSecretCoverage(declarations, providedKeys);
+      // Broken coverage is a deterministic defect of THAT config — but any
+      // bound agent is a valid probe (US3.5), so keep trying the other
+      // candidates; only surface MISSING_KEY when none can dispatch.
+      try {
+        assertSecretCoverage(declarations, [
+          ...(candidate.secretRefs ?? []).map((r) => r.key),
+          ...(keysByConfig.get(candidate.configId) ?? []),
+        ]);
+      } catch (err) {
+        missingKey ??= err as Error;
+        continue;
+      }
 
       const testId = uuidv7();
       // The dispatch audit + lastUsedAt stamp fire at send time (FR-018):
       // a timeout or mid-test disconnect still leaves the audit trail.
-      let didDispatch = false;
       let dispatched: Promise<void> | null = null;
       const markDispatched = () => {
-        didDispatch = true;
+        // Dispatch bookkeeping is best-effort and must never go unhandled:
+        // the dispatch promise may not settle for the whole timeout window,
+        // and an audit-write failure must not mask the test outcome.
         dispatched = (async () => {
-          await db
-            .updateTable("credentials")
-            .set({ lastUsedAt: new Date().toISOString() })
-            .where("id", "=", credentialId)
-            .execute();
-          await writeEntityChange({
-            entityType: "import_agent",
-            entityId: candidate.agentId!,
-            action: "credential_test_dispatched",
-            changes: {
-              credentialId,
-              credentialLabel: row.label,
-              importerName: input.importerName,
-            },
-            actor,
-          });
+          try {
+            await db
+              .updateTable("credentials")
+              .set({ lastUsedAt: new Date().toISOString() })
+              .where("id", "=", credentialId)
+              .execute();
+            await writeEntityChange({
+              entityType: "import_agent",
+              entityId: candidate.agentId!,
+              action: "credential_test_dispatched",
+              changes: {
+                credentialId,
+                credentialLabel: row.label,
+                importerName: input.importerName,
+              },
+              actor,
+            });
+          } catch (err) {
+            appLogger.warn(
+              { err, credentialId },
+              "credential test dispatch bookkeeping failed",
+            );
+          }
         })();
       };
       const recordOutcome = (ok: boolean, errorCode?: string) =>
@@ -362,7 +393,7 @@ export async function testCredential(
           });
           // A mid-test disconnect dispatched the frame — record the failed
           // outcome before trying the next bound agent.
-          if (didDispatch) await recordOutcome(false, code);
+          if (dispatched) await recordOutcome(false, code);
           lastOffline = err as Error;
           continue; // try the next bound agent
         }
@@ -370,11 +401,13 @@ export async function testCredential(
           agent: candidate.agentName,
           result: code === "AGENT_TEST_TIMEOUT" ? "timeout" : "error",
         });
-        if (didDispatch) await recordOutcome(false, code ?? "error");
+        if (dispatched) await recordOutcome(false, code ?? "error");
         throw err;
       }
     }
-    throw lastOffline!;
+    // Nothing dispatched: prefer the deterministic coverage defect over the
+    // transient offline state — it is the actionable error.
+    throw missingKey ?? lastOffline!;
   }
 
   const importer = await getImporter(input.importerName);

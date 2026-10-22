@@ -159,7 +159,12 @@ export function collectSecretRefs(
     if (refs[key] !== undefined) return { error: `Duplicate key: ${key}` };
     if (!reference) return { error: `Key "${key}" has an empty reference` };
     if (entry.source === "file") {
-      if (reference.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(reference)) {
+      // Mirrors the server-side secretRefSchema rule: relative paths only,
+      // no drive letters, no leading slash/backslash, no `..` traversal.
+      if (
+        /^(?:[a-zA-Z]:|[\\/])/.test(reference) ||
+        reference.split(/[\\/]/).includes("..")
+      ) {
         return {
           error: `Key "${key}": file references must be relative to the agent's secrets directory`,
         };

@@ -158,22 +158,21 @@ describe("remote credential test", () => {
     });
   }
 
-  async function createAgentManagedCredential() {
+  async function createAgentManagedCredential(
+    label = "Agent GH",
+    secretRefMap: Record<string, unknown> = { token: { env: "GH_TOKEN" } },
+  ) {
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/credentials",
-      ...authed({
-        kind: "AGENT_MANAGED",
-        label: "Agent GH",
-        secretRefMap: { token: { env: "GH_TOKEN" } },
-      }),
+      ...authed({ kind: "AGENT_MANAGED", label, secretRefMap }),
     });
     expect(res.statusCode).toBe(201);
     return res.json().credential;
   }
 
   async function bindConfig(
-    credentialId: string,
+    credentialIds: string | string[],
     agentId: string,
     importerName = "github",
   ) {
@@ -196,10 +195,12 @@ describe("remote credential test", () => {
         updatedAt: now,
       })
       .execute();
-    await testDb!.db
-      .insertInto("importer_config_credentials")
-      .values({ configId, credentialId })
-      .execute();
+    for (const credentialId of [credentialIds].flat()) {
+      await testDb!.db
+        .insertInto("importer_config_credentials")
+        .values({ configId, credentialId })
+        .execute();
+    }
     return configId;
   }
 
@@ -441,6 +442,40 @@ describe("remote credential test", () => {
     expect(res.statusCode).toBe(400);
     expect(res.json().code).toBe("CREDENTIAL_MISSING_KEY");
     expect(res.json().message).toContain('"token"');
+    ws.close();
+  });
+
+  it("tries the next bound config when an earlier one lacks coverage (US3.5)", async () => {
+    const { agent, enrollment } = await createAgent("edge-cover-order");
+    const ws = await connectAgent(enrollment.token);
+    const cred = await createAgentManagedCredential();
+    const cred2 = await createAgentManagedCredential("Agent GH 2");
+    // Config A references only `cred`; config B references cred + cred2.
+    await bindConfig(cred.id, agent.id);
+    await bindConfig([cred.id, cred2.id], agent.id);
+
+    // Drop `token` from cred's map — config A's coverage breaks; B's holds.
+    const edit = await app.inject({
+      method: "PATCH",
+      url: `/api/v1/credentials/${cred.id}`,
+      ...authed({ secretRefMap: { other: { env: "GH_TOKEN" } } }),
+    });
+    expect(edit.statusCode).toBe(200);
+
+    // The covered config still probes: whichever candidate is tried first,
+    // the outcome is the same.
+    const request = postTest(cred.id);
+    const frame = await onFrame(ws, "credential.test");
+    const testId = (frame.payload as Record<string, unknown>).testId;
+    ws.send(
+      JSON.stringify({
+        type: "credential.test.result",
+        payload: { testId, ok: true },
+      }),
+    );
+    const res = await request;
+    expect(res.statusCode).toBe(200);
+    expect(res.json().ok).toBe(true);
     ws.close();
   });
 

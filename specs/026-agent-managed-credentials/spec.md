@@ -228,8 +228,10 @@ advisory metadata.
   this kind accepts references only.
 - Reference row missing both source types (`env`/`file`) or carrying an
   unknown source type → validation error at save.
-- Duplicate key names inside one credential's map → rejected (a key maps to
-  exactly one reference).
+- Duplicate key names inside one credential's map → a key maps to exactly
+  one reference by construction: the map is a JSON object, so duplicates
+  collapse at parse time before validation (the last entry wins). The
+  in-place editor rejects duplicate row keys client-side.
 - Same key name across two credentials on one config → existing
   key-collision error, unchanged.
 - Credential test when the only bound agent is mid-reconnect → treated as

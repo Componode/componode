@@ -151,6 +151,20 @@ export async function resolveSecretsFromMap(
   return resolved;
 }
 
+// Masks resolved secret VALUES inside arbitrary text (e.g. an exception
+// message) before it reaches logs — an importer that echoes a secret into
+// a thrown error must not leak it into agent log output (FR-012, ADR-090).
+export function maskSecretValues(
+  text: string,
+  secrets: Record<string, string>,
+): string {
+  let out = text;
+  for (const value of Object.values(secrets)) {
+    if (value) out = out.split(value).join("***");
+  }
+  return out;
+}
+
 export function redactSecrets(
   input: Record<string, unknown>,
 ): Record<string, unknown> {

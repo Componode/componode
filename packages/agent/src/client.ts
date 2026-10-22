@@ -13,6 +13,7 @@ import {
 } from "@componode/core";
 import { proxyForUrl, type AgentConfig } from "./config.js";
 import {
+  maskSecretValues,
   SecretRefError,
   SecretResolutionError,
 } from "@componode/core/secrets";
@@ -113,12 +114,16 @@ export async function handleCredentialTest(
   const reply = (ok: boolean, error?: string) =>
     deps.send("credential.test.result", { testId: payload.testId, ok, error });
 
+  // Held so a thrown importer error can be scrubbed of resolved values
+  // before it touches the agent log (FR-012).
+  let resolved: Record<string, string> = {};
   try {
     const secrets = await resolveRefMap(
       payload.secretRefMap,
       createAgentResolver(deps.secretsDir),
       deps.log,
     );
+    resolved = secrets;
     const importer = await deps.registry.getImporter(payload.importerName);
     if (typeof importer.testSecrets !== "function") {
       return reply(
@@ -137,7 +142,12 @@ export async function handleCredentialTest(
       return reply(false, err.message);
     }
     deps.log.warn(
-      { err: err instanceof Error ? err.message : String(err) },
+      {
+        err: maskSecretValues(
+          err instanceof Error ? err.message : String(err),
+          resolved,
+        ),
+      },
       "credential test failed on agent",
     );
     return reply(
