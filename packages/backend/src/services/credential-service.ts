@@ -4,6 +4,7 @@ import type {
   CreateCredentialInput,
   Credential,
   CredentialDependents,
+  CredentialListItem,
   CredentialTestResult,
   TestCredentialInput,
   UpdateCredentialInput,
@@ -102,7 +103,7 @@ function toApi(row: Selectable<CredentialRow>): Credential {
   };
 }
 
-export async function listCredentials(): Promise<Credential[]> {
+export async function listCredentials(): Promise<CredentialListItem[]> {
   const rows = await db
     .selectFrom("credentials")
     .selectAll()
@@ -110,7 +111,7 @@ export async function listCredentials(): Promise<Credential[]> {
     .execute();
   // ADR-117 Amendment 1: list views get `keyHints` (key + source type)
   // only — reference names stay visible in `secretRefMap` on detail.
-  return rows.map((row) => {
+  return rows.map((row): CredentialListItem => {
     const credential = toApi(row);
     delete credential.secretRefMap;
     return credential;
@@ -363,6 +364,11 @@ export async function testCredential(
           },
           actor,
         });
+      const recordMetric = (result: "ok" | "error" | "offline" | "timeout") =>
+        metrics.agentCredentialTestsTotal.inc({
+          agent: candidate.agentName,
+          result,
+        });
       try {
         const result = await sessions.dispatchCredentialTest(
           candidate.agentId!,
@@ -377,30 +383,21 @@ export async function testCredential(
         );
 
         await dispatched;
-        metrics.agentCredentialTestsTotal.inc({
-          agent: candidate.agentName,
-          result: result.ok ? "ok" : "error",
-        });
+        recordMetric(result.ok ? "ok" : "error");
         await recordOutcome(result.ok);
         return { ok: result.ok, error: result.error, agent: candidate.agentName };
       } catch (err) {
         await dispatched;
         const code = (err as { code?: string }).code;
         if (code === "AGENT_OFFLINE") {
-          metrics.agentCredentialTestsTotal.inc({
-            agent: candidate.agentName,
-            result: "offline",
-          });
+          recordMetric("offline");
           // A mid-test disconnect dispatched the frame — record the failed
           // outcome before trying the next bound agent.
           if (dispatched) await recordOutcome(false, code);
           lastOffline = err as Error;
           continue; // try the next bound agent
         }
-        metrics.agentCredentialTestsTotal.inc({
-          agent: candidate.agentName,
-          result: code === "AGENT_TEST_TIMEOUT" ? "timeout" : "error",
-        });
+        recordMetric(code === "AGENT_TEST_TIMEOUT" ? "timeout" : "error");
         if (dispatched) await recordOutcome(false, code ?? "error");
         throw err;
       }

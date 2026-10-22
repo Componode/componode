@@ -119,7 +119,17 @@ export class EnvSecretResolver {
           `secret file reference "${ref.file}" escapes SECRETS_DIR via symlink`,
         );
       }
-      return (await readFile(realFile, "utf8")).trim();
+      try {
+        return (await readFile(realFile, "utf8")).trim();
+      } catch {
+        // Same sanitization as realpath — a raw fs error message embeds the
+        // absolute path (EACCES, EISDIR, a vanish between realpath and
+        // read), which must not reach the wire (ADR-096).
+        throw new SecretRefError(
+          "FILE_NOT_READABLE",
+          `secret file "${ref.file}" is not readable under SECRETS_DIR`,
+        );
+      }
     }
 
     throw new SecretRefError(

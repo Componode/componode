@@ -95,6 +95,7 @@ export type {
   CredentialDependents,
   CredentialDetail,
   CredentialKind,
+  CredentialListItem,
   CredentialStatus,
   SecretRefMap,
 } from "@componode/core";

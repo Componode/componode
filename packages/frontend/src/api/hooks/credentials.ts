@@ -1,11 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import type { Credential, CredentialDetail, CredentialKind, CredentialTestResult, SecretRefMap } from "@/api/types";
+import type { Credential, CredentialDetail, CredentialKind, CredentialListItem, CredentialTestResult, SecretRefMap } from "@/api/types";
 
 export function useCredentials() {
   return useQuery({
     queryKey: ["credentials"],
-    queryFn: () => api<{ credentials: Credential[] }>("/credentials"),
+    queryFn: () => api<{ credentials: CredentialListItem[] }>("/credentials"),
   });
 }
 

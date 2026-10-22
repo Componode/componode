@@ -221,6 +221,38 @@ describe("agent credential.test handling", () => {
     }
   });
 
+  it("masks a resolved value echoed into result.error before it crosses the wire", async () => {
+    process.env.AGENT_TEST_TOKEN = "sekret-value";
+    try {
+      const { log } = makeLog();
+      const registry = makeRegistry({
+        name: "github",
+        // A non-conforming importer returning secret material in `error`
+        // must not leak it back to the hub (FR-012/SC-002).
+        testSecrets: vi.fn(async () => ({
+          ok: false,
+          error: "auth rejected token sekret-value",
+        })),
+      });
+      const tx = captureSend();
+      await handleCredentialTest(
+        {
+          testId,
+          credentialId: "018c5e60-0000-7000-8000-000000000002",
+          importerName: "github",
+          secretRefMap: { token: { env: "AGENT_TEST_TOKEN" } },
+        },
+        { registry, log, send: tx.send },
+      );
+      const frame = tx.last();
+      expect(frame.payload.ok).toBe(false);
+      expect(frame.payload.error).toBe("auth rejected token ***");
+      expect(JSON.stringify(tx.frames)).not.toContain("sekret-value");
+    } finally {
+      delete process.env.AGENT_TEST_TOKEN;
+    }
+  });
+
   it("sanitizes thrown importer errors — internals stay on the agent", async () => {
     process.env.AGENT_TEST_TOKEN = "secret-token-value";
     try {

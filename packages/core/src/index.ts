@@ -119,6 +119,7 @@ export type {
   Credential,
   CredentialDependents,
   CredentialDetail,
+  CredentialListItem,
   CredentialTestResult,
 } from "./contracts/credential.js";
 export type {

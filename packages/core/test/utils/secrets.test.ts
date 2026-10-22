@@ -112,6 +112,20 @@ describe("shared secret resolver", () => {
       await expect(r.resolve({ file: "nope.txt" })).rejects.not.toThrow(secretsDir);
     });
 
+    it("rejects a directory ref with FILE_NOT_READABLE — no raw fs path in the message", async () => {
+      const r = new EnvSecretResolver(secretsDir);
+      // "nested" exists (realpath passes) but readFile on a directory fails
+      // with a raw error whose message embeds the absolute path (EISDIR).
+      const err = await r.resolve({ file: "nested" }).then(
+        () => { throw new Error("expected rejection"); },
+        (e) => e as Error,
+      );
+      expect(err).toMatchObject({ name: "SecretRefError", code: "FILE_NOT_READABLE" });
+      expect(err.message).toContain('"nested"');
+      expect(err.message).not.toContain(secretsDir);
+      expect(err.message).not.toMatch(/[A-Za-z]:[\\/]/); // no absolute path
+    });
+
     it("defaults secretsDir to /run/secrets", async () => {
       const prev = process.env.SECRETS_DIR;
       delete process.env.SECRETS_DIR;

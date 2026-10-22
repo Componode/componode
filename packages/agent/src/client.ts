@@ -132,7 +132,13 @@ export async function handleCredentialTest(
       );
     }
     const result = await importer.testSecrets(secrets, payload.scope);
-    return reply(result.ok, result.error);
+    // Importer contract says error strings carry no secret material, but
+    // scrub anyway — a non-conforming importer must not leak a resolved
+    // value back to the hub over the channel (FR-012/SC-002).
+    return reply(
+      result.ok,
+      result.error ? maskSecretValues(result.error, secrets) : undefined,
+    );
   } catch (err) {
     // Resolution failures are sanitized by construction — they name key +
     // source and never a path. Any other throw (importer bug, registry

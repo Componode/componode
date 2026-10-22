@@ -71,6 +71,14 @@ remotely, naming the executing agent (spec US3.5).
   `AGENT_TEST_TIMEOUT` (504). The credential's `lastUsedAt` stamps on
   dispatch; audits: `credential_test_dispatched` on the agent entity +
   `tested` on the credential entity.
+- Remote `CREDENTIAL_MISSING_KEY` coverage is evaluated over the bound
+  config's **full provided-keys union** (legacy `secretRefs` + every linked
+  credential's keys), not the tested credential's map alone — so a key this
+  credential dropped but another credential on the same config still
+  provides yields a passing coverage check, and the dispatched probe ships
+  only the tested credential's own `secretRefMap`. Coverage-broken configs
+  are skipped in favor of another bound config that covers (US3.5);
+  `CREDENTIAL_MISSING_KEY` surfaces only when no bound config can dispatch.
 
 ## Importer-config save (no contract change — validation only)
 
