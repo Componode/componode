@@ -241,5 +241,15 @@ describe("shared secret resolver", () => {
       expect(maskSecretValues(text, {})).toBe(text);
       expect(maskSecretValues(text, { empty: "" })).toBe(text);
     });
+
+    it("skips values below the mask threshold — a 1-char value must not shred text", () => {
+      const text = "error 1 occurred on attempt 1 of 3";
+      expect(maskSecretValues(text, { pin: "1" })).toBe(text);
+      expect(maskSecretValues(text, { pin: "abc" })).toBe(text);
+      // 4+ chars still mask.
+      expect(maskSecretValues(text, { pin: "1 of" })).toBe(
+        "error 1 occurred on attempt *** 3",
+      );
+    });
   });
 });

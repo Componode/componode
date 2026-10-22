@@ -77,7 +77,8 @@ export const credentialTestPayloadSchema = z
   .object({
     testId: z.string().uuid(),
     credentialId: z.string().uuid(),
-    importerName: z.string().min(1),
+    // Bounded because the agent echoes the name into result errors.
+    importerName: z.string().min(1).max(100),
     scope: z.record(z.unknown()).optional(),
     secretRefMap: secretRefMapSchema,
   })

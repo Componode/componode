@@ -164,13 +164,24 @@ export async function resolveSecretsFromMap(
 // Masks resolved secret VALUES inside arbitrary text (e.g. an exception
 // message) before it reaches logs — an importer that echoes a secret into
 // a thrown error must not leak it into agent log output (FR-012, ADR-090).
+// Values shorter than MIN_MASKABLE_LENGTH are skipped: masking a 1–3 char
+// substring shreds every occurrence in legitimate text, and such values
+// are implausibly low-entropy to be real credentials. The primary "no
+// secret material on the wire" guarantee stays with the importer contract
+// and the generic thrown-error reply — this mask is defense-in-depth, and
+// under-masking a sub-4-char substring is accepted so real error text
+// survives.
+const MIN_MASKABLE_LENGTH = 4;
+
 export function maskSecretValues(
   text: string,
   secrets: Record<string, string>,
 ): string {
   let out = text;
   for (const value of Object.values(secrets)) {
-    if (value) out = out.split(value).join("***");
+    if (value.length >= MIN_MASKABLE_LENGTH) {
+      out = out.split(value).join("***");
+    }
   }
   return out;
 }

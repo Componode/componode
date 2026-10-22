@@ -369,8 +369,12 @@ export async function testCredential(
           agent: candidate.agentName,
           result,
         });
+      // Only the dispatch itself is wrapped — bookkeeping (metric +
+      // outcome audit) lives outside so an audit-write failure can't land
+      // in this catch and double-count the same dispatch.
+      let result: Awaited<ReturnType<typeof sessions.dispatchCredentialTest>>;
       try {
-        const result = await sessions.dispatchCredentialTest(
+        result = await sessions.dispatchCredentialTest(
           candidate.agentId!,
           {
             testId,
@@ -381,11 +385,6 @@ export async function testCredential(
           },
           markDispatched,
         );
-
-        await dispatched;
-        recordMetric(result.ok ? "ok" : "error");
-        await recordOutcome(result.ok);
-        return { ok: result.ok, error: result.error, agent: candidate.agentName };
       } catch (err) {
         await dispatched;
         const code = (err as { code?: string }).code;
@@ -401,6 +400,11 @@ export async function testCredential(
         if (dispatched) await recordOutcome(false, code ?? "error");
         throw err;
       }
+
+      await dispatched;
+      recordMetric(result.ok ? "ok" : "error");
+      await recordOutcome(result.ok);
+      return { ok: result.ok, error: result.error, agent: candidate.agentName };
     }
     // Nothing dispatched: prefer the deterministic coverage defect over the
     // transient offline state — it is the actionable error.
