@@ -221,6 +221,38 @@ describe("agent credential.test handling", () => {
     }
   });
 
+  it("sanitizes thrown importer errors — internals stay on the agent", async () => {
+    process.env.AGENT_TEST_TOKEN = "v";
+    try {
+      const { log, events } = makeLog();
+      const registry = makeRegistry({
+        name: "github",
+        testSecrets: vi.fn(async () => {
+          throw new Error("ENOENT: no such file /private/abs/secret.pem");
+        }),
+      });
+      const tx = captureSend();
+      await handleCredentialTest(
+        {
+          testId,
+          credentialId: "018c5e60-0000-7000-8000-000000000002",
+          importerName: "github",
+          secretRefMap: { token: { env: "AGENT_TEST_TOKEN" } },
+        },
+        { registry, log, send: tx.send },
+      );
+      const frame = tx.last();
+      expect(frame.payload.ok).toBe(false);
+      expect(frame.payload.error).toContain("credential test failed on agent");
+      // ADR-096: absolute paths/internals must not cross the wire — the
+      // detail stays in the agent's local log.
+      expect(frame.payload.error).not.toContain("/private/abs");
+      expect(JSON.stringify(events)).toContain("/private/abs/secret.pem");
+    } finally {
+      delete process.env.AGENT_TEST_TOKEN;
+    }
+  });
+
   it("resolves two ref maps sharing key names independently", async () => {
     process.env.AGENT_TEST_A = "value-a";
     process.env.AGENT_TEST_B = "value-b";

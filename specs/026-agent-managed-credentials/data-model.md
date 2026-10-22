@@ -12,7 +12,7 @@
 | `kind` | NEW `text NOT NULL DEFAULT 'STORED'` + CHECK `kind IN ('STORED','AGENT_MANAGED')` — values from `CREDENTIAL_KINDS` in `packages/core/src/constants/credential-kind.ts` |
 | `secretRefMap` | NEW `jsonb NULL` — `Record<keyName, {env?: string; file?: string}>`; exactly one source key per ref enforced by zod, not the DB |
 | `encryptedPayload` | `text` → **nullable** (AGENT_MANAGED rows store no payload) |
-| `keyVersion` | unchanged (`NOT NULL DEFAULT 1`; inert for AGENT_MANAGED) |
+| `keyVersion` | column unchanged (`NOT NULL DEFAULT 1`); AGENT_MANAGED rows insert `0` — inert, no payload exists to encrypt |
 
 New coherence CHECK `credentials_kind_payload_check`:
 

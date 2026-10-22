@@ -4,6 +4,7 @@ import {
   updateCredentialSchema,
   secretRefSchema,
   secretRefMapSchema,
+  testCredentialSchema,
 } from "../../src/schemas/credential.js";
 import {
   agentMessageSchemas,
@@ -70,6 +71,39 @@ describe("credential schemas", () => {
   it("accepts a bare env ref and bare file ref", () => {
     expect(secretRefSchema.safeParse({ env: "E" }).success).toBe(true);
     expect(secretRefSchema.safeParse({ file: "f" }).success).toBe(true);
+    expect(secretRefSchema.safeParse({ file: "nested/dir/gh-secret" }).success)
+      .toBe(true);
+  });
+
+  // Write-time confinement (T061): permanently-unusable file refs are
+  // rejected at save, not only at resolution on the agent.
+  it("rejects absolute and traversal file refs", () => {
+    for (const bad of [
+      "/etc/passwd",
+      "\\windows\\system32",
+      "C:/secrets/x",
+      "C:\\secrets\\x",
+      "../escape",
+      "nested/../../escape",
+      "nested\\..\\escape",
+    ]) {
+      expect(
+        secretRefSchema.safeParse({ file: bad }).success,
+        `expected rejection: ${bad}`,
+      ).toBe(false);
+    }
+  });
+
+  it("test credential schema is strict — unknown fields rejected", () => {
+    expect(
+      testCredentialSchema.safeParse({ importerName: "github" }).success,
+    ).toBe(true);
+    expect(
+      testCredentialSchema.safeParse({
+        importerName: "github",
+        unexpected: true,
+      }).success,
+    ).toBe(false);
   });
 
   it("update schema accepts a secretRefMap replacement", () => {

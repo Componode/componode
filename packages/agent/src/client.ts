@@ -12,6 +12,10 @@ import {
   type ImporterRegistry,
 } from "@componode/core";
 import { proxyForUrl, type AgentConfig } from "./config.js";
+import {
+  SecretRefError,
+  SecretResolutionError,
+} from "@componode/core/secrets";
 import { createAgentResolver, resolveRefMap, type AgentLog } from "./secrets.js";
 import { createRequire } from "node:module";
 
@@ -125,7 +129,21 @@ export async function handleCredentialTest(
     const result = await importer.testSecrets(secrets, payload.scope);
     return reply(result.ok, result.error);
   } catch (err) {
-    return reply(false, err instanceof Error ? err.message : String(err));
+    // Resolution failures are sanitized by construction — they name key +
+    // source and never a path. Any other throw (importer bug, registry
+    // failure) can embed absolute paths or internals: log it locally and
+    // send only a generic failure across the wire (ADR-096).
+    if (err instanceof SecretResolutionError || err instanceof SecretRefError) {
+      return reply(false, err.message);
+    }
+    deps.log.warn(
+      { err: err instanceof Error ? err.message : String(err) },
+      "credential test failed on agent",
+    );
+    return reply(
+      false,
+      `credential test failed on agent for importer "${payload.importerName}"`,
+    );
   }
 }
 

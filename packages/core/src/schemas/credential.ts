@@ -18,9 +18,21 @@ const secretsSchema = z
 // Agent-managed credentials (ADR-117, spec 026): references name sources,
 // not values — an env var name or a file under the agent's secrets dir.
 // Exactly one source key per ref; unknown source types are rejected.
+// `file` refs are confined to SECRETS_DIR on the agent — reject absolute
+// paths and traversal at write time so permanently-unusable refs can't be
+// stored (resolution re-checks with realpath on the agent host).
+const secretFileRef = z
+  .string()
+  .min(1, "File name is required")
+  .refine(
+    (v) =>
+      !/^(?:[a-zA-Z]:|[\\/])/.test(v) && !v.split(/[\\/]/).includes(".."),
+    "File references must be relative paths inside the agent's secrets directory",
+  );
+
 export const secretRefSchema = z.union([
   z.object({ env: z.string().min(1, "Env var name is required") }).strict(),
-  z.object({ file: z.string().min(1, "File name is required") }).strict(),
+  z.object({ file: secretFileRef }).strict(),
 ]);
 
 export const secretRefMapSchema = z
@@ -83,10 +95,12 @@ export const updateCredentialSchema = z
   })
   .strict();
 
-export const testCredentialSchema = z.object({
-  importerName: z.string().min(1, "Importer name is required"),
-  scope: z.record(z.unknown()).optional(),
-});
+export const testCredentialSchema = z
+  .object({
+    importerName: z.string().min(1, "Importer name is required"),
+    scope: z.record(z.unknown()).optional(),
+  })
+  .strict();
 
 export type CreateCredentialInput = z.infer<typeof createCredentialSchema>;
 export type UpdateCredentialInput = z.infer<typeof updateCredentialSchema>;

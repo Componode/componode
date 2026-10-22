@@ -421,6 +421,29 @@ describe("remote credential test", () => {
     ws.close();
   });
 
+  it("400s CREDENTIAL_MISSING_KEY naming the dropped required key (spec edge case)", async () => {
+    const { agent, enrollment } = await createAgent("edge-coverage");
+    const ws = await connectAgent(enrollment.token);
+    const cred = await createAgentManagedCredential();
+    await bindConfig(cred.id, agent.id);
+
+    // Edit the ref map in place to drop the importer's required `token`
+    // key — the edit succeeds (no dependent re-validation), but the next
+    // test must fail naming the missing key.
+    const edit = await app.inject({
+      method: "PATCH",
+      url: `/api/v1/credentials/${cred.id}`,
+      ...authed({ secretRefMap: { other: { env: "GH_TOKEN" } } }),
+    });
+    expect(edit.statusCode).toBe(200);
+
+    const res = await postTest(cred.id);
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("CREDENTIAL_MISSING_KEY");
+    expect(res.json().message).toContain('"token"');
+    ws.close();
+  });
+
   it("picks a connected agent when multiple agents are bound", async () => {
     const offline = await createAgent("edge-multi-offline");
     const online = await createAgent("edge-multi-online");

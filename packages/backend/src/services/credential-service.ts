@@ -17,7 +17,8 @@ import {
   loadKeyring,
   type Keyring,
 } from "../utils/credential-crypto.js";
-import { getImporter } from "./importer-registry.js";
+import { getImporter, getManifest } from "./importer-registry.js";
+import { assertSecretCoverage } from "../utils/secret-resolver.js";
 import type { AgentSessionService } from "./agent-session-service.js";
 import { metrics } from "../plugins/metrics.js";
 import { refSource } from "@componode/core/secrets";
@@ -247,7 +248,9 @@ export async function testCredential(
       .innerJoin("importer_configs", "importer_configs.id", "importer_config_credentials.configId")
       .innerJoin("import_agents", "import_agents.id", "importer_configs.agentId")
       .select([
+        "importer_configs.id as configId",
         "importer_configs.agentId as agentId",
+        "importer_configs.secretRefs as secretRefs",
         "import_agents.name as agentName",
       ])
       .where("importer_config_credentials.credentialId", "=", credentialId)
@@ -263,8 +266,33 @@ export async function testCredential(
       );
     }
 
+    // Coverage (spec edge case): a reference map edited to drop a required
+    // key must fail the test with CREDENTIAL_MISSING_KEY naming the key —
+    // the same check save-time validation runs, over the bound config's
+    // full credential+legacy-ref set.
+    const manifest = await getManifest(input.importerName);
+    const declarations = manifest.secrets ?? [];
+
     let lastOffline: Error | null = null;
     for (const candidate of bound) {
+      const linked = await db
+        .selectFrom("importer_config_credentials")
+        .innerJoin(
+          "credentials",
+          "credentials.id",
+          "importer_config_credentials.credentialId",
+        )
+        .select("credentials.keyHints")
+        .where("importer_config_credentials.configId", "=", candidate.configId)
+        .execute();
+      const providedKeys = [
+        ...(candidate.secretRefs ?? []).map((r) => r.key),
+        ...linked.flatMap((l) =>
+          Object.keys((l.keyHints ?? {}) as Record<string, string>),
+        ),
+      ];
+      assertSecretCoverage(declarations, providedKeys);
+
       const testId = uuidv7();
       // The dispatch audit + lastUsedAt stamp fire at send time (FR-018):
       // a timeout or mid-test disconnect still leaves the audit trail.

@@ -121,6 +121,23 @@ describe("AgentSessionService credential test dispatch", () => {
     expect(offline).not.toHaveBeenCalled();
   });
 
+  it("rejects with AGENT_OFFLINE when the session socket is not OPEN", async () => {
+    const svc = new AgentSessionService();
+    const socket = fakeSocket();
+    socket.readyState = 3; // CLOSED — session still live until close() reaps it
+    internals(svc).live.set("agent-1", fakeSession("agent-1", socket));
+
+    const onDispatched = vi.fn();
+    await expect(
+      svc.dispatchCredentialTest("agent-1", payload, onDispatched),
+    ).rejects.toMatchObject({ statusCode: 503, code: "AGENT_OFFLINE" });
+    // No frame was ever sent: nothing may be audited as dispatched and no
+    // pending entry may linger for the timeout window.
+    expect(socket.send).not.toHaveBeenCalled();
+    expect(onDispatched).not.toHaveBeenCalled();
+    expect(internals(svc).pendingTests.size).toBe(0);
+  });
+
   it("rejects all pending dispatches when the session closes", async () => {
     const svc = new AgentSessionService();
     const session = fakeSession("agent-1");

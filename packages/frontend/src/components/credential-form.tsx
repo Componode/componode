@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import type { ApiError } from "@/api/client";
+import { CREDENTIAL_KIND_META } from "@componode/core";
 import type { CredentialKind, SecretRefMap } from "@/api/types";
 import type { CreateCredentialInput } from "@/api/hooks/credentials";
 
@@ -310,13 +311,13 @@ export function CredentialForm({ onSubmit, onCancel, submitting, lockStored }: C
           onChange={(e) => setKind(e.target.value as CredentialKind)}
           disabled={lockStored}
         >
-          <option value="STORED">Stored in Componode</option>
-          <option value="AGENT_MANAGED">Resolved on an Import Agent</option>
+          <option value="STORED">{CREDENTIAL_KIND_META.STORED.label}</option>
+          <option value="AGENT_MANAGED">
+            {CREDENTIAL_KIND_META.AGENT_MANAGED.label}
+          </option>
         </Select>
         <p className="mt-1 text-xs text-muted-foreground">
-          {kind === "AGENT_MANAGED"
-            ? "For import agents: only references are stored here; values stay on the agent host."
-            : "Values are encrypted at rest and resolved on the hub."}
+          {CREDENTIAL_KIND_META[kind].description}
         </p>
       </div>
 

@@ -268,3 +268,14 @@ mismatched use is already rejected.
 ## Phase 11: Convergence
 
 - [X] T057 Amend `contracts/credential-api.md` — the response-object section claims `secretRefMap` is present on "all credential endpoints"; state it is detail/mutation-only with `keyHints` source types on list responses per ADR-117 Amendment 1 (partial)
+
+## Phase 12: Review Hardening (code-review round 2 — `4dfb697`)
+
+- [X] T058 [HIGH] Sanitize non-resolution errors in `handleCredentialTest` — the catch-all at `agent/src/client.ts:127-128` forwards raw `err.message`; a `testSecrets` throw embedding absolute paths crosses the wire per ADR-096 + agent-protocol.md:153 (partial)
+- [X] T059 [HIGH] `send()` silently no-ops when `readyState !== OPEN` yet `onDispatched` still fires (`agent-session-service.ts:431-438,530-535`) — check socket OPEN before send and reject `AGENT_OFFLINE` immediately, skipping the dispatch audit (partial)
+- [X] T060 [MEDIUM] Remote test path performs no required-key coverage check — a dropped required key surfaces as a generic importer error instead of `CREDENTIAL_MISSING_KEY` naming the key per spec edge case + Clarifications (`credential-service.ts` AGENT_MANAGED test branch) (partial)
+- [X] T061 [MEDIUM] Write-time ref validation hardening: reject absolute/`..` `file:` refs in `secretRefMapSchema` (confinement is currently resolution-time only); make `testCredentialSchema` `.strict()` per ADR-095 (`schemas/credential.ts`) (partial)
+- [X] T062 [LOW] Align `frontend/src/api/types.ts` with the spec-025 pattern — re-export `CredentialKind`/`Credential`/`SecretRefMap`/`CredentialTestResult` from `@componode/core` instead of hand-declaring (partial)
+- [X] T063 [LOW] Consume `CREDENTIAL_KIND_META` in `credential-form.tsx` (it hardcodes the same labels the constant exports) or drop the constant per Speculative Generality (`constants/credential-kind.ts`) (unrequested)
+- [X] T064 [LOW] Fix `openapi.yaml` POST /credentials `label maxLength: 200` → 100 to match the Zod schema (partial)
+- [X] T065 [LOW] Doc alignment: `spec.md` US1.2 still says list APIs "contain the declared references" (stale vs Amendment-1 list/detail split); `data-model.md` claims `keyVersion` DEFAULT 1 inert but `createCredential` inserts `keyVersion: 0` for AGENT_MANAGED — reconcile both docs (partial)

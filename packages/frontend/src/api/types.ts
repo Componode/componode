@@ -88,46 +88,23 @@ export interface ImporterConfig {
   updatedAt: string;
 }
 
-export type CredentialStatus = "ACTIVE" | "REVOKED";
-export type CredentialKind = "STORED" | "AGENT_MANAGED";
+// Credential shapes are owned by @componode/core contracts (ADR-117) —
+// re-exported here so API types and core can't drift.
+export type {
+  Credential,
+  CredentialDependents,
+  CredentialDetail,
+  CredentialKind,
+  CredentialStatus,
+  SecretRefMap,
+} from "@componode/core";
+import type { SecretRefInput } from "@componode/core";
 
 // AGENT_MANAGED reference — names a source on the agent host, never a value
 // (ADR-117).
-export type SecretRef = { env: string } | { file: string };
-export type SecretRefMap = Record<string, SecretRef>;
+export type SecretRef = SecretRefInput;
 
-export interface Credential {
-  id: string;
-  slug: string;
-  label: string;
-  status: CredentialStatus;
-  kind: CredentialKind;
-  secretRefMap?: SecretRefMap;
-  keyHints: Record<string, string>;
-  expiresAt: string | null;
-  lastUsedAt: string | null;
-  createdBy: string | null;
-  updatedBy: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CredentialDependents {
-  importerConfigs: Array<{ id: string; label: string }>;
-  oidc: boolean;
-}
-
-export interface CredentialDetail {
-  credential: Credential;
-  dependents: CredentialDependents;
-}
-
-export interface CredentialTestResult {
-  ok: boolean;
-  error?: string;
-  // Set when the test ran on an Import Agent — the executing agent's name.
-  agent?: string;
-}
+export type { CredentialTestResult } from "@componode/core";
 
 export interface ImportRun {
   id: string;

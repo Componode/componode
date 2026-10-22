@@ -406,7 +406,10 @@ export class AgentSessionService {
     onDispatched?: () => void,
   ): Promise<AgentCredentialTestResultPayload> {
     const session = this.live.get(agentId);
-    if (!session) {
+    // A session whose socket is no longer OPEN is dead but not yet reaped —
+    // dispatching to it would silently no-op and burn the full timeout
+    // window. Report AGENT_OFFLINE immediately instead.
+    if (!session || session.socket.readyState !== session.socket.OPEN) {
       return Promise.reject(
         Object.assign(new Error("Agent has no connected session"), {
           statusCode: 503,

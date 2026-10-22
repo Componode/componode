@@ -60,9 +60,11 @@ value for it, and that the list shows the badge.
    `clientSecret → file: gh-secret`, **Then** the credential is saved with
    those references and its key hints show the key names only — no value
    fragments.
-2. **Given** an agent-managed credential, **When** any admin-facing read or
-   list API returns it, **Then** the response contains the declared
-   references (they are names, not secrets) and never an encrypted payload.
+2. **Given** an agent-managed credential, **When** an admin-facing detail
+   read or mutation API returns it, **Then** the response contains the
+   declared references (they are names, not secrets) and never an encrypted
+   payload; list responses show key hints (source types) only — reference
+   names are detail-only data per ADR-117 Amendment 1.
 3. **Given** the credential creation form, **When** the agent-managed mode
    is selected but a request supplies secret values, **Then** the request is
    rejected — this kind stores references only.

@@ -2098,7 +2098,7 @@ paths:
               type: object
               required: [label]
               properties:
-                label: { type: string, minLength: 1, maxLength: 200 }
+                label: { type: string, minLength: 1, maxLength: 100 }
                 kind:
                   type: string
                   enum: [STORED, AGENT_MANAGED]
