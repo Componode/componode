@@ -110,7 +110,7 @@ export const credentialTestPayloadSchema = z
     credentialId: z.string().uuid(),
     // Bounded because the agent echoes the name into result errors.
     importerName: z.string().min(1).max(100),
-    scope: z.record(z.unknown()).optional(),
+    scope: z.record(z.string(), z.unknown()).optional(),
     secretRefMap: secretRefMapSchema,
   })
   .strict();
@@ -129,7 +129,7 @@ export const credentialTestResultPayloadSchema = z
 export const jobAssignPayloadSchema = z
   .object({
     importerName: z.string().min(1).max(100),
-    scope: z.record(z.unknown()).optional(),
+    scope: z.record(z.string(), z.unknown()).optional(),
     secretRefMap: secretRefMapSchema.optional(),
   })
   .strict();
