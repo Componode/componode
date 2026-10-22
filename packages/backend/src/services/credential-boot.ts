@@ -30,9 +30,13 @@ export async function bootstrapCredentialStore(
   const keyring = await loadKeyring();
 
   if (!keyring) {
+    // Only STORED rows are unreadable without a key — AGENT_MANAGED rows
+    // carry no payload, so an all-agent-managed store still boots
+    // degraded (ADR-117, spec 026).
     const count = await db
       .selectFrom("credentials")
       .select(({ fn }) => fn.countAll<number>().as("c"))
+      .where("kind", "=", "STORED")
       .executeTakeFirstOrThrow();
     if (Number(count.c) > 0) {
       throw new Error(
@@ -48,15 +52,17 @@ export async function bootstrapCredentialStore(
     return { keyring: null, rotated: 0 };
   }
 
+  // AGENT_MANAGED rows have no payload — nothing to re-encrypt (spec 026).
   const stale = await db
     .selectFrom("credentials")
     .select(["id", "encryptedPayload"])
     .where("keyVersion", "<>", keyring.current.version)
+    .where("kind", "=", "STORED")
     .execute();
 
   let rotated = 0;
   for (const row of stale) {
-    const next = reencryptIfNeeded(row.encryptedPayload, keyring);
+    const next = reencryptIfNeeded(row.encryptedPayload!, keyring);
     if (!next) continue;
     await db
       .updateTable("credentials")

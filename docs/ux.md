@@ -228,6 +228,17 @@ Every page and every async region implements these states. Toast feedback
   enrollment token surfaces exactly once in a copy-dialog after create or
   rotate — the hub URL field is editable and prefilled from the browser
   origin.
+- **Credentials (spec 026)**: `AGENT_MANAGED` rows carry an `AGENT` badge
+  and their key column renders source-type chips (`key · env` / `key ·
+  file`) instead of last-4 hints — the hints only exist for `STORED`. The
+  credential form asks "Where do the values live?": `Stored in Componode`
+  (default, write-only value inputs) or `Resolved on an Import Agent`
+  (per-key rows of key + source select + reference name; no value fields
+  ever). The Rotate dialog becomes "Edit references" for agent-managed
+  credentials — the hub copy changes, values rotate on the agent host.
+  The credential test dialog names the executing agent on remote results.
+  Hub-executed importer configs filter `AGENT_MANAGED` credentials out of
+  the selector (server still enforces `CREDENTIAL_KIND_MISMATCH`).
 
 ---
 

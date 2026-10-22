@@ -82,6 +82,10 @@ exception is `GET /metrics`, which is served at the root.
 | `AGENT_ENROLLMENT_INVALID` | Unknown, used, or expired agent enrollment token (401) |
 | `AGENT_CREDENTIAL_INVALID` | Invalid or revoked agent credential (401) |
 | `AGENT_VERSION_MISMATCH` | Agent protocol/importer version mismatch (403) |
+| `AGENT_OFFLINE` | Bound import agent is not connected (503) |
+| `AGENT_TEST_TIMEOUT` | Agent did not answer the credential test in time (504) |
+| `CREDENTIAL_NO_BOUND_AGENT` | No agent-bound config references this credential (400) |
+| `CREDENTIAL_KIND_MISMATCH` | Credential kind does not match the execution mode (400) |
 <!-- /GENERATED:error-codes -->
 
 ---
@@ -299,8 +303,15 @@ Notes:
 
 - Credential secret values are **write-only**: they are encrypted at rest
   (AES-256-GCM) and never returned by any endpoint. `keyHints` shows the
-  last 4 characters of each stored key for identification.
-- `POST /credentials` accepts `{ label, expiresAt?, secrets: { key: value } }`.
+  last 4 characters of each stored key for identification; for
+  `AGENT_MANAGED` credentials it instead carries the reference source
+  type (`env`/`file`) per key.
+- `POST /credentials` accepts `{ label, kind?, expiresAt?, secrets? | secretRefMap? }`:
+  `kind: "STORED"` (default) requires `secrets: { key: value }`;
+  `kind: "AGENT_MANAGED"` requires `secretRefMap: { key: {env|file} }` —
+  references resolved on an Import Agent, never secret values.
+- Reference names (`secretRefMap`) appear only on detail and mutation
+  responses; the list endpoint exposes `keyHints` source types instead.
 
 ## Organization
 

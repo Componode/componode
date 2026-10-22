@@ -92,6 +92,15 @@ reported versions. Operational telemetry (connection history), distinct
 from audit entries in `entity_changes`.
 _Avoid_: socket, connection record
 
+**Agent-managed credential** (`AGENT_MANAGED`):
+A credential-store record that holds **secret references only** — `{env}`
+/`{file}` names resolved on the Import Agent host — never values.
+Distinct from a **stored credential** (`STORED`), which encrypts values on
+the hub (ADR-117). Testing routes to the bound agent over the agent
+stream; rotation happens entirely on the agent host.
+_Avoid_: remote secret, agent token (that term is the agent's own auth
+credential)
+
 **Link**:
 A curated `{ title, url }` reference attached to a Digital Product or
 Component (runbook, repo, dashboard). Human-authored, ordered, max 20;

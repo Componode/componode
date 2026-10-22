@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useImporters } from "@/api/hooks/importers";
 import { useTestCredential } from "@/api/hooks/credentials";
+import type { ApiError } from "@/api/client";
 import type { Credential, CredentialTestResult } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -19,6 +20,17 @@ interface CredentialTestDialogProps {
   credential: Credential | null;
   onClose: () => void;
 }
+
+// Actionable hints for remote-test failures (spec 026 US3) — the API error
+// message is shown verbatim; these point at the operational fix.
+const TEST_ERROR_HINTS: Record<string, string> = {
+  CREDENTIAL_NO_BOUND_AGENT:
+    "Bind an importer config for this importer to an Import Agent first — remote tests run on a bound agent.",
+  AGENT_OFFLINE:
+    "The bound Import Agent isn't connected — check its status under Administration → Import Agents, then retry.",
+  AGENT_TEST_TIMEOUT:
+    "The agent didn't answer within the timeout — check the agent host and its stream, then retry.",
+};
 
 // Dry-run a stored credential against an importer's auth check (spec 013 US3).
 // Only importers that declare secret keys are offered — others cannot consume
@@ -45,8 +57,9 @@ export function CredentialTestDialog({ credential, onClose }: CredentialTestDial
         <DialogHeader>
           <DialogTitle>Test credential</DialogTitle>
           <DialogDescription>
-            Dry-run &quot;{credential?.label}&quot; against an importer&apos;s
-            authentication check. No data is imported.
+            {credential?.kind === "AGENT_MANAGED"
+              ? `The bound Import Agent resolves "${credential.label}"'s references locally and runs the check on its host. No data is imported.`
+              : `Dry-run "${credential?.label}" against an importer's authentication check. No data is imported.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -80,13 +93,25 @@ export function CredentialTestDialog({ credential, onClose }: CredentialTestDial
               <XCircle className="mt-0.5 h-4 w-4 text-destructive" />
             )}
             <span>{result.ok ? "Authentication succeeded." : result.error}</span>
+            {result.agent && (
+              <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                via agent {result.agent}
+              </span>
+            )}
           </div>
         )}
 
         {test.isError && (
-          <p className="text-sm text-destructive">
-            {test.error instanceof Error ? test.error.message : "Test failed"}
-          </p>
+          <div className="text-sm text-destructive">
+            <p>{test.error instanceof Error ? test.error.message : "Test failed"}</p>
+            {(() => {
+              const code = (test.error as unknown as ApiError)?.code;
+              const hint = code ? TEST_ERROR_HINTS[code] : undefined;
+              return hint ? (
+                <p className="mt-1 text-muted-foreground">{hint}</p>
+              ) : null;
+            })()}
+          </div>
         )}
 
         <DialogFooter>

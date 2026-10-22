@@ -113,3 +113,38 @@ multi-credential agents correct.
   disk theft but replaces the idiomatic secret-mount workflow with custom
   operator tooling. Parked as a future `store:` ref type; encryption at
   rest is delegated to the platform in v1.
+
+---
+
+## Amendment 1 — Ratified implementation surfaces (spec 026)
+
+Implementation ratified the following enumerated surfaces; they are now
+part of this decision and change only via further amendment:
+
+- **Error codes** — `AGENT_OFFLINE` (503: bound agent not connected),
+  `AGENT_TEST_TIMEOUT` (504: no `credential.test.result` within the
+  window), `CREDENTIAL_NO_BOUND_AGENT` (400: no agent-bound config
+  references the credential), `CREDENTIAL_KIND_MISMATCH` (400: credential
+  kind vs execution-mode mismatch — hub configs/OIDC reject
+  `AGENT_MANAGED`, agent-bound configs reject `STORED`, and
+  `resolveImportSecrets` refuses `AGENT_MANAGED` records as
+  defense-in-depth).
+- **Audit action** — `credential_test_dispatched` added to
+  `AGENT_AUDIT_ACTIONS` (agent entity_changes row when the hub dispatches
+  a remote test; the credential keeps its own `tested` entry). Dispatch
+  audit and `lastUsedAt` record **at send time**, and a failed outcome
+  (`ok:false` + error code) is audited on timeout or mid-test
+  disconnect — an unanswered dispatch never escapes the trail.
+- **Metric** — `agent_credential_tests_total{agent,result}` counter;
+  `result` is `ok` | `error` | `offline` | `timeout` (each bound agent
+  tried increments once per dispatch attempt).
+- **`testId` correlation** — each `credential.test` carries a UUID
+  `testId`; results with unknown ids are ignored, a
+  `AGENT_CREDENTIAL_TEST_TIMEOUT_MS` (30 s, env-tunable) timer bounds the
+  wait, and session close rejects all pending dispatches.
+- **`keyHints` convention** — for `AGENT_MANAGED`, `keyHints` carries the
+  ref **source type** per key (`"env"` | `"file"`) rather than key names
+  alone, so the UI can render source badges without exposing reference
+  names in list views (they remain visible in `secretRefMap` on detail).
+- **Ref-map edits** — `PATCH secretRefMap` replaces the map in place with
+  no dependent-config revalidation; audits carry key names only.

@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useCredential,
   useDeleteCredential,
   useUpdateCredential,
 } from "@/api/hooks/credentials";
 import type { ApiError } from "@/api/client";
-import type { Credential, CredentialDependents } from "@/api/types";
+import type { Credential, CredentialDependents, SecretRefMap } from "@/api/types";
 import {
   collectSecrets,
+  collectSecretRefs,
   SecretEntriesEditor,
+  SecretRefEntriesEditor,
   type SecretEntry,
+  type SecretRefEntry,
 } from "@/components/credential-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,15 +31,51 @@ interface DialogProps {
   onClose: () => void;
 }
 
-// Rotate: replace the stored secret bundle in place. The credential id and
-// all importer-config links are preserved (spec 013 US4).
+function refMapToEntries(refs: SecretRefMap): SecretRefEntry[] {
+  const entries = Object.entries(refs).map(([key, ref]) =>
+    "env" in ref
+      ? { key, source: "env" as const, reference: ref.env }
+      : { key, source: "file" as const, reference: ref.file },
+  );
+  return entries.length > 0 ? entries : [{ key: "", source: "env", reference: "" }];
+}
+
+// Rotate: replace the stored secret bundle in place, or — for agent-managed
+// credentials — edit the reference map. The credential id and all
+// importer-config links are preserved (spec 013 US4, spec 026). The ref map
+// is detail-only data (ADR-117) — fetched here, not read off the list row.
 export function RotateCredentialDialog({ credential, onClose }: DialogProps) {
   const update = useUpdateCredential(credential?.id ?? "");
+  const isAgentManaged = credential?.kind === "AGENT_MANAGED";
+  const detail = useCredential(isAgentManaged ? (credential?.id ?? null) : null);
   const [entries, setEntries] = useState<SecretEntry[]>([{ key: "", value: "" }]);
+  const [refEntries, setRefEntries] = useState<SecretRefEntry[]>([
+    { key: "", source: "env", reference: "" },
+  ]);
   const [error, setError] = useState<string | null>(null);
+
+  // Seed the ref editor once the detail fetch lands (agent-managed only).
+  const refMap = detail.data?.credential.secretRefMap;
+  useEffect(() => {
+    if (refMap) setRefEntries(refMapToEntries(refMap));
+  }, [refMap]);
 
   const submit = async () => {
     setError(null);
+    if (isAgentManaged) {
+      const collected = collectSecretRefs(refEntries);
+      if ("error" in collected) {
+        setError(collected.error);
+        return;
+      }
+      try {
+        await update.mutateAsync({ secretRefMap: collected.secretRefMap });
+        onClose();
+      } catch (err) {
+        setError((err as ApiError).message ?? "Update failed");
+      }
+      return;
+    }
     const collected = collectSecrets(entries);
     if ("error" in collected) {
       setError(collected.error);
@@ -54,23 +93,36 @@ export function RotateCredentialDialog({ credential, onClose }: DialogProps) {
     <Dialog open={credential !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Rotate credential</DialogTitle>
+          <DialogTitle>{isAgentManaged ? "Edit references" : "Rotate credential"}</DialogTitle>
           <DialogDescription>
-            Replace the secrets stored in &quot;{credential?.label}&quot;. The
-            credential id and its importer-config links are preserved — the new
-            values take effect on the next run.
+            {isAgentManaged
+              ? `Edit the secret references in "${credential?.label}". Values rotate on the agent host — change them there.`
+              : `Replace the secrets stored in "${credential?.label}". The credential id and its importer-config links are preserved — the new values take effect on the next run.`}
           </DialogDescription>
         </DialogHeader>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-        <SecretEntriesEditor entries={entries} onChange={setEntries} />
-
+        {isAgentManaged ? (
+          detail.isPending ? (
+            <p className="text-sm text-muted-foreground">Loading references…</p>
+          ) : (
+            <SecretRefEntriesEditor
+              entries={refEntries}
+              onChange={setRefEntries}
+            />
+          )
+        ) : (
+          <SecretEntriesEditor entries={entries} onChange={setEntries} />
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={update.isPending}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={update.isPending}>
-            {update.isPending ? "Rotating…" : "Rotate"}
+          <Button
+            onClick={submit}
+            disabled={update.isPending || (isAgentManaged && detail.isPending)}
+          >
+            {update.isPending ? "Saving…" : isAgentManaged ? "Save" : "Rotate"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -148,13 +200,32 @@ export function CredentialDetailDialog({ credential, onClose }: DialogProps) {
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-muted-foreground">Keys</dt>
+              <dt className="text-muted-foreground">Kind</dt>
+              <dd>{credential.kind === "AGENT_MANAGED" ? "Agent-managed" : "Stored"}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">
+                {credential.kind === "AGENT_MANAGED" ? "References" : "Keys"}
+              </dt>
               <dd className="flex flex-wrap justify-end gap-1">
-                {Object.entries(credential.keyHints).map(([key, hint]) => (
-                  <Badge key={key} variant="outline" className="font-mono text-xs">
-                    {key} •••{hint}
-                  </Badge>
-                ))}
+                {credential.kind === "AGENT_MANAGED"
+                  ? Object.entries(
+                      detail.data?.credential.secretRefMap ?? {},
+                    ).map(([key, ref]) => (
+                      <Badge
+                        key={key}
+                        variant="outline"
+                        className="font-mono text-xs"
+                        title={"env" in ref ? `env:${ref.env}` : `file:${ref.file}`}
+                      >
+                        {key} · {"env" in ref ? "env" : "file"}
+                      </Badge>
+                    ))
+                  : Object.entries(credential.keyHints).map(([key, hint]) => (
+                      <Badge key={key} variant="outline" className="font-mono text-xs">
+                        {key} •••{hint}
+                      </Badge>
+                    ))}
               </dd>
             </div>
             <div className="flex justify-between">

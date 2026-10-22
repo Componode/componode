@@ -1,11 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import type { Credential, CredentialDetail, CredentialTestResult } from "@/api/types";
+import type { Credential, CredentialDetail, CredentialKind, CredentialListItem, CredentialTestResult, SecretRefMap } from "@/api/types";
 
 export function useCredentials() {
   return useQuery({
     queryKey: ["credentials"],
-    queryFn: () => api<{ credentials: Credential[] }>("/credentials"),
+    queryFn: () => api<{ credentials: CredentialListItem[] }>("/credentials"),
   });
 }
 
@@ -20,7 +20,9 @@ export function useCredential(id: string | null) {
 export interface CreateCredentialInput {
   label: string;
   expiresAt?: string | null;
-  secrets: Record<string, string>;
+  kind?: CredentialKind;
+  secrets?: Record<string, string>;
+  secretRefMap?: SecretRefMap;
 }
 
 export function useCreateCredential() {
@@ -56,6 +58,7 @@ export interface UpdateCredentialInput {
   label?: string;
   expiresAt?: string | null;
   secrets?: Record<string, string>;
+  secretRefMap?: SecretRefMap;
   status?: "REVOKED";
 }
 

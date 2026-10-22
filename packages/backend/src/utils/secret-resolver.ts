@@ -1,42 +1,13 @@
 import { decryptSecrets, type Keyring } from "./credential-crypto.js";
+import { EnvSecretResolver } from "@componode/core/secrets";
+import type { SecretRef } from "@componode/core/secrets";
 
-export interface SecretRef {
-  key: string;
-  env?: string;
-  file?: string;
-}
-
-export class EnvSecretResolver {
-  async resolve(ref: SecretRef): Promise<string> {
-    if (ref.env !== undefined) {
-      const value = process.env[ref.env];
-      if (value === undefined || value === "") {
-        throw new Error(`Secret environment variable not set: ${ref.env}`);
-      }
-      return value;
-    }
-
-    if (ref.file !== undefined) {
-      // File secrets are confined to SECRETS_DIR (default /run/secrets, the
-      // conventional container secrets mount). Absolute paths and traversal
-      // outside the directory are rejected.
-      const { readFile } = await import("node:fs/promises");
-      const { resolve, isAbsolute, relative } = await import("node:path");
-      const secretsDir = resolve(process.env.SECRETS_DIR ?? "/run/secrets");
-      if (isAbsolute(ref.file)) {
-        throw new Error("Secret file reference must be relative to SECRETS_DIR");
-      }
-      const resolved = resolve(secretsDir, ref.file);
-      const rel = relative(secretsDir, resolved);
-      if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
-        throw new Error("Secret file reference escapes SECRETS_DIR");
-      }
-      return (await readFile(resolved, "utf8")).trim();
-    }
-
-    throw new Error("Secret ref must include env or file");
-  }
-}
+// Shared resolver + ref type live in core (spec 026, R6) so hub and agent
+// share identical ref semantics; re-export for existing backend imports.
+// Imported via the node-only "@componode/core/secrets" subpath so browser
+// bundles never pull fs/path.
+export { EnvSecretResolver, redactSecrets } from "@componode/core/secrets";
+export type { SecretRef } from "@componode/core/secrets";
 
 const resolver = new EnvSecretResolver();
 
@@ -56,27 +27,14 @@ export async function resolveSecrets(
   return secrets;
 }
 
-export function redactSecrets(input: Record<string, unknown>): Record<string, unknown> {
-  const output: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(input)) {
-    if (typeof value === "string" && value.length > 0) {
-      output[key] = "***REDACTED***";
-    } else if (typeof value === "object" && value !== null) {
-      output[key] = redactSecrets(value as Record<string, unknown>);
-    } else {
-      output[key] = value;
-    }
-  }
-  return output;
-}
-
 // --- Credential-store resolution (spec 013, ADR-107) -----------------------
 
 export interface CredentialRecord {
   id: string;
   label: string;
   status: string;
-  encryptedPayload: string;
+  kind: string;
+  encryptedPayload: string | null;
   keyVersion: number;
   expiresAt: string | null;
 }
@@ -115,6 +73,7 @@ const CODE_STATUS: Record<string, number> = {
   CREDENTIAL_MISSING_KEY: 400,
   CREDENTIAL_KEY_COLLISION: 400,
   CREDENTIAL_KEY_UNAVAILABLE: 503,
+  CREDENTIAL_KIND_MISMATCH: 400,
   LEGACY_SECRET_UNRESOLVABLE: 502,
   MANIFEST_NO_TEST: 400,
   CONVERSION_NOTHING_TO_CONVERT: 400,
@@ -181,9 +140,18 @@ export async function resolveImportSecrets(
         `Credential "${credential.label}" is revoked and cannot be used`,
       );
     }
+    // Defense-in-depth (spec 026): agent-managed credentials carry refs, not
+    // values — binding validation normally prevents them reaching in-process
+    // resolution; if one gets here anyway, fail before touching the payload.
+    if (credential.kind === "AGENT_MANAGED") {
+      throw codedError(
+        "CREDENTIAL_KIND_MISMATCH",
+        `Credential "${credential.label}" is agent-managed and cannot be resolved in-process`,
+      );
+    }
     checkExpiryWarning(credential, warnings);
     credentialLabels.push(credential.label);
-    const payload = decryptSecrets(credential.encryptedPayload, deps.keyring!);
+    const payload = decryptSecrets(credential.encryptedPayload!, deps.keyring!);
     for (const [key, value] of Object.entries(payload)) {
       claim(key, `credential "${credential.label}"`, value);
     }

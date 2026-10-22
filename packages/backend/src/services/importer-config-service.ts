@@ -100,6 +100,7 @@ async function validateSecretSources(
   secretRefs: Array<{ key: string; env?: string; file?: string }>,
   credentialIds: string[],
   executor: Executor,
+  agentId: string | null = null,
 ): Promise<void> {
   const manifest = await getManifest(importerName);
   const declarations = manifest.secrets ?? [];
@@ -116,7 +117,7 @@ async function validateSecretSources(
   if (credentialIds.length > 0) {
     const credentials = await executor
       .selectFrom("credentials")
-      .select(["id", "label", "status", "keyHints"])
+      .select(["id", "label", "status", "kind", "keyHints"])
       .where("id", "in", credentialIds)
       .execute();
     const byId = new Map(credentials.map((c) => [c.id, c]));
@@ -132,6 +133,25 @@ async function validateSecretSources(
         throw Object.assign(
           new Error(`Credential "${credential.label}" is revoked and cannot be used`),
           { statusCode: 409, code: "CREDENTIAL_REVOKED" },
+        );
+      }
+      // Executor-kind enforcement (spec 026): secrets resolved on an agent
+      // can only feed agent-bound configs; hub-encrypted credentials can
+      // never be shipped to an agent.
+      if (credential.kind === "AGENT_MANAGED" && !agentId) {
+        throw Object.assign(
+          new Error(
+            `Credential "${credential.label}" is agent-managed and requires a config bound to an import agent`,
+          ),
+          { statusCode: 400, code: "CREDENTIAL_KIND_MISMATCH" },
+        );
+      }
+      if (credential.kind !== "AGENT_MANAGED" && agentId) {
+        throw Object.assign(
+          new Error(
+            `Credential "${credential.label}" holds hub-encrypted values and cannot be used by an agent-bound config`,
+          ),
+          { statusCode: 400, code: "CREDENTIAL_KIND_MISMATCH" },
         );
       }
       const keys = Object.keys(credential.keyHints ?? {});
@@ -290,6 +310,7 @@ export async function updateImporterConfig(
         effectiveRefs,
         effectiveCredentialIds,
         trx,
+        existing.agentId,
       );
     }
 
@@ -407,7 +428,7 @@ export async function convertLegacySecrets(configId: string, actor: Actor) {
   }
 
   const credential = await createCredential(
-    { label: `${row.label} secrets`, secrets },
+    { kind: "STORED", label: `${row.label} secrets`, secrets },
     actor,
   );
 

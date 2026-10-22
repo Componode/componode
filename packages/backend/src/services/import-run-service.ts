@@ -448,7 +448,7 @@ async function worker(runId: string): Promise<void> {
         loadCredential: async (credentialId): Promise<CredentialRecord | null> => {
           const row = await db
             .selectFrom("credentials")
-            .select(["id", "label", "status", "encryptedPayload", "keyVersion", "expiresAt"])
+            .select(["id", "label", "status", "kind", "encryptedPayload", "keyVersion", "expiresAt"])
             .where("id", "=", credentialId)
             .executeTakeFirst();
           return row ?? null;

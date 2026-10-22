@@ -14,6 +14,7 @@ import {
   type SessionDeps,
 } from "./client.js";
 import { Backoff } from "./backoff.js";
+import { agentLoggerOptions } from "./logging.js";
 
 // Agent entrypoint (spec 025 US5, ADR-116): resolve a durable credential
 // (env file > env var > persisted state > enrollment-token exchange), then
@@ -35,7 +36,7 @@ type Log = {
 export async function runAgent(
   cfg: AgentConfig,
   deps: AgentDeps = {},
-  log: Log = pino({ name: "componode-agent" }),
+  log: Log = pino(agentLoggerOptions),
 ): Promise<number> {
   // 1. Credential: explicit file > env var > persisted state > enrollment.
   let token = resolveAgentToken(cfg) ?? readPersistedToken(cfg.stateDir);
@@ -122,7 +123,7 @@ export async function runAgent(
 async function main(): Promise<void> {
   // Logger exists before config load so startup failures still go through
   // pino — no console.* anywhere in the process (constitution VII).
-  const log = pino({ name: "componode-agent" });
+  const log = pino(agentLoggerOptions);
   let cfg: AgentConfig;
   try {
     cfg = loadConfig();

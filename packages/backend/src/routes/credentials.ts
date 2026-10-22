@@ -67,7 +67,7 @@ export async function credentialRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    const result = await testCredential(id, parsed.data, toActor(req));
+    const result = await testCredential(id, parsed.data, toActor(req), app.agentSessions);
     return reply.status(200).send(result);
   });
 

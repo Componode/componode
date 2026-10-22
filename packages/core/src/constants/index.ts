@@ -73,8 +73,15 @@ export {
   AGENT_SESSION_SWEEP_MS,
   AGENT_ENROLLMENT_TTL_MS,
   AGENT_HELLO_TIMEOUT_MS,
+  AGENT_CREDENTIAL_TEST_TIMEOUT_MS,
   AGENT_ERROR_CODES,
 } from "./import-agent.js";
+
+export {
+  CREDENTIAL_KINDS,
+  CREDENTIAL_KIND_META,
+} from "./credential-kind.js";
+export type { CredentialKind } from "./credential-kind.js";
 export type {
   AgentStatus,
   AgentDisconnectReason,

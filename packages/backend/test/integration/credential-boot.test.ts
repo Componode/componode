@@ -89,6 +89,29 @@ describe("credential store boot", () => {
     await expect(second.bootstrapCredentialStore(silentLog)).rejects.toThrow(/master key/);
   });
 
+  it("boots degraded when only AGENT_MANAGED credentials exist (no payload to decrypt)", async () => {
+    // Spec 026 / ADR-117: agent-managed rows carry references, not payloads —
+    // a hub holding only them must not demand a master key at boot.
+    process.env.COMPONODE_SECRETS_KEY = KEY_A;
+    const first = await importBoot();
+    const { createCredential } = await import("../../src/services/credential-service.js");
+    await createCredential(
+      {
+        label: "Remote refs",
+        kind: "AGENT_MANAGED",
+        secretRefMap: { token: { env: "PROD_TOKEN" } },
+      },
+      { id: null, name: "test" },
+    );
+
+    delete process.env.COMPONODE_SECRETS_KEY;
+    process.env.SECRETS_DIR = join(tmpdir(), "cn-nonexistent-dir");
+    const second = await importBoot();
+    const result = await second.bootstrapCredentialStore(silentLog);
+    expect(result.keyring).toBeNull();
+    expect(silentLog.warn).toHaveBeenCalled();
+  });
+
   it("dual-key rotation re-encrypts payloads and bumps keyVersion", async () => {
     process.env.COMPONODE_SECRETS_KEY = KEY_A;
     const first = await importBoot();

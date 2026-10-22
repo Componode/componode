@@ -42,6 +42,11 @@ export {
   CREDENTIAL_STATUS_META,
 } from "./constants/credential-status.js";
 export type { CredentialStatus } from "./constants/credential-status.js";
+export {
+  CREDENTIAL_KINDS,
+  CREDENTIAL_KIND_META,
+} from "./constants/credential-kind.js";
+export type { CredentialKind } from "./constants/credential-kind.js";
 export { ERROR_CODES } from "./constants/error-codes.js";
 export type { ErrorCode } from "./constants/error-codes.js";
 export {
@@ -114,6 +119,7 @@ export type {
   Credential,
   CredentialDependents,
   CredentialDetail,
+  CredentialListItem,
   CredentialTestResult,
 } from "./contracts/credential.js";
 export type {
@@ -154,12 +160,21 @@ export {
   createCredentialSchema,
   updateCredentialSchema,
   testCredentialSchema,
+  secretRefSchema,
+  secretRefMapSchema,
 } from "./schemas/credential.js";
 export type {
   CreateCredentialInput,
   UpdateCredentialInput,
   TestCredentialInput,
+  SecretRefInput,
+  SecretRefMap,
 } from "./schemas/credential.js";
+
+// Shared secret-reference resolution (spec 026) — used by the backend's
+// in-process path and the agent's remote path.
+// The secret resolver is node-only (fs/path) — exposed via the
+// "@componode/core/secrets" subpath so browser bundles never pull it in.
 export {
   activityFeedQuerySchema,
   entityHistoryQuerySchema,
@@ -262,6 +277,7 @@ export {
   AGENT_SESSION_SWEEP_MS,
   AGENT_ENROLLMENT_TTL_MS,
   AGENT_HELLO_TIMEOUT_MS,
+  AGENT_CREDENTIAL_TEST_TIMEOUT_MS,
   AGENT_ERROR_CODES,
 } from "./constants/import-agent.js";
 export type {

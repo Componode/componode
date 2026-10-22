@@ -227,7 +227,9 @@ export interface CredentialRow {
   slug: string;
   label: string;
   status: string;
-  encryptedPayload: string;
+  kind: string;
+  encryptedPayload: string | null;
+  secretRefMap: Record<string, { env?: string; file?: string }> | null;
   keyVersion: number;
   keyHints: Record<string, string>;
   expiresAt: string | null;
