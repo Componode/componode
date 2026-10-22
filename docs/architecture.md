@@ -71,10 +71,11 @@ Key infrastructure facts:
   startup before migrations run.
 - `init-db.sql` creates the `componode` database and a least-privilege role on
   first boot of the bundled Postgres.
-- The app **does not terminate TLS** (ADR-093). Put it behind a reverse proxy;
-  a commented-out `caddy` service ships in `docker-compose.yml`. Set
-  `TRUSTED_PROXY_IP` so `X-Forwarded-*` headers are honored, and `PUBLIC_URL`
-  so OIDC callbacks resolve to the external origin.
+- The app **does not terminate TLS** (ADR-093). The bundled `caddy` service
+  fronts it with a self-signed certificate from Caddy's internal CA
+  (`tls internal`, `SITE_ADDRESS` in `.env`); `TRUSTED_PROXY_IP` defaults to
+  `1` hop so `X-Forwarded-*` headers are honored, and `PUBLIC_URL` makes
+  OIDC callbacks resolve to the external origin.
 - `GET /api/v1/health` (liveness/readiness) and `GET /metrics` (Prometheus)
   are the only unauthenticated endpoints besides the public auth routes.
 - `Dockerfile.agent` builds a second image from the same monorepo running
