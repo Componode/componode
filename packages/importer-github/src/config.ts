@@ -31,7 +31,7 @@ export const githubConfigSchema = z.object({
   includeRunners: z.boolean().default(false),
   includePackages: z.boolean().default(false),
 
-  environmentMapping: z.record(z.enum(ENVIRONMENTS)).optional(),
+  environmentMapping: z.record(z.string(), z.enum(ENVIRONMENTS)).optional(),
 });
 
 export type GithubConfig = z.infer<typeof githubConfigSchema>;
