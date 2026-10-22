@@ -26,6 +26,8 @@ docker run -d --name componode-agent \
   -v componode-agent-state:/state \
   -e AGENT_STATE_DIR=/state \
   componode-agent:latest
+# Add -p 9464:9464 to publish the ops listener for scraping (see
+# "Operations observability" below — unnecessary when it stays loopback-only).
 ```
 
 The agent enrolls once, writes its durable credential to
