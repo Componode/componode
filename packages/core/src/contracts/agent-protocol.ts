@@ -38,11 +38,41 @@ export const helloOkPayloadSchema = z
   })
   .strict();
 
+// Agent-reported operational snapshot (spec 028, ADR-116 Amendment 3):
+// cumulative process-lifetime counters riding the heartbeat — numeric
+// fields only, never paths/env names/error text (spec FR-008).
+export const agentOpsSnapshotSchema = z
+  .object({
+    reportedAt: z.string().datetime(),
+    uptimeSeconds: z.number().int().min(0),
+    activeJobs: z.number().int().min(0),
+    jobs: z
+      .object({
+        assigned: z.number().int().min(0),
+        completed: z.number().int().min(0),
+        failed: z.number().int().min(0),
+        cancelled: z.number().int().min(0),
+      })
+      .strict(),
+    assetsStreamed: z.number().int().min(0),
+    credentialTests: z
+      .object({
+        dispatched: z.number().int().min(0),
+        succeeded: z.number().int().min(0),
+        failed: z.number().int().min(0),
+      })
+      .strict(),
+    secretResolutionFailures: z.number().int().min(0),
+    reconnects: z.number().int().min(0),
+  })
+  .strict();
+
 export const heartbeatPayloadSchema = z
   .object({
     currentJobs: z.number().int().min(0),
     maxConcurrentJobs: z.number().int().min(1),
     activeRunIds: z.array(z.string()),
+    ops: agentOpsSnapshotSchema.optional(),
   })
   .strict();
 
@@ -189,6 +219,7 @@ export type AgentMessageType = keyof typeof agentMessageSchemas;
 export type AgentHelloPayload = z.infer<typeof helloPayloadSchema>;
 export type AgentHelloOkPayload = z.infer<typeof helloOkPayloadSchema>;
 export type AgentHeartbeatPayload = z.infer<typeof heartbeatPayloadSchema>;
+export type AgentOpsSnapshot = z.infer<typeof agentOpsSnapshotSchema>;
 export type AgentClosePayload = z.infer<typeof closePayloadSchema>;
 export type AgentCloseReason = AgentClosePayload["reason"];
 export type AgentErrorPayload = z.infer<typeof errorPayloadSchema>;

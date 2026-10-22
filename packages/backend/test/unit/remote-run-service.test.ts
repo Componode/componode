@@ -26,6 +26,7 @@ function makeJob(runId: string, agentId: string): RemoteJobContext {
     revokedCredentialLabel: null,
     missingSecretKeys: [],
     cancelRequestedAt: null,
+    runCreatedAt: new Date().toISOString(),
     agent: {
       id: agentId,
       name: "edge-agent",

@@ -298,6 +298,7 @@ export type {
   AgentActiveRun,
   AgentBoundConfig,
   AgentRun,
+  AgentReportedStatus,
 } from "./contracts/import-agent.js";
 export {
   createImportAgentSchema,

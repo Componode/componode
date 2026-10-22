@@ -29,7 +29,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       preHandler: [app.verifySession, requireRole("agent:read")],
     },
     async (_req: FastifyRequest, reply: FastifyReply) => {
-      const agents = await listAgents(app.remoteRuns);
+      const agents = await listAgents(app.remoteRuns, app.agentSessions);
       return reply.status(200).send({ agents });
     },
   );
@@ -61,7 +61,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     },
     async (req: FastifyRequest, reply: FastifyReply) => {
       const { id } = req.params as { id: string };
-      const agent = await getAgent(id, app.remoteRuns);
+      const agent = await getAgent(id, app.remoteRuns, app.agentSessions);
       if (!agent) {
         return reply.status(404).send({
           code: "AGENT_NOT_FOUND",

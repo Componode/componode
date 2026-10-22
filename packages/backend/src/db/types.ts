@@ -183,6 +183,8 @@ export interface ImportAgentRow {
   enrollmentTokenUsedAt: string | null;
   revokedAt: string | null;
   lastSeenAt: string | null;
+  // Latest agent-reported ops snapshot (spec 028); NULL = not reported.
+  reportedStatus: unknown;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: Generated<string>;

@@ -60,6 +60,8 @@ export interface RemoteJobContext {
    *  must finalize CANCELLED without ever dispatching (in-process parity:
    *  the worker honors cancelRequestedAt). */
   cancelRequestedAt: string | null;
+  /** Run-row creation time — feeds the dispatch-wait histogram (spec 028). */
+  runCreatedAt: string;
   agent: {
     id: string;
     name: string;
@@ -140,7 +142,10 @@ interface InFlight {
   };
 }
 
-type JobResult =
+// Hub-side outcome vocabulary — broader than the wire `run.complete`
+// result (the agent's own JobResult): lost/unavailable/incompatible are
+// finalizations the hub declares, not agent-reported results.
+type JobOutcome =
   | "completed"
   | "failed"
   | "cancelled"
@@ -259,6 +264,13 @@ export class RemoteRunService implements RemoteRunHandler {
         queue.unshift(job.runId);
         return;
       }
+      metrics.agentDispatchWaitSeconds.observe(
+        { agent: job.agent.name },
+        Math.max(
+          0,
+          (Date.now() - new Date(job.runCreatedAt).getTime()) / 1000,
+        ),
+      );
 
       this.clearDeadline(job.runId);
       this.queuedJobs.delete(job.runId);
@@ -300,7 +312,7 @@ export class RemoteRunService implements RemoteRunHandler {
   // Order matters: dead agent → policy → dead credential → missing keys.
   private jobGate(
     job: RemoteJobContext,
-  ): { result: JobResult; errorType: string; message: string } | null {
+  ): { result: JobOutcome; errorType: string; message: string } | null {
     if (job.agent.revokedAt) {
       return {
         result: "unavailable",
@@ -394,7 +406,7 @@ export class RemoteRunService implements RemoteRunHandler {
 
   private async failQueuedRun(
     job: RemoteJobContext,
-    gate: { result: JobResult; errorType: string; message: string },
+    gate: { result: JobOutcome; errorType: string; message: string },
   ): Promise<void> {
     try {
       await this.store.updateRun(job.runId, {
@@ -605,7 +617,7 @@ export class RemoteRunService implements RemoteRunHandler {
         status: "COMPLETED",
         currentPhase: "Completed",
           componentsRetired,
-        });
+        }, true);
         // Failure-isolated — a suggestion bug must never flip a completed run.
         try {
           await this.store.stageSuggestions([...entry.yieldedComponentIds], runId);
@@ -622,7 +634,7 @@ export class RemoteRunService implements RemoteRunHandler {
         ...base,
         status: "CANCELLED",
         currentPhase: "Cancelled",
-      });
+      }, true);
       return true;
     }
     await this.finalize(entry, "failed", {
@@ -631,7 +643,7 @@ export class RemoteRunService implements RemoteRunHandler {
       currentPhase: "Failed",
       errorType: payload.errorType ?? "RUNTIME_ERROR",
       errorMessage: payload.errorMessage ?? "Remote run failed",
-    });
+    }, true);
     return true;
   }
 
@@ -794,8 +806,11 @@ export class RemoteRunService implements RemoteRunHandler {
 
   private async finalize(
     entry: InFlight,
-    result: JobResult,
+    result: JobOutcome,
     patch: Record<string, unknown>,
+    // spec 028: agent_remote_job_duration_seconds is scoped to runs the
+    // agent confirmed via run.complete — not lost/unavailable finalizes.
+    viaRunComplete = false,
   ): Promise<void> {
     if (entry.ackTimer) clearTimeout(entry.ackTimer);
     if (entry.cancelTimer) clearTimeout(entry.cancelTimer);
@@ -815,6 +830,12 @@ export class RemoteRunService implements RemoteRunHandler {
       { importer: entry.job.importerName },
       (Date.now() - entry.assignedAt) / 1000,
     );
+    if (viaRunComplete) {
+      metrics.agentRemoteJobDurationSeconds.observe(
+        { agent: entry.job.agent.name, importer: entry.job.importerName },
+        (Date.now() - entry.assignedAt) / 1000,
+      );
+    }
     // A freed slot may unblock the agent's queue.
     await this.tryDispatch(entry.job.agent.id);
   }
@@ -899,6 +920,7 @@ export function createDbRemoteRunStore(): RemoteRunStore {
         revokedCredentialLabel,
         missingSecretKeys,
         cancelRequestedAt: run.cancelRequestedAt,
+        runCreatedAt: run.createdAt,
         agent: {
           id: agent.id,
           name: agent.name,

@@ -15,6 +15,7 @@ import {
 } from "@componode/core";
 import { JobExecutor } from "./executor.js";
 import { proxyForUrl, type AgentConfig } from "./config.js";
+import type { AgentOpsMetrics } from "./metrics.js";
 import {
   maskSecretValues,
   SecretRefError,
@@ -76,6 +77,10 @@ export interface SessionDeps {
   heartbeatMs?: number;
   loadImporters?: () => Promise<{ name: string; version: string }[]>;
   registry?: ImporterRegistry;
+  /** Ops counters (spec 028) — feed /metrics and the heartbeat snapshot. */
+  ops?: AgentOpsMetrics;
+  /** Fired once per session when hello.ok lands — drives /readyz. */
+  onEstablished?: () => void;
   log?: {
     debug: (o: object, m: string) => void;
     info: (o: object, m: string) => void;
@@ -114,10 +119,13 @@ export async function handleCredentialTest(
     registry: ImporterRegistry;
     log: AgentLog;
     send: (type: string, frame: unknown) => void;
+    ops?: AgentOpsMetrics;
   },
 ): Promise<void> {
-  const reply = (ok: boolean, error?: string) =>
+  const reply = (ok: boolean, error?: string) => {
+    deps.ops?.credentialTestDone(ok);
     deps.send("credential.test.result", { testId: payload.testId, ok, error });
+  };
 
   // Held so a thrown importer error can be scrubbed of resolved values
   // before it touches the agent log (FR-012).
@@ -150,6 +158,7 @@ export async function handleCredentialTest(
     // failure) can embed absolute paths or internals: log it locally and
     // send only a generic failure across the wire (ADR-096).
     if (err instanceof SecretResolutionError || err instanceof SecretRefError) {
+      deps.ops?.secretResolutionFailed();
       return reply(false, err.message);
     }
     deps.log.warn(
@@ -239,6 +248,7 @@ export async function runSession(
       maxJobs: cfg.maxJobs,
       log,
       send: sendFrame,
+      ops: deps.ops,
     });
 
     // Drift signal (contract): a peer speaking a newer/foreign protocol sends
@@ -285,6 +295,8 @@ export async function runSession(
       }
       if (msg.type === "hello.ok") {
         established = true;
+        deps.ops?.markConnected();
+        deps.onEstablished?.();
         log.info({}, "connected to hub");
         // The hub advertises its expected cadence in hello.ok — honor it so
         // a hub running a different interval doesn't strand sessions into
@@ -301,6 +313,9 @@ export async function runSession(
             currentJobs: executor.currentJobs(),
             maxConcurrentJobs: cfg.maxJobs,
             activeRunIds: executor.activeRunIds(),
+            // Ops snapshot (spec 028) — the hub persists the latest and
+            // displays it agent-reported; absent when ops is unset (tests).
+            ops: deps.ops?.snapshot(),
           });
         }, cadence);
         heartbeat.unref?.();
@@ -337,6 +352,7 @@ export async function runSession(
           registry,
           log,
           send: sendFrame,
+          ops: deps.ops,
         });
         return;
       }
@@ -377,6 +393,11 @@ export async function runSession(
       // The session is each job's lifeline — abort all local work; the hub
       // independently fails the runs AGENT_LOST (no resume in v1).
       executor.abortAll();
+      // Only established sessions count toward sessions_total — a failed
+      // connect or pre-handshake close was never a session (spec 028).
+      deps.ops?.markDisconnected(
+        established ? (closeVerdict?.reason ?? "connection_lost") : undefined,
+      );
       if (closeVerdict) {
         done({ kind: "closed", established, ...closeVerdict });
       } else {

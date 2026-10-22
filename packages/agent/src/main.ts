@@ -15,6 +15,8 @@ import {
 } from "./client.js";
 import { Backoff } from "./backoff.js";
 import { agentLoggerOptions } from "./logging.js";
+import { AgentOpsMetrics } from "./metrics.js";
+import { startOpsServer, type OpsReadiness } from "./ops-server.js";
 
 // Agent entrypoint (spec 025 US5, ADR-116): resolve a durable credential
 // (env file > env var > persisted state > enrollment-token exchange), then
@@ -25,6 +27,8 @@ export interface AgentDeps extends SessionDeps {
   sleep?: (ms: number) => Promise<void>;
   /** Bound the reconnect loop (tests; undef = retry forever). */
   maxReconnects?: number;
+  /** Shared ops counters (tests inject to observe; prod constructs here). */
+  metrics?: AgentOpsMetrics;
 }
 
 type Log = {
@@ -38,6 +42,47 @@ export async function runAgent(
   cfg: AgentConfig,
   deps: AgentDeps = {},
   log: Log = pino(agentLoggerOptions),
+): Promise<number> {
+  // Ops counters exist regardless of the HTTP listener — they feed the
+  // heartbeat `ops` snapshot as well as /metrics (spec 028).
+  const metrics = deps.metrics ?? new AgentOpsMetrics();
+  // /readyz state machine: no-credential → connecting → connected →
+  // backoff → connecting … (liveness is process-level, not this).
+  let phase: Extract<OpsReadiness, { ready: false }>["state"] | "connected" =
+    "no-credential";
+  const opsServer = cfg.ops?.enabled
+    ? await startOpsServer({
+        host: cfg.ops.host,
+        port: cfg.ops.port,
+        metrics,
+        getReadiness: () =>
+          phase === "connected"
+            ? {
+                ready: true,
+                state: "connected",
+                activeJobs: metrics.activeJobs(),
+              }
+            : { ready: false, state: phase },
+        log,
+      })
+    : null;
+  try {
+    return await runSessionLoop(cfg, deps, log, metrics, (p) => {
+      phase = p;
+    });
+  } finally {
+    await opsServer?.close();
+  }
+}
+
+async function runSessionLoop(
+  cfg: AgentConfig,
+  deps: AgentDeps,
+  log: Log,
+  metrics: AgentOpsMetrics,
+  setPhase: (
+    p: "no-credential" | "connecting" | "connected" | "backoff",
+  ) => void,
 ): Promise<number> {
   // 1. Credential: explicit file > env var > persisted state > enrollment.
   let token = resolveAgentToken(cfg) ?? readPersistedToken(cfg.stateDir);
@@ -75,15 +120,33 @@ export async function runAgent(
   const backoff = new Backoff();
   let attempts = 0;
   const maxReconnects = deps.maxReconnects ?? Number.POSITIVE_INFINITY;
+  // A retry decided in the loop resolves at the next `hello.ok`
+  // ("established") or at session end without a handshake ("failed") —
+  // FR-003 wants reconnects by outcome.
+  let reconnectPending = false;
   const sessionDeps: SessionDeps = {
     WebSocketImpl: deps.WebSocketImpl,
     heartbeatMs: deps.heartbeatMs,
     loadImporters: deps.loadImporters,
+    registry: deps.registry,
+    ops: metrics,
+    onEstablished: () => {
+      setPhase("connected");
+      if (reconnectPending) {
+        metrics.reconnectOutcome(true);
+        reconnectPending = false;
+      }
+    },
     log,
   };
 
   for (;;) {
+    setPhase("connecting");
     const end = await runSession(cfg, token, sessionDeps);
+    if (reconnectPending) {
+      metrics.reconnectOutcome(false);
+      reconnectPending = false;
+    }
     if (end.established !== false) {
       // A session that completed the handshake resets the backoff budget.
       backoff.reset();
@@ -106,6 +169,9 @@ export async function runAgent(
       log.warn({ attempts }, "reconnect budget exhausted — exiting");
       return 0;
     }
+    setPhase("backoff");
+    metrics.markReconnect();
+    reconnectPending = true;
     const delay = backoff.next();
     log.warn(
       {
@@ -133,6 +199,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   const code = await runAgent(cfg, {}, log);
+  // runAgent resolves only after the ops listener is closed (finally).
   process.exit(code);
 }
 

@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–027)
+## Shipped (features 001–028)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -105,12 +105,25 @@ file tracks shipped and upcoming work — update it when a spec completes.
   never resumed), and agent-stream cancellation. Configs gain an
   Execution selector with save-time and dispatch-time policy gates;
   runs, agents, configs, and the dashboard all name the executor
-  (`OFFLINE_AGENT` attention item). Remote Import Agents program complete.
+  (`OFFLINE_AGENT` attention item).
+- `028-agent-operations-observability` — operational visibility for Import
+  Agents (ADR-116 Amendment 3, protocol v2): the agent runs an
+  unauthenticated, GET-only ops listener (`/healthz`, `/readyz`,
+  `/metrics` — `AGENT_OPS_*` envs, non-fatal bind, Docker HEALTHCHECK)
+  with a nine-series local metric catalog; every heartbeat carries an
+  `ops` snapshot (uptime, active jobs, cumulative job/asset/credential-
+  test/secret-resolution/reconnect counters) persisted to
+  `import_agents."reportedStatus"` and surfaced labeled agent-reported on
+  `GET /agents/{id}` and `GET /agents` alongside `lastHeartbeatAt` and
+  `lastDisconnectReason`; the hub gains dispatch-wait, remote-job-
+  duration, session-duration, and last-contact series, and the UI shows
+  an Agent-reported block with a stale-heartbeat signal plus a
+  last-disconnect column. Remote Import Agents program complete.
 
 ## Next — v1.1
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
-list — the Import Agents program (025–027) is now fully shipped:
+list — the Import Agents program (025–028) is now fully shipped:
 
 - Runtime-loaded importer plugins
 - Invite-based registration

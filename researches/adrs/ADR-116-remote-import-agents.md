@@ -310,3 +310,69 @@ without changing its intent:
   `boundConfigCount > 0` surfaces as an attention item (item 11's
   "attention item, when offline with bound configs"), ranked above the
   sunset kinds.
+
+## Amendment 3 — Agent operations observability surfaces (spec 028)
+
+Ratifies the operational-telemetry surfaces spec 028 adds on both ends of
+the stream. Nothing here changes the outbound-only architecture (item 2)
+or the secret-material boundary (item 6, ADR-117) — every new surface
+carries state and counters only, and the agent-local listener serves no
+secret values, credential fields, or reference contents.
+
+- **Agent-local operations listener.** The agent process runs an
+  unauthenticated, GET-only HTTP server (config:
+  `AGENT_OPS_HOST`/`AGENT_OPS_PORT`/`AGENT_OPS_DISABLED`; defaults
+  `0.0.0.0:9464`, enabled) exposing `/healthz` (200 with
+  `{status:"ok",uptimeSeconds}` once config is loaded — alive through
+  reconnect backoff), `/readyz` (200 only while a stream is established
+  post-`hello.ok`; 503 with `state` = `connecting` | `backoff` |
+  `no-credential`), and `/metrics` (Prometheus exposition). Other paths
+  → 404, non-GET → 405. Listener bind/start failure is a warn-log and
+  the agent continues — it is never a reason to exit. The unauthenticated
+  posture mirrors the hub `/metrics` exception (ADR-097); network
+  restriction is the operator's job (loopback bind, sidecar scraping,
+  network policy). `Dockerfile.agent` gains a `HEALTHCHECK` against
+  `/healthz`; disabling the listener therefore requires overriding the
+  healthcheck in the deployment.
+- **Protocol bump to v2.** `AGENT_PROTOCOL_VERSION` is 2 (item 8's
+  lockstep rule makes this a hard gate — a v1 peer is refused
+  `protocol_mismatch` and must rebuild from the same commit as the hub).
+  The `heartbeat` payload gains an optional strict `ops` snapshot:
+  `reportedAt`, `uptimeSeconds`, `activeJobs`,
+  `jobs{assigned,completed,failed,cancelled}`, `assetsStreamed`,
+  `credentialTests{dispatched,succeeded,failed}`,
+  `secretResolutionFailures`, `reconnects` — all int≥0 process-lifetime
+  counters from the agent's metrics registry. Heartbeats without `ops`
+  stay valid (degradation rule: hub read surfaces show
+  `reportedStatus: null` — "not reported by this agent").
+- **`import_agents."reportedStatus" jsonb`** (migration 019) persists the
+  latest snapshot replace-on-write with a hub-stamped `receivedAt` —
+  agent clocks are never trusted for freshness. No CHECK constraint: the
+  shape is Zod-validated at the wire boundary and read back verbatim.
+  The snapshot survives disconnects; freshness remains the separate
+  `lastContactAt`/`lastSeenAt` signal.
+- **Read-surface deltas** (item 11's surface, extended):
+  `GET /api/v1/agents/{id}` gains `reportedStatus`,
+  `lastHeartbeatAt` (live-session `lastContactAt`; `null` with no
+  session), `lastDisconnectReason` (latest closed session's reason);
+  `GET /api/v1/agents` gains `lastDisconnectReason`, `lastHeartbeatAt`,
+  and `reportedStatus` (the row is already loaded — same snapshot as
+  detail). The detail page
+  renders an "Agent-reported" block labeled as such, plus a
+  last-disconnect column on the list.
+- **New hub metrics** (item 10's enumeration, extended):
+  `agent_dispatch_wait_seconds{agent}` (histogram — run created →
+  `job.assign` sent), `agent_remote_job_duration_seconds{agent,importer}`
+  (histogram — assign → finalize),
+  `agent_session_duration_seconds{agent,reason}` (histogram — session
+  lifetime at close), `agent_last_contact_timestamp_seconds{agent}`
+  (gauge — unix time of last accepted frame). Agent-local series:
+  `agent_stream_connected`, `agent_sessions_total{reason}`,
+  `agent_reconnects_total{outcome}`, `agent_jobs_received_total`,
+  `agent_jobs_completed_total{result}`, `agent_jobs_active`,
+  `agent_assets_streamed_total{importer}`,
+  `agent_credential_tests_total{result}`,
+  `agent_secret_resolution_failures_total`.
+- **No new audit events.** Operational telemetry is not a lifecycle
+  transition (ADR-052 asymmetry) — `agent_sessions` already holds the
+  operational side.

@@ -1,4 +1,4 @@
-# Agent wire protocol (v1)
+# Agent wire protocol (v2)
 
 Implementer reference for the Import Agent control channel (spec 025,
 ADR-116). The normative schema lives in
@@ -26,7 +26,7 @@ flow and semantics.
    {
      type: "hello",
      payload: {
-       protocolVersion: 1,                                  // AGENT_PROTOCOL_VERSION
+       protocolVersion: 2,                                  // AGENT_PROTOCOL_VERSION
        agentVersion: "<semver>",
        importers: [{ name: "github", version: "1.0.0" }, …], // compiled manifest set
        capabilities: { maxConcurrentJobs: 1 },
@@ -47,7 +47,7 @@ flow and semantics.
    {
      type: "hello.ok",
      payload: {
-       protocolVersion: 1,
+       protocolVersion: 2,
        agentId: "<uuidv7>",
        name: "<agent-name>",
        allowedImporters: ["github", …],   // hub-managed policy (ADR-116)
@@ -63,8 +63,35 @@ flow and semantics.
 - Agent sends `heartbeat` every `heartbeatIntervalMs` (30 s default):
 
   ```ts
-  { type: "heartbeat", payload: { currentJobs: 0, maxConcurrentJobs: 1, activeRunIds: [] } }
+  {
+    type: "heartbeat",
+    payload: {
+      currentJobs: 0,
+      maxConcurrentJobs: 1,
+      activeRunIds: [],
+      // ops snapshot (spec 028, protocol v2) — optional; agents that send
+      // none degrade to "not reported by this agent" on hub read surfaces
+      ops: {
+        reportedAt: "<ISO>",
+        uptimeSeconds: 61,
+        activeJobs: 1,
+        jobs: { assigned: 4, completed: 2, failed: 1, cancelled: 1 },
+        assetsStreamed: 87,
+        credentialTests: { dispatched: 2, succeeded: 1, failed: 1 },
+        secretResolutionFailures: 1,
+        reconnects: 2,
+      },
+    },
+  }
   ```
+
+  `ops` carries process-lifetime counters (they reset on agent restart)
+  sampled at send time — `jobs`/`credentialTests` are cumulative totals,
+  never secret material. The hub persists the latest snapshot verbatim to
+  `import_agents."reportedStatus"` (replace-on-write) with a hub-stamped
+  `receivedAt`, and exposes it on `GET /agents/{id}` labeled
+  agent-reported. The snapshot survives disconnects — freshness is the
+  separate `lastHeartbeatAt`/`lastSeenAt` signal.
 
   Each frame (heartbeat or otherwise) refreshes the hub's `lastContactAt`
   and persists `import_agents.lastSeenAt`. There is **no ack** — silence is
@@ -272,3 +299,13 @@ hub:   cancel (any time after assign) → agent aborts → run.complete{CANCELLE
 `agent_jobs_total{agent,result}` — `result` is `completed` | `failed` |
 `cancelled` | `lost` | `unavailable` | `incompatible`;
 `agent_assets_received_total{agent,importer}`.
+
+Ops observability series (spec 028): `agent_dispatch_wait_seconds{agent}`
+(run created → `job.assign` sent),
+`agent_remote_job_duration_seconds{agent,importer}` (assign → finalize),
+`agent_session_duration_seconds{agent,reason}` (session lifetime at close),
+`agent_last_contact_timestamp_seconds{agent}` (gauge — unix time of the
+last accepted frame).
+
+The agent process also exposes its own Prometheus surface — see
+`docs/agents.md` § Operations observability.
