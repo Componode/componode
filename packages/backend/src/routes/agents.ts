@@ -10,6 +10,8 @@ import {
   createAgent,
   deleteAgent,
   getAgent,
+  listAgentConfigs,
+  listAgentRuns,
   listAgentSessions,
   listAgents,
   revokeAgent,
@@ -27,7 +29,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       preHandler: [app.verifySession, requireRole("agent:read")],
     },
     async (_req: FastifyRequest, reply: FastifyReply) => {
-      const agents = await listAgents();
+      const agents = await listAgents(app.remoteRuns);
       return reply.status(200).send({ agents });
     },
   );
@@ -59,7 +61,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     },
     async (req: FastifyRequest, reply: FastifyReply) => {
       const { id } = req.params as { id: string };
-      const agent = await getAgent(id);
+      const agent = await getAgent(id, app.remoteRuns);
       if (!agent) {
         return reply.status(404).send({
           code: "AGENT_NOT_FOUND",
@@ -113,6 +115,41 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       const { id } = req.params as { id: string };
       const agent = await revokeAgent(id, toActor(req), app.agentSessions);
       return reply.status(200).send({ agent });
+    },
+  );
+
+  // Configs bound to this agent, with the read-time incompatibility flag
+  // (spec 027 US5/US6).
+  app.get(
+    "/agents/:id/configs",
+    {
+      preHandler: [app.verifySession, requireRole("agent:read")],
+    },
+    async (req: FastifyRequest, reply: FastifyReply) => {
+      const { id } = req.params as { id: string };
+      const configs = await listAgentConfigs(id);
+      return reply.status(200).send({ configs });
+    },
+  );
+
+  // Runs this agent executed — durable history (spec 027 US5).
+  app.get(
+    "/agents/:id/runs",
+    {
+      preHandler: [app.verifySession, requireRole("agent:read")],
+    },
+    async (req: FastifyRequest, reply: FastifyReply) => {
+      const { id } = req.params as { id: string };
+      const parsed = listAgentSessionsQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          code: "VALIDATION_FAILED",
+          message: "Invalid query",
+          details: parsed.error.issues,
+        });
+      }
+      const runs = await listAgentRuns(id, parsed.data.limit);
+      return reply.status(200).send({ runs });
     },
   );
 

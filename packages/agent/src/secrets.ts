@@ -12,17 +12,20 @@ import {
 // refs are the only credential material it ever sees.
 
 export interface AgentLog {
+  debug: (o: object, m: string) => void;
   info: (o: object, m: string) => void;
   warn: (o: object, m: string) => void;
+  error: (o: object, m: string) => void;
 }
 
 export function createAgentResolver(secretsDir?: string): EnvSecretResolver {
   return new EnvSecretResolver(secretsDir);
 }
 
-// Resolves every entry of a credential.test ref map into values for the
-// importer probe. Emits one resolution event per key — key name and source
-// type only, never the resolved value (ADR-090). On failure the thrown
+// Resolves every entry of a ref map into values — used by credential.test
+// probes and remote import jobs alike. Emits one resolution event per key —
+// key name and source type only, never the resolved value (ADR-090).
+// On failure the thrown
 // SecretResolutionError names the key and source type (spec 026 US4 edge
 // case); resolver messages are sanitized and carry no absolute paths.
 export async function resolveRefMap(

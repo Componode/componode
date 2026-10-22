@@ -232,3 +232,81 @@ extends a surface this ADR defined without changing its intent:
   rule); `replaced` means the credential itself was superseded by a
   rotation exchange. The `close` wire enum already carried both values —
   this records the reason on `agent_sessions` with the same distinction.
+
+## Amendment 2 — Remote-execution surfaces ratified (spec 027)
+
+The execution slice activates the wire frames item 3 reserved and fills in
+surfaces the foundation deferred; each extends a surface this ADR defined
+without changing its intent:
+
+- **Job frame payloads are now strict Zod schemas** in
+  `contracts/agent-protocol.ts` (replacing the `FUTURE_AGENT_MESSAGE_TYPES`
+  placeholder): `job.assign{importerName,scope,secretRefMap?}`,
+  `job.ack{accepted,reason?}`, `asset.batch{assets[]}` (≤100 assets or
+  ~1 MB per frame), `phase{name≤200}`, `run.error{assetExternalId?,
+  errorType,errorMessage}`, `run.complete{result:COMPLETED|CANCELLED|FAILED,
+  errorType?,errorMessage?}`, `cancel{runId}`. `runId` in the envelope is
+  required on every job frame and is the correlation key (item 12).
+- **Two new hub env tunables** join the item-5 dispatch lifecycle:
+  `AGENT_DISPATCH_TIMEOUT_MS` (default 600 000 — the "~10 min dispatch
+  timeout" is now named and bounded) and `AGENT_JOB_ACK_TIMEOUT_MS`
+  (default 15 000 — a dispatched-but-unacknowledged job fails
+  `AGENT_UNAVAILABLE`, freeing the capacity slot).
+- **NACK reason → run `errorType` mapping.** A `job.ack` reason beginning
+  `SECRET_RESOLUTION_FAILED` fails the run with `errorType:
+  SECRET_RESOLUTION_FAILED` (the agent resolved refs *before* acking, so
+  a missing env var/file is a dispatch-level rejection, not a mid-run
+  crash); a reason beginning `AGENT_UNAVAILABLE` (transient refusals such
+  as capacity) fails `AGENT_UNAVAILABLE`; every other NACK reason fails
+  `AGENT_INCOMPATIBLE` with the reason echoed into `errorMessage`.
+- **Dispatch-time policy gate.** Item 13's "hub enforces at dispatch" is
+  concrete: `enqueue`/`tryDispatch` re-load the run plus agent
+  `revokedAt`, `allowedImporters`, linked-credential status, and manifest
+  secret coverage — revoked agent → `FAILED`/`AGENT_UNAVAILABLE`;
+  importer outside a non-empty policy → `FAILED`/`AGENT_INCOMPATIBLE`;
+  a revoked `AGENT_MANAGED` credential → `FAILED`/`CREDENTIAL_REVOKED`
+  (in-process parity; `lastUsedAt` is never stamped); a required secret
+  key absent from the merged refs → `FAILED`/`CREDENTIAL_MISSING_KEY`.
+  Drift therefore never persists state — the `agentIncompatible` flag on
+  config responses is read-time derived.
+- **Ordered frame handling.** The session service processes agent→hub
+  frames serially per session so a batch's writes fully land before a
+  following `run.complete` finalizes — protecting the ADR-100 terminal-
+  state immutability trigger from benign out-of-order writes.
+- **Dead-run frame registry.** Frames for a run the hub *never* assigned
+  on a session remain a protocol violation (error + close), but frames
+  for a run the hub already finalized — the zombie case after
+  ack-timeout/cancel — are discarded (warn-log), so a stray agent job
+  cannot take down the session and its collateral in-flight runs.
+- **Bounded transitions.** The hub sends `cancel` on ack-timeout so a
+  zombie job aborts instead of streaming into the void; a cancel request
+  arms a confirmation deadline (`AGENT_JOB_ACK_TIMEOUT_MS`) that fails
+  the run `AGENT_LOST` if the agent never answers; the PENDING→RUNNING
+  transition on `job.ack` is conditional (`WHERE status='PENDING'`), so
+  a cancel racing dispatch can never be overwritten — and a
+  `run.complete{COMPLETED}` landing after a cancel request finalizes as
+  `CANCELLED`, matching in-process semantics. Cancel wins everywhere: a
+  stamped `cancelRequestedAt` on a queued run finalizes `CANCELLED`
+  without ever dispatching, and a `job.ack` refusal landing after a
+  cancel request finalizes `CANCELLED` rather than the refusal's
+  errorType — both mirroring the in-process worker's
+  `cancelRequestedAt` handling.
+- **New management endpoints and response fields** (item 11's surface,
+  now enumerated): `GET /api/v1/agents/{id}/configs` (bound configs +
+  `agentIncompatible`), `GET /api/v1/agents/{id}/runs` (run history —
+  `import_runs.agentId` is intentionally **not** a foreign key; run rows
+  are history and outlive the agent), `GET /agents/{id}` gains
+  `activeRuns[]`, `GET /agents` gains `runningJobs`; `ImportRun` payloads
+  carry `agentId` + `agentName` (left-joined, `null` when the agent row
+  is gone); `importer_configs` responses carry `agent{ id,name,status }`
+  + `agentIncompatible`; create/update importer-config bodies accept
+  `agentId` (uuid or `null` to unbind) and reject `CREDENTIAL_KIND_MISMATCH`
+  when credential kinds disagree with the execution mode — including
+  deprecated `secretRefs` on a bound config (they resolve hub-side and
+  could never ship to the agent); converting legacy refs on a bound
+  config produces an `AGENT_MANAGED` credential carrying the same
+  references, never a `STORED` one.
+- **`OFFLINE_AGENT` dashboard attention kind** — an agent `OFFLINE` with
+  `boundConfigCount > 0` surfaces as an attention item (item 11's
+  "attention item, when offline with bound configs"), ranked above the
+  sunset kinds.

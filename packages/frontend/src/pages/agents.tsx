@@ -154,6 +154,7 @@ export function AgentsPage() {
               <TableHead>Status</TableHead>
               <TableHead>Version</TableHead>
               <TableHead>Bound configs</TableHead>
+              <TableHead>Running jobs</TableHead>
               <TableHead>Allowed importers</TableHead>
               <TableHead>Last seen</TableHead>
             </TableRow>
@@ -181,6 +182,7 @@ export function AgentsPage() {
                   {agent.agentVersion ?? "—"}
                 </TableCell>
                 <TableCell>{agent.boundConfigCount}</TableCell>
+                <TableCell>{agent.runningJobs}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {agent.allowedImporters.length === 0
                     ? "all"

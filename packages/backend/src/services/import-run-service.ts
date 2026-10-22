@@ -32,11 +32,27 @@ if (isNaN(maxConcurrency) || maxConcurrency < 1) {
 const queue = new PQueue({ concurrency: maxConcurrency });
 const runningControllers = new Map<string, AbortController>();
 
-function runActor(importerName: string): Actor {
+// Remote dispatch seam (spec 027): app.ts installs the RemoteRunService so
+// this module never imports it — that would create an import cycle since
+// the remote service reuses this module's shared run internals.
+export interface RemoteRunDispatcher {
+  enqueue(runId: string): Promise<void>;
+  cancelRemoteRun(runId: string): Promise<void>;
+}
+
+let remoteDispatcher: RemoteRunDispatcher | null = null;
+
+export function setRemoteRunDispatcher(d: RemoteRunDispatcher | null): void {
+  remoteDispatcher = d;
+}
+
+// Shared run internals — reused by remote-run-service so remote runs get
+// identical upsert, reconciliation, and bookkeeping behavior (ADR-116).
+export function runActor(importerName: string): Actor {
   return { id: null, name: `importer:${importerName}` };
 }
 
-function createRunLogger(runId: string): Logger {
+export function createRunLogger(runId: string): Logger {
   const child = appLogger.child({ runId });
   return {
     debug: (msg, data) => child.debug(data ?? {}, msg),
@@ -47,7 +63,7 @@ function createRunLogger(runId: string): Logger {
   };
 }
 
-function isAbortError(err: unknown): boolean {
+export function isAbortError(err: unknown): boolean {
   if (err instanceof Error && err.name === "AbortError") return true;
   if (err instanceof Error && err.message === "AbortError") return true;
   if (typeof err === "object" && err !== null && "name" in err && (err as { name: string }).name === "AbortError") {
@@ -56,14 +72,14 @@ function isAbortError(err: unknown): boolean {
   return false;
 }
 
-async function updateRun(
+export async function updateRun(
   runId: string,
   updates: Partial<ImportRun> & Record<string, unknown>,
 ): Promise<void> {
   await db.updateTable("import_runs").set(updates).where("id", "=", runId).execute();
 }
 
-async function insertRunError(
+export async function insertRunError(
   runId: string,
   assetExternalId: string | null,
   errorType: string,
@@ -114,7 +130,7 @@ async function ensureUniqueInstanceSlug(
   });
 }
 
-async function processAsset(
+export async function processAsset(
   trx: Kysely<DB>,
   runId: string,
   importerName: string,
@@ -308,7 +324,7 @@ async function processAsset(
   return { componentId, created, instancesOrphaned };
 }
 
-async function reconcileRetiredComponents(
+export async function reconcileRetiredComponents(
   runId: string,
   importerName: string,
   configId: string,
@@ -621,6 +637,13 @@ export async function startRun(
   const runId = uuidv7();
   const now = new Date().toISOString();
 
+  const config = await db
+    .selectFrom("importer_configs")
+    .select(["id", "agentId"])
+    .where("id", "=", configId)
+    .executeTakeFirst();
+  const agentId = config?.agentId ?? null;
+
   await db
     .transaction()
     .execute(async (trx) => {
@@ -644,6 +667,7 @@ export async function startRun(
         .values({
           id: runId,
           configId,
+          agentId,
           status: "PENDING",
           triggeredBy,
           assetsProcessed: 0,
@@ -656,7 +680,21 @@ export async function startRun(
         .execute();
     });
 
-  queue.add(() => worker(runId));
+  // Agent-bound configs dispatch over the agent stream; everything else
+  // keeps the in-process worker path unchanged. Fail closed when the
+  // dispatcher isn't wired — a bound run must never execute in-process
+  // (AGENT_MANAGED refs can't resolve hub-side).
+  if (agentId) {
+    if (!remoteDispatcher) {
+      throw Object.assign(new Error("Remote run dispatcher is not available"), {
+        statusCode: 503,
+        code: "AGENT_UNAVAILABLE",
+      });
+    }
+    await remoteDispatcher.enqueue(runId);
+  } else {
+    queue.add(() => worker(runId));
+  }
 
   return { runId };
 }
@@ -670,22 +708,43 @@ export async function cancelRun(runId: string): Promise<void> {
     .where("id", "=", runId)
     .execute();
 
+  const run = await db
+    .selectFrom("import_runs")
+    .select("agentId")
+    .where("id", "=", runId)
+    .executeTakeFirst();
+
+  if (run?.agentId && remoteDispatcher) {
+    await remoteDispatcher.cancelRemoteRun(runId);
+    return;
+  }
+
   const controller = runningControllers.get(runId);
   if (controller) {
     controller.abort();
   }
 }
 
+// Run payloads carry the executing agent's display name (spec 027 US5).
+// Left join tolerates a deleted agent row — history outlives the agent.
 export async function getRun(runId: string) {
-  return db.selectFrom("import_runs").selectAll().where("id", "=", runId).executeTakeFirst();
+  return db
+    .selectFrom("import_runs")
+    .leftJoin("import_agents", "import_agents.id", "import_runs.agentId")
+    .selectAll("import_runs")
+    .select("import_agents.name as agentName")
+    .where("import_runs.id", "=", runId)
+    .executeTakeFirst();
 }
 
 export async function listRunsForConfig(configId: string) {
   return db
     .selectFrom("import_runs")
-    .selectAll()
-    .where("configId", "=", configId)
-    .orderBy("createdAt", "desc")
+    .leftJoin("import_agents", "import_agents.id", "import_runs.agentId")
+    .selectAll("import_runs")
+    .select("import_agents.name as agentName")
+    .where("import_runs.configId", "=", configId)
+    .orderBy("import_runs.createdAt", "desc")
     .execute();
 }
 

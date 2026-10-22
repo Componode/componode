@@ -79,6 +79,14 @@ const CODE_MEANINGS: Record<string, string> = {
     "No agent-bound config references this credential (400)",
   CREDENTIAL_KIND_MISMATCH:
     "Credential kind does not match the execution mode (400)",
+  AGENT_UNAVAILABLE:
+    "Remote run could not be dispatched within the dispatch/ack window (503)",
+  AGENT_INCOMPATIBLE:
+    "Bound agent cannot execute this importer (revoked or outside allowedImporters)",
+  AGENT_LOST:
+    "Agent session lost mid-run, or hub restarted while a remote run was live (503)",
+  ASSET_TOO_LARGE:
+    "Discovered asset exceeded the per-frame size limit (413)",
 };
 
 interface Operation {

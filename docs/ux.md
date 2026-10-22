@@ -104,7 +104,7 @@ user identity + sign-out (right).
 | `/users` | User management | Admin |
 | `/sessions` | Active sessions | Admin |
 | `/credentials` | Credential store | Admin |
-| `/agents`, `/agents/:id` | Import Agent fleet + detail (overview, connection history) | Admin |
+| `/agents`, `/agents/:id` | Import Agent fleet + detail (overview w/ in-flight jobs, configs, runs, connection history) | Admin |
 | `/activity` | Audit activity feed | Admin |
 | `/settings` | App settings (OIDC, registration) | Admin |
 | `/login`, `/register`, `/auth/oidc/callback` | Auth (no shell) | — |
@@ -239,6 +239,19 @@ Every page and every async region implements these states. Toast feedback
   The credential test dialog names the executing agent on remote results.
   Hub-executed importer configs filter `AGENT_MANAGED` credentials out of
   the selector (server still enforces `CREDENTIAL_KIND_MISMATCH`).
+- **Remote execution (spec 027)**: importer config forms lead with a
+  framework-level **Execution** select — `This hub (in-process)` or an
+  agent by name — above the credential selector. Options are disabled for
+  revoked agents or policies missing the importer; an offline selected
+  agent shows an inline warning. Choosing an agent filters credentials to
+  `AGENT_MANAGED`; hub mode filters them out — the credential form locks
+  the incompatible kind so it can't be picked at all. Agent-bound config
+  cards show `Runs on: <agent>` with an offline/incompatible warning;
+  run detail shows `Ran on agent <name>` (link, with `agent:read`) or
+  `Waiting for agent <name>` while pending, `In-process` otherwise. The
+  agent list gains a running-jobs count; agent detail gains in-flight
+  jobs on overview plus Configs and Runs tabs. Offline agents with bound
+  configs surface as `OFFLINE_AGENT` dashboard attention items.
 
 ---
 
@@ -292,9 +305,10 @@ The dashboard is a **health + attention** overview, not a navigation hub
 (the sidebar already navigates):
 
 1. **Attention needed** (top; hidden when empty): failed importer runs,
-   `ERROR`/`GONE` instances, reconciliation anomalies — then, below the
-   operational items, overdue `sunsetAt` on non-retired products and
-   components, labeled "Sunset overdue" (spec 023).
+   `ERROR`/`GONE` instances, reconciliation anomalies, and `OFFLINE_AGENT`
+   items for offline agents that still own bound configs (spec 027) —
+   then, below the operational items, overdue `sunsetAt` on non-retired
+   products and components, labeled "Sunset overdue" (spec 023).
 2. **Stat cards**: products (by type), components (by lifecycle), instances
    (by status), last import time.
 3. **Catalog coverage** (spec 023): wired share of the default-visible

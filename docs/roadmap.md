@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–026)
+## Shipped (features 001–027)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -96,11 +96,21 @@ file tracks shipped and upcoming work — update it when a spec completes.
   `lastUsedAt`, timeout/disconnect handling, and sanitized,
   path-and-value-free errors both directions. Job dispatch and run-time
   secret delivery remain 027.
+- `027-remote-import-execution` — bound configs run on the agent (ADR-116
+  Amendment 2): `job.assign`/`job.ack`/`asset.batch`/`phase`/`run.error`/
+  `run.complete`/`cancel` frames are live; the hub dispatcher owns capacity
+  (per-agent `maxConcurrentJobs`), dispatch/ack timeouts
+  (`AGENT_UNAVAILABLE`), NACK→errorType mapping (`AGENT_INCOMPATIBLE` /
+  `SECRET_RESOLUTION_FAILED`), session-lifeline failures (`AGENT_LOST`,
+  never resumed), and agent-stream cancellation. Configs gain an
+  Execution selector with save-time and dispatch-time policy gates;
+  runs, agents, configs, and the dashboard all name the executor
+  (`OFFLINE_AGENT` attention item). Remote Import Agents program complete.
 
 ## Next — v1.1
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
-list:
+list — the Import Agents program (025–027) is now fully shipped:
 
 - Runtime-loaded importer plugins
 - Invite-based registration

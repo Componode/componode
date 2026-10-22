@@ -84,6 +84,10 @@ exception is `GET /metrics`, which is served at the root.
 | `AGENT_VERSION_MISMATCH` | Agent protocol/importer version mismatch (403) |
 | `AGENT_OFFLINE` | Bound import agent is not connected (503) |
 | `AGENT_TEST_TIMEOUT` | Agent did not answer the credential test in time (504) |
+| `AGENT_UNAVAILABLE` | Remote run could not be dispatched within the dispatch/ack window (503) |
+| `AGENT_INCOMPATIBLE` | Bound agent cannot execute this importer (revoked or outside allowedImporters) |
+| `AGENT_LOST` | Agent session lost mid-run, or hub restarted while a remote run was live (503) |
+| `ASSET_TOO_LARGE` | Discovered asset exceeded the per-frame size limit (413) |
 | `CREDENTIAL_NO_BOUND_AGENT` | No agent-bound config references this credential (400) |
 | `CREDENTIAL_KIND_MISMATCH` | Credential kind does not match the execution mode (400) |
 <!-- /GENERATED:error-codes -->
@@ -393,6 +397,8 @@ never retrievable from any endpoint.
 | GET | `/api/v1/agents/:id` | Get an import agent | `agent:read` |
 | PATCH | `/api/v1/agents/:id` | Update an import agent | `agent:update` |
 | DELETE | `/api/v1/agents/:id` | Delete an import agent | `agent:delete` |
+| GET | `/api/v1/agents/:id/configs` | Importer configs bound to an agent | `agent:read` |
+| GET | `/api/v1/agents/:id/runs` | Runs executed by an agent | `agent:read` |
 | GET | `/api/v1/agents/:id/sessions` | Agent connection history | `agent:read` |
 | POST | `/api/v1/agents/:id/enroll` | Issue a fresh enrollment token (credential rotation) | `agent:update` |
 | POST | `/api/v1/agents/:id/revoke` | Revoke the agent credential | `agent:update` |

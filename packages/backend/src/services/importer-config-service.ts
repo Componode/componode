@@ -91,6 +91,89 @@ function attachCredentialFields<T extends { id: string; secretRefs?: unknown[] |
 }
 
 /**
+ * Save-time agent-binding check (spec 027 US1, ADR-116): the agent must
+ * exist, not be revoked, and — when it advertises a non-empty
+ * `allowedImporters` policy — cover this config's importer.
+ */
+export async function assertAgentAssignable(
+  executor: Executor,
+  agentId: string,
+  importerName: string,
+): Promise<void> {
+  const agent = await executor
+    .selectFrom("import_agents")
+    .selectAll()
+    .where("id", "=", agentId)
+    .executeTakeFirst();
+  if (!agent) {
+    throw Object.assign(new Error(`Import agent not found: ${agentId}`), {
+      statusCode: 404,
+      code: "AGENT_NOT_FOUND",
+    });
+  }
+  if (agent.revokedAt !== null) {
+    throw Object.assign(
+      new Error(`Agent "${agent.name}" has been revoked`),
+      { statusCode: 400, code: "AGENT_INCOMPATIBLE" },
+    );
+  }
+  const allowed = agent.allowedImporters ?? [];
+  if (allowed.length > 0 && !allowed.includes(importerName)) {
+    throw Object.assign(
+      new Error(
+        `Agent "${agent.name}" is not allowed to run importer "${importerName}"`,
+      ),
+      { statusCode: 400, code: "AGENT_INCOMPATIBLE" },
+    );
+  }
+}
+
+/** Joined agent summary + read-time incompatibility flag (spec 027 US5):
+ *  the flag is derived, never persisted — policy edits surface on the next
+ *  read without a re-scan job. */
+function isAgentIncompatible(
+  agent: { revokedAt: string | null; allowedImporters: string[] } | null | undefined,
+  importerName: string,
+): boolean {
+  if (!agent) return false;
+  if (agent.revokedAt !== null) return true;
+  const allowed = agent.allowedImporters ?? [];
+  return allowed.length > 0 && !allowed.includes(importerName);
+}
+
+async function loadAgentSummaries(
+  executor: Executor,
+  agentIds: string[],
+): Promise<Map<string, { id: string; name: string; status: string; revokedAt: string | null; allowedImporters: string[] }>> {
+  const map = new Map<string, { id: string; name: string; status: string; revokedAt: string | null; allowedImporters: string[] }>();
+  if (agentIds.length === 0) return map;
+  const rows = await executor
+    .selectFrom("import_agents")
+    .select(["id", "name", "status", "revokedAt", "allowedImporters"])
+    .where("id", "in", agentIds)
+    .execute();
+  for (const row of rows) map.set(row.id, row);
+  return map;
+}
+
+/** Add `agent`/`agentIncompatible` to a config row that already carries
+ *  `agentId` (spec 027). */
+function attachAgentFields<
+  T extends { id: string; importerName: string; agentId?: string | null },
+>(
+  row: T,
+  agentMap: Map<string, { id: string; name: string; status: string; revokedAt: string | null; allowedImporters: string[] }>,
+): T & { agent: { id: string; name: string; status: string } | null; agentIncompatible: boolean } {
+  const agent = row.agentId ? (agentMap.get(row.agentId) ?? null) : null;
+  return {
+    ...row,
+    agentId: row.agentId ?? null,
+    agent: agent ? { id: agent.id, name: agent.name, status: agent.status } : null,
+    agentIncompatible: agent ? isAgentIncompatible(agent, row.importerName) : false,
+  };
+}
+
+/**
  * Save-time validation (FR-008/FR-009): the union of key names from legacy
  * refs and referenced credentials must cover the manifest's required keys,
  * and no key may be provided twice. Key names only — nothing is decrypted.
@@ -104,6 +187,18 @@ async function validateSecretSources(
 ): Promise<void> {
   const manifest = await getManifest(importerName);
   const declarations = manifest.secrets ?? [];
+
+  // Executor-kind enforcement (spec 027 FR-003): legacy env/file refs are
+  // hub-local — a bound config must carry agent-managed credentials. Their
+  // keys would count toward coverage yet never ship in job.assign.
+  if (agentId && secretRefs.length > 0) {
+    throw Object.assign(
+      new Error(
+        "Legacy env/file secret refs cannot feed an agent-bound config — convert them to an agent-managed credential",
+      ),
+      { statusCode: 400, code: "CREDENTIAL_KIND_MISMATCH" },
+    );
+  }
 
   const sources: Array<{ source: string; keys: string[] }> = [];
   const providedKeys: string[] = secretRefs.map((r) => r.key);
@@ -175,13 +270,20 @@ export async function listImporterConfigs() {
       "secretRefs",
       "schedule",
       "enabled",
+      "agentId",
       "createdAt",
       "updatedAt",
     ])
     .orderBy("createdAt", "desc")
     .execute();
   const credMap = await loadCredentialIds(db, rows.map((r) => r.id));
-  return rows.map((row) => attachCredentialFields(maskRowSecretRefs(row), credMap));
+  const agentMap = await loadAgentSummaries(
+    db,
+    rows.map((r) => r.agentId).filter((a): a is string => a !== null),
+  );
+  return rows.map((row) =>
+    attachAgentFields(attachCredentialFields(maskRowSecretRefs(row), credMap), agentMap),
+  );
 }
 
 export async function getImporterConfig(id: string) {
@@ -192,7 +294,8 @@ export async function getImporterConfig(id: string) {
     .executeTakeFirst();
   if (!row) return row;
   const credMap = await loadCredentialIds(db, [id]);
-  return attachCredentialFields(maskRowSecretRefs(row), credMap);
+  const agentMap = await loadAgentSummaries(db, row.agentId ? [row.agentId] : []);
+  return attachAgentFields(attachCredentialFields(maskRowSecretRefs(row), credMap), agentMap);
 }
 
 export async function createImporterConfig(
@@ -205,11 +308,15 @@ export async function createImporterConfig(
   const id = uuidv7();
   const now = new Date().toISOString();
   return db.transaction().execute(async (trx) => {
+    if (input.agentId) {
+      await assertAgentAssignable(trx, input.agentId, input.importerName);
+    }
     await validateSecretSources(
       input.importerName,
       input.secretRefs ?? [],
       input.credentialIds ?? [],
       trx,
+      input.agentId ?? null,
     );
 
     await trx
@@ -224,6 +331,7 @@ export async function createImporterConfig(
           env?: string;
           file?: string;
         }>,
+        agentId: input.agentId ?? null,
         schedule: input.schedule ?? null,
         enabled: input.enabled,
         createdBy: actor.id,
@@ -287,20 +395,33 @@ export async function updateImporterConfig(
   }
   if (input.schedule !== undefined) updates.schedule = input.schedule;
   if (input.enabled !== undefined) updates.enabled = input.enabled;
+  if (input.agentId !== undefined) updates.agentId = input.agentId;
 
   const secretRefsChanged = input.secretRefs !== undefined;
   const credentialIdsChanged = input.credentialIds !== undefined;
+  const agentIdChanged = input.agentId !== undefined;
   const junctionChanged = secretRefsChanged || credentialIdsChanged;
 
   if (Object.keys(updates).length === 0 && !credentialIdsChanged) {
     return existing;
   }
 
+  // The executor that will own the config after this update — credential
+  // kind rules apply against THIS pair (spec 026/027).
+  const effectiveAgentId =
+    input.agentId !== undefined ? input.agentId : (existing.agentId ?? null);
+
   updates.updatedBy = actor.id;
   updates.updatedAt = new Date().toISOString();
 
   return db.transaction().execute(async (trx) => {
-    if (junctionChanged) {
+    if (input.agentId) {
+      await assertAgentAssignable(trx, input.agentId, importerName);
+    }
+    // Executor changes re-validate credentials even when the junction did
+    // not change — binding a hub config holding STORED credentials to an
+    // agent must fail here, not at dispatch.
+    if (junctionChanged || agentIdChanged) {
       const effectiveRefs =
         input.secretRefs ?? (existing.secretRefs ?? []);
       const effectiveCredentialIds =
@@ -310,7 +431,7 @@ export async function updateImporterConfig(
         effectiveRefs,
         effectiveCredentialIds,
         trx,
-        existing.agentId,
+        effectiveAgentId,
       );
     }
 
@@ -394,7 +515,8 @@ async function getImporterConfigWithTrx(
     .executeTakeFirst();
   if (!row) return row;
   const credMap = await loadCredentialIds(trx, [id]);
-  return attachCredentialFields(maskRowSecretRefs(row), credMap);
+  const agentMap = await loadAgentSummaries(trx, row.agentId ? [row.agentId] : []);
+  return attachAgentFields(attachCredentialFields(maskRowSecretRefs(row), credMap), agentMap);
 }
 
 // One-click legacy migration (spec 013 US5): resolves the config's
@@ -417,20 +539,55 @@ export async function convertLegacySecrets(configId: string, actor: Actor) {
     );
   }
 
-  let secrets: Record<string, string>;
-  try {
-    secrets = await resolveSecrets(refs);
-  } catch (err) {
-    throw Object.assign(
-      new Error(`Legacy secret could not be resolved: ${(err as Error).message}`),
-      { statusCode: 502, code: "LEGACY_SECRET_UNRESOLVABLE" },
+  // Same collision rule the write path enforces — the new credential's
+  // keys must not overlap credentials already linked to this config.
+  const linked = await db
+    .selectFrom("importer_config_credentials")
+    .innerJoin(
+      "credentials",
+      "credentials.id",
+      "importer_config_credentials.credentialId",
+    )
+    .select(["credentials.label", "credentials.keyHints"])
+    .where("importer_config_credentials.configId", "=", configId)
+    .execute();
+  checkKeyCollisions([
+    ...linked.map((c) => ({
+      source: `credential "${c.label}"`,
+      keys: Object.keys(c.keyHints ?? {}),
+    })),
+    { source: "converted legacy secret refs", keys: refs.map((r) => r.key) },
+  ]);
+
+  // Bound configs convert to an AGENT_MANAGED credential carrying the same
+  // references verbatim — the values resolve on the agent host, so nothing
+  // is decrypted here and no STORED credential bypasses the kind rules.
+  let credential;
+  if (row.agentId) {
+    const secretRefMap: Record<string, { env: string } | { file: string }> = {};
+    for (const ref of refs) {
+      if (ref.env) secretRefMap[ref.key] = { env: ref.env };
+      else if (ref.file) secretRefMap[ref.key] = { file: ref.file };
+    }
+    credential = await createCredential(
+      { kind: "AGENT_MANAGED", label: `${row.label} secrets`, secretRefMap },
+      actor,
+    );
+  } else {
+    let secrets: Record<string, string>;
+    try {
+      secrets = await resolveSecrets(refs);
+    } catch (err) {
+      throw Object.assign(
+        new Error(`Legacy secret could not be resolved: ${(err as Error).message}`),
+        { statusCode: 502, code: "LEGACY_SECRET_UNRESOLVABLE" },
+      );
+    }
+    credential = await createCredential(
+      { kind: "STORED", label: `${row.label} secrets`, secrets },
+      actor,
     );
   }
-
-  const credential = await createCredential(
-    { kind: "STORED", label: `${row.label} secrets`, secrets },
-    actor,
-  );
 
   await db.transaction().execute(async (trx) => {
     await trx

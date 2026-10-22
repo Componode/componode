@@ -408,7 +408,7 @@ describe("agent channel", () => {
     await closed;
   });
 
-  it("closes the socket on an unhandled reserved frame after handshake", async () => {
+  it("closes the socket on a wrong-direction frame after handshake", async () => {
     const { enrollment } = await createAgent();
     const { body } = await enroll(enrollment.token);
     const ws = await connect(body.agentToken);
@@ -420,7 +420,15 @@ describe("agent channel", () => {
     const closed = new Promise<number>((r) =>
       ws.on("close", (code) => r(code)),
     );
-    ws.send(JSON.stringify({ type: "job.assign", payload: { jobId: "x" } }));
+    // job.assign is hub→agent; a well-formed one from the agent is a
+    // direction violation, not a bad frame.
+    ws.send(
+      JSON.stringify({
+        type: "job.assign",
+        runId: crypto.randomUUID(),
+        payload: { importerName: "github", scope: {} },
+      }),
+    );
     const err = await errPromise;
     expect((err.payload as Record<string, unknown>).code).toBe(
       "UNSUPPORTED_FRAME",

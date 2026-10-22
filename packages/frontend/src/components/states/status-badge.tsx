@@ -24,6 +24,8 @@ const STATUS_STYLES: Record<string, string> = {
   // Warning
   EXPIRING: "bg-warning/15 text-warning border-warning/30",
   NEVER_CONNECTED: "bg-warning/15 text-warning border-warning/30",
+  // Spec 027: bound config whose agent policy no longer covers its importer.
+  INCOMPATIBLE: "bg-warning/15 text-warning border-warning/30",
   // Neutral / inactive
   OFFLINE: "bg-secondary text-secondary-foreground border-border",
   STOPPED: "bg-secondary text-secondary-foreground border-border",

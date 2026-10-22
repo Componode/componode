@@ -14,8 +14,10 @@ describe("agent credential.test handling", () => {
   function makeLog() {
     const events: Array<{ level: string; fields: object; msg: string }> = [];
     const log: AgentLog = {
+      debug: (o, m) => events.push({ level: "debug", fields: o, msg: m }),
       info: (o, m) => events.push({ level: "info", fields: o, msg: m }),
       warn: (o, m) => events.push({ level: "warn", fields: o, msg: m }),
+      error: (o, m) => events.push({ level: "error", fields: o, msg: m }),
     };
     return { log, events };
   }

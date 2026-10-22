@@ -9,8 +9,11 @@ import {
   createImporterRegistry,
   parseAgentMessage,
   type AgentCredentialTestPayload,
+  type CancelPayload,
   type ImporterRegistry,
+  type JobAssignPayload,
 } from "@componode/core";
+import { JobExecutor } from "./executor.js";
 import { proxyForUrl, type AgentConfig } from "./config.js";
 import {
   maskSecretValues,
@@ -74,8 +77,10 @@ export interface SessionDeps {
   loadImporters?: () => Promise<{ name: string; version: string }[]>;
   registry?: ImporterRegistry;
   log?: {
+    debug: (o: object, m: string) => void;
     info: (o: object, m: string) => void;
     warn: (o: object, m: string) => void;
+    error: (o: object, m: string) => void;
   };
 }
 
@@ -182,7 +187,12 @@ export async function runSession(
   token: string,
   deps: SessionDeps = {},
 ): Promise<SessionEnd> {
-  const log = deps.log ?? { info: () => {}, warn: () => {} };
+  const log = deps.log ?? {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  };
   const importers = await (deps.loadImporters ?? defaultLoadImporters)();
   const registry =
     deps.registry ??
@@ -213,13 +223,23 @@ export async function runSession(
       resolve(end);
     };
 
-    const sendFrame = (type: string, payload: unknown) => {
+    const sendFrame = (type: string, payload: unknown, runId?: string) => {
       try {
-        socket.send(JSON.stringify({ type, payload }));
+        socket.send(JSON.stringify({ type, runId, payload }));
       } catch {
         /* socket gone; 'close' will fire */
       }
     };
+
+    // Remote job execution (spec 027): owns active jobs for this session;
+    // the session is each job's lifeline — teardown aborts them all.
+    const executor = new JobExecutor({
+      secretsDir: cfg.secretsDir,
+      registry,
+      maxJobs: cfg.maxJobs,
+      log,
+      send: sendFrame,
+    });
 
     // Drift signal (contract): a peer speaking a newer/foreign protocol sends
     // frames this build can't handle — respond `error`, close, and exit
@@ -278,9 +298,9 @@ export async function runSession(
             : heartbeatMs);
         heartbeat = setInterval(() => {
           sendFrame("heartbeat", {
-            currentJobs: 0,
+            currentJobs: executor.currentJobs(),
             maxConcurrentJobs: cfg.maxJobs,
-            activeRunIds: [],
+            activeRunIds: executor.activeRunIds(),
           });
         }, cadence);
         heartbeat.unref?.();
@@ -320,8 +340,22 @@ export async function runSession(
         });
         return;
       }
-      // Any other frame type (job.* reserved for 027, or unknown) means a
-      // drifted hub — flag it, don't ignore it.
+      if (msg.type === "job.assign") {
+        // Remote job dispatch (spec 027): the envelope runId is the job
+        // correlation key (the protocol schema requires it).
+        void executor.handleJobAssign(
+          msg.runId!,
+          msg.payload as JobAssignPayload,
+        );
+        return;
+      }
+      if (msg.type === "cancel") {
+        const payload = msg.payload as CancelPayload;
+        executor.handleCancel(payload.runId ?? msg.runId!);
+        return;
+      }
+      // Any other frame type (agent→hub job frames arriving at the agent,
+      // or unknown) means a drifted hub — flag it, don't ignore it.
       rejectFrame(
         AGENT_ERROR_CODES.UNSUPPORTED_FRAME,
         `frame type "${msg.type}" is not implemented by this build`,
@@ -340,6 +374,9 @@ export async function runSession(
     });
 
     socket.on("close", () => {
+      // The session is each job's lifeline — abort all local work; the hub
+      // independently fails the runs AGENT_LOST (no resume in v1).
+      executor.abortAll();
       if (closeVerdict) {
         done({ kind: "closed", established, ...closeVerdict });
       } else {

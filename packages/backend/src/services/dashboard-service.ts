@@ -20,7 +20,8 @@ export interface AttentionItem {
     | "INSTANCE_ERROR"
     | "INSTANCE_GONE"
     | "SUNSET_OVERDUE_PRODUCT"
-    | "SUNSET_OVERDUE_COMPONENT";
+    | "SUNSET_OVERDUE_COMPONENT"
+    | "OFFLINE_AGENT";
   label: string;
   href: string;
   at: string;
@@ -146,6 +147,21 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     (p) => healthByProduct.get(p.id)?.status === "ERROR",
   );
 
+  // Spec 027 US5: an OFFLINE agent that still owns bound configs is an
+  // operator action item — its next runs sit queued until it reconnects.
+  const offlineAgents = await db
+    .selectFrom("import_agents")
+    .select(["id", "name"])
+    .select((eb) =>
+      eb
+        .selectFrom("importer_configs")
+        .select((eb2) => eb2.fn.countAll<number>().as("n"))
+        .whereRef("importer_configs.agentId", "=", "import_agents.id")
+        .as("boundConfigCount"),
+    )
+    .where("status", "=", "OFFLINE")
+    .execute();
+
   const [sunsetProducts, sunsetComponents] = await Promise.all([
     db
       .selectFrom("digital_products")
@@ -199,6 +215,14 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
       href: `/components/${i.componentId}`,
       at: i.lastSeenAt?.toString() ?? "",
     })),
+    ...offlineAgents
+      .filter((a) => Number(a.boundConfigCount) > 0)
+      .map((a) => ({
+        kind: "OFFLINE_AGENT" as const,
+        label: a.name,
+        href: `/agents/${a.id}`,
+        at: new Date().toISOString(),
+      })),
     // Spec 023 FR-007/FR-008: overdue sunsets rank below every operational
     // kind — display-only (ADR-111: passing sunsetAt changes nothing).
     ...sunsetItems,

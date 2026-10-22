@@ -18,6 +18,7 @@ declare module "fastify" {
   interface FastifyInstance {
     verifyAgentCredential: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
     agentSessions: import("../services/agent-session-service.js").AgentSessionService;
+    remoteRuns: import("../services/remote-run-service.js").RemoteRunService;
   }
 }
 

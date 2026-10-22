@@ -82,6 +82,9 @@ export interface ImporterConfig {
   secretRefs: Array<{ key: string; env?: string; file?: string }>;
   credentialIds: string[];
   secretRefsDeprecated: boolean;
+  agentId: string | null;
+  agent: { id: string; name: string; status: string } | null;
+  agentIncompatible: boolean;
   schedule: string | null;
   enabled: boolean;
   createdAt: string;
@@ -110,6 +113,8 @@ export type { CredentialTestResult } from "@componode/core";
 export interface ImportRun {
   id: string;
   configId: string;
+  agentId: string | null;
+  agentName: string | null;
   status: ImportRunStatus;
   triggeredBy: string | null;
   startedAt: string | null;
@@ -193,7 +198,8 @@ export interface AttentionItem {
     | "INSTANCE_GONE"
     | "PRODUCT_ERROR"
     | "SUNSET_OVERDUE_PRODUCT"
-    | "SUNSET_OVERDUE_COMPONENT";
+    | "SUNSET_OVERDUE_COMPONENT"
+    | "OFFLINE_AGENT";
   label: string;
   href: string;
   at: string;
@@ -395,6 +401,10 @@ export type {
   ImportAgent,
   AgentSession,
   AgentEnrollment,
+  AgentDetail,
+  AgentActiveRun,
+  AgentBoundConfig,
+  AgentRun,
 } from "@componode/core";
 
 export interface CreateAgentResult {

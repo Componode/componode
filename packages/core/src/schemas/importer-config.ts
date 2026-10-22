@@ -17,6 +17,9 @@ export const createImporterConfigSchema = z.object({
   // Stored-credential references (junction-linked). Legacy `secretRefs`
   // (env/file) still resolve during the deprecation window (spec 013).
   credentialIds: z.array(z.string().uuid()).default([]),
+  // Agent binding (spec 027, ADR-116): the Import Agent that executes this
+  // config's runs. null/absent = in-process execution on the hub.
+  agentId: z.string().uuid().nullable().default(null),
   schedule: z.string().optional(),
   enabled: z.boolean().default(true),
 });

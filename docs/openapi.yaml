@@ -1447,6 +1447,15 @@ paths:
                   default: []
                   items: { type: string, format: uuid }
                   description: Stored credentials to resolve at run time
+                agentId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: >-
+                    Bind this config to an Import Agent — runs dispatch over the
+                    agent's stream (spec 027). `null` (or omitted) = in-process.
+                    Requires `AGENT_MANAGED` credentials; `STORED` credentials on
+                    an agent-bound config are rejected `CREDENTIAL_KIND_MISMATCH`.
                 schedule: { type: string, description: Cron schedule }
                 enabled: { type: boolean, default: true }
       responses:
@@ -1509,6 +1518,13 @@ paths:
                   type: array
                   items: { type: string, format: uuid }
                   description: Full replacement of the config's credential references
+                agentId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: >-
+                    Rebind to another agent or unbind with `null`. Credential
+                    kinds are re-validated against the effective pair.
                 schedule: { type: string }
                 enabled: { type: boolean }
       responses:
@@ -2466,7 +2482,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  agent: { $ref: '#/components/schemas/ImportAgent' }
+                  agent: { $ref: '#/components/schemas/AgentDetail' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -2521,6 +2537,58 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /agents/{id}/configs:
+    get:
+      tags: [Agents]
+      summary: Importer configs bound to an agent
+      x-permission: "agent:read"
+      description: >-
+        The agent's bound configs with a read-time `agentIncompatible` flag
+        (spec 027) — true when the agent is revoked or its non-empty
+        `allowedImporters` policy no longer covers the config's importer.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Bound configs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configs:
+                    type: array
+                    items: { $ref: '#/components/schemas/AgentBoundConfig' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /agents/{id}/runs:
+    get:
+      tags: [Agents]
+      summary: Runs executed by an agent
+      x-permission: "agent:read"
+      description: >-
+        Recent `import_runs` stamped with this agent, newest first. Run rows
+        are durable history — `import_runs.agentId` is not a foreign key.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+      responses:
+        '200':
+          description: Agent runs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runs:
+                    type: array
+                    items: { $ref: '#/components/schemas/AgentRun' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /agents/{id}/sessions:
     get:
       tags: [Agents]
@@ -2767,6 +2835,10 @@ components:
             - AGENT_VERSION_MISMATCH
             - AGENT_OFFLINE
             - AGENT_TEST_TIMEOUT
+            - AGENT_UNAVAILABLE
+            - AGENT_INCOMPATIBLE
+            - AGENT_LOST
+            - ASSET_TOO_LARGE
             - CREDENTIAL_NO_BOUND_AGENT
             - CREDENTIAL_KIND_MISMATCH
         message: { type: string }
@@ -2924,11 +2996,14 @@ components:
             - INSTANCE_ERROR
             - INSTANCE_GONE
             - PRODUCT_ERROR
+            - OFFLINE_AGENT
             - SUNSET_OVERDUE_PRODUCT
             - SUNSET_OVERDUE_COMPONENT
           description: >-
-            Sunset kinds (spec 023) surface overdue `sunsetAt` on
-            non-RETIRED entities; they rank below operational attention.
+            `OFFLINE_AGENT` (spec 027) surfaces an offline Import Agent that
+            still owns bound configs. Sunset kinds (spec 023) surface
+            overdue `sunsetAt` on non-RETIRED entities; they rank below
+            operational attention.
         label: { type: string }
         href: { type: string }
         at: { type: string, format: date-time }
@@ -3216,6 +3291,27 @@ components:
         secretRefsDeprecated:
           type: boolean
           description: True when the config still relies on legacy env/file refs
+        agentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Executing Import Agent; null = in-process execution
+        agent:
+          type: object
+          nullable: true
+          description: Summary of the bound agent, null when unbound
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            status:
+              type: string
+              enum: [NEVER_CONNECTED, CONNECTED, OFFLINE]
+        agentIncompatible:
+          type: boolean
+          description: >-
+            Read-time flag (spec 027 US6): true when the bound agent is
+            revoked or its non-empty `allowedImporters` policy does not
+            cover this config's importer. Never persisted.
         schedule: { type: string, nullable: true }
         enabled: { type: boolean }
         createdBy: { type: string, format: uuid, nullable: true }
@@ -3255,8 +3351,62 @@ components:
         boundConfigCount:
           type: integer
           description: Importer configs bound to this agent
+        runningJobs:
+          type: integer
+          description: >-
+            Jobs the hub believes this agent currently holds (live dispatch
+            map, spec 027 — not persisted)
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    AgentDetail:
+      allOf:
+        - $ref: '#/components/schemas/ImportAgent'
+        - type: object
+          properties:
+            activeRuns:
+              type: array
+              items: { $ref: '#/components/schemas/AgentActiveRun' }
+              description: In-flight remote jobs on this agent (spec 027)
+    AgentActiveRun:
+      type: object
+      description: In-flight remote job, from the hub's live dispatch map
+      properties:
+        runId: { type: string, format: uuid }
+        configId: { type: string, format: uuid }
+        configLabel: { type: string }
+        state:
+          type: string
+          enum: [ASSIGNED, RUNNING]
+        phase: { type: string, nullable: true }
+        startedAt: { type: string, format: date-time, nullable: true }
+    AgentBoundConfig:
+      type: object
+      description: Importer config bound to an agent — the agent detail configs tab
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string }
+        importerName: { type: string }
+        schedule: { type: string, nullable: true }
+        enabled: { type: boolean }
+        agentIncompatible:
+          type: boolean
+          description: Bound agent revoked or policy misses this importer
+    AgentRun:
+      type: object
+      description: Import run executed by an agent — durable history
+      properties:
+        id: { type: string, format: uuid }
+        configId: { type: string, format: uuid }
+        configLabel: { type: string }
+        status:
+          type: string
+          enum: [PENDING, RUNNING, COMPLETED, FAILED, CANCELLED, INTERRUPTED]
+        errorType: { type: string, nullable: true }
+        currentPhase: { type: string, nullable: true }
+        assetsProcessed: { type: integer }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: string, format: date-time, nullable: true }
+        completedAt: { type: string, format: date-time, nullable: true }
     AgentEnrollment:
       type: object
       description: Shown exactly once at issuance; never retrievable afterwards
@@ -3289,6 +3439,15 @@ components:
       properties:
         id: { type: string, format: uuid }
         configId: { type: string, format: uuid }
+        agentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Executing Import Agent; null = in-process execution
+        agentName:
+          type: string
+          nullable: true
+          description: Joined agent display name; null when run is in-process or agent was deleted
         credentialIds:
           type: array
           nullable: true
