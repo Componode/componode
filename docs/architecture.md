@@ -42,6 +42,11 @@ flowchart LR
         Web["Web / API / MCP endpoints"]
     end
 
+    subgraph Remote["Remote network (private VPC / on-prem / egress-only)"]
+        Agent["Import Agent container<br/>(Dockerfile.agent)<br/>ops listener :9464"]
+        RSrc["Sources unreachable<br/>from the hub"]
+    end
+
     Browser -->|"HTTPS via proxy, or HTTP :3000"| Caddy
     Caddy -->|"reverse_proxy app:3000"| API
     Browser -->|"http://localhost:3000"| API
@@ -51,6 +56,10 @@ flowchart LR
     API -->|"pull-only AsyncGenerator"| Sources
     API -.->|"OIDC authorization code + PKCE"| IdP
     Prom -->|"GET /metrics"| API
+    Agent -->|"outbound WSS (TLS), protocol v2 —<br/>the hub never dials in"| API
+    API -.->|"job.assign / cancel frames<br/>over the agent's stream"| Agent
+    Agent -->|"pull-only AsyncGenerator"| RSrc
+    Prom -.->|"GET /metrics (if reachable)"| Agent
 ```
 
 Key infrastructure facts:
@@ -68,6 +77,13 @@ Key infrastructure facts:
   so OIDC callbacks resolve to the external origin.
 - `GET /api/v1/health` (liveness/readiness) and `GET /metrics` (Prometheus)
   are the only unauthenticated endpoints besides the public auth routes.
+- `Dockerfile.agent` builds a second image from the same monorepo running
+  `packages/agent/dist/main.js` — an Import Agent for networks the hub
+  cannot reach (ADR-116). It enrolls once, persists its durable credential
+  on the `/state` volume, and holds a single outbound TLS WebSocket to the
+  hub. Its process-local ops listener serves `/healthz`, `/readyz`, and
+  `/metrics` (GET-only, unauthenticated) on `AGENT_OPS_HOST:AGENT_OPS_PORT`
+  (default `0.0.0.0:9464`); the image `HEALTHCHECK` hits `/healthz`.
 
 ## Request data flow
 
@@ -97,7 +113,7 @@ flowchart TD
         S -.->|"logs / metrics / spans"| OBS
     end
 
-    K --> PG[("PostgreSQL<br/>26 tables")]
+    K --> PG[("PostgreSQL<br/>28 tables")]
     S --> AUD["append-only audit<br/>entity_changes / edge_changes"]
     AUD --> PG
 ```
@@ -182,6 +198,7 @@ flowchart TD
         I5["web-url"]
         I6["api-url"]
         I7["mcp-server"]
+        I8["alibaba-cloud"]
     end
     IMP --> Importers --> EXT["External APIs<br/>(SSRF guard urlSafetyError on URL importers)"]
 
@@ -201,8 +218,65 @@ flowchart TD
 - Cancellation is cooperative via `AbortSignal` (`context.signal.aborted`).
 - Optional `testSecrets` probes let users verify stored credentials without a
   full run.
+- Configs can also run **remotely**: when bound to an Import Agent the hub
+  dispatches the job over the agent's stream, and the streamed assets flow
+  through the same validate → upsert → reconcile path — see *Import Agents*
+  below.
 - `DiscoveredAsset.relationships` is **not** part of the v1 contract —
   importer-declared product edges are a v2 feature.
+
+## Import Agents (remote execution)
+
+Import Agents (ADR-116, specs 025–028) run the same in-tree importer
+packages on hosts the hub cannot reach — private VPCs, on-prem Kubernetes,
+egress-only networks. Connectivity is strictly outbound: the agent opens one
+TLS WebSocket to `/api/v1/agent/stream`; the hub never dials in.
+
+```mermaid
+flowchart LR
+    subgraph Hub["Hub (packages/backend)"]
+        direction TB
+        AS["agent-service<br/>registry, enrollment tokens,<br/>policy (allowedImporters)"]
+        SS["agent-session-service<br/>WSS stream, heartbeats,<br/>agent_sessions rows"]
+        RR["remote-run-service<br/>job.assign / ack / cancel →<br/>asset.batch / run.complete"]
+    end
+
+    subgraph AgentHost["Agent host (packages/agent)"]
+        direction TB
+        CL["client: enroll once → durable<br/>credential on /state; hello →<br/>heartbeat; reconnect backoff"]
+        EX["executor: runs the importer<br/>locally, streams frames"]
+        OPS["ops listener :9464<br/>GET /healthz /readyz /metrics"]
+    end
+
+    CL -->|"outbound WSS (TLS), protocol v2 —<br/>frames flow both ways"| SS
+    AS --> SS
+    RR -->|"job.assign / cancel"| SS
+    SS -->|"job.ack / asset.batch /<br/>run.complete"| RR
+    EX --> AGI["importer-* packages<br/>(lockstep manifest set)"]
+    SS --> AGTBL[("import_agents /<br/>agent_sessions")]
+```
+
+- **Enrollment**: a single-use, ~24 h enrollment token is exchanged once for
+  a durable credential the agent persists in `AGENT_STATE_DIR`; rotate and
+  revoke are hub-side operations that drop live sessions.
+- **Lockstep handshake**: `hello` must report the hub's exact importer set
+  and `AGENT_PROTOCOL_VERSION` (currently `2`); a mismatch closes the stream
+  and the agent image must be rebuilt from the same commit as the hub.
+- **Remote runs**: a config bound to an agent dispatches `job.assign` over
+  the stream (`MAX_JOBS` caps concurrency; overflow queues hub-side). Agent
+  NACKs, session loss, and cancellation map to `AGENT_INCOMPATIBLE`,
+  `SECRET_RESOLUTION_FAILED`, `AGENT_LOST` (remote runs are never resumed),
+  or `run.complete{CANCELLED}`.
+- **Agent-managed credentials** (spec 026): `AGENT_MANAGED` credentials
+  store reference names only (`{env}` / `{file}`); the agent resolves them
+  on its host — secret material never crosses the stream in either
+  direction.
+- **Ops observability** (spec 028): heartbeats carry an `ops` counter
+  snapshot persisted replace-on-write to `import_agents."reportedStatus"`
+  and exposed on `GET /agents`/`GET /agents/{id}` alongside
+  `lastHeartbeatAt`/`lastDisconnectReason`; the agent-local listener
+  mirrors the hub `/metrics` posture (unauthenticated, GET-only, no secret
+  material). Full reference: `docs/agents.md`, `docs/agent-protocol.md`.
 
 ## Credential store
 
@@ -228,7 +302,7 @@ plus the master key together form the backup unit.
 
 ## Persistence model
 
-PostgreSQL holds 26 tables (migrations `001`–`014`). Entity IDs are UUID v7
+PostgreSQL holds 28 tables (migrations `001`–`019`). Entity IDs are UUID v7
 generated application-side; enum-like fields use `CHECK` constraints driven by
 `packages/core` constants rather than native ENUMs.
 
@@ -260,6 +334,10 @@ erDiagram
     import_runs ||--o{ import_run_errors : "records"
     importer_configs ||--o{ importer_config_credentials : "references"
     credentials ||--o{ importer_config_credentials : "referenced by"
+
+    import_agents ||--o{ agent_sessions : "connection episodes"
+    importer_configs }o--o| import_agents : "optionally bound to"
+    import_runs }o--o| import_agents : "executed by (nullable)"
 ```
 
 Edge rules enforced in the service layer:
@@ -290,16 +368,20 @@ flowchart TD
 
         FE["@componode/frontend<br/>React SPA<br/>(types from core; backend over HTTP)"]
 
-        subgraph IMPS["importer-* (7 packages)"]
+        AG["@componode/agent<br/>Import Agent runtime<br/>(imports importer manifests only)"]
+
+        subgraph IMPS["importer-* (8 packages)"]
             direction LR
-            IG["github"] --- IA["aws"] --- IZ["azure"] --- IK["kubernetes"] --- IW["web-url"] --- IP["api-url"] --- IM["mcp-server"]
+            IG["github"] --- IA["aws"] --- IZ["azure"] --- IK["kubernetes"] --- IW["web-url"] --- IP["api-url"] --- IM["mcp-server"] --- IB["alibaba-cloud"]
         end
     end
 
     BE --> CORE
     FE --> CORE
+    AG --> CORE
     IMPS --> CORE
     BE -.->|"manifest + implPath dynamic import"| IMPS
+    AG -.->|"same registry — lockstep manifest set"| IMPS
 ```
 
 Hard boundaries (ADR-065): importers never import `@componode/backend` or each
@@ -313,6 +395,7 @@ other; `core` never imports anything `@componode/*`.
 | Decision rationale | `researches/architecture-decisions.md`, `researches/adrs/` |
 | API surface | `docs/api.md`, `docs/openapi.yaml` |
 | Deployment & ops | `docs/deployment.md` |
+| Import Agents | `docs/agents.md`, `docs/agent-protocol.md` |
 | Building an importer | `docs/importer-development.md` |
 | UI conventions | `docs/ux.md` |
 | Security posture | `docs/security/` (dated assessments) |

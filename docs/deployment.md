@@ -203,6 +203,39 @@ credential API calls return `503 CREDENTIAL_KEY_UNAVAILABLE` and importer
 configs using stored credentials cannot run. Configure a key and restart to
 enable the store; no data migration is needed.
 
+## Import Agents (optional)
+
+Import Agents run importers inside networks the hub cannot reach (private
+VPCs, on-prem Kubernetes, egress-only environments). They are **not** part of
+the Compose stack — build the separate image and run it on the remote host:
+
+```bash
+docker build -f Dockerfile.agent -t componode-agent:latest .
+
+docker run -d --name componode-agent \
+  -e HUB_URL=https://hub.example.com \
+  -e AGENT_ENROLLMENT_TOKEN_FILE=/run/secrets/enroll_token \
+  -v ./enroll_token:/run/secrets/enroll_token:ro \
+  -v componode-agent-state:/state \
+  -e AGENT_STATE_DIR=/state \
+  componode-agent:latest
+```
+
+The agent makes a single **outbound** TLS WebSocket to the hub — no inbound
+firewall rules are needed. Create the agent in the UI (**Administration →
+Import Agents**) to get the one-time enrollment token.
+
+The agent also serves a GET-only ops listener (`/healthz`, `/readyz`,
+`/metrics`) on `AGENT_OPS_HOST:AGENT_OPS_PORT` (default `0.0.0.0:9464`),
+wired to the image `HEALTHCHECK`. Publish it with `-p 9464:9464` if your
+Prometheus can reach the agent host, or bind to loopback for sidecar
+scraping; `AGENT_OPS_DISABLED=true` turns it off (override the healthcheck
+if you do).
+
+Full configuration table, lifecycle operations, agent-managed credentials,
+metrics catalog, and troubleshooting: `docs/agents.md`. Wire protocol:
+`docs/agent-protocol.md`.
+
 ## Troubleshooting
 
 - **Port conflict**: ensure `PORT` in `.env` is free, or change it.
