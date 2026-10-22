@@ -22,6 +22,8 @@ class FakeWebSocket extends EventEmitter {
   static instances: FakeWebSocket[] = [];
   /** What the fake does ~30ms after hello.ok (or after open if autoOk off). */
   static autoEnd: AutoEnd | null = { mode: "drop" };
+  /** Delay before autoEnd fires — tests needing more heartbeat ticks widen it. */
+  static autoEndDelayMs = 30;
   static autoOk = true;
   /** Frames the fake hub sends ~15ms after receiving hello. */
   static hubFrames: string[] = [];
@@ -73,7 +75,7 @@ class FakeWebSocket extends EventEmitter {
         this.readyState = 3;
         this.emit("close");
       }
-    }, 30);
+    }, FakeWebSocket.autoEndDelayMs);
   }
 
   send(data: string) {
@@ -147,7 +149,7 @@ function makeDeps() {
     loadImporters: async () => [{ name: "github", version: "1.0.0" }],
     WebSocketImpl: FakeWebSocket,
     maxReconnects: 1, // tests bound the retry loop
-    log: { info: () => {}, warn: () => {}, error: () => {} },
+    log: { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} },
   };
 }
 
@@ -155,6 +157,7 @@ beforeEach(() => {
   FakeWebSocket.instances = [];
   FakeWebSocket.autoOk = true;
   FakeWebSocket.autoEnd = { mode: "drop" };
+  FakeWebSocket.autoEndDelayMs = 30;
   FakeWebSocket.hubFrames = [];
   FakeWebSocket.nextOpenBehavior = { kind: "open" };
   stateDir = mkdtempSync(join(tmpdir(), "agent-state-"));
@@ -163,6 +166,9 @@ beforeEach(() => {
 
 describe("agent session (runAgent)", () => {
   it("enrolls, persists the token 0600, connects, and heartbeats", async () => {
+    // Wider drop window — the 10ms heartbeat must tick before the socket
+    // drops, and CI/parallel workers can starve short timers.
+    FakeWebSocket.autoEndDelayMs = 150;
     const code = await runAgent(cfg, makeDeps());
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0][0])).toBe(
@@ -228,10 +234,14 @@ describe("agent session (runAgent)", () => {
     expect(code).toBe(2);
   });
 
-  it("flags a reserved hub frame as protocol drift (error + exit 2)", async () => {
+  it("flags an agent-bound hub frame as protocol drift (error + exit 2)", async () => {
     cfg = makeConfig({ agentToken: "durable-cred-1" });
     FakeWebSocket.hubFrames = [
-      JSON.stringify({ type: "job.assign", payload: { runId: "r1" } }),
+      JSON.stringify({
+        type: "job.ack",
+        runId: crypto.randomUUID(),
+        payload: { accepted: true },
+      }),
     ];
     const code = await runAgent(cfg, makeDeps());
     const ws = FakeWebSocket.instances[0];

@@ -33,6 +33,8 @@ import { agentRoutes } from "./routes/agents.js";
 import { agentChannelRoutes } from "./routes/agent-channel.js";
 import { agentAuthPlugin } from "./plugins/agent-auth.js";
 import { AgentSessionService } from "./services/agent-session-service.js";
+import { RemoteRunService } from "./services/remote-run-service.js";
+import { setRemoteRunDispatcher } from "./services/import-run-service.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -89,7 +91,18 @@ export async function buildApp(): Promise<FastifyInstance> {
   const agentSessions = new AgentSessionService(app.log);
   agentSessions.start();
   app.decorate("agentSessions", agentSessions);
+
+  // Remote run dispatch (spec 027): the dispatcher owns agent job state;
+  // the session service routes job frames to it and notifies on session
+  // ready/lost; import-run-service gets the narrow dispatcher seam.
+  const remoteRuns = new RemoteRunService(agentSessions, { log: app.log });
+  agentSessions.setRunHandler(remoteRuns);
+  setRemoteRunDispatcher(remoteRuns);
+  app.decorate("remoteRuns", remoteRuns);
+
   app.addHook("onClose", async () => {
+    remoteRuns.stop();
+    setRemoteRunDispatcher(null);
     await agentSessions.stop();
   });
 

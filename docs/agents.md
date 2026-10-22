@@ -81,10 +81,14 @@ Credential precedence: `AGENT_TOKEN_FILE` → `AGENT_TOKEN` → persisted
   set and protocol version or the handshake is rejected — rebuild the
   agent image from the same commit as the hub.
 - **Hub-side timing overrides**: `AGENT_STALE_AFTER_MS` (default 90 000),
-  `AGENT_SESSION_SWEEP_MS` (15 000), `AGENT_HELLO_TIMEOUT_MS` (5 000), and
+  `AGENT_SESSION_SWEEP_MS` (15 000), `AGENT_HELLO_TIMEOUT_MS` (5 000),
   `AGENT_CREDENTIAL_TEST_TIMEOUT_MS` (30 000 — remote credential-test
-  window) can be overridden via environment on the **hub** — intended for
-  tests and tuning; the spec-fixed defaults are the supported values.
+  window), `AGENT_DISPATCH_TIMEOUT_MS` (600 000 — how long a queued remote
+  run waits for its agent before failing `AGENT_UNAVAILABLE`), and
+  `AGENT_JOB_ACK_TIMEOUT_MS` (15 000 — how long the hub waits for
+  `job.ack` after `job.assign`) can be overridden via environment on the
+  **hub** — intended for tests and tuning; the spec-fixed defaults are
+  the supported values.
 
 ## Agent-managed credentials (spec 026)
 
@@ -101,6 +105,33 @@ values; secret material never crosses the WebSocket in either direction.
   symlink inside `SECRETS_DIR` pointing outside it is rejected.
 - Resolution events are logged with key name + source type only —
   never values.
+
+## Remote import execution (spec 027)
+
+An importer config bound to an agent (**Execution** selector on the config
+form) runs on that agent instead of in-process. The hub dispatches a
+`job.assign` frame over the agent's stream carrying `importerName`, the
+config's `scope`, and the merged `secretRefMap` (reference names only) of
+its linked `AGENT_MANAGED` credentials.
+
+- **Capacity**: `MAX_JOBS` caps concurrent jobs per agent. Runs beyond
+  capacity queue on the hub and dispatch in FIFO order as slots free.
+- **Streaming**: the agent runs the importer's generator locally and
+  streams `phase`, `asset.batch` (≤100 assets or ~1 MB), `run.error`, and
+  `run.complete` frames. The hub applies the same validation, upsert,
+  reconciliation, and suggestion logic as in-process runs.
+- **Failures**: offline/blocked dispatch → `AGENT_UNAVAILABLE`; agent NACK
+  → `AGENT_INCOMPATIBLE` (or `SECRET_RESOLUTION_FAILED` when the reason
+  says so); session loss or hub restart → `AGENT_LOST` — remote runs are
+  bound to their session and are **never resumed**; a single oversized
+  asset → `ASSET_TOO_LARGE` run error, run continues.
+- **Cancellation**: cancelling a run sends a `cancel` frame; the agent
+  aborts the importer's abort token and confirms with
+  `run.complete{result:"CANCELLED"}`. Queued (not yet assigned) runs
+  cancel instantly hub-side.
+- **Policy drift**: edits to `allowedImporters` flag bound configs
+  `agentIncompatible` at read time, and the dispatch-time gate fails the
+  next run fast — in-flight runs are unaffected.
 
 ## Hardening
 

@@ -14,13 +14,20 @@ import {
   type AgentCredentialTestResultPayload,
   type AgentDisconnectReason,
   type AgentHelloPayload,
+  type AssetBatchPayload,
+  type JobAckPayload,
+  type PhasePayload,
+  type RunCompletePayload,
+  type RunErrorPayload,
 } from "@componode/core";
 import type { Selectable } from "kysely";
 import type { ImportAgentRow } from "../db/types.js";
 import { db } from "../db/connection.js";
 import { toJsonb } from "../db/json.js";
+import { envInt } from "../utils/env.js";
 import { getManifests } from "./importer-registry.js";
 import { metrics } from "../plugins/metrics.js";
+import type { RemoteRunHandler } from "./remote-run-service.js";
 
 // Agent stream session service (spec 025 US2, ADR-116). Holds live sockets in
 // memory, validates the lockstep hello handshake, tracks heartbeats, and
@@ -90,13 +97,9 @@ interface LiveSession {
   /** Set once closeSession runs — makes hub-driven close re-entry a no-op
    *  (the socket's own 'close' event re-fires closeSession afterwards). */
   closed?: boolean;
-}
-
-function envInt(key: string, fallback: number): number {
-  const v = process.env[key];
-  if (v === undefined) return fallback;
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
+  /** Serializes frame handling — a batch's writes must fully land before
+   *  a following run.complete finalizes the run (spec 027 ordering). */
+  frameQueue?: Promise<void>;
 }
 
 interface PendingTest {
@@ -106,9 +109,21 @@ interface PendingTest {
   timer: ReturnType<typeof setTimeout>;
 }
 
+// Agent→hub job-stream frame types (spec 027). The hub→agent members of the
+// family (job.assign, cancel) are deliberately absent — an agent sending
+// them gets UNSUPPORTED_FRAME.
+const JOB_STREAM_TYPES = new Set([
+  "job.ack",
+  "asset.batch",
+  "phase",
+  "run.error",
+  "run.complete",
+]);
+
 export class AgentSessionService {
   private live = new Map<string, LiveSession>();
   private pendingTests = new Map<string, PendingTest>();
+  private runHandler: RemoteRunHandler | null = null;
   private credentialTestTimeoutMs = envInt(
     "AGENT_CREDENTIAL_TEST_TIMEOUT_MS",
     AGENT_CREDENTIAL_TEST_TIMEOUT_MS,
@@ -132,6 +147,38 @@ export class AgentSessionService {
     // Default silent — app.ts always injects app.log; a console fallback would
     // violate the no-console-in-production rule (constitution VII).
     this.log = log ?? { warn: () => {}, info: () => {} };
+  }
+
+  // Remote run dispatch (spec 027): the dispatcher registers here and the
+  // session service routes agent→hub job frames to it.
+  setRunHandler(handler: RemoteRunHandler): void {
+    this.runHandler = handler;
+  }
+
+  // Narrow dispatch surface for RemoteRunService — a live session whose
+  // socket is OPEN counts as connected; sendToAgent returns false rather
+  // than throwing so the dispatcher can requeue cleanly.
+  isConnected(agentId: string): boolean {
+    const session = this.live.get(agentId);
+    return !!session && session.socket.readyState === session.socket.OPEN;
+  }
+
+  sendToAgent(
+    agentId: string,
+    type: string,
+    runId: string | undefined,
+    payload: unknown,
+  ): boolean {
+    const session = this.live.get(agentId);
+    if (!session || session.socket.readyState !== session.socket.OPEN) {
+      return false;
+    }
+    try {
+      session.socket.send(JSON.stringify({ type, runId, payload }));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   start(): void {
@@ -309,7 +356,13 @@ export class AgentSessionService {
       throw err;
     }
 
-    socket.on("message", (raw) => void this.onFrame(session, raw));
+    socket.on("message", (raw) => {
+      session.frameQueue = (session.frameQueue ?? Promise.resolve())
+        .then(() => this.onFrame(session, raw))
+        .catch((err) =>
+          this.log.warn({ agent: session.agentName, err }, "agent frame handling failed"),
+        );
+    });
     socket.on("close", () => void this.closeSession(session, "client_close"));
     socket.on("error", () => void this.closeSession(session, "client_close"));
 
@@ -334,6 +387,8 @@ export class AgentSessionService {
       { agent: agent.name, sessionId },
       "agent session established",
     );
+    // Queued remote runs for this agent may now be dispatchable.
+    this.runHandler?.onSessionReady(agent.id);
     return true;
   }
 
@@ -446,6 +501,29 @@ export class AgentSessionService {
     });
   }
 
+  private async dispatchJobFrame(
+    session: LiveSession,
+    type: string,
+    runId: string,
+    payload: unknown,
+  ): Promise<boolean> {
+    const h = this.runHandler!;
+    switch (type) {
+      case "job.ack":
+        return h.onJobAck(session.agentId, runId, payload as JobAckPayload);
+      case "asset.batch":
+        return h.onAssetBatch(session.agentId, runId, payload as AssetBatchPayload);
+      case "phase":
+        return h.onPhase(session.agentId, runId, payload as PhasePayload);
+      case "run.error":
+        return h.onRunError(session.agentId, runId, payload as RunErrorPayload);
+      case "run.complete":
+        return h.onRunComplete(session.agentId, runId, payload as RunCompletePayload);
+      default:
+        return false;
+    }
+  }
+
   private settleTest(
     entry: PendingTest,
     settle: (e: PendingTest) => void,
@@ -480,10 +558,43 @@ export class AgentSessionService {
       return;
     }
 
+    // Agent→hub job frames (spec 027): route to the remote-run dispatcher.
+    // A frame for a run this session dispatched but the hub already
+    // finalized (ack-timeout, cancel, session-loss) is a late frame — warn
+    // and ignore, never resurrect (edge case). A frame for a runId the hub
+    // never assigned on this session is a protocol violation (error +
+    // close); job.ack is always ignored as a late acknowledgement.
+    if (JOB_STREAM_TYPES.has(msg.type)) {
+      session.lastContactAt = Date.now();
+      const handled = this.runHandler
+        ? await this.dispatchJobFrame(session, msg.type, msg.runId!, msg.payload)
+        : false;
+      if (!handled) {
+        if (this.runHandler?.isDeadRun(session.agentId, msg.runId!)) {
+          this.log.warn(
+            { agentId: session.agentId, runId: msg.runId, type: msg.type },
+            "ignoring frame for finalized remote run",
+          );
+        } else if (msg.type !== "job.ack") {
+          this.send(session.socket, "error", {
+            code: AGENT_ERROR_CODES.BAD_FRAME,
+            message: `frame "${msg.type}" for unknown or inactive run`,
+          });
+          session.socket.close(1008);
+        } else {
+          this.log.warn(
+            { agentId: session.agentId, runId: msg.runId },
+            "ignoring job.ack for a run not owned by this session",
+          );
+        }
+      }
+      return;
+    }
+
     if (msg.type !== "heartbeat" && msg.type !== "close") {
-      // Reserved-but-unhandled types (job.* land in 027): a peer sending one
-      // now is on a different protocol — error + close (1008 policy
-      // violation) per contract, never silently ignored.
+      // Wrong-direction or unknown frames (job.assign/cancel are hub→agent):
+      // a peer sending one is on a different protocol — error + close
+      // (1008 policy violation) per contract, never silently ignored.
       this.send(session.socket, "error", {
         code: AGENT_ERROR_CODES.UNSUPPORTED_FRAME,
         message: `frame type "${msg.type}" is not implemented by this build`,
@@ -570,6 +681,17 @@ export class AgentSessionService {
     }
 
     const now = new Date().toISOString();
+    // The session is the remote-run lifeline (spec 027, ADR-116): every
+    // in-flight job on this agent fails AGENT_LOST. Runs still queued
+    // survive — they wait out their dispatch window for a reconnect.
+    try {
+      await this.runHandler?.onSessionLost(session.agentId);
+    } catch (err) {
+      this.log.warn(
+        { agent: session.agentName, err },
+        "remote run cleanup failed on session loss",
+      );
+    }
     try {
       await db.transaction().execute(async (trx) => {
         await trx

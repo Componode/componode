@@ -15,6 +15,8 @@ function run(over: Partial<ImportRun>): ImportRun {
   return {
     id: "r1",
     configId: "cfg1",
+    agentId: null,
+    agentName: null,
     status: "COMPLETED",
     triggeredBy: null,
     startedAt: "2026-09-18T10:00:00Z",

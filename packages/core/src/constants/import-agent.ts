@@ -70,3 +70,15 @@ export const AGENT_SESSION_SWEEP_MS = 15_000; // hub sweep interval
 export const AGENT_ENROLLMENT_TTL_MS = 86_400_000; // 24 h
 export const AGENT_HELLO_TIMEOUT_MS = 5_000; // upgrade -> hello window
 export const AGENT_CREDENTIAL_TEST_TIMEOUT_MS = 30_000; // credential.test -> result window (hub)
+
+// Remote execution bounds (spec 027, ADR-116): a bound run waits this long
+// for an offline/saturated agent before failing AGENT_UNAVAILABLE; an
+// assigned job must be acknowledged within the ack window.
+export const AGENT_DISPATCH_TIMEOUT_MS = 600_000; // PENDING -> assign window (hub)
+export const AGENT_JOB_ACK_TIMEOUT_MS = 15_000; // assign -> job.ack window (hub)
+// Agent NACK reasons that map to their own run errorType instead of
+// AGENT_INCOMPATIBLE — prefix match, the suffix names key+source only.
+export const AGENT_NACK_SECRET_RESOLUTION_PREFIX = "SECRET_RESOLUTION_FAILED";
+// Transient refusals (e.g. capacity) — the run fails AGENT_UNAVAILABLE,
+// not AGENT_INCOMPATIBLE.
+export const AGENT_NACK_UNAVAILABLE_PREFIX = "AGENT_UNAVAILABLE";

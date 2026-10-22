@@ -237,15 +237,19 @@ interface CredentialFormProps {
   // Selector UI locks the kind to STORED when an execution mode doesn't
   // support agent-managed credentials (e.g. hub-executed configs).
   lockStored?: boolean;
+  // Agent-bound configs take agent-managed references only (spec 027).
+  lockAgentManaged?: boolean;
 }
 
 // Write-only credential editor (spec 013): values are sent once to the API and
 // never read back. The dynamic key/value editor stores a credential bundle.
-export function CredentialForm({ onSubmit, onCancel, submitting, lockStored }: CredentialFormProps) {
+export function CredentialForm({ onSubmit, onCancel, submitting, lockStored, lockAgentManaged }: CredentialFormProps) {
   const baseId = useId();
   const [label, setLabel] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
-  const [kind, setKind] = useState<CredentialKind>("STORED");
+  const [kind, setKind] = useState<CredentialKind>(
+    lockAgentManaged ? "AGENT_MANAGED" : "STORED",
+  );
   const [entries, setEntries] = useState<SecretEntry[]>([{ key: "", value: "" }]);
   const [refEntries, setRefEntries] = useState<SecretRefEntry[]>([
     { key: "", source: "env", reference: "" },
@@ -314,7 +318,7 @@ export function CredentialForm({ onSubmit, onCancel, submitting, lockStored }: C
           id={`${baseId}-kind`}
           value={kind}
           onChange={(e) => setKind(e.target.value as CredentialKind)}
-          disabled={lockStored}
+          disabled={lockStored || lockAgentManaged}
         >
           <option value="STORED">{CREDENTIAL_KIND_META.STORED.label}</option>
           <option value="AGENT_MANAGED">

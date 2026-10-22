@@ -163,6 +163,19 @@ const agentCredentialTestsTotal = getOrCreateCounter(
   ["agent", "result"],
 );
 
+// Remote run execution (spec 027)
+const agentJobsTotal = getOrCreateCounter(
+  "agent_jobs_total",
+  "Remote import jobs dispatched to import agents, by outcome",
+  ["agent", "result"],
+);
+
+const agentAssetsReceivedTotal = getOrCreateCounter(
+  "agent_assets_received_total",
+  "Discovered assets streamed from import agents",
+  ["agent", "importer"],
+);
+
 // Collect default Node.js metrics (event loop, GC, memory, CPU) once per process.
 const collectDefaultMetrics = promClient.collectDefaultMetrics;
 if (!promClient.register.getSingleMetric("process_cpu_user_seconds_total")) {
@@ -192,6 +205,8 @@ export const metrics = {
   agentSessionsTotal,
   agentStreamRejectedTotal,
   agentCredentialTestsTotal,
+  agentJobsTotal,
+  agentAssetsReceivedTotal,
 };
 
 export async function metricsPlugin(app: FastifyInstance): Promise<void> {

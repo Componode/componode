@@ -6,6 +6,7 @@ import {
   useImportRunErrors,
 } from "@/api/hooks/importers";
 import { useCredentials } from "@/api/hooks/credentials";
+import { useSession } from "@/api/hooks/auth";
 import { useRunChanges } from "@/api/hooks/audit";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +57,8 @@ export function ImporterRunPage() {
   } = useRunChanges(configId ?? "", runId ?? "");
   const cancel = useCancelImportRun();
   const { data: credentialsData } = useCredentials();
+  const { data: user } = useSession();
+  const canReadAgents = user?.role === "ADMIN";
 
   const run = data?.run;
   const usedCredentials = (run?.credentialIds ?? [])
@@ -147,6 +150,33 @@ export function ImporterRunPage() {
                   <Stat label="Updated" value={run.assetsUpdated} />
                   <Stat label="Orphaned" value={run.instancesOrphaned} />
                   <Stat label="Retired" value={run.componentsRetired} />
+                </div>
+
+                {/* Executor (spec 027 US5): which side ran the importer —
+                    linked when the operator can read agent surfaces. */}
+                <div className="flex items-center gap-2 text-sm pt-2 border-t">
+                  <span className="text-muted-foreground">Executor:</span>
+                  {run.agentId ? (
+                    <span>
+                      {run.status === "PENDING"
+                        ? "Waiting for agent "
+                        : "Ran on agent "}
+                      {canReadAgents ? (
+                        <Link
+                          to={`/agents/${run.agentId}`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {run.agentName ?? "agent"}
+                        </Link>
+                      ) : (
+                        <span className="font-medium">
+                          {run.agentName ?? "agent"}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span>In-process</span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm pt-2 border-t">

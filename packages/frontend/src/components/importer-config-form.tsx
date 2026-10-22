@@ -7,7 +7,9 @@ import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useCredentials, useCreateCredential } from "@/api/hooks/credentials";
+import { useAgents } from "@/api/hooks/agents";
 import { CredentialForm } from "@/components/credential-form";
+import { Link } from "react-router-dom";
 import type { ImporterConfig, ImporterManifest } from "@/api/types";
 
 interface SecretRef {
@@ -22,6 +24,7 @@ export interface ImporterConfigFormOutput {
   scope: Record<string, unknown>;
   secretRefs: SecretRef[];
   credentialIds: string[];
+  agentId: string | null;
   schedule: string | null;
   enabled: boolean;
 }
@@ -59,17 +62,32 @@ export function ImporterConfigForm({
   const [enabled, setEnabled] = useState(config?.enabled ?? true);
   const [error, setError] = useState<string | null>(null);
 
+  // Execution binding (spec 027 US1): "" = this hub; otherwise an agent id.
+  const [agentId, setAgentId] = useState<string>(config?.agentId ?? "");
+  const agentsQuery = useAgents();
+  const agents = agentsQuery.data?.agents ?? [];
+
   // Stored credential (spec 013): one credential per config in v1 UI.
   const [credentialId, setCredentialId] = useState<string>(config?.credentialIds?.[0] ?? "");
   const [showNewCredential, setShowNewCredential] = useState(false);
   const credentialsQuery = useCredentials();
   const createCredential = useCreateCredential();
-  // Hub-executed configs can only consume STORED credentials — agent-managed
-  // refs are resolved on the agent host, so they never appear here
-  // (CREDENTIAL_KIND_MISMATCH, spec 026).
+  // Credential kind follows the executor (CREDENTIAL_KIND_MISMATCH,
+  // spec 026/027): agent-bound configs take AGENT_MANAGED refs resolved on
+  // the agent host; hub-executed configs take STORED credentials.
+  const boundToAgent = agentId !== "";
   const credentials = (credentialsQuery.data?.credentials ?? []).filter(
-    (c) => c.kind !== "AGENT_MANAGED",
+    (c) => (boundToAgent ? c.kind === "AGENT_MANAGED" : c.kind !== "AGENT_MANAGED"),
   );
+
+  // An agent is selectable only when its non-empty allowedImporters policy
+  // covers the chosen importer and it is not revoked.
+  function agentSelectable(a: (typeof agents)[number]): boolean {
+    if (a.revokedAt !== null) return false;
+    if (!importerName) return true;
+    return a.allowedImporters.length === 0 || a.allowedImporters.includes(importerName);
+  }
+  const selectedAgent = agents.find((a) => a.id === agentId);
 
   // GitHub scope fields
   const [org, setOrg] = useState<string>("");
@@ -109,6 +127,7 @@ export function ImporterConfigForm({
       const tokenRef = refs.find((r) => r.key === "token");
       setToken(tokenRef?.env ?? tokenRef?.file ?? "");
       setCredentialId(config.credentialIds?.[0] ?? "");
+      setAgentId(config.agentId ?? "");
 
       if (config.importerName === "github" && config.scope && typeof config.scope === "object") {
         const scope = config.scope as Record<string, unknown>;
@@ -141,6 +160,15 @@ export function ImporterConfigForm({
 
   const selectedManifest = manifests.find((m) => m.name === importerName);
   const baseId = useId();
+
+  // Switching executor invalidates a credential of the other kind — clear
+  // the selection rather than letting a mismatched id ride into the save.
+  useEffect(() => {
+    if (credentialId && !credentials.some((c) => c.id === credentialId)) {
+      setCredentialId("");
+    }
+    // Deliberately not dep'd on credentialId — clearing it re-runs no-op.
+  }, [boundToAgent, credentialsQuery.data]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -233,6 +261,7 @@ export function ImporterConfigForm({
       scope,
       secretRefs,
       credentialIds: credentialId ? [credentialId] : [],
+      agentId: agentId || null,
       schedule: schedule.trim() || null,
       enabled,
     };
@@ -283,8 +312,48 @@ export function ImporterConfigForm({
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor={`${baseId}-executor`}>Execution</Label>
+        <Select
+          id={`${baseId}-executor`}
+          value={agentId}
+          onChange={(e) => setAgentId(e.target.value)}
+        >
+          <option value="">This hub (in-process)</option>
+          {agents.map((a) => (
+            <option key={a.id} value={a.id} disabled={!agentSelectable(a)}>
+              Agent: {a.name}
+              {!agentSelectable(a)
+                ? a.revokedAt !== null
+                  ? " — revoked"
+                  : ` — policy excludes ${importerName || "this importer"}`
+                : a.status !== "CONNECTED"
+                  ? " — offline"
+                  : ""}
+            </option>
+          ))}
+        </Select>
+        {agents.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            No Import Agents registered yet —{" "}
+            <Link to="/agents" className="underline">
+              create one
+            </Link>{" "}
+            to run importers inside a private network.
+          </p>
+        )}
+        {selectedAgent && selectedAgent.status !== "CONNECTED" && (
+          <p className="text-xs text-amber-600 dark:text-amber-500">
+            Agent "{selectedAgent.name}" is not connected — runs will wait for
+            it to come online before dispatching.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <Label htmlFor={`${baseId}-credential`}>Stored credential</Label>
+          <Label htmlFor={`${baseId}-credential`}>
+            {boundToAgent ? "Agent-managed credential" : "Stored credential"}
+          </Label>
           {config?.secretRefsDeprecated && (
             <>
               <Badge variant="secondary" title="This config still uses legacy env/file secret refs">
@@ -330,10 +399,14 @@ export function ImporterConfigForm({
               {c.label} ({Object.keys(c.keyHints).join(", ")})
             </option>
           ))}
-          <option value="__new__">+ Store new credential…</option>
+          <option value="__new__">
+            {boundToAgent ? "+ New agent-managed credential…" : "+ Store new credential…"}
+          </option>
         </Select>
         <p className="text-xs text-muted-foreground">
-          Encrypted in the credential store — preferred over env/file refs.
+          {boundToAgent
+            ? "Resolved on the agent host — the hub stores and ships only reference names."
+            : "Encrypted in the credential store — preferred over env/file refs."}
         </p>
       </div>
 
@@ -342,7 +415,8 @@ export function ImporterConfigForm({
           <p className="text-sm font-medium">Store new credential</p>
           <CredentialForm
             submitting={createCredential.isPending}
-            lockStored
+            lockStored={!boundToAgent}
+            lockAgentManaged={boundToAgent}
             onCancel={() => setShowNewCredential(false)}
             onSubmit={async (input) => {
               const res = await createCredential.mutateAsync(input);

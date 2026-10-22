@@ -5,7 +5,10 @@ import type {
   UpdateImportAgentInput,
 } from "@componode/core";
 import type {
+  AgentBoundConfig,
+  AgentDetail,
   AgentEnrollment,
+  AgentRun,
   AgentSession,
   CreateAgentResult,
   ImportAgent,
@@ -26,7 +29,25 @@ export function useAgents() {
 export function useAgent(id: string | null) {
   return useQuery({
     queryKey: ["agents", id],
-    queryFn: () => api<{ agent: ImportAgent }>(`/agents/${id}`),
+    queryFn: () => api<{ agent: AgentDetail }>(`/agents/${id}`),
+    enabled: id !== null,
+    refetchInterval: AGENT_POLL_INTERVAL_MS,
+  });
+}
+
+export function useAgentConfigs(id: string | null) {
+  return useQuery({
+    queryKey: ["agents", id, "configs"],
+    queryFn: () => api<{ configs: AgentBoundConfig[] }>(`/agents/${id}/configs`),
+    enabled: id !== null,
+    refetchInterval: AGENT_POLL_INTERVAL_MS,
+  });
+}
+
+export function useAgentRuns(id: string | null) {
+  return useQuery({
+    queryKey: ["agents", id, "runs"],
+    queryFn: () => api<{ runs: AgentRun[] }>(`/agents/${id}/runs`),
     enabled: id !== null,
     refetchInterval: AGENT_POLL_INTERVAL_MS,
   });

@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { KeyRound, Trash2, Ban, Save } from "lucide-react";
 import {
   useAgent,
+  useAgentConfigs,
+  useAgentRuns,
   useAgentSessions,
   useDeleteAgent,
   useRevokeAgent,
@@ -36,19 +38,24 @@ import { relativeTime, absoluteTime } from "@/lib/format";
 import { parseImporterCsv } from "@/lib/utils";
 import type { EnrollmentGrant } from "@/api/types";
 
-// Import Agent detail (spec 025 US3/US4): overview w/ editable policy +
-// lifecycle actions, and connection history.
+// Import Agent detail (spec 025 US3/US4 + 027 US5): overview w/ editable
+// policy + lifecycle actions + in-flight jobs, bound configs, agent runs,
+// and connection history.
 export function AgentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data, isPending, error, refetch } = useAgent(id ?? null);
   const sessions = useAgentSessions(id ?? null);
+  const boundConfigs = useAgentConfigs(id ?? null);
+  const agentRuns = useAgentRuns(id ?? null);
   const update = useUpdateAgent(id ?? "");
   const rotate = useRotateAgent(id ?? "");
   const revoke = useRevokeAgent(id ?? "");
   const del = useDeleteAgent(id ?? "");
 
-  const [tab, setTab] = useState<"overview" | "history">("overview");
+  const [tab, setTab] = useState<"overview" | "configs" | "runs" | "history">(
+    "overview",
+  );
   const [importers, setImporters] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [enrollment, setEnrollment] = useState<EnrollmentGrant | null>(null);
@@ -154,7 +161,7 @@ export function AgentDetailPage() {
       )}
 
       <div className="mb-6 flex gap-4 border-b">
-        {(["overview", "history"] as const).map((t) => (
+        {(["overview", "configs", "runs", "history"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -164,7 +171,7 @@ export function AgentDetailPage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t === "history" ? "Connection history" : "Overview"}
+            {t === "history" ? "Connection history" : t}
           </button>
         ))}
       </div>
@@ -203,6 +210,8 @@ export function AgentDetailPage() {
             </dd>
             <dt className="text-muted-foreground">Bound configs</dt>
             <dd>{agent.boundConfigCount}</dd>
+            <dt className="text-muted-foreground">Running jobs</dt>
+            <dd>{agent.runningJobs}</dd>
             <dt className="text-muted-foreground">Last seen</dt>
             <dd
               title={
@@ -247,7 +256,148 @@ export function AgentDetailPage() {
               <p className="text-sm text-destructive">{formError}</p>
             )}
           </div>
+
+          {/* In-flight jobs (spec 027 US5): hub-side dispatch map state —
+              what this agent is believed to be executing right now. */}
+          <div className="space-y-2">
+            <h2 className="text-sm font-medium">In-flight jobs</h2>
+            {agent.activeRuns.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No jobs in flight.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Config</TableHead>
+                    <TableHead>State</TableHead>
+                    <TableHead>Phase</TableHead>
+                    <TableHead>Started</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {agent.activeRuns.map((r) => (
+                    <TableRow key={r.runId}>
+                      <TableCell>
+                        <Link
+                          to={`/importers/${r.configId}/runs/${r.runId}`}
+                          className="text-primary hover:underline"
+                        >
+                          {r.configLabel}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        {r.state === "ASSIGNED" ? "Assigned" : "Running"}
+                      </TableCell>
+                      <TableCell>{r.phase ?? "—"}</TableCell>
+                      <TableCell
+                        title={
+                          r.startedAt ? absoluteTime(r.startedAt) : undefined
+                        }
+                      >
+                        {r.startedAt ? relativeTime(r.startedAt) : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         </div>
+      ) : tab === "configs" ? (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Config</TableHead>
+              <TableHead>Importer</TableHead>
+              <TableHead>Schedule</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(boundConfigs.data?.configs ?? []).map((c) => (
+              <TableRow key={c.id}>
+                <TableCell>
+                  <Link
+                    to={`/importers?config=${c.id}`}
+                    className="text-primary hover:underline"
+                  >
+                    {c.label}
+                  </Link>
+                </TableCell>
+                <TableCell>{c.importerName}</TableCell>
+                <TableCell>{c.schedule ?? "manual"}</TableCell>
+                <TableCell>
+                  {!c.enabled ? (
+                    <span className="text-muted-foreground">Disabled</span>
+                  ) : c.agentIncompatible ? (
+                    <StatusBadge status="INCOMPATIBLE" />
+                  ) : (
+                    <span className="text-muted-foreground">Ready</span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+            {(boundConfigs.data?.configs ?? []).length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={4}
+                  className="text-center text-muted-foreground"
+                >
+                  No configs bound to this agent
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      ) : tab === "runs" ? (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Config</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Phase / error</TableHead>
+              <TableHead>Assets</TableHead>
+              <TableHead>Started</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(agentRuns.data?.runs ?? []).map((r) => (
+              <TableRow key={r.id}>
+                <TableCell>
+                  <Link
+                    to={`/importers/${r.configId}/runs/${r.id}`}
+                    className="text-primary hover:underline"
+                  >
+                    {r.configLabel}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={r.status} />
+                </TableCell>
+                <TableCell className="text-xs">
+                  {r.errorType ?? r.currentPhase ?? "—"}
+                </TableCell>
+                <TableCell>{r.assetsProcessed}</TableCell>
+                <TableCell
+                  title={r.startedAt ? absoluteTime(r.startedAt) : undefined}
+                >
+                  {r.startedAt ? relativeTime(r.startedAt) : "—"}
+                </TableCell>
+              </TableRow>
+            ))}
+            {(agentRuns.data?.runs ?? []).length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="text-center text-muted-foreground"
+                >
+                  No runs executed by this agent yet
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       ) : (
         <Table>
           <TableHeader>

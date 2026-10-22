@@ -3,7 +3,11 @@ import { uuidv7 } from "uuidv7";
 import type { Kysely, Selectable, Transaction, Updateable } from "kysely";
 import {
   AGENT_ENROLLMENT_TTL_MS,
+  type AgentActiveRun,
+  type AgentBoundConfig,
+  type AgentDetail,
   type AgentDisconnectReason,
+  type AgentRun,
   type AgentSession,
   type CreateImportAgentInput,
   type ImportAgent,
@@ -22,6 +26,14 @@ export interface AgentSessionDropper {
   dropAgent(agentId: string, reason: AgentDisconnectReason): Promise<void>;
 }
 
+// Narrow read seam over the remote dispatcher (spec 027) — the route layer
+// passes `app.remoteRuns` so agent payloads reflect live in-flight state
+// without this service importing the dispatcher module.
+export interface RemoteRunReader {
+  activeRunsForAgent(agentId: string): AgentActiveRun[];
+  runningJobCounts(): Map<string, number>;
+}
+
 // Import Agent service (spec 025, ADR-116). Credential and enrollment token
 // material is stored hashed only; plaintext is returned once at issuance and
 // never persisted or logged.
@@ -33,6 +45,7 @@ function generateToken(): string {
 function toApi(
   row: Selectable<ImportAgentRow>,
   boundConfigCount: number,
+  runningJobs = 0,
 ): ImportAgent {
   const enrollmentPending =
     row.enrollmentTokenHash !== null &&
@@ -53,6 +66,7 @@ function toApi(
     hasCredential: row.credentialHash !== null,
     pendingEnrollment: enrollmentPending,
     boundConfigCount,
+    runningJobs,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -194,17 +208,23 @@ export async function createAgent(
   });
 }
 
-export async function listAgents(): Promise<ImportAgent[]> {
+export async function listAgents(runs?: RemoteRunReader): Promise<ImportAgent[]> {
   const rows = await db
     .selectFrom("import_agents")
     .selectAll()
     .orderBy("name", "asc")
     .execute();
   const counts = await boundConfigCounts(rows.map((r) => r.id));
-  return rows.map((r) => toApi(r, counts.get(r.id) ?? 0));
+  const jobCounts = runs?.runningJobCounts();
+  return rows.map((r) =>
+    toApi(r, counts.get(r.id) ?? 0, jobCounts?.get(r.id) ?? 0),
+  );
 }
 
-export async function getAgent(id: string): Promise<ImportAgent | null> {
+export async function getAgent(
+  id: string,
+  runs?: RemoteRunReader,
+): Promise<AgentDetail | null> {
   const row = await db
     .selectFrom("import_agents")
     .selectAll()
@@ -212,7 +232,75 @@ export async function getAgent(id: string): Promise<ImportAgent | null> {
     .executeTakeFirst();
   if (!row) return null;
   const counts = await boundConfigCounts([row.id]);
-  return toApi(row, counts.get(row.id) ?? 0);
+  return {
+    ...toApi(row, counts.get(row.id) ?? 0, runs?.activeRunsForAgent(id).length ?? 0),
+    activeRuns: runs?.activeRunsForAgent(id) ?? [],
+  };
+}
+
+// Configs bound to an agent — the agent detail "configs" tab. The
+// incompatibility flag is read-time derived from the agent's current
+// policy (drift never persists state).
+export async function listAgentConfigs(id: string): Promise<AgentBoundConfig[]> {
+  const existing = await getAgentRow(id);
+  if (!existing)
+    throw new AgentError(404, "AGENT_NOT_FOUND", "Agent not found");
+
+  const rows = await db
+    .selectFrom("importer_configs")
+    .select(["id", "label", "importerName", "schedule", "enabled"])
+    .where("agentId", "=", id)
+    .orderBy("label", "asc")
+    .execute();
+
+  const allowed = existing.allowedImporters ?? [];
+  const incompatible = (importerName: string) =>
+    existing.revokedAt !== null ||
+    (allowed.length > 0 && !allowed.includes(importerName));
+
+  return rows.map((r) => ({
+    id: r.id,
+    label: r.label,
+    importerName: r.importerName,
+    schedule: r.schedule,
+    enabled: r.enabled,
+    agentIncompatible: incompatible(r.importerName),
+  }));
+}
+
+// Runs executed by an agent — the agent detail "runs" tab. Run rows are
+// durable history; the agentId column is not an FK so these survive agent
+// deletion, but the endpoint itself 404s for a missing agent.
+export async function listAgentRuns(id: string, limit = 50): Promise<AgentRun[]> {
+  const existing = await getAgentRow(id);
+  if (!existing)
+    throw new AgentError(404, "AGENT_NOT_FOUND", "Agent not found");
+
+  const rows = await db
+    .selectFrom("import_runs")
+    .innerJoin("importer_configs", "importer_configs.id", "import_runs.configId")
+    .select([
+      "import_runs.id",
+      "import_runs.configId",
+      "importer_configs.label as configLabel",
+      "import_runs.status",
+      "import_runs.errorType",
+      "import_runs.currentPhase",
+      "import_runs.assetsProcessed",
+      "import_runs.createdAt",
+      "import_runs.startedAt",
+      "import_runs.completedAt",
+    ])
+    .where("import_runs.agentId", "=", id)
+    .orderBy("import_runs.createdAt", "desc")
+    .limit(limit)
+    .execute();
+  return rows.map((r) => ({
+    ...r,
+    createdAt: new Date(r.createdAt).toISOString(),
+    startedAt: r.startedAt ? new Date(r.startedAt).toISOString() : null,
+    completedAt: r.completedAt ? new Date(r.completedAt).toISOString() : null,
+  }));
 }
 
 // Exchange a single-use enrollment token for a durable bearer credential.

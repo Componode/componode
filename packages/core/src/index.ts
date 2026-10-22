@@ -278,6 +278,10 @@ export {
   AGENT_ENROLLMENT_TTL_MS,
   AGENT_HELLO_TIMEOUT_MS,
   AGENT_CREDENTIAL_TEST_TIMEOUT_MS,
+  AGENT_DISPATCH_TIMEOUT_MS,
+  AGENT_JOB_ACK_TIMEOUT_MS,
+  AGENT_NACK_SECRET_RESOLUTION_PREFIX,
+  AGENT_NACK_UNAVAILABLE_PREFIX,
   AGENT_ERROR_CODES,
 } from "./constants/import-agent.js";
 export type {
@@ -290,6 +294,10 @@ export type {
   ImportAgent,
   AgentSession,
   AgentEnrollment,
+  AgentDetail,
+  AgentActiveRun,
+  AgentBoundConfig,
+  AgentRun,
 } from "./contracts/import-agent.js";
 export {
   createImportAgentSchema,

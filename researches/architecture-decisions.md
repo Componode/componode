@@ -65,7 +65,7 @@
 | [ADR-025](./adrs/ADR-025-importer-interface-pull-only-asyncgenerator.md) | Importer interface: pull-only AsyncGenerator (superseded by ADR-056/057) |
 | [ADR-026](./adrs/ADR-026-v1-importer-scope-7-importers.md) | v1 importer scope: 7 importers |
 | [ADR-115](./adrs/ADR-115-alibaba-cloud-importer.md) | Alibaba Cloud importer: Resource Center discovery |
-| [ADR-116](./adrs/ADR-116-remote-import-agents.md) | Remote import execution via outbound Import Agents (amends ADR-022, 052, 054, 055, 058, 060, 061, 065, 087, 097, 100, 107) |
+| [ADR-116](./adrs/ADR-116-remote-import-agents.md) | Remote import execution via outbound Import Agents (amends ADR-022, 052, 054, 055, 058, 060, 061, 065, 087, 097, 100, 107); Amendment 2 ratifies spec-027 surfaces — job-frame schemas, dispatch/ack timeouts, NACK→errorType mapping, agent configs/runs endpoints, `OFFLINE_AGENT` |
 
 ### Auth & Security
 

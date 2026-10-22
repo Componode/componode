@@ -28,6 +28,7 @@ export interface AgentDeps extends SessionDeps {
 }
 
 type Log = {
+  debug: (o: object, m: string) => void;
   info: (o: object, m: string) => void;
   warn: (o: object, m: string) => void;
   error: (o: object, m: string) => void;

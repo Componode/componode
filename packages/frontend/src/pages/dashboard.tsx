@@ -13,6 +13,7 @@ import {
   UserX,
 } from "lucide-react";
 import { useDashboardSummary } from "@/api/hooks/dashboard";
+import { useSession } from "@/api/hooks/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardGridSkeleton, TableSkeleton } from "@/components/states/skeletons";
 import { ErrorState } from "@/components/states/error-state";
@@ -31,6 +32,7 @@ const ATTENTION_LABEL: Record<AttentionItem["kind"], string> = {
   PRODUCT_ERROR: "Product affected by error",
   SUNSET_OVERDUE_PRODUCT: "Product sunset overdue",
   SUNSET_OVERDUE_COMPONENT: "Component sunset overdue",
+  OFFLINE_AGENT: "Import Agent offline with bound configs",
 };
 
 function attentionBadge(item: AttentionItem) {
@@ -46,7 +48,9 @@ function attentionBadge(item: AttentionItem) {
           ? "FAILED"
           : item.kind === "INSTANCE_ERROR" || item.kind === "PRODUCT_ERROR"
             ? "ERROR"
-            : "GONE"
+            : item.kind === "OFFLINE_AGENT"
+              ? "OFFLINE"
+              : "GONE"
       }
     />
   );
@@ -59,6 +63,7 @@ function attentionBadge(item: AttentionItem) {
  */
 export function DashboardPage() {
   const { data, isPending, isFetching, error, refetch } = useDashboardSummary();
+  const { data: user } = useSession();
   const [promoting, setPromoting] = useState<PlatformCandidate | null>(null);
 
   if (isPending) {
@@ -129,29 +134,46 @@ export function DashboardPage() {
               </h2>
               <Card>
                 <CardContent className="divide-y p-0">
-                  {attention.map((item, i) => (
-                    <Link
-                      key={`${item.kind}-${item.href}-${i}`}
-                      to={item.href}
-                      className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <span className="flex items-center gap-3 min-w-0">
-                        {attentionBadge(item)}
-                        <span className="truncate">
-                          <span className="text-muted-foreground">
-                            {ATTENTION_LABEL[item.kind]}:
-                          </span>{" "}
-                          {item.label}
+                  {attention.map((item, i) => {
+                    // Agent surfaces are agent:read (ADMIN) — non-admins get
+                    // the attention row as plain text per FR-023.
+                    const linkable =
+                      item.kind !== "OFFLINE_AGENT" || user?.role === "ADMIN";
+                    const row = (
+                      <>
+                        <span className="flex items-center gap-3 min-w-0">
+                          {attentionBadge(item)}
+                          <span className="truncate">
+                            <span className="text-muted-foreground">
+                              {ATTENTION_LABEL[item.kind]}:
+                            </span>{" "}
+                            {item.label}
+                          </span>
                         </span>
-                      </span>
-                      <span
-                        className="text-xs text-muted-foreground shrink-0"
-                        title={absoluteTime(item.at)}
+                        <span
+                          className="text-xs text-muted-foreground shrink-0"
+                          title={absoluteTime(item.at)}
+                        >
+                          {relativeTime(item.at)}
+                        </span>
+                      </>
+                    );
+                    const cls =
+                      "flex items-center justify-between px-4 py-2.5 text-sm";
+                    return linkable ? (
+                      <Link
+                        key={`${item.kind}-${item.href}-${i}`}
+                        to={item.href}
+                        className={`${cls} hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
                       >
-                        {relativeTime(item.at)}
-                      </span>
-                    </Link>
-                  ))}
+                        {row}
+                      </Link>
+                    ) : (
+                      <div key={`${item.kind}-${item.href}-${i}`} className={cls}>
+                        {row}
+                      </div>
+                    );
+                  })}
                 </CardContent>
               </Card>
             </section>

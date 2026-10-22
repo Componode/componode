@@ -166,7 +166,9 @@ function RunsPanel({ config }: RunsPanelProps) {
                     <StatusBadge status={run.status} />
                   </TableCell>
                   <TableCell className="max-w-[200px] truncate">
-                    {run.currentPhase ?? "—"}
+                    {run.status === "PENDING" && run.agentId
+                      ? `Waiting for agent ${run.agentName ?? "agent"}`
+                      : (run.currentPhase ?? "—")}
                   </TableCell>
                   <TableCell>{run.assetsProcessed}</TableCell>
                   <TableCell>{run.assetsCreated}</TableCell>
@@ -340,10 +342,33 @@ export function ImportersPage() {
                         {config.secretRefsDeprecated && (
                           <Badge variant="secondary">DEPRECATED SECRETS</Badge>
                         )}
+                        {config.agentIncompatible && (
+                          <StatusBadge status="INCOMPATIBLE" />
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
                         {config.importerName} · {config.enabled ? "Enabled" : "Disabled"}
                         {config.schedule ? ` · ${config.schedule}` : ""}
+                        {" · Runs on: "}
+                        {config.agent ? (
+                          <>
+                            {hasRole(userRole, "ADMIN") ? (
+                              <Link
+                                to={`/agents/${config.agent.id}`}
+                                className="text-primary hover:underline"
+                              >
+                                {config.agent.name}
+                              </Link>
+                            ) : (
+                              config.agent.name
+                            )}
+                            {config.agent.status === "OFFLINE" && (
+                              <span className="text-warning"> (offline)</span>
+                            )}
+                          </>
+                        ) : (
+                          "this hub"
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

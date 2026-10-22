@@ -18,10 +18,53 @@ export interface ImportAgent {
   hasCredential: boolean;
   // An unused, unexpired enrollment token exists.
   pendingEnrollment: boolean;
-  // Importer configs bound to this agent (027 populates; 0 in 025).
+  // Importer configs bound to this agent.
   boundConfigCount: number;
+  // Jobs the hub believes the agent currently holds (spec 027).
+  runningJobs: number;
   createdAt: string;
   updatedAt: string;
+}
+
+// In-flight job on a connected agent (spec 027 — from the hub's dispatch
+// map, not persisted).
+export interface AgentActiveRun {
+  runId: string;
+  configId: string;
+  configLabel: string;
+  state: "ASSIGNED" | "RUNNING";
+  phase: string | null;
+  startedAt: string | null;
+}
+
+export interface AgentDetail extends ImportAgent {
+  activeRuns: AgentActiveRun[];
+}
+
+// Importer config bound to an agent — the agent detail "configs" tab.
+export interface AgentBoundConfig {
+  id: string;
+  label: string;
+  importerName: string;
+  schedule: string | null;
+  enabled: boolean;
+  // Bound agent is revoked or its non-empty allowedImporters policy does
+  // not cover this config's importer.
+  agentIncompatible: boolean;
+}
+
+// Import run executed by an agent — the agent detail "runs" tab.
+export interface AgentRun {
+  id: string;
+  configId: string;
+  configLabel: string;
+  status: string;
+  errorType: string | null;
+  currentPhase: string | null;
+  assetsProcessed: number;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
 }
 
 export interface AgentSession {

@@ -204,6 +204,9 @@ export interface AgentSessionRow {
 export interface ImportRunRow {
   id: string;
   configId: string;
+  // The executing Import Agent for remote runs; NULL = in-process (spec 027).
+  // No FK — run rows are history and must survive agent deletion.
+  agentId: string | null;
   status: string;
   triggeredBy: string | null;
   startedAt: string | null;
