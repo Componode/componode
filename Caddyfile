@@ -1,0 +1,18 @@
+# Componode HTTPS front end (ADR-093).
+#
+# TLS is terminated here with a certificate issued by Caddy's internal CA
+# (self-signed — no Let's Encrypt, no public CA). The root CA is written to
+# the caddy_data volume at /data/caddy/pki/authorities/local/root.crt; the
+# agent service mounts that volume as its CA_BUNDLE, and browsers must
+# either trust that root or accept the certificate warning. Remove
+# `tls internal` to switch a public SITE_ADDRESS to Let's Encrypt.
+#
+# {$SITE_ADDRESS} (default `localhost`) is the public name — set
+# SITE_ADDRESS in .env to this host's DNS name or IP so the issued
+# certificate matches what clients connect to. `hub` is a fixed
+# Compose-network alias for this container, giving the co-located agent a
+# stable TLS name (HUB_URL=https://hub) regardless of SITE_ADDRESS.
+{$SITE_ADDRESS:localhost}, hub {
+	tls internal
+	reverse_proxy app:3000
+}

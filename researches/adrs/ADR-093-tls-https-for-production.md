@@ -29,3 +29,17 @@ which let any client spoof `X-Forwarded-For` to bypass IP-keyed rate limiting.
 **Amendment (2026-09-21 docs review)**: `docs/deployment.md` now documents
 Caddy and nginx TLS setup as decided, and `docker-compose.yml` includes the
 commented-out Caddy service this decision promised.
+
+**Amendment (2026-10-22)**: The commented-out Caddy service is promoted to
+an enabled, bundled front end. A shipped `Caddyfile` uses `tls internal` —
+the certificate is issued by Caddy's internal CA (self-signed), so
+deployments get HTTPS without a public CA; removing `tls internal` restores
+the automatic Let's Encrypt path for public `SITE_ADDRESS` values. The
+app's published port is bound to `127.0.0.1` so remote plaintext access is
+not possible, and the Compose stack defaults `TRUSTED_PROXY_IP=1` (one
+trusted hop — the bundled proxy) instead of leaving it unset. The Caddy
+container carries a fixed `hub` network alias so the co-located `agent`
+service (ADR-028 Amendment 1) has a stable TLS name; the agent mounts the
+`caddy_data` volume read-only and sets `CA_BUNDLE` to the internal root CA
+(`/data/caddy/pki/authorities/local/root.crt`), preserving the fail-closed
+TLS posture for non-loopback `HUB_URL` values.

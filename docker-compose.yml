@@ -22,8 +22,14 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
+    environment:
+      # Trust exactly one proxy hop (the bundled Caddy) for X-Forwarded-*
+      # headers — required for Secure cookies and https redirects (ADR-093).
+      # Set TRUSTED_PROXY_IP= (empty) in .env when no proxy fronts the app.
+      TRUSTED_PROXY_IP: ${TRUSTED_PROXY_IP-1}
     ports:
-      - "${PORT:-3000}:3000"
+      # Loopback-only plaintext; remote access is HTTPS via Caddy on :443.
+      - "127.0.0.1:${PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -33,20 +39,73 @@ services:
       timeout: 5s
       retries: 3
 
-  # Optional: Caddy reverse proxy for automatic HTTPS (ADR-093). Create a
-  # Caddyfile with `your-domain.example.com { reverse_proxy app:3000 }`,
-  # uncomment this service, and set TRUSTED_PROXY_IP + PUBLIC_URL in .env.
-  # caddy:
-  #   image: caddy:2-alpine
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
-  #     - caddy_data:/data
-  #   depends_on:
-  #     - app
+  # HTTPS front end (ADR-093). Caddy terminates TLS with a certificate
+  # issued by its internal CA (self-signed) — set SITE_ADDRESS to this
+  # host's DNS name or IP in .env so the certificate matches. The internal
+  # root CA lives in the caddy_data volume; the agent service mounts it as
+  # CA_BUNDLE, and clients must trust it or accept the browser warning.
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks:
+      default:
+        aliases:
+          # Fixed internal TLS name — the co-located agent connects to
+          # https://hub and verifies the cert against the internal CA.
+          - hub
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      # Healthy once the internal root CA exists — the agent mounts it.
+      test: ["CMD-SHELL", "test -f /data/caddy/pki/authorities/local/root.crt"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Optional: Import Agent (ADR-116, ADR-028 Amendment 1). The image builds
+  # together with the hub (`docker compose build`), but the service starts
+  # 0 replicas — agents normally run on remote hosts (docs/agents.md), and
+  # this one exits until an enrollment token is configured. To run a
+  # co-located agent against this stack (local testing):
+  #   1. Create the agent in the UI (Administration → Import Agents) and
+  #      copy the one-time enrollment token into .env.
+  #   2. docker compose up -d --scale agent=1
+  # The agent shares the app network namespace and reaches the hub through
+  # Caddy at https://hub (a Compose-network alias), verifying the
+  # self-signed certificate against Caddy's internal root CA, which it
+  # mounts read-only from caddy_data as CA_BUNDLE. The ops listener
+  # (/healthz, /readyz, /metrics) is reachable on the Compose network at
+  # app:9464; it cannot be published to the host from the shared namespace.
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    env_file:
+      - .env
+    environment:
+      HUB_URL: ${HUB_URL:-https://hub}
+      CA_BUNDLE: /caddy-ca/caddy/pki/authorities/local/root.crt
+    network_mode: service:app
+    volumes:
+      - agent_state:/state
+      - caddy_data:/caddy-ca:ro
+    depends_on:
+      app:
+        condition: service_healthy
+      caddy:
+        condition: service_healthy
+    deploy:
+      replicas: 0
 
 volumes:
   postgres_data:
-  # caddy_data:
+  agent_state:
+  caddy_data:

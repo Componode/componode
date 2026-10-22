@@ -38,6 +38,13 @@ needed again, and its read-only mount can be removed after first boot.
 Docker secret under `/run/secrets/` on Swarm) — nothing inside the image
 creates them.
 
+When the agent runs on the same host as the `docker-compose.yml` hub
+stack, the declared `agent` service can run it co-located instead (builds
+together, starts 0 replicas, connects through the bundled Caddy at
+`https://hub` and verifies the self-signed cert against Caddy's internal
+root CA mounted as `CA_BUNDLE`) — see `docs/deployment.md` → *Import
+Agents*.
+
 ## Configuration
 
 | Variable                                  | Required | Default                                | Notes                                                                                                                                        |

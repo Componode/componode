@@ -37,10 +37,12 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Open `http://localhost:3000` and log in with your bootstrap admin
-credentials. The backend runs migrations on first boot and serves the built
-frontend. See [docs/deployment.md](docs/deployment.md) for external
-databases, TLS, reverse proxies, and OIDC setup.
+Open `https://localhost` (the bundled Caddy serves a self-signed
+certificate — accept the browser warning) or `http://localhost:3000`, and
+log in with your bootstrap admin credentials. The backend runs migrations
+on first boot and serves the built frontend. See
+[docs/deployment.md](docs/deployment.md) for external databases, TLS,
+reverse proxies, and OIDC setup.
 
 ## Features
 

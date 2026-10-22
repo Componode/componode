@@ -7,6 +7,8 @@ Componode is self-hosted with Docker Compose. One deployment serves one organiza
 - Docker Engine 24+
 - Docker Compose v2
 - A Linux or Windows host with an internet connection for the first build
+- Host ports 80 and 443 free for the bundled Caddy HTTPS front end
+  (override `HTTP_PORT`/`HTTPS_PORT` in `.env` if taken)
 
 ## Database requirements
 
@@ -46,8 +48,11 @@ running migrations when the database does not meet the requirements.
    docker compose ps
    ```
 
-6. Open `http://localhost:3000` and log in with the bootstrap admin credentials
-   configured in `.env`.
+6. Open `https://localhost` — the bundled Caddy serves a self-signed
+   certificate, so accept the browser warning (or trust the root CA; see
+   *TLS and reverse proxy*). Plain `http://localhost:3000` also works from
+   the same host. Log in with the bootstrap admin credentials configured
+   in `.env`.
 
 ## Smoke test
 
@@ -74,11 +79,13 @@ its purpose.
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
-| `PORT` | no | `3000` | Host port mapped to the application container. |
+| `PORT` | no | `3000` | Host port mapped to the application container (bound to `127.0.0.1`). |
+| `SITE_ADDRESS` | no | `localhost` | Public name the bundled Caddy issues its self-signed certificate for — set to this host's DNS name or IP. |
+| `HTTP_PORT` / `HTTPS_PORT` | no | `80` / `443` | Host ports the bundled Caddy binds. |
 | `DATABASE_URL` | no | `postgres://componode:componode_pw@postgres:5432/componode` | PostgreSQL connection string. |
 | `DATABASE_SSL_MODE` | no | `require` in production | `disable`, `require`, or `verify-full`. The bundled Compose Postgres has no TLS, so the deployment sets `disable` explicitly. For a remote Postgres, keep `require` or use `verify-full` with `DATABASE_SSL_CA`. |
 | `DATABASE_SSL_CA` | no | — | Path to a CA certificate file for `verify-full` mode. |
-| `TRUSTED_PROXY_IP` | no | — (unset: headers ignored) | Reverse-proxy trust. `X-Forwarded-*` headers are ignored unless set. Accepts one proxy IP, a comma-separated list, or an integer hop count. See ADR-093. |
+| `TRUSTED_PROXY_IP` | no | `1` in the Compose stack | Reverse-proxy trust — one hop for the bundled Caddy. Set to empty to ignore `X-Forwarded-*` when no proxy fronts the app; accepts one proxy IP, a comma-separated list, or an integer hop count. See ADR-093. |
 | `SECRETS_DIR` | no | `/run/secrets` | Directory `file:` secret references are allowed to resolve in, and the fallback location of the credential master key (`master.key`). Absolute paths and traversal outside it are rejected. |
 | `COMPONODE_SECRETS_KEY` | no | — | Credential-store master key (32 bytes, base64 or 64-char hex). Encrypts all stored integration credentials (AES-256-GCM). Preferred over `SECRETS_DIR/master.key`. |
 | `COMPONODE_SECRETS_KEY_PREVIOUS` | no | — | Retiring master key during rotation. See *Credential store* below. |
@@ -97,27 +104,37 @@ its purpose.
 ## TLS and reverse proxy
 
 Production deployments MUST serve Componode over HTTPS (ADR-093). The app
-does not terminate TLS — put it behind a reverse proxy that does. Set
-`TRUSTED_PROXY_IP` to the proxy's IP so the app honors `X-Forwarded-*`
-headers; leave it unset only when clients connect directly.
+does not terminate TLS — the bundled `caddy` service does, with a
+certificate issued by **Caddy's internal CA** (`tls internal` in the
+shipped `Caddyfile`). The app's own `:3000` port is bound to `127.0.0.1`,
+so remote access is HTTPS only.
 
-### Caddy (automatic HTTPS)
+The internal root CA is written on first start to the `caddy_data` volume
+at `/data/caddy/pki/authorities/local/root.crt`. Browsers must trust that
+root or accept the certificate warning. Export it for installation into a
+client trust store with:
 
-Caddy obtains and renews Let's Encrypt certificates automatically. A minimal
-`Caddyfile`:
-
-```text
-componode.example.com {
-    reverse_proxy localhost:3000
-}
+```bash
+docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt root.crt
 ```
 
-Run Caddy on the host, or uncomment the `caddy` service in
-`docker-compose.yml` (it mounts `./Caddyfile` with `reverse_proxy app:3000`)
-and set `TRUSTED_PROXY_IP=1` — container IPs are dynamic, so trust one proxy
-hop instead of an address.
+`SITE_ADDRESS` (`.env`, default `localhost`) is the name the certificate is
+issued for — set it to this host's DNS name or IP, and set
+`PUBLIC_URL=https://<SITE_ADDRESS>` to match. The stack sets
+`TRUSTED_PROXY_IP=1` on `app` so `X-Forwarded-*` headers from the bundled
+proxy are honored; if you remove Caddy and expose `app` directly, set it
+empty in `.env`.
 
-### nginx (manual TLS)
+To use a publicly trusted certificate for a real domain instead, set
+`SITE_ADDRESS` to the domain and remove `tls internal` from the
+`Caddyfile` — Caddy obtains and renews Let's Encrypt certificates
+automatically (ports 80/443 must be reachable from the internet).
+
+### Alternative: your own reverse proxy (nginx)
+
+To terminate TLS elsewhere, remove or comment out the `caddy` service,
+publish `app` as needed, and set `TRUSTED_PROXY_IP` to that proxy's IP (or
+a hop count) plus `PUBLIC_URL`. An nginx example:
 
 ```nginx
 server {
@@ -136,8 +153,8 @@ server {
 }
 ```
 
-Set `TRUSTED_PROXY_IP=127.0.0.1` (or the proxy's IP) and `PUBLIC_URL` to the
-external HTTPS origin.
+Set `TRUSTED_PROXY_IP` to the proxy's IP (or `1` hop) and `PUBLIC_URL` to
+the external HTTPS origin.
 
 ## OIDC single sign-on
 
@@ -206,8 +223,12 @@ enable the store; no data migration is needed.
 ## Import Agents (optional)
 
 Import Agents run importers inside networks the hub cannot reach (private
-VPCs, on-prem Kubernetes, egress-only environments). They are **not** part of
-the Compose stack — build the separate image and run it on the remote host:
+VPCs, on-prem Kubernetes, egress-only environments). Agents normally run on
+remote hosts — the Compose stack declares an `agent` service so the image
+builds together (`docker compose build`), but it starts **0 replicas** and
+does not run on `docker compose up`.
+
+On a remote host, build the image and run it:
 
 ```bash
 docker build -f Dockerfile.agent -t componode-agent:latest .
@@ -231,6 +252,24 @@ wired to the image `HEALTHCHECK`. Publish it with `-p 9464:9464` if your
 Prometheus can reach the agent host, or bind to loopback for sidecar
 scraping; `AGENT_OPS_DISABLED=true` turns it off (override the healthcheck
 if you do).
+
+To run an agent co-located with the hub in the Compose stack (local
+testing), create the agent in the UI, set `AGENT_ENROLLMENT_TOKEN` in
+`.env`, and scale the service:
+
+```bash
+docker compose up -d --scale agent=1
+```
+
+The agent shares the `app` network namespace and reaches the hub through
+Caddy at `https://hub` — `hub` is a Compose-network alias for the `caddy`
+container, so the connection exercises the real TLS path. It verifies the
+self-signed certificate against Caddy's internal root CA, mounted
+read-only from the `caddy_data` volume as `CA_BUNDLE`, and depends on
+Caddy being healthy so the CA exists before the agent starts. The durable
+credential persists in the `agent_state` volume across restarts; the ops
+listener is reachable to other containers as `app:9464` but cannot be
+published to the host from the shared namespace.
 
 Full configuration table, lifecycle operations, agent-managed credentials,
 metrics catalog, and troubleshooting: `docs/agents.md`. Wire protocol:
