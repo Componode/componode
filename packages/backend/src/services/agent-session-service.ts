@@ -94,6 +94,8 @@ interface LiveSession {
   agentName: string;
   socket: WebSocket;
   lastContactAt: number;
+  /** Attach timestamp — feeds agent_session_duration_seconds (spec 028). */
+  connectedAtMs: number;
   /** Set once closeSession runs — makes hub-driven close re-entry a no-op
    *  (the socket's own 'close' event re-fires closeSession afterwards). */
   closed?: boolean;
@@ -161,6 +163,17 @@ export class AgentSessionService {
   isConnected(agentId: string): boolean {
     const session = this.live.get(agentId);
     return !!session && session.socket.readyState === session.socket.OPEN;
+  }
+
+  // Live-session freshness for the agent read surface (spec 028): the
+  // last accepted frame's timestamp on the session, or null when no live
+  // session exists — callers fall back to the durable lastSeenAt.
+  lastContactFor(agentId: string): number | null {
+    const session = this.live.get(agentId);
+    if (!session || session.socket.readyState !== session.socket.OPEN) {
+      return null;
+    }
+    return session.lastContactAt;
   }
 
   sendToAgent(
@@ -295,7 +308,12 @@ export class AgentSessionService {
       agentName: agent.name,
       socket,
       lastContactAt: Date.now(),
+      connectedAtMs: Date.now(),
     };
+    metrics.agentLastContactTimestampSeconds.set(
+      { agent: agent.name },
+      Date.now() / 1000,
+    );
 
     // Claim the session slot synchronously — a concurrent attach for the
     // same agent must supersede THIS session, not both pass live.get()
@@ -554,7 +572,7 @@ export class AgentSessionService {
         this.pendingTests.delete(payload.testId);
         this.settleTest(pending, (e) => e.resolve(payload));
       }
-      session.lastContactAt = Date.now();
+      this.noteContact(session);
       return;
     }
 
@@ -565,7 +583,7 @@ export class AgentSessionService {
     // never assigned on this session is a protocol violation (error +
     // close); job.ack is always ignored as a late acknowledgement.
     if (JOB_STREAM_TYPES.has(msg.type)) {
-      session.lastContactAt = Date.now();
+      this.noteContact(session);
       const handled = this.runHandler
         ? await this.dispatchJobFrame(session, msg.type, msg.runId!, msg.payload)
         : false;
@@ -605,11 +623,24 @@ export class AgentSessionService {
 
     // lastSeenAt is "last ACCEPTED frame" (data-model) — only handled types
     // refresh it; malformed/reserved frames must not keep a session alive.
-    session.lastContactAt = Date.now();
+    this.noteContact(session);
     const now = new Date().toISOString();
+    // Ops snapshot (spec 028): replace-on-write with a hub-stamped
+    // receivedAt so freshness never depends on the agent's clock.
+    const ops = (msg.payload as { ops?: unknown } | undefined)?.ops;
     await db
       .updateTable("import_agents")
-      .set({ lastSeenAt: now })
+      .set(
+        ops
+          ? {
+              lastSeenAt: now,
+              reportedStatus: toJsonb({
+                ...(ops as object),
+                receivedAt: now,
+              }),
+            }
+          : { lastSeenAt: now },
+      )
       .where("id", "=", session.agentId)
       .execute();
 
@@ -621,6 +652,17 @@ export class AgentSessionService {
       );
     }
     // heartbeats need no response — the lastContactAt bump is the signal.
+  }
+
+  // Every accepted frame bumps the liveness clock AND the last-contact
+  // gauge (spec 028 staleness series).
+  private noteContact(session: LiveSession): void {
+    const now = Date.now();
+    session.lastContactAt = now;
+    metrics.agentLastContactTimestampSeconds.set(
+      { agent: session.agentName },
+      now / 1000,
+    );
   }
 
   private async sweep(): Promise<void> {
@@ -712,6 +754,10 @@ export class AgentSessionService {
         }
       });
       metrics.agentSessionsTotal.inc({ agent: session.agentName, reason });
+      metrics.agentSessionDurationSeconds.observe(
+        { agent: session.agentName, reason },
+        Math.max(0, (Date.now() - session.connectedAtMs) / 1000),
+      );
     } catch (err) {
       this.log.warn({ err }, "failed to record agent session close");
     }

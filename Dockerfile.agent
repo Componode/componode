@@ -39,4 +39,11 @@ ENV NODE_ENV=production \
 # Durable credential lives here — mount a volume so restarts don't re-enroll.
 VOLUME ["/state"]
 
+# Operations listener (spec 028): /healthz stays 200 through reconnect
+# backoff; /readyz only reports ready while the hub stream is established.
+# Operators who set AGENT_OPS_DISABLED=true must override this HEALTHCHECK
+# (documented in docs/agents.md).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD node -e "const h=process.env.AGENT_OPS_HOST;let host=h&&h!=='0.0.0.0'&&h!=='::'?h:'127.0.0.1';if(host.includes(':'))host='['+host+']';fetch('http://'+host+':'+(process.env.AGENT_OPS_PORT||'9464')+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
 CMD ["node", "packages/agent/dist/main.js"]

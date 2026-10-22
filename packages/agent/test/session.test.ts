@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventEmitter } from "node:events";
+import { createServer } from "node:http";
 import {
   existsSync,
   mkdtempSync,
@@ -192,7 +193,30 @@ describe("agent session (runAgent)", () => {
     expect(hello.payload.importers).toEqual([
       { name: "github", version: "1.0.0" },
     ]);
-    expect(ws.sent.some((f) => JSON.parse(f).type === "heartbeat")).toBe(true);
+    const heartbeats = ws.sent
+      .map((f) => JSON.parse(f))
+      .filter((f) => f.type === "heartbeat");
+    expect(heartbeats.length).toBeGreaterThan(0);
+    // Spec 028 US2 / T015: every heartbeat carries the ops snapshot —
+    // process-lifetime counters from the shared registry.
+    const ops = heartbeats[0].payload.ops;
+    expect(ops).toBeDefined();
+    expect(typeof ops.reportedAt).toBe("string");
+    expect(ops.uptimeSeconds).toBeGreaterThanOrEqual(0);
+    expect(ops.jobs).toEqual({
+      assigned: 0,
+      completed: 0,
+      failed: 0,
+      cancelled: 0,
+    });
+    expect(ops.credentialTests).toEqual({
+      dispatched: 0,
+      succeeded: 0,
+      failed: 0,
+    });
+    expect(ops.assetsStreamed).toBe(0);
+    expect(ops.secretResolutionFailures).toBe(0);
+    expect(ops.reconnects).toBe(0);
     expect(code).toBe(0);
   });
 
@@ -314,5 +338,31 @@ describe("agent session (runAgent)", () => {
     const code = await runAgent(cfg, makeDeps());
     expect(code).not.toBe(0);
     expect(FakeWebSocket.instances.length).toBe(0);
+  });
+
+  // Spec 028 US1 / T009: an unbindable ops listener must never stop the
+  // agent — warn and continue enrolling/streaming.
+  it("keeps running when the ops listener cannot bind", async () => {
+    const blocker = createServer();
+    await new Promise<void>((r) => blocker.listen(0, "127.0.0.1", r));
+    const port = (blocker.address() as { port: number }).port;
+    const warnings: string[] = [];
+    const deps = makeDeps();
+    deps.log.warn = (_o: object, m: string) => {
+      warnings.push(m);
+    };
+    try {
+      cfg = makeConfig({
+        agentToken: "durable-cred-1",
+        ops: { enabled: true, host: "127.0.0.1", port },
+      });
+      const code = await runAgent(cfg, deps, deps.log);
+      expect(code).toBe(0);
+      // The session still ran despite the listener failing.
+      expect(FakeWebSocket.instances.length).toBeGreaterThan(0);
+      expect(warnings.some((m) => /ops/i.test(m))).toBe(true);
+    } finally {
+      blocker.close();
+    }
   });
 });

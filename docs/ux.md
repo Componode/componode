@@ -228,6 +228,17 @@ Every page and every async region implements these states. Toast feedback
   enrollment token surfaces exactly once in a copy-dialog after create or
   rotate — the hub URL field is editable and prefilled from the browser
   origin.
+- **Agent ops reporting (spec 028)**: the detail page overview gains
+  `Last heartbeat` (freshness of the live session; suffixed `(stale —
+  expected every ~30s)` when older than ~2 beats) and `Last disconnect`
+  (most recent closed session's reason). An "Agent-reported" block shows
+  the heartbeat `ops` snapshot — uptime, active jobs, cumulative
+  jobs/assets/credential-test/secret-resolution/reconnect counters, and a
+  `Received (hub)` timestamp (the hub's stamp, never the agent's clock) —
+  with the caption "since agent start" so process-lifetime resets are not
+  misread as lifetime totals; agents that never reported show "Not
+  reported by this agent." The agents list gains a `Last disconnect`
+  column.
 - **Credentials (spec 026)**: `AGENT_MANAGED` rows carry an `AGENT` badge
   and their key column renders source-type chips (`key · env` / `key ·
   file`) instead of last-4 hints — the hints only exist for `STORED`. The

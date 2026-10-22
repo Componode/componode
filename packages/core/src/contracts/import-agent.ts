@@ -1,8 +1,14 @@
 import type { AgentStatus, AgentDisconnectReason } from "../constants/import-agent.js";
+import type { AgentOpsSnapshot } from "./agent-protocol.js";
 
 // API representation of an Import Agent (ADR-116). Credential and
 // enrollment-token material are never present in this shape — they are
 // shown once at issuance and stored hashed.
+// Latest agent-reported operational snapshot (spec 028) — the heartbeat
+// `ops` payload plus the hub-stamped receipt time. Numeric/state fields
+// only; `null` on the read surface means "not reported by this agent".
+export type AgentReportedStatus = AgentOpsSnapshot & { receivedAt: string };
+
 export interface ImportAgent {
   id: string;
   name: string;
@@ -14,6 +20,14 @@ export interface ImportAgent {
   maxConcurrentJobs: number | null;
   lastSeenAt: string | null;
   revokedAt: string | null;
+  // Latest agent-reported ops snapshot (spec 028); null = not reported.
+  reportedStatus: AgentReportedStatus | null;
+  // Freshness of the live session's last accepted frame; null when no
+  // session is established (fall back to lastSeenAt).
+  lastHeartbeatAt: string | null;
+  // disconnectReason of the most recent closed session; null when the
+  // agent has no session history.
+  lastDisconnectReason: AgentDisconnectReason | null;
   // A durable credential has been issued (enrollment completed at least once).
   hasCredential: boolean;
   // An unused, unexpired enrollment token exists.

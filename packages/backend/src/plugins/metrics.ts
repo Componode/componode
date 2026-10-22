@@ -176,6 +176,35 @@ const agentAssetsReceivedTotal = getOrCreateCounter(
   ["agent", "importer"],
 );
 
+// Agent operations observability (spec 028): queue-wait, job-duration,
+// session-duration, and staleness series per contracts/api-deltas.md.
+const agentDispatchWaitSeconds = getOrCreateHistogram(
+  "agent_dispatch_wait_seconds",
+  "Wait from remote run creation to job.assign dispatch",
+  ["agent"],
+  [1, 5, 15, 30, 60, 120, 300, 600],
+);
+
+const agentRemoteJobDurationSeconds = getOrCreateHistogram(
+  "agent_remote_job_duration_seconds",
+  "Remote import job duration (job.assign send → finalize)",
+  ["agent", "importer"],
+  [0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300],
+);
+
+const agentSessionDurationSeconds = getOrCreateHistogram(
+  "agent_session_duration_seconds",
+  "Agent stream session duration",
+  ["agent", "reason"],
+  [1, 5, 15, 30, 60, 120, 300, 600, 1800, 3600],
+);
+
+const agentLastContactTimestampSeconds = getOrCreateGauge(
+  "agent_last_contact_timestamp_seconds",
+  "Unix timestamp of the last accepted frame from the agent",
+  ["agent"],
+);
+
 // Collect default Node.js metrics (event loop, GC, memory, CPU) once per process.
 const collectDefaultMetrics = promClient.collectDefaultMetrics;
 if (!promClient.register.getSingleMetric("process_cpu_user_seconds_total")) {
@@ -207,6 +236,10 @@ export const metrics = {
   agentCredentialTestsTotal,
   agentJobsTotal,
   agentAssetsReceivedTotal,
+  agentDispatchWaitSeconds,
+  agentRemoteJobDurationSeconds,
+  agentSessionDurationSeconds,
+  agentLastContactTimestampSeconds,
 };
 
 export async function metricsPlugin(app: FastifyInstance): Promise<void> {

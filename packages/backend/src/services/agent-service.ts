@@ -34,6 +34,11 @@ export interface RemoteRunReader {
   runningJobCounts(): Map<string, number>;
 }
 
+// Live-session freshness (spec 028) — satisfied by AgentSessionService.
+export interface SessionReader {
+  lastContactFor(agentId: string): number | null;
+}
+
 // Import Agent service (spec 025, ADR-116). Credential and enrollment token
 // material is stored hashed only; plaintext is returned once at issuance and
 // never persisted or logged.
@@ -46,6 +51,10 @@ function toApi(
   row: Selectable<ImportAgentRow>,
   boundConfigCount: number,
   runningJobs = 0,
+  live: {
+    lastHeartbeatAt: string | null;
+    lastDisconnectReason: AgentDisconnectReason | null;
+  } = { lastHeartbeatAt: null, lastDisconnectReason: null },
 ): ImportAgent {
   const enrollmentPending =
     row.enrollmentTokenHash !== null &&
@@ -63,6 +72,10 @@ function toApi(
     maxConcurrentJobs: row.maxConcurrentJobs,
     lastSeenAt: row.lastSeenAt,
     revokedAt: row.revokedAt,
+    // NULL column = never reported — surfaces show "not reported" (FR-011).
+    reportedStatus: (row.reportedStatus ?? null) as ImportAgent["reportedStatus"],
+    lastHeartbeatAt: live.lastHeartbeatAt,
+    lastDisconnectReason: live.lastDisconnectReason,
     hasCredential: row.credentialHash !== null,
     pendingEnrollment: enrollmentPending,
     boundConfigCount,
@@ -73,6 +86,29 @@ function toApi(
 }
 
 type DbOrTrx = Kysely<DB> | Transaction<DB>;
+
+// Most recent CLOSED session's disconnect reason per agent — one grouped
+// query (DISTINCT ON), not N+1; live sessions have no reason yet.
+async function lastDisconnectReasons(
+  ids: string[],
+  dbOrTrx: DbOrTrx = db,
+): Promise<Map<string, AgentDisconnectReason | null>> {
+  const reasons = new Map<string, AgentDisconnectReason | null>();
+  if (ids.length === 0) return reasons;
+  const rows = await dbOrTrx
+    .selectFrom("agent_sessions")
+    .select(["agentId", "disconnectReason"])
+    .where("agentId", "in", ids)
+    .where("disconnectedAt", "is not", null)
+    .distinctOn("agentId")
+    .orderBy("agentId")
+    .orderBy("disconnectedAt", "desc")
+    .execute();
+  for (const row of rows) {
+    reasons.set(row.agentId, row.disconnectReason as AgentDisconnectReason | null);
+  }
+  return reasons;
+}
 
 async function boundConfigCounts(
   ids: string[],
@@ -208,22 +244,36 @@ export async function createAgent(
   });
 }
 
-export async function listAgents(runs?: RemoteRunReader): Promise<ImportAgent[]> {
+export async function listAgents(
+  runs?: RemoteRunReader,
+  sessions?: SessionReader,
+): Promise<ImportAgent[]> {
   const rows = await db
     .selectFrom("import_agents")
     .selectAll()
     .orderBy("name", "asc")
     .execute();
-  const counts = await boundConfigCounts(rows.map((r) => r.id));
+  const ids = rows.map((r) => r.id);
+  const counts = await boundConfigCounts(ids);
+  const disconnects = await lastDisconnectReasons(ids);
   const jobCounts = runs?.runningJobCounts();
   return rows.map((r) =>
-    toApi(r, counts.get(r.id) ?? 0, jobCounts?.get(r.id) ?? 0),
+    toApi(r, counts.get(r.id) ?? 0, jobCounts?.get(r.id) ?? 0, {
+      lastHeartbeatAt: liveContact(sessions, r.id),
+      lastDisconnectReason: disconnects.get(r.id) ?? null,
+    }),
   );
+}
+
+function liveContact(sessions: SessionReader | undefined, agentId: string) {
+  const ms = sessions?.lastContactFor(agentId);
+  return ms ? new Date(ms).toISOString() : null;
 }
 
 export async function getAgent(
   id: string,
   runs?: RemoteRunReader,
+  sessions?: SessionReader,
 ): Promise<AgentDetail | null> {
   const row = await db
     .selectFrom("import_agents")
@@ -232,9 +282,14 @@ export async function getAgent(
     .executeTakeFirst();
   if (!row) return null;
   const counts = await boundConfigCounts([row.id]);
+  const disconnects = await lastDisconnectReasons([row.id]);
+  const activeRuns = runs?.activeRunsForAgent(id) ?? [];
   return {
-    ...toApi(row, counts.get(row.id) ?? 0, runs?.activeRunsForAgent(id).length ?? 0),
-    activeRuns: runs?.activeRunsForAgent(id) ?? [],
+    ...toApi(row, counts.get(row.id) ?? 0, activeRuns.length, {
+      lastHeartbeatAt: liveContact(sessions, row.id),
+      lastDisconnectReason: disconnects.get(row.id) ?? null,
+    }),
+    activeRuns,
   };
 }
 

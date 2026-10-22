@@ -34,9 +34,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { describeApiError, type ApiError } from "@/api/client";
+import { AGENT_HEARTBEAT_INTERVAL_MS } from "@componode/core";
 import { relativeTime, absoluteTime } from "@/lib/format";
 import { parseImporterCsv } from "@/lib/utils";
 import type { EnrollmentGrant } from "@/api/types";
+
+// Compact uptime for the agent-reported block (spec 028) — process-lifetime
+// counters; the "since agent start" caption contextualizes resets.
+function formatUptime(seconds: number): string {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${seconds % 60}s`;
+  return `${seconds}s`;
+}
 
 // Import Agent detail (spec 025 US3/US4 + 027 US5): overview w/ editable
 // policy + lifecycle actions + in-flight jobs, bound configs, agent runs,
@@ -220,6 +233,35 @@ export function AgentDetailPage() {
             >
               {agent.lastSeenAt ? relativeTime(agent.lastSeenAt) : "never"}
             </dd>
+            <dt className="text-muted-foreground">Last heartbeat</dt>
+            <dd
+              title={
+                agent.lastHeartbeatAt
+                  ? absoluteTime(agent.lastHeartbeatAt)
+                  : undefined
+              }
+            >
+              {agent.lastHeartbeatAt ? (
+                <>
+                  {relativeTime(agent.lastHeartbeatAt)}
+                  {/* US2-AS1: stale at a glance — older than ~2 beats of the
+                      expected cadence while the session is live. */}
+                  {Date.now() - new Date(agent.lastHeartbeatAt).getTime() >
+                    AGENT_HEARTBEAT_INTERVAL_MS * 2 && (
+                    <span className="ml-1 text-xs text-destructive">
+                      (stale — expected every ~
+                      {Math.round(AGENT_HEARTBEAT_INTERVAL_MS / 1000)}s)
+                    </span>
+                  )}
+                </>
+              ) : agent.status === "CONNECTED" ? (
+                "awaiting first frame"
+              ) : (
+                "not connected"
+              )}
+            </dd>
+            <dt className="text-muted-foreground">Last disconnect</dt>
+            <dd>{agent.lastDisconnectReason ?? "—"}</dd>
             <dt className="text-muted-foreground">Credential</dt>
             <dd>
               {agent.hasCredential ? "issued" : "not enrolled"}
@@ -254,6 +296,57 @@ export function AgentDetailPage() {
             </p>
             {formError && (
               <p className="text-sm text-destructive">{formError}</p>
+            )}
+          </div>
+
+          {/* Agent-reported operational state (spec 028 US2): the snapshot
+              the agent sends with each heartbeat — process-lifetime
+              counters, labeled agent-reported like the version fields. */}
+          <div className="space-y-2">
+            <h2 className="text-sm font-medium">Agent-reported</h2>
+            {agent.reportedStatus ? (
+              <>
+                <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                  <dt className="text-muted-foreground">Uptime</dt>
+                  <dd>{formatUptime(agent.reportedStatus.uptimeSeconds)}</dd>
+                  <dt className="text-muted-foreground">Active jobs</dt>
+                  <dd>{agent.reportedStatus.activeJobs}</dd>
+                  <dt className="text-muted-foreground">Jobs</dt>
+                  <dd>
+                    {agent.reportedStatus.jobs.assigned} assigned ·{" "}
+                    {agent.reportedStatus.jobs.completed} completed ·{" "}
+                    {agent.reportedStatus.jobs.failed} failed ·{" "}
+                    {agent.reportedStatus.jobs.cancelled} cancelled
+                  </dd>
+                  <dt className="text-muted-foreground">Assets streamed</dt>
+                  <dd>{agent.reportedStatus.assetsStreamed}</dd>
+                  <dt className="text-muted-foreground">Credential tests</dt>
+                  <dd>
+                    {agent.reportedStatus.credentialTests.succeeded}/
+                    {agent.reportedStatus.credentialTests.dispatched} succeeded
+                  </dd>
+                  <dt className="text-muted-foreground">
+                    Secret resolution failures
+                  </dt>
+                  <dd>{agent.reportedStatus.secretResolutionFailures}</dd>
+                  <dt className="text-muted-foreground">Reconnects</dt>
+                  <dd>{agent.reportedStatus.reconnects}</dd>
+                  <dt className="text-muted-foreground">Received (hub)</dt>
+                  <dd
+                    title={absoluteTime(agent.reportedStatus.receivedAt)}
+                  >
+                    {relativeTime(agent.reportedStatus.receivedAt)}
+                  </dd>
+                </dl>
+                <p className="text-xs text-muted-foreground">
+                  Agent-reported · counters cover the current process
+                  lifetime (since agent start) and reset on restart.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Not reported by this agent.
+              </p>
             )}
           </div>
 

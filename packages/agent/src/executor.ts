@@ -11,6 +11,7 @@ import {
   SecretResolutionError,
 } from "@componode/core/secrets";
 import { createAgentResolver, resolveRefMap, type AgentLog } from "./secrets.js";
+import type { AgentOpsMetrics } from "./metrics.js";
 
 // Remote job executor (spec 027, ADR-116): the agent-side half of remote
 // import execution. On `job.assign` it validates capacity + compiled
@@ -31,6 +32,8 @@ export interface JobExecutorDeps {
   maxJobs: number;
   log: AgentLog;
   send: (type: string, payload: unknown, runId?: string) => void;
+  /** Ops counters (spec 028) — optional so test harnesses stay lean. */
+  ops?: AgentOpsMetrics;
 }
 
 interface ActiveJob {
@@ -69,6 +72,7 @@ export class JobExecutor {
     if (this.activeJobs.has(runId)) {
       return; // duplicate assign — already running or acknowledged
     }
+    this.deps.ops?.jobReceived();
     if (this.activeJobs.size >= maxJobs) {
       this.nack(runId, `${AGENT_NACK_UNAVAILABLE_PREFIX}: agent at capacity (${this.activeJobs.size}/${maxJobs} jobs)`);
       return;
@@ -78,10 +82,12 @@ export class JobExecutor {
     // find a controller to abort rather than being dropped.
     const job: ActiveJob = { controller: new AbortController() };
     this.activeJobs.set(runId, job);
+    this.deps.ops?.jobAccepted();
     try {
       await this.resolveAndRun(runId, job, payload);
     } finally {
       this.activeJobs.delete(runId);
+      this.deps.ops?.jobReleased();
     }
   }
 
@@ -123,6 +129,7 @@ export class JobExecutor {
           this.confirmCancelled(runId);
           return;
         }
+        this.deps.ops?.secretResolutionFailed();
         if (err instanceof SecretResolutionError || err instanceof SecretRefError) {
           this.nack(runId, `SECRET_RESOLUTION_FAILED: ${err.message}`);
           return;
@@ -153,6 +160,7 @@ export class JobExecutor {
   private confirmCancelled(runId: string): void {
     this.deps.send("job.ack", { accepted: true }, runId);
     this.deps.send("run.complete", { result: "CANCELLED" }, runId);
+    this.deps.ops?.jobCompleted("CANCELLED");
   }
 
   private runLogger(runId: string): Logger {
@@ -193,6 +201,7 @@ export class JobExecutor {
       const flush = () => {
         if (batch.length === 0) return;
         send("asset.batch", { assets: batch }, runId);
+        this.deps.ops?.assetsSent(payload.importerName, batch.length);
         batch = [];
         batchBytes = 0;
       };
@@ -229,12 +238,15 @@ export class JobExecutor {
 
       if (job.controller.signal.aborted) {
         send("run.complete", { result: "CANCELLED" }, runId);
+        this.deps.ops?.jobCompleted("CANCELLED");
         return;
       }
       send("run.complete", { result: "COMPLETED" }, runId);
+      this.deps.ops?.jobCompleted("COMPLETED");
     } catch (err) {
       if (job.controller.signal.aborted) {
         send("run.complete", { result: "CANCELLED" }, runId);
+        this.deps.ops?.jobCompleted("CANCELLED");
         return;
       }
       // Importer errors can embed resolved values — scrub before anything
@@ -248,6 +260,7 @@ export class JobExecutor {
           ? (err as { code: string }).code
           : "RUNTIME_ERROR";
       send("run.complete", { result: "FAILED", errorType, errorMessage: message }, runId);
+      this.deps.ops?.jobCompleted("FAILED");
       log.warn({ runId }, "job failed");
     }
   }

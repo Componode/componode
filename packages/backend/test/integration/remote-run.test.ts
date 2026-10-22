@@ -413,4 +413,38 @@ describe("remote run execution", () => {
     sendFrame(ws, "asset.batch", randomUUID(), { assets: [] });
     expect(await closed).toBe(1008);
   });
+
+  // Spec 028 US3 / T024: a dispatch→complete cycle plus session close emits
+  // the four ops series with per-agent labels.
+  it("emits the spec-028 ops series: dispatch wait, job/session duration, last-contact", async () => {
+    const { agent, enrollment } = await createAgent("edge-ops");
+    const ws = await connectAgent(enrollment.token);
+    const cred = await createAgentManagedCredential();
+    const configId = await bindConfig(agent.id, cred.id);
+
+    const runId = await trigger(configId);
+    await onFrame(ws, "job.assign");
+    sendFrame(ws, "job.ack", runId, { accepted: true });
+    sendFrame(ws, "run.complete", runId, { result: "COMPLETED" });
+    await waitForRunStatus(configId, runId, "COMPLETED");
+    ws.close();
+    // Let the 'close' event land so the session-duration observe fires.
+    await new Promise((r) => setTimeout(r, 300));
+
+    const res = await app.inject({ method: "GET", url: "/metrics" });
+    expect(res.statusCode).toBe(200);
+    const body = res.body;
+    expect(body).toContain(
+      'agent_dispatch_wait_seconds_count{agent="edge-ops"}',
+    );
+    expect(body).toContain(
+      'agent_remote_job_duration_seconds_count{agent="edge-ops",importer="github"}',
+    );
+    expect(body).toContain(
+      'agent_session_duration_seconds_count{agent="edge-ops",reason="client_close"}',
+    );
+    expect(body).toContain(
+      'agent_last_contact_timestamp_seconds{agent="edge-ops"}',
+    );
+  });
 });

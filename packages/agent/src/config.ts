@@ -22,6 +22,13 @@ export interface AgentConfig {
   httpsProxy?: string;
   httpProxy?: string;
   noProxy?: string;
+  /** Local operations listener (spec 028). Absent = disabled (tests that
+   *  build configs by hand opt out); loadConfig always populates it. */
+  ops?: {
+    enabled: boolean;
+    host: string;
+    port: number;
+  };
 }
 
 const envSchema = z.object({
@@ -42,6 +49,16 @@ const envSchema = z.object({
   HTTPS_PROXY: z.string().min(1).optional(),
   HTTP_PROXY: z.string().min(1).optional(),
   NO_PROXY: z.string().min(1).optional(),
+  // Operations listener (spec 028): unauthenticated local surface serving
+  // /healthz, /readyz, /metrics — state and counters only.
+  AGENT_OPS_HOST: z.string().min(1).optional(),
+  AGENT_OPS_PORT: z
+    .string()
+    .regex(/^\d+$/)
+    .transform((v) => Number(v))
+    .pipe(z.number().int().min(1).max(65_535))
+    .optional(),
+  AGENT_OPS_DISABLED: z.string().optional(),
 });
 
 function isLoopback(hostname: string): boolean {
@@ -90,6 +107,11 @@ export function loadConfig(
     httpsProxy: e.HTTPS_PROXY,
     httpProxy: e.HTTP_PROXY,
     noProxy: e.NO_PROXY,
+    ops: {
+      enabled: e.AGENT_OPS_DISABLED !== "true",
+      host: e.AGENT_OPS_HOST ?? "0.0.0.0",
+      port: e.AGENT_OPS_PORT ?? 9464,
+    },
   };
 }
 

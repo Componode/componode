@@ -157,6 +157,7 @@ export function AgentsPage() {
               <TableHead>Running jobs</TableHead>
               <TableHead>Allowed importers</TableHead>
               <TableHead>Last seen</TableHead>
+              <TableHead>Last disconnect</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -197,6 +198,9 @@ export function AgentsPage() {
                   }
                 >
                   {agent.lastSeenAt ? relativeTime(agent.lastSeenAt) : "—"}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {agent.lastDisconnectReason ?? "—"}
                 </TableCell>
               </TableRow>
             ))}

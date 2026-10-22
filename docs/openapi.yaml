@@ -3341,6 +3341,26 @@ components:
           description: Hub-managed policy; empty = all importers
         maxConcurrentJobs: { type: integer, nullable: true }
         lastSeenAt: { type: string, format: date-time, nullable: true }
+        reportedStatus:
+          $ref: '#/components/schemas/AgentReportedStatus'
+          nullable: true
+          description: >-
+            Latest agent-reported ops snapshot (spec 028); null = not
+            reported by this agent
+        lastHeartbeatAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Freshness of the live session's last accepted frame; null when
+            no session is established (fall back to lastSeenAt)
+        lastDisconnectReason:
+          type: string
+          nullable: true
+          enum: [client_close, heartbeat_timeout, revoked, shutdown, superseded, replaced]
+          description: >-
+            disconnectReason of the most recent closed session; null when
+            the agent has no session history
         revokedAt: { type: string, format: date-time, nullable: true }
         hasCredential:
           type: boolean
@@ -3358,6 +3378,36 @@ components:
             map, spec 027 — not persisted)
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    AgentReportedStatus:
+      type: object
+      description: >-
+        Agent-reported ops snapshot, persisted from the heartbeat `ops`
+        payload (spec 028). Counters cover the agent's current process
+        lifetime and reset on restart.
+      properties:
+        reportedAt: { type: string, format: date-time }
+        receivedAt:
+          type: string
+          format: date-time
+          description: Hub-stamped receipt time — agent clocks are never trusted
+        uptimeSeconds: { type: integer }
+        activeJobs: { type: integer }
+        jobs:
+          type: object
+          properties:
+            assigned: { type: integer }
+            completed: { type: integer }
+            failed: { type: integer }
+            cancelled: { type: integer }
+        assetsStreamed: { type: integer }
+        credentialTests:
+          type: object
+          properties:
+            dispatched: { type: integer }
+            succeeded: { type: integer }
+            failed: { type: integer }
+        secretResolutionFailures: { type: integer }
+        reconnects: { type: integer }
     AgentDetail:
       allOf:
         - $ref: '#/components/schemas/ImportAgent'
