@@ -1,7 +1,7 @@
 
 import { HistoryIcon, MonitorSmartphoneIcon } from "lucide-react"
 import { Link } from "react-router-dom"
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
+import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import * as React from "react"
 import { toast } from "sonner"
 import { ActivityFeed } from "@/ux/components/patterns/activity-feed"
@@ -38,11 +38,7 @@ interface UserDetailProps {
 }
 
 export function UserDetail({ user, sessions, events, isSelf }: UserDetailProps) {
-  const navigate = useNavigate()
-  const { pathname } = useLocation()
-  const [searchParams] = useSearchParams()
-  const requestedTab = searchParams.get("tab")
-  const tab = requestedTab && TABS.includes(requestedTab) ? requestedTab : "overview"
+  const [tab, setTab] = useValidatedTab(TABS)
 
   const updateUser = useUpdateUser()
   const revokeSession = useRevokeSession()
@@ -53,7 +49,6 @@ export function UserDetail({ user, sessions, events, isSelf }: UserDetailProps) 
   React.useEffect(() => setRole(user.role), [user.role])
   const roleDirty = role !== user.role
 
-  const setTab = (value: string) => navigate(`${pathname}?tab=${value}`, { replace: true })
 
   return (
     <PageContainer>

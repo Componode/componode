@@ -1,10 +1,8 @@
 /**
- * Prefixes a prototype-absolute path with the staged `/ux` mount point.
- * Prototype sources write `to="/products"`; under staging that must resolve
- * to `/ux/products` so links stay inside the staged tree. At cutover (T045)
- * this becomes an identity and the call sites are flattened.
+ * Internal path helper. Historically prefixed links with the staged `/ux`
+ * mount; since the v1.1.0 cutover the tree lives at `/` and this is an
+ * identity — kept so call sites read as "internal app link".
  */
 export function ux(path: string): string {
-  if (path === "/" || path === "") return "/ux";
-  return `/ux${path}`;
+  return path === "" ? "/" : path;
 }

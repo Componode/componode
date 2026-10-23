@@ -86,14 +86,14 @@
 
 **Goal**: shared-pattern reuse verified; baseline documented.
 
-- [ ] T041 [US5] Sweep `src/ux/` for hardcoded colors/status labels and re-implemented patterns; unify onto `ux/lib` metadata + shared patterns
-- [ ] T042 [US5] Accessibility pass: every icon-only button has an accessible name; focus order/keyboard preserved (spot-check tabbed pages, dialogs, DangerZone)
-- [ ] T043 [US5] Rewrite `docs/ux.md` as the v1.1.0 UX/UI baseline (tokens, patterns, state matrix, `?tab=` convention, mapper rule); record the gap-governance rule (gaps → `researches/` control file → next specs) in `AGENTS.md` or `docs/` development guide per FR-016a
+- [x] T041 [US5] Sweep `src/ux/` for hardcoded colors/status labels and re-implemented patterns; unify onto `ux/lib` metadata + shared patterns
+- [x] T042 [US5] Accessibility pass: every icon-only button has an accessible name; focus order/keyboard preserved (spot-check tabbed pages, dialogs, DangerZone)
+- [x] T043 [US5] Rewrite `docs/ux.md` as the v1.1.0 UX/UI baseline (tokens, patterns, state matrix, `?tab=` convention, mapper rule); record the gap-governance rule (gaps → `researches/` control file → next specs) in `AGENTS.md` or `docs/` development guide per FR-016a
 
 ## Phase 8: Cutover & verification
 
-- [ ] T044 Gap audit: every flag in `src/ux/lib/flags.ts` has a detailed entry in `researches/ux-rewrite-gaps.md`; every fixture import is gone from the shipped route set (`grep -r mock-data src/ux` empty)
-- [ ] T045 Cutover: `/ux` tree becomes `/` in `routes.tsx`; delete `src/pages/` + retired `src/components/` (keep pieces still imported by `src/ux/`); `/ux` paths redirect or 404 cleanly; update `authed` role mapping on the new route table
+- [x] T044 Gap audit: every flag in `src/ux/lib/flags.ts` has a detailed entry in `researches/ux-rewrite-gaps.md`; every fixture import is gone from the shipped route set (`grep -r mock-data src/ux` empty)
+- [x] T045 Cutover: `/ux` tree becomes `/` in `routes.tsx`; delete `src/pages/` + retired `src/components/` (keep pieces still imported by `src/ux/`); `/ux` paths redirect or 404 cleanly; update `authed` role mapping on the new route table
 - [ ] T046 Full verification: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`; walk the quickstart.md scenario list; `docs/roadmap.md` updated (029 shipped under v1.1.0; gap specs listed as next step)
 
 ## Dependencies

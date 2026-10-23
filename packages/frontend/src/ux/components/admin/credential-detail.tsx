@@ -1,7 +1,8 @@
 
 import { HistoryIcon, KeyRoundIcon } from "lucide-react"
 import { Link } from "react-router-dom"
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
+import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import { toast } from "sonner"
 import { ActivityFeed } from "@/ux/components/patterns/activity-feed"
 import { DangerZone } from "@/ux/components/patterns/danger-zone"
@@ -39,10 +40,7 @@ function daysUntil(iso: string | null): number | null {
 
 export function CredentialDetail({ credential, importers, events }: CredentialDetailProps) {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
-  const [searchParams] = useSearchParams()
-  const requestedTab = searchParams.get("tab")
-  const tab = requestedTab && TABS.includes(requestedTab) ? requestedTab : "overview"
+  const [tab, setTab] = useValidatedTab(TABS)
   const test = useTestCredential(credential.id)
   const revokeCred = useRevokeCredential()
   const deleteCred = useDeleteCredential()
@@ -53,7 +51,6 @@ export function CredentialDetail({ credential, importers, events }: CredentialDe
   const expired = days !== null && days < 0
   const expiringSoon = days !== null && days >= 0 && days <= 30
 
-  const setTab = (value: string) => navigate(`${pathname}?tab=${value}`, { replace: true })
 
   const runTest = () => {
     if (!firstImporter) return

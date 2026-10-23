@@ -28,13 +28,11 @@
   scoped to the caller.
 - **Flags**: `sessionDevice`, `sessionLocation`, `sessionOwner`.
 
-## G3 — Per-run change feed
+## G3 — Per-run change feed — RESOLVED (verified T036)
 
-- **UX surface**: run detail → changes tab (`/ux/importers/:id/runs/:runId`).
-- **Need**: list of per-entity changes attributed to a run, or confirmation
-  that the audit API can supply it (`?runId=`).
-- **Current API**: no per-run change feed; audit has no `runId` filter today.
-- **Flag**: `runChangeFeed`.
+- `GET /importer-configs/:id/runs/:runId/changes` exists and the run-detail
+  changes tab wires `useRunChanges`. No flag needed; entry retained for
+  audit trail.
 
 ## G4 — Password reset — PARTIAL
 
@@ -85,15 +83,19 @@
   relative-time toggles. Persisted to `localStorage` (`ux.prefs`) but no
   component consumes them yet; flagged `displayPrefs`.
 
-## G5 — Expired-credential state rule
+## G5 — Expired-credential state rule — RESOLVED (derived, T036)
 
-- **UX surface**: credentials list + detail; credential status chip.
-- **Need**: a defined rule/state for credentials past `expiresAt` (currently
-  the UI cannot distinguish expired from healthy).
-- **Current API**: no expired state surfaced.
-- **Flag**: `credentialExpiredState`.
+- The UI derives `expired = expiresAt < now` client-side in the credentials
+  table `Expiry` cell and detail-page banner (warning within 30 days). The
+  API carries no expired status value; a server-side `EXPIRED` state would
+  be a new enhancement, not a gap. No flag.
 
-## G6 — `credentialId` filter on `GET /importers`
+## G6 — `credentialId` filter on `GET /importers` — RESOLVED (verified T036)
+
+- The usage tab reads `GET /credentials/:id` `dependents.importerConfigs`
+  instead of filtering the configs list — no query param needed.
+
+(Original entry follows for context.)
 
 - **UX surface**: credential detail → "used by" importer list.
 - **Need**: `GET /importers?credentialId=:id`.
@@ -163,11 +165,12 @@
 - **Current API**: `GET /importers` returns the zod schema object itself,
   which serializes to `{}` — no usable shape reaches the client. The form
   uses a validated JSON scope editor until the API exposes descriptors.
-- **Flag**: `jsonScopeEditor` — always-on fallback today.
+- **Flag**: none — the JSON scope editor IS the shipped state (flag removed;
+  a future schema-driven form would flip a new flag on this entry).
 
-## Conditional gaps (flagged during implementation)
+## Conditional gaps — VERIFIED during implementation
 
-- **Product bulk-import endpoint** — `productBulkImport` flag; T022 verifies
-  whether a bulk endpoint exists.
-- **Component dependents endpoint** — `componentDependents` flag; T024
-  verifies `GET /components/:slug/dependents` for the promote flow.
+- **Product bulk-import** — RESOLVED: `POST /products/bootstrap`
+  (`?dryRun=true` preview) exists and is wired.
+- **Component dependents** — RESOLVED: `GET /components/:id/dependents`
+  exists and feeds the promote form.

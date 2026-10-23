@@ -265,6 +265,15 @@ when switching features); it is ignored by git on purpose.
 and revise the **Next** entry so the roadmap always reflects the current
 state.
 
+**UX gap governance** (docs/ux.md §7): when the UX needs a backend
+capability that does not exist, add a detailed entry to
+`researches/ux-rewrite-gaps.md` (flagged surface, missing capability,
+resolution plan) **and** a matching flag in
+`packages/frontend/src/ux/lib/flags.ts` — never fake the interaction or
+ship an undocumented stub. The flagged UI renders its defined fallback.
+Gap entries become the next specs on the roadmap; flip the flag and mark
+the entry resolved when the capability lands.
+
 **ADR fidelity**: `specs/` artifacts are working documents; ADRs are the
 durable decision record. During `speckit-plan` and `speckit-implement`,
 whenever a design choice extends a surface an ADR presents as closed —

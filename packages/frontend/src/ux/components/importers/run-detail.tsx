@@ -1,7 +1,7 @@
 
 import { CircleAlertIcon, CircleCheckIcon, Loader2Icon, RadioTowerIcon } from "lucide-react"
 import { Link } from "react-router-dom"
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
+import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
@@ -47,18 +47,13 @@ function Counter({ label, value }: { label: string; value: number }) {
 }
 
 export function RunDetail({ importer, run, errors, changes, credential }: RunDetailProps) {
-  const navigate = useNavigate()
   const cancel = useCancelImportRun()
-  const { pathname } = useLocation()
-  const [searchParams] = useSearchParams()
-  const requestedTab = searchParams.get("tab")
-  const tab = requestedTab && TABS.includes(requestedTab) ? requestedTab : "overview"
+  const [tab, setTab] = useValidatedTab(TABS)
 
   const active = run.status === "RUNNING" || run.status === "PENDING"
   const cancelling = active && Boolean(run.cancelRequestedAt)
   const usedCredential = credential ?? null
 
-  const setTab = (value: string) => navigate(`${pathname}?tab=${value}`, { replace: true })
 
   const endedAt =
     run.durationSec !== null && run.startedAt !== null ? new Date(new Date(run.startedAt).getTime() + run.durationSec * 1000).toISOString() : null

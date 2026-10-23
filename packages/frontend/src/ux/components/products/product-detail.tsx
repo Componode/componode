@@ -1,3 +1,4 @@
+import { safeUrl } from "@/ux/lib/safe-url";
 import { ExternalLinkIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, SparklesIcon, TrashIcon } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
@@ -191,7 +192,7 @@ export function ProductDetail({ product, components, consumers, suggestions, act
                   {product.links.map((l) => (
                     <li key={l.url}>
                       <a
-                        href={l.url}
+                        href={safeUrl(l.url)}
                         target="_blank"
                         rel="noreferrer"
                         className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/50"

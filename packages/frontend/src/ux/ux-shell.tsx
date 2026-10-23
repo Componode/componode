@@ -25,9 +25,6 @@ export function UxShell() {
             <AppSidebar />
             <SidebarInset className="min-w-0">
               <AppHeader />
-              <div className="border-b border-dashed border-amber-500/50 bg-amber-500/10 px-4 py-1.5 text-xs text-amber-700 dark:text-amber-400">
-                Staged UX preview — in development (release/1.1.0)
-              </div>
               <main id="main" className="min-w-0 flex-1">
                 <Outlet />
               </main>

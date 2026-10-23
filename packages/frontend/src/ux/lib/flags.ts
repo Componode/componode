@@ -19,10 +19,6 @@ export const flags = {
   sessionOwner: false,
   /** "Send password reset" action — admin token generation exists (POST /auth/password/reset). */
   passwordReset: true,
-  /** Expired-credential state chip/rule (gap 5). */
-  credentialExpiredState: false,
-  /** Schema-driven scope fields; JSON editor fallback meanwhile (gap 13). */
-  jsonScopeEditor: true,
   /** Notification channel preferences — no backend (gap 15). */
   notifications: false,
   /** Two-factor authentication — no backend (gap 16). */

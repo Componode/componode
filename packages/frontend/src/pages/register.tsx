@@ -1,9 +1,14 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { AlertCircleIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import * as React from "react";
 import { api, type ApiError } from "@/api/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Logo } from "@/ux/components/app/logo";
+import { AuthShowcase } from "@/ux/components/auth/auth-showcase";
+import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert";
+import { Button } from "@/ux/components/ui/button";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/ux/components/ui/field";
+import { Input } from "@/ux/components/ui/input";
+import { Spinner } from "@/ux/components/ui/spinner";
 
 function describeError(err: unknown): string {
   const apiErr = err as ApiError;
@@ -19,108 +24,104 @@ function describeError(err: unknown): string {
   }
 }
 
+type Errors = Partial<Record<"username" | "password" | "form", string>>;
+
 export function RegisterPage() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const usernameRef = useRef<HTMLInputElement>(null);
+  const [pending, setPending] = React.useState(false);
+  const [errors, setErrors] = React.useState<Errors>({});
 
-  useEffect(() => {
-    usernameRef.current?.focus();
-  }, []);
-
-  async function handleSubmit(e: FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
+    const data = new FormData(e.currentTarget);
+    const username = String(data.get("username") ?? "").trim();
+    const password = String(data.get("password") ?? "");
+    const displayName = String(data.get("displayName") ?? "").trim();
+    const next: Errors = {};
+    if (!username) next.username = "Choose a username.";
+    if (!password) next.password = "Choose a password.";
+    else if (password.length < 8) next.password = "Use at least 8 characters.";
+    setErrors(next);
+    if (Object.keys(next).length) return;
+
+    setPending(true);
     try {
       await api("/auth/register", {
         method: "POST",
-        body: JSON.stringify({
-          username,
-          password,
-          displayName: displayName.trim() || undefined,
-        }),
+        body: JSON.stringify({ username, password, displayName: displayName || undefined }),
       });
-      // The backend establishes a session on successful registration.
       navigate("/", { replace: true });
     } catch (err) {
-      setError(describeError(err));
+      setErrors({ form: describeError(err) });
     } finally {
-      setLoading(false);
+      setPending(false);
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold">Create your account</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Register a new Componode account
-          </p>
-        </div>
+    <div className="grid min-h-svh bg-background lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <div className="flex flex-col gap-10 px-6 py-8 md:px-12">
+        <Logo />
+        <main id="main" className="flex flex-1 items-center justify-center">
+          <div className="flex w-full max-w-sm flex-col gap-8">
+            <div className="flex flex-col gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
+              <p className="text-sm text-muted-foreground">Register a new Componode account.</p>
+            </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
-            <Input
-              id="username"
-              ref={usernameRef}
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              autoComplete="username"
-              aria-describedby={error ? "register-error" : undefined}
-            />
-          </div>
+            {errors.form && (
+              <Alert variant="destructive">
+                <AlertCircleIcon />
+                <AlertTitle>Registration failed</AlertTitle>
+                <AlertDescription>{errors.form}</AlertDescription>
+              </Alert>
+            )}
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="new-password"
-              aria-describedby={error ? "register-error" : undefined}
-            />
-          </div>
+            <form onSubmit={onSubmit} noValidate>
+              <FieldGroup>
+                <Field data-invalid={!!errors.username || undefined}>
+                  <FieldLabel htmlFor="username">Username</FieldLabel>
+                  <Input id="username" name="username" autoComplete="username" autoFocus aria-invalid={!!errors.username} />
+                  {errors.username ? (
+                    <FieldError>{errors.username}</FieldError>
+                  ) : (
+                    <FieldDescription>Lowercase letters, digits, _ and -.</FieldDescription>
+                  )}
+                </Field>
+                <Field data-invalid={!!errors.password || undefined}>
+                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <Input id="password" name="password" type="password" autoComplete="new-password" aria-invalid={!!errors.password} />
+                  {errors.password ? (
+                    <FieldError>{errors.password}</FieldError>
+                  ) : (
+                    <FieldDescription>8+ characters.</FieldDescription>
+                  )}
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="displayName">Display name</FieldLabel>
+                  <Input id="displayName" name="displayName" autoComplete="name" />
+                  <FieldDescription>Optional — how you appear to teammates.</FieldDescription>
+                </Field>
+                <Button type="submit" size="lg" disabled={pending}>
+                  {pending && <Spinner data-icon="inline-start" />}
+                  Create account
+                </Button>
+              </FieldGroup>
+            </form>
 
-          <div className="space-y-2">
-            <Label htmlFor="displayName">Display name (optional)</Label>
-            <Input
-              id="displayName"
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              autoComplete="name"
-            />
-          </div>
-
-          {error && (
-            <p id="register-error" role="alert" className="text-sm text-destructive">
-              {error}
+            <p className="text-center text-sm text-muted-foreground">
+              Already have an account?{" "}
+              <Link to="/login" className="font-medium text-foreground underline-offset-4 hover:underline">
+                Sign in
+              </Link>
             </p>
-          )}
-
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Creating account…" : "Create account"}
-          </Button>
-        </form>
-
-        <p className="text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link to="/login" className="text-primary hover:underline">
-            Sign in
-          </Link>
-        </p>
+          </div>
+        </main>
+        <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>Componode DPAM · self-hosted</span>
+        </footer>
       </div>
+      <AuthShowcase />
     </div>
   );
 }

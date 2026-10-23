@@ -1,7 +1,8 @@
 
 import { AlertTriangleIcon, HistoryIcon, RadioTowerIcon } from "lucide-react"
 import { Link } from "react-router-dom"
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
+import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import * as React from "react"
 import { toast } from "sonner"
 import { AgentOperations } from "@/ux/components/agents/agent-operations"
@@ -47,10 +48,7 @@ const TABS = ["overview", "policy", "sessions", "activity"]
 
 export function AgentDetail({ agent, sessions, events }: AgentDetailProps) {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
-  const [searchParams] = useSearchParams()
-  const requestedTab = searchParams.get("tab")
-  const tab = requestedTab && TABS.includes(requestedTab) ? requestedTab : "overview"
+  const [tab, setTab] = useValidatedTab(TABS)
 
   const updateAgent = useUpdateAgent(agent.id)
   const rotateAgent = useRotateAgent(agent.id)
@@ -90,7 +88,6 @@ export function AgentDetail({ agent, sessions, events }: AgentDetailProps) {
     )
   }
 
-  const setTab = (value: string) => navigate(`${pathname}?tab=${value}`, { replace: true })
 
   const policyDirty = JSON.stringify(restricted ? [...allowed].sort() : []) !== JSON.stringify([...agent.allowedImporters].sort())
 
