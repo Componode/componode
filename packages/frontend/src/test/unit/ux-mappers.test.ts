@@ -195,3 +195,177 @@ describe("mapComponentGroup", () => {
     expect(view.team).toBe("Payments");
   });
 });
+
+import {
+  mapImportAgent,
+  mapImporterConfig,
+  mapImportRun,
+  mapRunChange,
+  mapRunError,
+} from "@/api/mappers/operations";
+
+describe("mapImporterConfig", () => {
+  const apiConfig = {
+    id: "ic1",
+    importerName: "github",
+    label: "GitHub: componode",
+    scope: {},
+    secretRefs: [],
+    credentialIds: ["cr1"],
+    secretRefsDeprecated: false,
+    agentId: null,
+    agent: null,
+    agentIncompatible: false,
+    schedule: "0 */6 * * *",
+    enabled: true,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-02-01T00:00:00Z",
+  };
+
+  it("maps importer name to Provider and derives scheduleLabel", () => {
+    const view = mapImporterConfig(apiConfig, []);
+    expect(view.importerName).toBe("GITHUB");
+    expect(view.scheduleLabel).toBe("Every 6 hours");
+    expect(view.enabled).toBe(true);
+    expect(view.history).toEqual([]);
+  });
+
+  it("joins credentialIds to a credential label", () => {
+    const view = mapImporterConfig(apiConfig, [
+      { id: "cr1", label: "prod-ro", slug: "prod-ro" },
+    ] as never);
+    expect(view.credentialLabel).toBe("prod-ro");
+  });
+
+  it("falls back when no credential or schedule", () => {
+    const view = mapImporterConfig(
+      { ...apiConfig, credentialIds: [], schedule: null },
+      [],
+    );
+    expect(view.credentialLabel).toBe("None");
+    expect(view.scheduleLabel).toBe("Manual only");
+  });
+});
+
+describe("mapImportRun", () => {
+  const apiRun = {
+    id: "r1",
+    configId: "ic1",
+    agentId: null,
+    agentName: null,
+    status: "COMPLETED",
+    triggeredBy: "alice",
+    startedAt: "2026-02-01T00:00:00Z",
+    completedAt: "2026-02-01T00:02:00Z",
+    assetsProcessed: 10,
+    assetsCreated: 4,
+    assetsUpdated: 6,
+    instancesOrphaned: 1,
+    componentsRetired: 0,
+    currentPhase: null,
+    cancelRequestedAt: null,
+    errorMessage: null,
+    errorStack: null,
+    errorType: null,
+    credentialIds: null,
+    createdAt: "2026-02-01T00:00:00Z",
+  };
+
+  it("derives durationSec from timestamps", () => {
+    const view = mapImportRun(apiRun as never);
+    expect(view.durationSec).toBe(120);
+    expect(view.status).toBe("COMPLETED");
+  });
+
+  it("handles a pending run with no start", () => {
+    const view = mapImportRun({
+      ...apiRun,
+      status: "PENDING",
+      startedAt: null,
+      completedAt: null,
+    } as never);
+    expect(view.startedAt).toBeNull();
+    expect(view.durationSec).toBeNull();
+  });
+
+  it("maps unknown statuses to INTERRUPTED-safe fallback", () => {
+    const view = mapImportRun({ ...apiRun, status: "WEIRD" } as never);
+    expect(view.status).toBe("FAILED");
+  });
+});
+
+describe("mapImportAgent", () => {
+  const apiAgent = {
+    id: "a1",
+    name: "edge-1",
+    status: "CONNECTED",
+    agentVersion: "1.4.0",
+    protocolVersion: 2,
+    importerVersions: [{ name: "github", version: "1.0.0" }],
+    allowedImporters: [],
+    maxConcurrentJobs: 2,
+    lastSeenAt: "2026-02-01T00:00:00Z",
+    revokedAt: null,
+    reportedStatus: null,
+    lastHeartbeatAt: "2026-02-01T00:05:00Z",
+    lastDisconnectReason: null,
+    hasCredential: true,
+    pendingEnrollment: false,
+    boundConfigCount: 3,
+    createdAt: "2026-01-01T00:00:00Z",
+  };
+
+  it("derives ACTIVE credential state and flattens importer versions", () => {
+    const view = mapImportAgent(apiAgent as never);
+    expect(view.credentialState).toBe("ACTIVE");
+    expect(view.importerVersions).toEqual({ github: "1.0.0" });
+    expect(view.boundConfigs).toBe(3);
+    expect(view.lastHeartbeatAt).toBe("2026-02-01T00:05:00Z");
+  });
+
+  it("derives PENDING_ENROLLMENT when no credential and a token waits", () => {
+    const view = mapImportAgent({
+      ...apiAgent,
+      hasCredential: false,
+      pendingEnrollment: true,
+    } as never);
+    expect(view.credentialState).toBe("PENDING_ENROLLMENT");
+  });
+
+  it("derives REVOKED from revokedAt", () => {
+    const view = mapImportAgent({
+      ...apiAgent,
+      revokedAt: "2026-02-02T00:00:00Z",
+    } as never);
+    expect(view.credentialState).toBe("REVOKED");
+  });
+});
+
+describe("mapRunChange / mapRunError", () => {
+  it("maps an entity change to a RunChange row", () => {
+    const view = mapRunChange({
+      id: "e1",
+      entityType: "component",
+      entityId: "c1",
+      action: "created",
+      createdByName: "importer",
+      createdAt: "2026-02-01T00:00:00Z",
+    } as never);
+    expect(view.entityKind).toBe("component");
+    expect(view.action).toBe("created");
+    expect(view.actor).toBe("importer");
+  });
+
+  it("maps a run error row", () => {
+    const view = mapRunError({
+      id: "re1",
+      runId: "r1",
+      assetExternalId: "gh:componode",
+      errorType: "SKIPPED",
+      errorMessage: "missing scope",
+      createdAt: "2026-02-01T00:00:00Z",
+    } as never);
+    expect(view.errorMessage).toBe("missing scope");
+    expect(view.assetExternalId).toBe("gh:componode");
+  });
+});

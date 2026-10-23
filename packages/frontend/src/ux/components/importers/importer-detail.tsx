@@ -12,11 +12,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { PROVIDER_META } from "@/ux/lib/domain"
 import { formatDuration, formatNumber } from "@/ux/lib/format"
-import { type ImporterConfig, importRuns } from "@/ux/lib/mock-data"
+import { useTriggerImportRun } from "@/api/hooks/importers"
+import { ux } from "@/ux/lib/paths"
+import type { ImporterConfig, ImportRun } from "@/ux/lib/view-types"
 
-export function ImporterDetail({ importer: i }: { importer: ImporterConfig }) {
-  const failed = i.lastRun?.status === "FAILED"
-  const lastError = importRuns.find((r) => r.errorMessage)?.errorMessage
+export function ImporterDetail({ importer: i, runs }: { importer: ImporterConfig; runs: ImportRun[] }) {
+  const trigger = useTriggerImportRun()
+  const failed = runs[0]?.status === "FAILED"
+  const lastError = runs.find((r) => r.errorMessage)?.errorMessage
   return (
     <PageContainer>
       <PageHeader
@@ -26,12 +29,20 @@ export function ImporterDetail({ importer: i }: { importer: ImporterConfig }) {
         actions={
           <>
             <Button variant="outline" asChild>
-              <Link to={`/importers/${i.id}/edit`}>
+              <Link to={ux(`/importers/${i.id}/edit`)}>
                 <Settings2Icon data-icon="inline-start" />
                 Configure
               </Link>
             </Button>
-            <Button onClick={() => toast.success("Run queued")} disabled={!i.enabled}>
+            <Button
+              disabled={!i.enabled || trigger.isPending}
+              onClick={() =>
+                trigger.mutate(i.id, {
+                  onSuccess: () => toast.success("Run queued"),
+                  onError: (e) => toast.error(e.message),
+                })
+              }
+            >
               <PlayIcon data-icon="inline-start" />
               Run now
             </Button>
@@ -67,7 +78,7 @@ export function ImporterDetail({ importer: i }: { importer: ImporterConfig }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {importRuns.map((r) => (
+              {runs.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="pl-6">
                     <div className="flex flex-col gap-1">
@@ -76,7 +87,7 @@ export function ImporterDetail({ importer: i }: { importer: ImporterConfig }) {
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">
-                    <Link to={`/importers/${i.id}/runs/${r.id}`} className="hover:underline">
+                    <Link to={ux(`/importers/${i.id}/runs/${r.id}`)} className="hover:underline">
                       <RelativeTime iso={r.startedAt} />
                     </Link>
                   </TableCell>
@@ -104,6 +115,16 @@ export function ImporterDetail({ importer: i }: { importer: ImporterConfig }) {
                 { label: "Cron", value: <code className="font-mono text-xs">{i.schedule ?? "Manual only"}</code> },
                 { label: "Credential", value: i.credentialLabel },
                 { label: "Status", value: i.enabled ? "Enabled" : "Paused" },
+                {
+                  label: "Executor",
+                  value: i.agent ? (
+                    <Link to={ux(`/agents/${i.agent.id}`)} className="text-primary hover:underline">
+                      {i.agent.name}
+                    </Link>
+                  ) : (
+                    "Hub (in-process)"
+                  ),
+                },
               ]}
             />
           </CardContent>

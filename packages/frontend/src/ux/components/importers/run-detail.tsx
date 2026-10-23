@@ -2,7 +2,6 @@
 import { CircleAlertIcon, CircleCheckIcon, Loader2Icon, RadioTowerIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
-import * as React from "react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
@@ -17,8 +16,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ux/components/ui/tabs"
 import { PROVIDER_META, type Tone } from "@/ux/lib/domain"
 import { formatDateTime, formatDuration, formatNumber } from "@/ux/lib/format"
-import type { ImporterConfig, ImportRun, RunChange, RunError } from "@/ux/lib/mock-data"
-import { credentials } from "@/ux/lib/mock-data"
+import { useCancelImportRun } from "@/api/hooks/importers"
+import { ux } from "@/ux/lib/paths"
+import type { ImporterConfig, ImportRun, RunChange, RunError } from "@/ux/lib/view-types"
 
 const TABS = ["overview", "errors", "changes"]
 
@@ -34,6 +34,7 @@ interface RunDetailProps {
   run: ImportRun
   errors: RunError[]
   changes: RunChange[]
+  credential?: { id: string; label: string } | null
 }
 
 function Counter({ label, value }: { label: string; value: number }) {
@@ -45,16 +46,17 @@ function Counter({ label, value }: { label: string; value: number }) {
   )
 }
 
-export function RunDetail({ importer, run: initial, errors, changes }: RunDetailProps) {
+export function RunDetail({ importer, run, errors, changes, credential }: RunDetailProps) {
   const navigate = useNavigate()
+  const cancel = useCancelImportRun()
   const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
   const requestedTab = searchParams.get("tab")
   const tab = requestedTab && TABS.includes(requestedTab) ? requestedTab : "overview"
 
-  const [run, setRun] = React.useState(initial)
   const active = run.status === "RUNNING" || run.status === "PENDING"
-  const usedCredential = credentials.find((c) => c.slug === importer.credentialLabel)
+  const cancelling = active && Boolean(run.cancelRequestedAt)
+  const usedCredential = credential ?? null
 
   const setTab = (value: string) => navigate(`${pathname}?tab=${value}`, { replace: true })
 
@@ -72,7 +74,7 @@ export function RunDetail({ importer, run: initial, errors, changes }: RunDetail
         }
         description={
           <>
-            <Link to={`/importers/${importer.id}`} className="font-medium text-foreground hover:underline">
+            <Link to={ux(`/importers/${importer.id}`)} className="font-medium text-foreground hover:underline">
               {importer.label}
             </Link>{" "}
             · {PROVIDER_META[importer.importerName].label} · triggered by {run.triggeredBy}
@@ -91,16 +93,28 @@ export function RunDetail({ importer, run: initial, errors, changes }: RunDetail
         }
         actions={
           active ? (
-            <ConfirmDialog
-              trigger={<Button variant="outline">Cancel run</Button>}
-              title={`Cancel ${run.id}?`}
-              description="The importer stops at the end of its current phase. Assets already processed are kept."
-              confirmLabel="Cancel run"
-              onConfirm={() => {
-                setRun((r) => ({ ...r, status: "CANCELLED", durationSec: 0 }))
-                toast.success(`${run.id} cancelled`)
-              }}
-            />
+            cancelling ? (
+              <Button variant="outline" disabled>
+                <Loader2Icon data-icon="inline-start" className="animate-spin" />
+                Cancelling…
+              </Button>
+            ) : (
+              <ConfirmDialog
+                trigger={<Button variant="outline" disabled={cancel.isPending}>Cancel run</Button>}
+                title={`Cancel ${run.id}?`}
+                description="The importer stops at the end of its current phase. Assets already processed are kept."
+                confirmLabel="Cancel run"
+                onConfirm={() =>
+                  cancel.mutate(
+                    { configId: importer.id, runId: run.id },
+                    {
+                      onSuccess: () => toast.success(`Cancellation requested for ${run.id}`),
+                      onError: (e) => toast.error(e.message),
+                    },
+                  )
+                }
+              />
+            )
           ) : null
         }
       />
@@ -112,7 +126,7 @@ export function RunDetail({ importer, run: initial, errors, changes }: RunDetail
           <AlertDescription>
             {run.errorMessage}.{" "}
             {usedCredential && (
-              <Link to={`/credentials/${usedCredential.id}`} className="font-medium underline underline-offset-4">
+              <Link to={ux(`/credentials/${usedCredential.id}`)} className="font-medium underline underline-offset-4">
                 Open credential {usedCredential.label}
               </Link>
             )}
@@ -177,7 +191,7 @@ export function RunDetail({ importer, run: initial, errors, changes }: RunDetail
                         <span className="flex flex-wrap items-center gap-2">
                           <RadioTowerIcon className="size-4 text-muted-foreground" aria-hidden="true" />
                           <span>{run.status === "PENDING" ? "Waiting for agent" : "Ran on agent"}</span>
-                          <Link to={`/agents/${run.agentId}`} className="font-mono font-medium text-primary hover:underline">
+                          <Link to={ux(`/agents/${run.agentId}`)} className="font-mono font-medium text-primary hover:underline">
                             {run.agentName ?? run.agentId}
                           </Link>
                         </span>
@@ -188,14 +202,14 @@ export function RunDetail({ importer, run: initial, errors, changes }: RunDetail
                     {
                       label: "Credential",
                       value: usedCredential ? (
-                        <Link to={`/credentials/${usedCredential.id}`} className="font-medium text-primary hover:underline">
+                        <Link to={ux(`/credentials/${usedCredential.id}`)} className="font-medium text-primary hover:underline">
                           {usedCredential.label}
                         </Link>
                       ) : (
                         "None"
                       ),
                     },
-                    { label: "Importer", value: <Link to={`/importers/${importer.id}`} className="text-primary hover:underline">{importer.label}</Link> },
+                    { label: "Importer", value: <Link to={ux(`/importers/${importer.id}`)} className="text-primary hover:underline">{importer.label}</Link> },
                     { label: "Schedule", value: importer.scheduleLabel },
                   ]}
                 />

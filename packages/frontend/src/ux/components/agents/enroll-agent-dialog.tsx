@@ -10,15 +10,15 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegen
 import { Input } from "@/ux/components/ui/input"
 import { validateAgentName } from "@/ux/lib/agents"
 import { IMPORTER_NAMES } from "@/ux/lib/domain"
-import type { ImportAgent } from "@/ux/lib/mock-data"
+import { useCreateAgent } from "@/api/hooks/agents"
 
 interface EnrollAgentDialogProps {
   existingNames: string[]
-  onCreated: (agent: ImportAgent) => void
   trigger?: React.ReactNode
 }
 
-export function EnrollAgentDialog({ existingNames, onCreated, trigger }: EnrollAgentDialogProps) {
+export function EnrollAgentDialog({ existingNames, trigger }: EnrollAgentDialogProps) {
+  const createAgent = useCreateAgent()
   const [open, setOpen] = React.useState(false)
   const [step, setStep] = React.useState<"form" | "token">("form")
   const [name, setName] = React.useState("")
@@ -47,28 +47,16 @@ export function EnrollAgentDialog({ existingNames, onCreated, trigger }: EnrollA
     const message = validateAgentName(name, existingNames)
     setError(message)
     if (message) return
-    const now = new Date()
-    onCreated({
-      id: `ag_${now.getTime()}`,
-      name,
-      status: "NEVER_CONNECTED",
-      credentialState: "PENDING_ENROLLMENT",
-      agentVersion: null,
-      protocolVersion: null,
-      importerVersions: {},
-      maxConcurrentJobs: null,
-      allowedImporters: allowed,
-      boundConfigs: 0,
-      lastSeenAt: null,
-      lastHeartbeatAt: null,
-      lastDisconnectReason: null,
-      reportedStatus: null,
-      enrollmentExpiresAt: new Date(now.getTime() + 24 * 3600 * 1000).toISOString(),
-      createdBy: "you",
-      createdAt: now.toISOString(),
-    })
-    throw new Error("not wired: mint via POST /agents/:id/enrollment-token (T030)")
-    setStep("token")
+    createAgent.mutate(
+      { name, allowedImporters: allowed.length ? allowed : undefined },
+      {
+        onSuccess: (result) => {
+          setToken(result.enrollment.token)
+          setStep("token")
+        },
+        onError: (err) => setError(err.message),
+      },
+    )
   }
 
   return (
@@ -138,7 +126,7 @@ export function EnrollAgentDialog({ existingNames, onCreated, trigger }: EnrollA
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Create and get token</Button>
+              <Button type="submit" disabled={createAgent.isPending}>Create and get token</Button>
             </DialogFooter>
           </form>
         ) : (

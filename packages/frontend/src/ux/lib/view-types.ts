@@ -95,12 +95,17 @@ export interface ImporterConfig {
   scheduleLabel: string;
   enabled: boolean;
   credentialLabel: string;
+  /** Bound execution agent; null = in-process on the hub. */
+  agent?: { id: string; name: string } | null;
+  /** Bound agent is revoked or its policy no longer covers this importer. */
+  agentIncompatible?: boolean;
   lastRun: { status: RunStatus; at: string; processed: number; durationSec: number } | null;
   history: { day: string; created: number; updated: number; failed: number }[];
 }
 
 export interface ImportRun {
   id: string;
+  configId?: string;
   status: RunStatus;
   triggeredBy: string;
   startedAt: string | null;
@@ -111,6 +116,7 @@ export interface ImportRun {
   instancesOrphaned: number;
   componentsRetired: number;
   currentPhase: string | null;
+  cancelRequestedAt?: string | null;
   errorMessage: string | null;
   /** Null or absent = ran in-process on the hub. */
   agentId?: string | null;

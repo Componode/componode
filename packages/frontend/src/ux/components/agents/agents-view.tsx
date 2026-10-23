@@ -1,13 +1,12 @@
 
 import { InfoIcon, RadioTowerIcon } from "lucide-react"
-import * as React from "react"
 import { EnrollAgentDialog } from "@/ux/components/agents/enroll-agent-dialog"
 import { AgentsTable } from "@/ux/components/agents/agents-table"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { EmptyState } from "@/ux/components/patterns/states"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Card, CardContent } from "@/ux/components/ui/card"
-import type { ImportAgent } from "@/ux/lib/mock-data"
+import type { ImportAgent } from "@/ux/lib/view-types"
 
 function Summary({ label, value, hint }: { label: string; value: number; hint: string }) {
   return (
@@ -21,16 +20,13 @@ function Summary({ label, value, hint }: { label: string; value: number; hint: s
   )
 }
 
-export function AgentsView({ initial }: { initial: ImportAgent[] }) {
-  const [rows, setRows] = React.useState(initial)
+export function AgentsView({ agents: rows }: { agents: ImportAgent[] }) {
   const live = rows.filter((a) => a.credentialState === "ACTIVE")
   const connected = live.filter((a) => a.status === "CONNECTED").length
   const offline = live.filter((a) => a.status === "OFFLINE").length
   const pending = rows.filter((a) => a.credentialState === "PENDING_ENROLLMENT").length
 
-  const enroll = (
-    <EnrollAgentDialog existingNames={rows.map((a) => a.name)} onCreated={(agent) => setRows((prev) => [agent, ...prev])} />
-  )
+  const enroll = <EnrollAgentDialog existingNames={rows.map((a) => a.name)} />
 
   return (
     <PageContainer>

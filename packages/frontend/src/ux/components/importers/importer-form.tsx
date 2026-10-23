@@ -1,17 +1,25 @@
-
 import { useNavigate } from "react-router-dom"
 import * as React from "react"
 import { toast } from "sonner"
+import {
+  useCreateImporterConfig,
+  useUpdateImporterConfig,
+} from "@/api/hooks/importers"
+import type { Credential, ImporterConfig, ImporterManifest } from "@/api/types"
+import type { ImportAgent } from "@componode/core"
 import { FormPage, FormSection } from "@/ux/components/forms/form-shell"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
+import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
+import { AlertTriangleIcon } from "lucide-react"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/ux/components/ui/field"
 import { Input } from "@/ux/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select"
 import { Switch } from "@/ux/components/ui/switch"
-import { PROVIDER_META, type Provider } from "@/ux/lib/domain"
-import { credentials, type ImporterConfig } from "@/ux/lib/mock-data"
+import { Textarea } from "@/ux/components/ui/textarea"
+import { ux } from "@/ux/lib/paths"
 
-const IMPORTER_PROVIDERS: Provider[] = ["GITHUB", "AWS", "AZURE", "ALIBABA_CLOUD", "KUBERNETES", "WEB_URL", "API_URL", "MCP_SERVER"]
+const NONE = "__none__"
+const HUB = "__hub__"
 
 const SCHEDULES = [
   { value: "0 * * * *", label: "Every hour" },
@@ -30,81 +38,159 @@ const isCron = (v: string) => {
 
 interface Errors {
   label?: string
-  credential?: string
   cron?: string
+  scope?: string
 }
 
-export function ImporterForm({ importer }: { importer?: ImporterConfig }) {
+interface ImporterFormProps {
+  config?: ImporterConfig
+  manifests: ImporterManifest[]
+  credentials: Credential[]
+  agents: Pick<ImportAgent, "id" | "name" | "status">[]
+}
+
+export function ImporterForm({ config, manifests, credentials, agents }: ImporterFormProps) {
   const navigate = useNavigate()
-  const editing = Boolean(importer)
-  const initialPreset = !importer ? "0 */6 * * *" : importer.schedule === null ? "manual" : SCHEDULES.some((s) => s.value === importer.schedule) ? importer.schedule : "custom"
+  const createConfig = useCreateImporterConfig()
+  const updateConfig = useUpdateImporterConfig()
+  const editing = Boolean(config)
+  const initialPreset = !config
+    ? "0 */6 * * *"
+    : config.schedule === null
+      ? "manual"
+      : SCHEDULES.some((s) => s.value === config.schedule)
+        ? config.schedule
+        : "custom"
 
-  const [provider, setProvider] = React.useState<Provider>(importer?.importerName ?? "AWS")
-  const [label, setLabel] = React.useState(importer?.label ?? "")
-  const [credentialSlug, setCredentialSlug] = React.useState(
-    importer ? (credentials.find((c) => c.slug === importer.credentialLabel)?.slug ?? "") : "",
+  const [importerName, setImporterName] = React.useState(config?.importerName ?? manifests[0]?.name ?? "")
+  const [label, setLabel] = React.useState(config?.label ?? "")
+  const [credentialId, setCredentialId] = React.useState(config?.credentialIds[0] ?? NONE)
+  const [agentId, setAgentId] = React.useState(config?.agentId ?? HUB)
+  const [preset, setPreset] = React.useState<string>(initialPreset)
+  const [cron, setCron] = React.useState(config?.schedule ?? "")
+  const [enabled, setEnabled] = React.useState(config?.enabled ?? true)
+  const [scopeJson, setScopeJson] = React.useState(
+    config?.scope ? JSON.stringify(config.scope, null, 2) : "{}",
   )
-  const [preset, setPreset] = React.useState<string>(initialPreset ?? "manual")
-  const [cron, setCron] = React.useState(importer?.schedule ?? "")
-  const [enabled, setEnabled] = React.useState(importer?.enabled ?? true)
   const [errors, setErrors] = React.useState<Errors>({})
-  const [pending, setPending] = React.useState(false)
 
-  const matching = credentials.filter((c) => c.provider === provider)
-  const credentialMissing = credentialSlug !== "" && !matching.some((c) => c.slug === credentialSlug)
+  const boundToAgent = agentId !== HUB
+  const manifest = manifests.find((m) => m.name === importerName)
+  const requiresSecrets = Boolean(manifest?.secrets?.length)
+  // Agent-bound configs resolve AGENT_MANAGED references on the agent host;
+  // hub-bound configs use stored credentials (spec 026/027).
+  const matching = credentials.filter((c) =>
+    boundToAgent ? c.kind === "AGENT_MANAGED" : c.kind !== "AGENT_MANAGED",
+  )
+  const credentialMissing = credentialId !== NONE && !matching.some((c) => c.id === credentialId)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const next: Errors = {}
     if (!label.trim()) next.label = "Label is required."
-    if (!credentialSlug || credentialMissing) next.credential = `Choose a ${PROVIDER_META[provider].label} credential.`
     if (preset === "custom" && !isCron(cron)) next.cron = "Enter a five-field cron expression, for example 0 */4 * * *."
+    let scope: Record<string, unknown> = {}
+    try {
+      const parsed = JSON.parse(scopeJson || "{}")
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        next.scope = "Scope must be a JSON object."
+      } else {
+        scope = parsed as Record<string, unknown>
+      }
+    } catch {
+      next.scope = "Scope must be valid JSON."
+    }
     setErrors(next)
     if (Object.keys(next).length) return
-    setPending(true)
-    // Simulated save. Wire to POST /importers or PATCH /importers/:id (see /standards/wiring).
-    setTimeout(() => {
-      toast.success(editing ? "Importer saved (simulated)" : "Importer created (simulated)")
-      navigate(editing ? `/importers/${importer!.id}` : "/importers")
-    }, 600)
+
+    const schedule = preset === "manual" ? null : preset === "custom" ? cron : preset
+    const input = {
+      label: label.trim(),
+      scope,
+      secretRefs: [] as { key: string; env?: string; file?: string }[],
+      credentialIds: credentialId === NONE ? [] : [credentialId],
+      agentId: boundToAgent ? agentId : null,
+      schedule,
+      enabled,
+    }
+    if (editing) {
+      updateConfig.mutate(
+        { id: config!.id, ...input },
+        {
+          onSuccess: () => {
+            toast.success(`${label} saved`)
+            navigate(ux(`/importers/${config!.id}`))
+          },
+          onError: (err) => toast.error(err.message),
+        },
+      )
+    } else {
+      createConfig.mutate(
+        { importerName, ...input },
+        {
+          onSuccess: (result) => {
+            toast.success(`${label} created`)
+            navigate(ux(`/importers/${result.config.id}`))
+          },
+          onError: (err) => toast.error(err.message),
+        },
+      )
+    }
   }
+
+  const pending = createConfig.isPending || updateConfig.isPending
 
   return (
     <PageContainer width="narrow">
       <PageHeader
-        title={editing ? `Edit ${importer!.label}` : "New importer"}
+        title={editing ? `Edit ${config!.label}` : "New importer"}
         description="An importer discovers components in one provider account on a schedule using a credential."
       />
+      {editing && config!.agentIncompatible && (
+        <Alert variant="destructive">
+          <AlertTriangleIcon />
+          <AlertTitle>Bound agent no longer covers this importer</AlertTitle>
+          <AlertDescription>
+            The agent is revoked or its allowed-importers policy excludes {config!.importerName}. Rebind or adjust the agent policy — the next scheduled run will fail.
+          </AlertDescription>
+        </Alert>
+      )}
+      {editing && config!.secretRefsDeprecated && (
+        <Alert>
+          <AlertTriangleIcon />
+          <AlertTitle>Legacy secret references</AlertTitle>
+          <AlertDescription>
+            This config still uses env/file secret references. Link a stored credential below, or run “convert secrets” from the importer detail page.
+          </AlertDescription>
+        </Alert>
+      )}
       <FormPage
         onSubmit={handleSubmit}
-        cancelHref={editing ? `/importers/${importer!.id}` : "/importers"}
+        cancelHref={ux(editing ? `/importers/${config!.id}` : "/importers")}
         submitLabel={editing ? "Save changes" : "Create importer"}
         pending={pending}
       >
         <FormSection title="Source">
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="i-provider">Provider</FieldLabel>
-              <Select
-                value={provider}
-                disabled={editing}
-                onValueChange={(v) => {
-                  setProvider(v as Provider)
-                  setCredentialSlug("")
-                }}
-              >
+              <FieldLabel htmlFor="i-provider">Importer</FieldLabel>
+              <Select value={importerName} disabled={editing} onValueChange={setImporterName}>
                 <SelectTrigger id="i-provider" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {IMPORTER_PROVIDERS.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {PROVIDER_META[p].label}
+                  {manifests.map((m) => (
+                    <SelectItem key={m.name} value={m.name}>
+                      {m.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {editing && <FieldDescription>The provider cannot change after creation. Create a new importer instead.</FieldDescription>}
+              <FieldDescription>
+                {editing
+                  ? "The importer cannot change after creation. Create a new config instead."
+                  : (manifest?.description ?? "")}
+              </FieldDescription>
             </Field>
             <Field data-invalid={errors.label ? true : undefined}>
               <FieldLabel htmlFor="i-label">Label</FieldLabel>
@@ -113,32 +199,84 @@ export function ImporterForm({ importer }: { importer?: ImporterConfig }) {
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 aria-invalid={errors.label ? true : undefined}
-                placeholder="AWS: Production org"
+                placeholder="AWS: production org"
               />
               {errors.label && <FieldError>{errors.label}</FieldError>}
             </Field>
-            <Field data-invalid={errors.credential ? true : undefined}>
-              <FieldLabel htmlFor="i-cred">Credential</FieldLabel>
-              <Select value={credentialSlug} onValueChange={setCredentialSlug}>
-                <SelectTrigger id="i-cred" className="w-full" aria-invalid={errors.credential ? true : undefined}>
-                  <SelectValue placeholder={matching.length ? "Select a credential" : "No credentials for this provider"} />
+            <Field>
+              <FieldLabel htmlFor="i-agent">Execution</FieldLabel>
+              <Select
+                value={agentId}
+                onValueChange={(v) => {
+                  setAgentId(v)
+                  setCredentialId(NONE)
+                }}
+              >
+                <SelectTrigger id="i-agent" className="w-full">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={HUB}>Hub (in-process)</SelectItem>
+                  {agents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                      {a.status !== "CONNECTED" ? " (offline)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {boundToAgent
+                  ? "Runs on the selected agent. Only AGENT_MANAGED credentials can be linked."
+                  : "Runs inside the hub process on its schedule."}
+              </FieldDescription>
+            </Field>
+            <Field data-invalid={credentialMissing ? true : undefined}>
+              <FieldLabel htmlFor="i-cred">Credential</FieldLabel>
+              <Select value={credentialId} onValueChange={setCredentialId}>
+                <SelectTrigger id="i-cred" className="w-full" aria-invalid={credentialMissing ? true : undefined}>
+                  <SelectValue placeholder={matching.length ? "Select a credential" : "No matching credentials"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>None</SelectItem>
                   {matching.map((c) => (
-                    <SelectItem key={c.id} value={c.slug} disabled={c.status === "REVOKED"}>
+                    <SelectItem key={c.id} value={c.id} disabled={c.status === "REVOKED"}>
                       {c.label}
                       {c.status !== "ACTIVE" && ` (${c.status.toLowerCase()})`}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.credential ? (
-                <FieldError>{errors.credential}</FieldError>
+              {credentialMissing ? (
+                <FieldError>The linked credential is not valid for this executor.</FieldError>
               ) : (
                 <FieldDescription>
-                  Only credentials for {PROVIDER_META[provider].label} are listed. Expired and revoked ones are disabled.
+                  {requiresSecrets
+                    ? `${manifest!.label} needs secrets — link a credential.`
+                    : "Optional unless this importer needs secrets."}
                 </FieldDescription>
               )}
+            </Field>
+          </FieldGroup>
+        </FormSection>
+
+        <FormSection
+          title="Scope"
+          description="What the importer reads — orgs, clusters, accounts, URLs. Field-level controls land when the manifest schema is exposed (see the wiring registry); until then scope is edited as JSON."
+        >
+          <FieldGroup>
+            <Field data-invalid={errors.scope ? true : undefined}>
+              <FieldLabel htmlFor="i-scope">Scope JSON</FieldLabel>
+              <Textarea
+                id="i-scope"
+                value={scopeJson}
+                onChange={(e) => setScopeJson(e.target.value)}
+                rows={6}
+                className="font-mono text-xs"
+                aria-invalid={errors.scope ? true : undefined}
+                placeholder="{}"
+              />
+              {errors.scope && <FieldError>{errors.scope}</FieldError>}
             </Field>
           </FieldGroup>
         </FormSection>

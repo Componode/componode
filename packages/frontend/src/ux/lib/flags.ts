@@ -17,18 +17,12 @@ export const flags = {
   sessionLocation: false,
   /** Owning user on the sessions list (gap 2). */
   sessionOwner: false,
-  /** Per-run change feed (gap 3). */
-  runChangeFeed: false,
   /** "Send password reset" action (gap 4). */
   passwordReset: false,
   /** Expired-credential state chip/rule (gap 5). */
   credentialExpiredState: false,
-  /** Importer usage list filtered by credentialId (gap 6). */
-  credentialUsageFilter: false,
-  /** Product bulk-import endpoint (gap — flagged only if absent at T022). */
-  productBulkImport: false,
-  /** Component dependents endpoint for the promote flow (gap — T024). */
-  componentDependents: false,
+  /** Schema-driven scope fields; JSON editor fallback meanwhile (gap 13). */
+  jsonScopeEditor: true,
 } as const;
 
 export type GapFlag = keyof typeof flags;

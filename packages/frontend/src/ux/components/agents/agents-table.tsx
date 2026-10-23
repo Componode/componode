@@ -11,7 +11,8 @@ import { Badge } from "@/ux/components/ui/badge"
 import { Card } from "@/ux/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { AGENT_STATUS_META, type AgentStatus } from "@/ux/lib/domain"
-import type { ImportAgent } from "@/ux/lib/mock-data"
+import { ux } from "@/ux/lib/paths"
+import type { ImportAgent } from "@/ux/lib/view-types"
 
 function ImporterScope({ allowed }: { allowed: string[] }) {
   if (allowed.length === 0) return <span className="text-sm text-muted-foreground">All importers</span>
@@ -87,9 +88,9 @@ export function AgentsTable({ rows }: { rows: ImportAgent[] }) {
             </TableHeader>
             <TableBody>
               {visible.map((a) => (
-                <TableRow key={a.id} className="cursor-pointer" onClick={() => navigate(`/agents/${a.id}`)}>
+                <TableRow key={a.id} className="cursor-pointer" onClick={() => navigate(ux(`/agents/${a.id}`))}>
                   <TableCell className="pl-4">
-                    <Link to={`/agents/${a.id}`} className="font-mono text-sm font-medium hover:underline" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                    <Link to={ux(`/agents/${a.id}`)} className="font-mono text-sm font-medium hover:underline" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       {a.name}
                     </Link>
                   </TableCell>

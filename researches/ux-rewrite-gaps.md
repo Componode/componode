@@ -114,6 +114,16 @@
   `teams` table has no LOB column today.
 - **Flag**: none — the form shows all teams unfiltered until resolved.
 
+## G13 — Importer `configSchema` is not renderable
+
+- **UX surface**: importer create/edit form scope section.
+- **Need**: a serializable field descriptor (JSON Schema or field list) so
+  scope controls render from the manifest instead of hardcoded per importer.
+- **Current API**: `GET /importers` returns the zod schema object itself,
+  which serializes to `{}` — no usable shape reaches the client. The form
+  uses a validated JSON scope editor until the API exposes descriptors.
+- **Flag**: `jsonScopeEditor` — always-on fallback today.
+
 ## Conditional gaps (flagged during implementation)
 
 - **Product bulk-import endpoint** — `productBulkImport` flag; T022 verifies

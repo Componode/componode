@@ -25,11 +25,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ux/components/ui/tabs"
 import { DISCONNECT_REASON_META, IMPORTER_NAMES } from "@/ux/lib/domain"
 import { formatDateTime } from "@/ux/lib/format"
-import type { AgentSession, AuditEvent, ImportAgent } from "@/ux/lib/mock-data"
+import { useDeleteAgent, useRevokeAgent, useRotateAgent, useUpdateAgent } from "@/api/hooks/agents"
+import type { AgentSession, AuditEvent, ImportAgent } from "@/ux/lib/view-types"
 import { ux } from "@/ux/lib/paths"
 
 interface AgentDetailProps {
-  initial: ImportAgent
+  agent: ImportAgent
   sessions: AgentSession[]
   events: AuditEvent[]
 }
@@ -44,37 +45,49 @@ function sessionDuration(s: AgentSession): string {
 
 const TABS = ["overview", "policy", "sessions", "activity"]
 
-export function AgentDetail({ initial, sessions, events }: AgentDetailProps) {
+export function AgentDetail({ agent, sessions, events }: AgentDetailProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
   const requestedTab = searchParams.get("tab")
   const tab = requestedTab && TABS.includes(requestedTab) ? requestedTab : "overview"
 
-  const [agent, setAgent] = React.useState(initial)
+  const updateAgent = useUpdateAgent(agent.id)
+  const rotateAgent = useRotateAgent(agent.id)
+  const revokeAgent = useRevokeAgent(agent.id)
+  const deleteAgent = useDeleteAgent(agent.id)
+
   const [token, setToken] = React.useState<string | null>(null)
-  const [restricted, setRestricted] = React.useState(initial.allowedImporters.length > 0)
-  const [allowed, setAllowed] = React.useState<string[]>(initial.allowedImporters)
+  const [restricted, setRestricted] = React.useState(agent.allowedImporters.length > 0)
+  const [allowed, setAllowed] = React.useState<string[]>(agent.allowedImporters)
+
+  // Re-sync the draft policy when the live row changes (save, invalidate).
+  React.useEffect(() => {
+    setRestricted(agent.allowedImporters.length > 0)
+    setAllowed(agent.allowedImporters)
+  }, [agent.allowedImporters])
 
   const lastSession = sessions.find((s) => s.disconnectedAt) ?? null
   const liveSession = sessions.find((s) => !s.disconnectedAt) ?? null
   const revoked = agent.credentialState === "REVOKED"
   const pending = agent.credentialState === "PENDING_ENROLLMENT"
 
-  const issueToken = () => {
-    setAgent((a) => ({
-      ...a,
-      status: "OFFLINE",
-      credentialState: "PENDING_ENROLLMENT",
-      enrollmentExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
-    }))
-    throw new Error("not wired: mint via POST /agents/:id/enrollment-token (T030)")
-  }
+  const issueToken = () =>
+    rotateAgent.mutate(undefined, {
+      onSuccess: (result) => setToken(result.enrollment.token),
+      onError: (e) => toast.error(e.message),
+    })
 
   const savePolicy = () => {
     const next = restricted ? allowed : []
-    setAgent((a) => ({ ...a, allowedImporters: next }))
-    toast.success("Importer policy saved. The agent picks it up on its next heartbeat.")
+    updateAgent.mutate(
+      { allowedImporters: next },
+      {
+        onSuccess: () =>
+          toast.success("Importer policy saved. The agent picks it up on its next heartbeat."),
+        onError: (e) => toast.error(e.message),
+      },
+    )
   }
 
   const setTab = (value: string) => navigate(`${pathname}?tab=${value}`, { replace: true })
@@ -90,7 +103,7 @@ export function AgentDetail({ initial, sessions, events }: AgentDetailProps) {
           </div>
         }
         title={<span className="font-mono">{agent.name}</span>}
-        description={`Enrolled by ${agent.createdBy} on ${formatDateTime(agent.createdAt)}`}
+        description={`Created ${formatDateTime(agent.createdAt)}`}
         meta={
           <>
             <AgentStatusCell agent={agent} />
@@ -99,7 +112,7 @@ export function AgentDetail({ initial, sessions, events }: AgentDetailProps) {
         }
         actions={
           pending || revoked ? (
-            <Button onClick={issueToken}>{revoked ? "Issue new token" : "Reissue token"}</Button>
+            <Button onClick={issueToken} disabled={rotateAgent.isPending}>{revoked ? "Issue new token" : "Reissue token"}</Button>
           ) : (
             <ConfirmDialog
               trigger={<Button variant="outline">Rotate credential</Button>}
@@ -124,12 +137,17 @@ export function AgentDetail({ initial, sessions, events }: AgentDetailProps) {
           </AlertDescription>
         </Alert>
       )}
-      {pending && agent.enrollmentExpiresAt && (
+      {pending && (
         <Alert>
           <AlertTriangleIcon />
           <AlertTitle>Waiting for first connection</AlertTitle>
           <AlertDescription>
-            The enrollment token expires <RelativeTime iso={agent.enrollmentExpiresAt} />. Tokens cannot be viewed again, so reissue one if it was lost.
+            {agent.enrollmentExpiresAt ? (
+              <>The enrollment token expires <RelativeTime iso={agent.enrollmentExpiresAt} />. </>
+            ) : (
+              "An unused enrollment token exists. "
+            )}
+            Tokens cannot be viewed again, so reissue one if it was lost.
           </AlertDescription>
         </Alert>
       )}
@@ -260,7 +278,10 @@ export function AgentDetail({ initial, sessions, events }: AgentDetailProps) {
               >
                 Discard
               </Button>
-              <Button disabled={!policyDirty || (restricted && allowed.length === 0)} onClick={savePolicy}>
+              <Button
+                disabled={!policyDirty || (restricted && allowed.length === 0) || updateAgent.isPending}
+                onClick={savePolicy}
+              >
                 Save policy
               </Button>
             </CardFooter>
@@ -338,10 +359,12 @@ export function AgentDetail({ initial, sessions, events }: AgentDetailProps) {
                 description="The agent is disconnected immediately and cannot reconnect until you issue a new token."
                 confirmLabel="Revoke credential"
                 typeToConfirm={agent.name}
-                onConfirm={() => {
-                  setAgent((a) => ({ ...a, status: "OFFLINE", credentialState: "REVOKED" }))
-                  toast.success(`${agent.name} revoked`)
-                }}
+                onConfirm={() =>
+                  revokeAgent.mutate(undefined, {
+                    onSuccess: () => toast.success(`${agent.name} revoked`),
+                    onError: (e) => toast.error(e.message),
+                  })
+                }
               />
             </div>
           )}
@@ -364,10 +387,15 @@ export function AgentDetail({ initial, sessions, events }: AgentDetailProps) {
               description="The identity, credential and session history are removed permanently."
               confirmLabel="Delete agent"
               typeToConfirm={agent.name}
-              onConfirm={() => {
-                toast.success(`${agent.name} deleted`)
-                navigate("/agents")
-              }}
+              onConfirm={() =>
+                deleteAgent.mutate(undefined, {
+                  onSuccess: () => {
+                    toast.success(`${agent.name} deleted`)
+                    navigate(ux("/agents"))
+                  },
+                  onError: (e) => toast.error(e.message),
+                })
+              }
             />
           </div>
         </CardContent>

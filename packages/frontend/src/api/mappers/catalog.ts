@@ -56,7 +56,7 @@ const PROVIDERS: readonly string[] = [
 const CRITICALITIES: readonly string[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
 /** Narrows an API string into a closed view union, with a neutral fallback. */
-function narrow<T extends string>(
+export function narrow<T extends string>(
   value: string | null | undefined,
   allowed: readonly string[],
   fallback: T,
@@ -64,7 +64,7 @@ function narrow<T extends string>(
   return value != null && allowed.includes(value) ? (value as T) : fallback;
 }
 
-function narrowOrNull<T extends string>(
+export function narrowOrNull<T extends string>(
   value: string | null | undefined,
   allowed: readonly string[],
 ): T | null {

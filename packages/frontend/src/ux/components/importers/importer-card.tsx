@@ -1,7 +1,6 @@
 
 import { KeyRoundIcon, PlayIcon, TimerIcon } from "lucide-react"
 import { Link } from "react-router-dom"
-import * as React from "react"
 import { toast } from "sonner"
 import { RelativeTime } from "@/ux/components/patterns/primitives"
 import { ProviderMark } from "@/ux/components/patterns/provider-mark"
@@ -11,7 +10,10 @@ import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader,
 import { Switch } from "@/ux/components/ui/switch"
 import { PROVIDER_META } from "@/ux/lib/domain"
 import { formatNumber } from "@/ux/lib/format"
-import type { ImporterConfig } from "@/ux/lib/mock-data"
+import { useTriggerImportRun, useUpdateImporterConfig } from "@/api/hooks/importers"
+import { flags } from "@/ux/lib/flags"
+import { ux } from "@/ux/lib/paths"
+import type { ImporterConfig } from "@/ux/lib/view-types"
 import { cn } from "@/ux/lib/utils"
 
 /** 14-day sparkline of run outcomes. One bar per day; red bar = a failed run that day. */
@@ -31,7 +33,9 @@ function RunHistory({ history }: { history: ImporterConfig["history"] }) {
 }
 
 export function ImporterCard({ importer: i }: { importer: ImporterConfig }) {
-  const [enabled, setEnabled] = React.useState(i.enabled)
+  const trigger = useTriggerImportRun()
+  const update = useUpdateImporterConfig()
+  const enabled = i.enabled
   return (
     <Card className={cn("h-full", !enabled && "opacity-70")}>
       <CardHeader>
@@ -39,7 +43,7 @@ export function ImporterCard({ importer: i }: { importer: ImporterConfig }) {
           <ProviderMark provider={i.importerName} />
           <div className="flex min-w-0 flex-col">
             <CardTitle className="truncate">
-              <Link to={`/importers/${i.id}`} className="underline-offset-4 hover:underline">
+              <Link to={ux(`/importers/${i.id}`)} className="underline-offset-4 hover:underline">
                 {i.label}
               </Link>
             </CardTitle>
@@ -49,10 +53,16 @@ export function ImporterCard({ importer: i }: { importer: ImporterConfig }) {
         <CardAction>
           <Switch
             checked={enabled}
-            onCheckedChange={(v) => {
-              setEnabled(v)
-              toast.success(v ? `${i.label} enabled` : `${i.label} paused`)
-            }}
+            disabled={update.isPending}
+            onCheckedChange={(v) =>
+              update.mutate(
+                { id: i.id, enabled: v },
+                {
+                  onSuccess: () => toast.success(v ? `${i.label} enabled` : `${i.label} paused`),
+                  onError: (e) => toast.error(e.message),
+                },
+              )
+            }
             aria-label={enabled ? "Pause importer" : "Enable importer"}
           />
         </CardAction>
@@ -66,7 +76,13 @@ export function ImporterCard({ importer: i }: { importer: ImporterConfig }) {
             </span>
           )}
         </div>
-        <RunHistory history={i.history} />
+        {flags.historyAggregates ? (
+          <RunHistory history={i.history} />
+        ) : (
+          <div className="flex h-8 items-center text-xs text-muted-foreground" role="img" aria-label="Run history unavailable">
+            Per-day run history lands with the aggregates endpoint.
+          </div>
+        )}
         <ul className="flex flex-col gap-1.5 text-sm text-muted-foreground">
           <li className="flex items-center gap-2">
             <TimerIcon className="size-4" aria-hidden="true" />
@@ -80,9 +96,19 @@ export function ImporterCard({ importer: i }: { importer: ImporterConfig }) {
       </CardContent>
       <CardFooter className="mt-auto gap-2">
         <Button variant="outline" size="sm" className="flex-1" asChild>
-          <Link to={`/importers/${i.id}`}>View runs</Link>
+          <Link to={ux(`/importers/${i.id}`)}>View runs</Link>
         </Button>
-        <Button size="sm" className="flex-1" disabled={!enabled} onClick={() => toast.success(`Run queued for ${i.label}`)}>
+        <Button
+          size="sm"
+          className="flex-1"
+          disabled={!enabled || trigger.isPending}
+          onClick={() =>
+            trigger.mutate(i.id, {
+              onSuccess: () => toast.success(`Run queued for ${i.label}`),
+              onError: (e) => toast.error(e.message),
+            })
+          }
+        >
           <PlayIcon data-icon="inline-start" />
           Run now
         </Button>

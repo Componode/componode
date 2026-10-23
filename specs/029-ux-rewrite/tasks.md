@@ -58,13 +58,13 @@
 
 **Independent test**: create agent-bound importer config → run → open run detail → cancel; rotate agent token (shown once).
 
-- [ ] T025 [P] [US3] Write failing mapper tests for `mapImporterConfig` (`scheduleLabel` from cron, `credentialLabel` join), `mapImportRun` (nullable `startedAt`, `durationSec`, `cancelRequestedAt`→cancelling), `mapImportAgent` in `src/test/unit/mappers.test.ts`
-- [ ] T026 [P] [US3] Implement the operations mappers in `src/api/mappers/` until tests pass
-- [ ] T027 [US3] Port importers list + `v0:components/importers/importer-detail.tsx` → `/ux/importers*`; run-now/enable/edit/delete wired; history chart behind `flags.historyAggregates` + gap entry
-- [ ] T028 [US3] Port `v0:components/importers/importer-form.tsx` → `/ux/importers/new` + `/ux/importers/:id/edit`: scope fields rendered from `ImporterManifest.configSchema` (never hardcoded), `credentialIds` linking, agent execution binding honoring `agentIncompatible`
-- [ ] T029 [US3] Port `v0:components/importers/run-detail.tsx` → `/ux/importers/:id/runs/:runId`: phases, errors, cancel with cancelling state; changes feed behind `flags.runChangeFeed` + gap entry
-- [ ] T030 [US3] Port `v0:components/agents/*` → `/ux/agents` + `/ux/agents/:id` (overview/policy/sessions/activity tabs): save policy, rotate token (shown once in dialog, never persisted), revoke, delete-while-bound 409; ops panel surfaces `reportedStatus`/`lastHeartbeatAt`/`lastDisconnectReason` null-first-class
-- [ ] T031 [US3] Wire `/ux/suggestions` accept/dismiss to the real decisions API (EdgeSuggestion status transitions)
+- [x] T025 [P] [US3] Write failing mapper tests for `mapImporterConfig` (`scheduleLabel` from cron, `credentialLabel` join), `mapImportRun` (nullable `startedAt`, `durationSec`, `cancelRequestedAt`→cancelling), `mapImportAgent` in `src/test/unit/mappers.test.ts`
+- [x] T026 [P] [US3] Implement the operations mappers in `src/api/mappers/` until tests pass
+- [x] T027 [US3] Port importers list + `v0:components/importers/importer-detail.tsx` → `/ux/importers*`; run-now/enable/edit/delete wired; history chart behind `flags.historyAggregates` + gap entry
+- [x] T028 [US3] Port `v0:components/importers/importer-form.tsx` → `/ux/importers/new` + `/ux/importers/:id/edit`: scope fields rendered from `ImporterManifest.configSchema` (never hardcoded), `credentialIds` linking, agent execution binding honoring `agentIncompatible`
+- [x] T029 [US3] Port `v0:components/importers/run-detail.tsx` → `/ux/importers/:id/runs/:runId`: phases, errors, cancel with cancelling state; changes feed behind `flags.runChangeFeed` + gap entry
+- [x] T030 [US3] Port `v0:components/agents/*` → `/ux/agents` + `/ux/agents/:id` (overview/policy/sessions/activity tabs): save policy, rotate token (shown once in dialog, never persisted), revoke, delete-while-bound 409; ops panel surfaces `reportedStatus`/`lastHeartbeatAt`/`lastDisconnectReason` null-first-class
+- [x] T031 [US3] Wire `/ux/suggestions` accept/dismiss to the real decisions API (EdgeSuggestion status transitions)
 
 ## Phase 6: [US4] Administration (P4)
 
