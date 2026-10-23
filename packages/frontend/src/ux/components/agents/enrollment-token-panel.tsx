@@ -21,7 +21,7 @@ interface EnrollmentTokenPanelProps {
  */
 export function EnrollmentTokenPanel({ agentName, token, onDone }: EnrollmentTokenPanelProps) {
   const [stored, setStored] = React.useState(false)
-  const command = `componode-agent enroll --hub https://<your-hub-host> --name ${agentName} --token ${token}`
+  const command = `componode-agent enroll --hub ${window.location.origin} --name ${agentName} --token ${token}`
 
   return (
     <div className="flex flex-col gap-4">

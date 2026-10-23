@@ -36,13 +36,54 @@
 - **Current API**: no per-run change feed; audit has no `runId` filter today.
 - **Flag**: `runChangeFeed`.
 
-## G4 — Password reset
+## G4 — Password reset — PARTIAL
 
-- **UX surface**: user detail → "Send password reset" (DangerZone-adjacent).
-- **Need**: `POST /users/:id/password-reset` (admin-triggered reset email or
-  one-time link).
-- **Current API**: endpoint does not exist.
-- **Flag**: `passwordReset` — action hidden.
+- **Verified**: `POST /auth/password/reset` (admin) returns a reset token;
+  `POST /auth/password/reset/confirm` is public. There is no email delivery —
+  the admin copies the link and delivers it out-of-band. The UX wires the
+  token-generation call and shows the link for copy-out; an email-delivery
+  workflow remains deferred.
+- **Flag**: `passwordReset` ON (token flow); email delivery would be a new gap.
+
+## G14 — Self-service profile update
+
+- **UX surface**: `/ux/settings/profile` — display name/email editing.
+- **Need**: `PATCH /users/me` for non-admins; today `PATCH /users/:id`
+  requires `user:update` (ADMIN) so non-admins get 403 on save.
+
+## G15 — Notification preferences
+
+- **UX surface**: `/ux/settings/notifications` — event × channel matrix.
+- **Need**: per-user notification prefs endpoint (none exists). Matrix
+  renders disabled behind `notifications` flag.
+
+## G16 — Two-factor authentication
+
+- **UX surface**: `/ux/settings/security` — TOTP toggle. No backend. Hidden
+  behind `twoFactor`.
+
+## G17 — Session concurrency controls
+
+- **UX surface**: `/ux/settings/session-policy` — one-session-per-user and
+  IP-binding toggles. `AppSettings` only carries the two timeouts; hidden
+  behind `sessionConcurrency`.
+
+## G18 — Workspace profile fields
+
+- **UX surface**: `/ux/settings/workspace` — workspace name/URL/regional
+  defaults. `AppSettings` has no such fields; hidden behind `workspaceProfile`.
+
+## G19 — Retention + export operations
+
+- **UX surface**: `/ux/settings/advanced` — gone-instance retention window,
+  catalog export, destructive reset. No endpoints; hidden behind
+  `advancedOps`.
+
+## G20 — Client display preferences
+
+- **UX surface**: `/ux/settings/appearance` — density, reduce-motion,
+  relative-time toggles. Persisted to `localStorage` (`ux.prefs`) but no
+  component consumes them yet; flagged `displayPrefs`.
 
 ## G5 — Expired-credential state rule
 
@@ -88,13 +129,13 @@
 - **Flag**: none — handled by read-hook resolution; recorded here as a
   candidate API addition.
 
-## G10 — Audit `actor` filter param name
+## G10 — Audit `actor` filter — RESOLVED (verified T034)
 
 - **UX surface**: user detail → activity tab (`?actor=`).
-- **Need**: confirm the audit list accepts an actor/user filter param and
-  its name; otherwise the activity tab needs a different source.
-- **Current API**: unconfirmed at spec time — verified during T034; if the
-  param does not exist this becomes a new gap entry.
+- **Verified**: `activityFeedQuerySchema` accepts `actor`, and
+  `audit-query-service.ts` matches it against `createdByName`/`createdBy`.
+  The user detail activity tab wires `useActivityFeed({ actor: username })`.
+  No gap — entry retained for audit trail only.
 
 ## G11 — Audit feed entity display names
 

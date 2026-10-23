@@ -5,7 +5,7 @@ import { Badge } from "@/ux/components/ui/badge"
 import { Button } from "@/ux/components/ui/button"
 import { Field, FieldDescription, FieldLabel } from "@/ux/components/ui/field"
 import { Input } from "@/ux/components/ui/input"
-import type { Link } from "@/ux/lib/mock-data"
+import type { Link } from "@/ux/lib/view-types"
 
 /** Free-form tags. Enter or comma adds; backspace on empty input removes the last. Lowercased and de-duplicated. */
 export function TagsInput({

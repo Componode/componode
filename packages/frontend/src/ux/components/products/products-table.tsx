@@ -12,7 +12,7 @@ import { Button } from "@/ux/components/ui/button"
 import { Card } from "@/ux/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { CRITICALITY_META, LIFECYCLE_META, PRODUCT_TYPE_META } from "@/ux/lib/domain"
-import type { Product } from "@/ux/lib/mock-data"
+import type { Product } from "@/ux/lib/view-types"
 
 const toOptions = (meta: Record<string, { label: string }>) => Object.entries(meta).map(([value, m]) => ({ value, label: m.label }))
 

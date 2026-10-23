@@ -21,28 +21,36 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ux/components/ui/tabs"
 import { ROLE_META, type Role } from "@/ux/lib/domain"
 import { formatDate, formatDateTime, initials } from "@/ux/lib/format"
-import type { AuditEvent, Session, User } from "@/ux/lib/mock-data"
+import { useUpdateUser } from "@/api/hooks/users"
+import { useRevokeSession } from "@/api/hooks/sessions"
+import { useResetPassword } from "@/api/hooks/password"
+import { flags } from "@/ux/lib/flags"
+import type { AuditEvent, Session, User } from "@/ux/lib/view-types"
 import { ux } from "@/ux/lib/paths"
 
 const TABS = ["overview", "sessions", "activity"]
 
 interface UserDetailProps {
-  initial: User
+  user: User
   sessions: Session[]
   events: AuditEvent[]
   isSelf: boolean
 }
 
-export function UserDetail({ initial, sessions: initialSessions, events, isSelf }: UserDetailProps) {
+export function UserDetail({ user, sessions, events, isSelf }: UserDetailProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
   const requestedTab = searchParams.get("tab")
   const tab = requestedTab && TABS.includes(requestedTab) ? requestedTab : "overview"
 
-  const [user, setUser] = React.useState(initial)
-  const [role, setRole] = React.useState<Role>(initial.role)
-  const [sessions, setSessions] = React.useState(initialSessions)
+  const updateUser = useUpdateUser()
+  const revokeSession = useRevokeSession()
+  const resetPassword = useResetPassword()
+  const [role, setRole] = React.useState<Role>(user.role)
+
+  // Re-sync the draft role when the live row changes.
+  React.useEffect(() => setRole(user.role), [user.role])
   const roleDirty = role !== user.role
 
   const setTab = (value: string) => navigate(`${pathname}?tab=${value}`, { replace: true })
@@ -55,7 +63,7 @@ export function UserDetail({ initial, sessions: initialSessions, events, isSelf 
             <AvatarFallback>{initials(user.displayName ?? user.username)}</AvatarFallback>
           </Avatar>
         }
-        title={user.displayName}
+        title={user.displayName ?? user.username}
         description={user.email}
         meta={
           <>
@@ -66,13 +74,27 @@ export function UserDetail({ initial, sessions: initialSessions, events, isSelf 
           </>
         }
         actions={
-          <Button
-            variant="outline"
-            onClick={() => toast.success("Password reset link sent", { description: "Prototype only. No email was sent." })}
-            disabled={!user.isActive}
-          >
-            Send password reset
-          </Button>
+          flags.passwordReset ? (
+            <Button
+              variant="outline"
+              disabled={!user.isActive || resetPassword.isPending}
+              onClick={() =>
+                resetPassword.mutate(
+                  { userId: user.id },
+                  {
+                    onSuccess: (r) =>
+                      toast.success("Reset link generated", {
+                        description: `Deliver this link to the user: /reset-password?token=${r.resetToken}`,
+                        duration: 30_000,
+                      }),
+                    onError: (e) => toast.error(e.message),
+                  },
+                )
+              }
+            >
+              Send password reset
+            </Button>
+          ) : null
         }
       />
 
@@ -141,11 +163,16 @@ export function UserDetail({ initial, sessions: initialSessions, events, isSelf 
                 Discard
               </Button>
               <Button
-                disabled={!roleDirty}
-                onClick={() => {
-                  setUser((u) => ({ ...u, role }))
-                  toast.success(`${user.displayName} is now ${ROLE_META[role].label}`)
-                }}
+                disabled={!roleDirty || updateUser.isPending}
+                onClick={() =>
+                  updateUser.mutate(
+                    { id: user.id, role },
+                    {
+                      onSuccess: () => toast.success(`${user.username} is now ${ROLE_META[role].label}`),
+                      onError: (e) => toast.error(e.message),
+                    },
+                  )
+                }
               >
                 Save role
               </Button>
@@ -195,10 +222,12 @@ export function UserDetail({ initial, sessions: initialSessions, events, isSelf 
                             title="Revoke this session?"
                             description={`${s.device} is signed out immediately.`}
                             confirmLabel="Revoke session"
-                            onConfirm={() => {
-                              setSessions((prev) => prev.filter((x) => x.id !== s.id))
-                              toast.success("Session revoked")
-                            }}
+                            onConfirm={() =>
+                              revokeSession.mutate(s.id, {
+                                onSuccess: () => toast.success("Session revoked"),
+                                onError: (e) => toast.error(e.message),
+                              })
+                            }
                           />
                         )}
                       </TableCell>
@@ -237,17 +266,18 @@ export function UserDetail({ initial, sessions: initialSessions, events, isSelf 
               ? "Ends every session and blocks sign-in. Their audit history is kept."
               : "Restores sign-in with the existing role.",
             buttonLabel: user.isActive ? "Deactivate" : "Reactivate",
-            confirmTitle: `${user.isActive ? "Deactivate" : "Reactivate"} ${user.displayName}?`,
+            confirmTitle: `${user.isActive ? "Deactivate" : "Reactivate"} ${user.displayName ?? user.username}?`,
             confirmDescription: user.isActive
               ? "They are signed out everywhere and cannot sign in until reactivated."
               : "They can sign in again with their previous role.",
             confirmLabel: user.isActive ? "Deactivate" : "Reactivate",
             blockedReason: isSelf ? "You cannot deactivate your own account." : undefined,
-            onConfirm: () => {
-              if (user.isActive) setSessions([])
-              setUser((u) => ({ ...u, isActive: !u.isActive }))
-            },
-            successMessage: user.isActive ? `${user.displayName} deactivated` : `${user.displayName} reactivated`,
+            onConfirm: () =>
+              updateUser.mutate(
+                { id: user.id, isActive: !user.isActive },
+                { onError: (e) => toast.error(e.message) },
+              ),
+            successMessage: user.isActive ? `${user.username} deactivated` : `${user.username} reactivated`,
           },
         ]}
       />

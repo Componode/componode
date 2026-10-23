@@ -24,20 +24,27 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { ROLE_META, type Role } from "@/ux/lib/domain"
 import { initials } from "@/ux/lib/format"
-import { currentUser, type User } from "@/ux/lib/mock-data"
+import { useUpdateUser } from "@/api/hooks/users"
+import { flags } from "@/ux/lib/flags"
+import { ux } from "@/ux/lib/paths"
+import type { User } from "@/ux/lib/view-types"
 
-export function UsersTable({ data }: { data: User[] }) {
-  const [rows, setRows] = React.useState(data)
+export function UsersTable({ data, selfId }: { data: User[]; selfId: string | null }) {
+  const updateUser = useUpdateUser()
   const [query, setQuery] = React.useState("")
   const [role, setRole] = React.useState("all")
 
-  const visible = rows.filter(
+  const visible = data.filter(
     (u) =>
       (role === "all" || u.role === role) &&
-      (query === "" || `${u.displayName} ${u.email} ${u.username}`.toLowerCase().includes(query.toLowerCase())),
+      (query === "" || `${u.displayName ?? ""} ${u.email ?? ""} ${u.username}`.toLowerCase().includes(query.toLowerCase())),
   )
 
-  const update = (id: string, patch: Partial<User>) => setRows((prev) => prev.map((u) => (u.id === id ? { ...u, ...patch } : u)))
+  const patch = (u: User, vars: { role?: Role; isActive?: boolean }, success: string) =>
+    updateUser.mutate(
+      { id: u.id, ...vars },
+      { onSuccess: () => toast.success(success), onError: (e) => toast.error(e.message) },
+    )
 
   return (
     <div className="flex flex-col gap-4">
@@ -46,7 +53,7 @@ export function UsersTable({ data }: { data: User[] }) {
         onQueryChange={setQuery}
         placeholder="Search name or email"
         resultCount={visible.length}
-        total={rows.length}
+        total={data.length}
         filters={[
           {
             id: "role",
@@ -77,7 +84,7 @@ export function UsersTable({ data }: { data: User[] }) {
           </TableHeader>
           <TableBody>
             {visible.map((u) => {
-              const isSelf = u.id === currentUser.id
+              const isSelf = u.id === selfId
               return (
                 <TableRow key={u.id}>
                   <TableCell className="pl-4">
@@ -87,8 +94,8 @@ export function UsersTable({ data }: { data: User[] }) {
                       </Avatar>
                       <div className="flex flex-col">
                         <span className="font-medium">
-                          <Link to={`/users/${u.id}`} className="hover:underline">
-                            {u.displayName}
+                          <Link to={ux(`/users/${u.id}`)} className="hover:underline">
+                            {u.displayName ?? u.username}
                           </Link>
                           {isSelf && <span className="ml-1.5 text-xs font-normal text-muted-foreground">(you)</span>}
                         </span>
@@ -116,10 +123,9 @@ export function UsersTable({ data }: { data: User[] }) {
                         <DropdownMenuLabel>Role</DropdownMenuLabel>
                         <DropdownMenuRadioGroup
                           value={u.role}
-                          onValueChange={(v) => {
-                            update(u.id, { role: v as Role })
-                            toast.success(`${u.displayName} is now ${ROLE_META[v as Role].label}`)
-                          }}
+                          onValueChange={(v) =>
+                            patch(u, { role: v as Role }, `${u.username} is now ${ROLE_META[v as Role].label}`)
+                          }
                         >
                           {(Object.keys(ROLE_META) as Role[]).map((r) => (
                             <DropdownMenuRadioItem key={r} value={r} disabled={isSelf}>
@@ -129,14 +135,13 @@ export function UsersTable({ data }: { data: User[] }) {
                         </DropdownMenuRadioGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
-                          <DropdownMenuItem onSelect={() => toast.success("Password reset link sent")}>Send password reset</DropdownMenuItem>
+                          {flags.passwordReset && <DropdownMenuItem>Send password reset</DropdownMenuItem>}
                           <DropdownMenuItem
                             variant="destructive"
                             disabled={isSelf}
-                            onSelect={() => {
-                              update(u.id, { isActive: !u.isActive })
-                              toast.success(u.isActive ? `${u.displayName} deactivated` : `${u.displayName} reactivated`)
-                            }}
+                            onSelect={() =>
+                              patch(u, { isActive: !u.isActive }, u.isActive ? `${u.username} deactivated` : `${u.username} reactivated`)
+                            }
                           >
                             {u.isActive ? "Deactivate" : "Reactivate"}
                           </DropdownMenuItem>

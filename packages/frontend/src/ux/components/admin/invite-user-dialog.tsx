@@ -16,6 +16,7 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/ux/components/ui/field"
 import { Input } from "@/ux/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/ux/components/ui/radio-group"
+import { useCreateUser } from "@/api/hooks/users"
 import { ROLE_META, type Role } from "@/ux/lib/domain"
 
 const ROLE_HELP: Record<Role, string> = {
@@ -27,12 +28,13 @@ const ROLE_HELP: Record<Role, string> = {
 /** Standard create-dialog pattern: ≤ 4 fields, primary action on the right, closes + toasts on success. */
 export function InviteUserDialog() {
   const [open, setOpen] = React.useState(false)
+  const createUser = useCreateUser()
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
           <UserPlusIcon data-icon="inline-start" />
-          Invite user
+          New user
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
@@ -40,19 +42,46 @@ export function InviteUserDialog() {
           className="flex flex-col gap-6"
           onSubmit={(e) => {
             e.preventDefault()
-            const email = new FormData(e.currentTarget).get("email")
-            setOpen(false)
-            toast.success(`Invitation sent to ${email}`)
+            const fd = new FormData(e.currentTarget)
+            createUser.mutate(
+              {
+                username: String(fd.get("username") ?? ""),
+                password: String(fd.get("password") ?? ""),
+                role: String(fd.get("role") ?? "VIEWER") as Role,
+                displayName: String(fd.get("displayName") ?? "") || undefined,
+                email: String(fd.get("email") ?? "") || undefined,
+              },
+              {
+                onSuccess: () => {
+                  setOpen(false)
+                  toast.success("User created")
+                },
+                onError: (err) => toast.error(err.message),
+              },
+            )
           }}
         >
           <DialogHeader>
-            <DialogTitle>Invite a user</DialogTitle>
-            <DialogDescription>They will receive an email with a link valid for 7 days.</DialogDescription>
+            <DialogTitle>Create a user</DialogTitle>
+            <DialogDescription>Set a temporary password — the user should change it after first sign-in.</DialogDescription>
           </DialogHeader>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="invite-email">Work email</FieldLabel>
-              <Input id="invite-email" name="email" type="email" required placeholder="name@company.com" autoComplete="off" />
+              <FieldLabel htmlFor="invite-username">Username</FieldLabel>
+              <Input id="invite-username" name="username" required placeholder="jdoe" autoComplete="off" pattern="[a-z0-9_-]+" />
+              <FieldDescription>Lowercase alphanumeric with _ or -.</FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="invite-name">Display name</FieldLabel>
+              <Input id="invite-name" name="displayName" placeholder="Jane Doe" autoComplete="off" />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="invite-email">Email</FieldLabel>
+              <Input id="invite-email" name="email" type="email" placeholder="name@company.com" autoComplete="off" />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="invite-password">Temporary password</FieldLabel>
+              <Input id="invite-password" name="password" type="password" required minLength={8} autoComplete="new-password" />
             </Field>
             <FieldSet>
               <FieldLegend variant="label">Role</FieldLegend>
@@ -75,7 +104,7 @@ export function InviteUserDialog() {
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit">Send invite</Button>
+            <Button type="submit" disabled={createUser.isPending}>Create user</Button>
           </DialogFooter>
         </form>
       </DialogContent>

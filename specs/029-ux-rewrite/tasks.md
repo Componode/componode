@@ -72,15 +72,15 @@
 
 **Independent test**: role change on another user OK, own role → 403 surfaced; AGENT_MANAGED credential sends refs only; team/LOB detail via filtered-list strategy.
 
-- [ ] T032 [P] [US4] Write failing mapper tests for `mapUser` (nullable displayName/email), `mapSession` (`current` derived, gap fields), `mapCredential` (masked `keyHints`, `usedBy`, expired rule), `mapAuditEvent` (unknown-union fallback) in `src/test/unit/mappers.test.ts`
-- [ ] T033 [P] [US4] Implement the admin mappers in `src/api/mappers/` until tests pass
-- [ ] T034 [US4] Port users list + `v0:components/admin/user-detail.tsx` → `/ux/users*` (overview/sessions/activity tabs): role PATCH (self → API 403 shown), deactivate/reactivate, revoke session; "Send password reset" behind `flags.passwordReset` + gap entry; confirm audit `actor` filter param vs backend (else gap entry)
-- [ ] T035 [US4] Port sessions list → `/ux/sessions`; device/location/owner columns behind flags + gap entries; `current` derived
-- [ ] T036 [US4] Port credentials list + `v0:components/admin/credential-detail.tsx` + `credential-form.tsx` → `/ux/credentials*`: masked `keyHints` only, test-connection, rotate form, revoke, delete-409; `AGENT_MANAGED` sends `{env|file}` refs never values; usage list uses `?credentialId=` when API exposes it (else flag + gap)
-- [ ] T037 [US4] Port teams/lobs lists + detail pages → `/ux/teams*`, `/ux/lobs*`: detail resolved via filtered-list strategy per contracts/wiring.md; edit/delete dialogs behind flags + gap entries (endpoints missing)
-- [ ] T038 [US4] Port settings section → `/ux/settings/*` (profile, appearance, authentication, security, session-policy, notifications, workspace, advanced) wired to `api/hooks/settings.ts`/`password.ts`
-- [ ] T039 [US4] Port `v0:components/auth/oidc-callback.tsx` replacing `packages/frontend/src/pages/oidc-callback.tsx` in place (backend redirects to the fixed path); render `?error=` states
-- [ ] T040 [US4] Port the prototype login screen replacing `src/pages/login.tsx` in place (drop the login stub; real session via existing auth hooks); remove `SessionProvider.setRole`, `generateEnrollmentToken()`, `<your-hub-host>` placeholders wherever ported
+- [x] T032 [P] [US4] Write failing mapper tests for `mapUser` (nullable displayName/email), `mapSession` (`current` derived, gap fields), `mapCredential` (masked `keyHints`, `usedBy`, expired rule), `mapAuditEvent` (unknown-union fallback) in `src/test/unit/mappers.test.ts`
+- [x] T033 [P] [US4] Implement the admin mappers in `src/api/mappers/` until tests pass
+- [x] T034 [US4] Port users list + `v0:components/admin/user-detail.tsx` → `/ux/users*` (overview/sessions/activity tabs): role PATCH (self → API 403 shown), deactivate/reactivate, revoke session; "Send password reset" behind `flags.passwordReset` + gap entry; confirm audit `actor` filter param vs backend (else gap entry)
+- [x] T035 [US4] Port sessions list → `/ux/sessions`; device/location/owner columns behind flags + gap entries; `current` derived
+- [x] T036 [US4] Port credentials list + `v0:components/admin/credential-detail.tsx` + `credential-form.tsx` → `/ux/credentials*`: masked `keyHints` only, test-connection, rotate form, revoke, delete-409; `AGENT_MANAGED` sends `{env|file}` refs never values; usage list uses `?credentialId=` when API exposes it (else flag + gap)
+- [x] T037 [US4] Port teams/lobs lists + detail pages → `/ux/teams*`, `/ux/lobs*`: detail resolved via filtered-list strategy per contracts/wiring.md; edit/delete dialogs behind flags + gap entries (endpoints missing)
+- [x] T038 [US4] Port settings section → `/ux/settings/*` (profile, appearance, authentication, security, session-policy, notifications, workspace, advanced) wired to `api/hooks/settings.ts`/`password.ts`
+- [x] T039 [US4] Port `v0:components/auth/oidc-callback.tsx` replacing `packages/frontend/src/pages/oidc-callback.tsx` in place (backend redirects to the fixed path); render `?error=` states
+- [x] T040 [US4] Port the prototype login screen replacing `src/pages/login.tsx` in place (drop the login stub; real session via existing auth hooks); remove `SessionProvider.setRole`, `generateEnrollmentToken()`, `<your-hub-host>` placeholders wherever ported
 
 ## Phase 7: [US5] Baseline & polish
 

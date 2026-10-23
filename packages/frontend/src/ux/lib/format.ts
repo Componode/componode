@@ -1,4 +1,3 @@
-import { NOW } from "@/ux/lib/mock-data"
 
 const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto", style: "short" })
 
@@ -13,7 +12,7 @@ const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
 ]
 
 /** Relative time against a fixed "now" so the prototype renders deterministically. */
-export function relativeTime(iso: string, now: Date = NOW): string {
+export function relativeTime(iso: string, now: Date = new Date()): string {
   const diff = (new Date(iso).getTime() - now.getTime()) / 1000
   for (const [unit, secs] of UNITS) {
     if (Math.abs(diff) >= secs || unit === "second") {

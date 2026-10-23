@@ -2,16 +2,13 @@
 import { HistoryIcon, KeyRoundIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
-import * as React from "react"
 import { toast } from "sonner"
-import { useSession } from "@/ux/components/app/session-context"
 import { ActivityFeed } from "@/ux/components/patterns/activity-feed"
-import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog"
 import { DangerZone } from "@/ux/components/patterns/danger-zone"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { DescriptionList, MonoValue, RelativeTime } from "@/ux/components/patterns/primitives"
 import { ProviderMark } from "@/ux/components/patterns/provider-mark"
-import { CredentialStatusBadge, RunStatusBadge, StatusBadge } from "@/ux/components/patterns/status-badge"
+import { CredentialStatusBadge, StatusBadge } from "@/ux/components/patterns/status-badge"
 import { EmptyState } from "@/ux/components/patterns/states"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Button } from "@/ux/components/ui/button"
@@ -21,33 +18,36 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ux/components/ui/tabs"
 import { PROVIDER_META } from "@/ux/lib/domain"
 import { formatDate } from "@/ux/lib/format"
-import type { AuditEvent, Credential, ImporterConfig } from "@/ux/lib/mock-data"
-import { NOW } from "@/ux/lib/mock-data"
+import { useRevokeCredential, useDeleteCredential, useTestCredential } from "@/api/hooks/credentials"
+import type { ImporterConfig } from "@/api/types"
+import type { AuditEvent, Credential } from "@/ux/lib/view-types"
 import { ux } from "@/ux/lib/paths"
 
 const TABS = ["overview", "usage", "activity"]
 
 interface CredentialDetailProps {
-  initial: Credential
+  credential: Credential
+  /** Bound importer configs (full rows — scope is needed for test connection). */
   importers: ImporterConfig[]
   events: AuditEvent[]
 }
 
 function daysUntil(iso: string | null): number | null {
   if (!iso) return null
-  return Math.ceil((new Date(iso).getTime() - NOW.getTime()) / 86_400_000)
+  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
 }
 
-export function CredentialDetail({ initial, importers, events }: CredentialDetailProps) {
+export function CredentialDetail({ credential, importers, events }: CredentialDetailProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
   const requestedTab = searchParams.get("tab")
   const tab = requestedTab && TABS.includes(requestedTab) ? requestedTab : "overview"
-  const { user } = useSession()
+  const test = useTestCredential(credential.id)
+  const revokeCred = useRevokeCredential()
+  const deleteCred = useDeleteCredential()
+  const firstImporter = importers[0]
 
-  const [credential, setCredential] = React.useState(initial)
-  const [testing, setTesting] = React.useState(false)
   const revoked = credential.status === "REVOKED"
   const days = daysUntil(credential.expiresAt)
   const expired = days !== null && days < 0
@@ -56,12 +56,17 @@ export function CredentialDetail({ initial, importers, events }: CredentialDetai
   const setTab = (value: string) => navigate(`${pathname}?tab=${value}`, { replace: true })
 
   const runTest = () => {
-    setTesting(true)
-    window.setTimeout(() => {
-      setTesting(false)
-      if (expired) toast.error("Connection failed: the credential has expired")
-      else toast.success("Connection succeeded", { description: "Simulated result. No request was made." })
-    }, 1200)
+    if (!firstImporter) return
+    test.mutate(
+      { importerName: firstImporter.importerName, scope: firstImporter.scope },
+      {
+        onSuccess: (r) => {
+          if (r.ok) toast.success("Connection succeeded", { description: r.agent ? `Tested on agent ${r.agent}` : undefined })
+          else toast.error(`Connection failed: ${r.error ?? "unknown error"}`)
+        },
+        onError: (e) => toast.error(e.message),
+      },
+    )
   }
 
   return (
@@ -79,20 +84,18 @@ export function CredentialDetail({ initial, importers, events }: CredentialDetai
         actions={
           !revoked && (
             <>
-              <Button variant="outline" onClick={runTest} disabled={testing}>
-                {testing && <Spinner data-icon="inline-start" />}
+              <Button
+                variant="outline"
+                onClick={runTest}
+                disabled={test.isPending || !firstImporter}
+                title={firstImporter ? `Tests using the ${firstImporter.label} importer` : "Attach an importer to test"}
+              >
+                {test.isPending && <Spinner data-icon="inline-start" />}
                 Test connection
               </Button>
-              <ConfirmDialog
-                trigger={<Button>Rotate secret</Button>}
-                title="Rotate secret?"
-                description={`Importers using ${credential.label} switch to the new secret on their next run.`}
-                confirmLabel="Rotate"
-                onConfirm={() => {
-                  setCredential((c) => ({ ...c, updatedBy: user.username }))
-                  toast.success(`${credential.label} rotated`, { description: "Prototype only. Nothing was saved." })
-                }}
-              />
+              <Button asChild>
+                <Link to={ux(`/credentials/${credential.id}/edit`)}>Rotate secret</Link>
+              </Button>
             </>
           )
         }
@@ -186,13 +189,13 @@ export function CredentialDetail({ initial, importers, events }: CredentialDetai
                   {importers.map((i) => (
                     <TableRow key={i.id}>
                       <TableCell className="pl-4">
-                        <Link to={`/importers/${i.id}`} className="font-medium hover:underline">
+                        <Link to={ux(`/importers/${i.id}`)} className="font-medium hover:underline">
                           {i.label}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{i.enabled ? i.scheduleLabel : "Disabled"}</TableCell>
-                      <TableCell className="pr-4">
-                        {i.lastRun ? <RunStatusBadge value={i.lastRun.status} /> : <span className="text-sm text-muted-foreground">Never run</span>}
+                      <TableCell className="text-sm text-muted-foreground">{i.enabled ? (i.schedule ?? "Manual") : "Disabled"}</TableCell>
+                      <TableCell className="pr-4 font-mono text-xs text-muted-foreground">
+                        {Object.keys(i.scope).slice(0, 3).join(", ") || "—"}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -235,7 +238,10 @@ export function CredentialDetail({ initial, importers, events }: CredentialDetai
                   confirmLabel: "Revoke credential",
                   typeToConfirm: credential.slug,
                   successMessage: `${credential.label} revoked`,
-                  onConfirm: () => setCredential((c) => ({ ...c, status: "REVOKED" as const, updatedBy: user.username })),
+                  onConfirm: () =>
+                    revokeCred.mutate(credential.id, {
+                      onError: (e) => toast.error(e.message),
+                    }),
                 },
               ]),
           {
@@ -253,7 +259,11 @@ export function CredentialDetail({ initial, importers, events }: CredentialDetai
                 ? `Detach it from the ${importers.length} importer${importers.length === 1 ? "" : "s"} using it before deleting.`
                 : undefined,
             successMessage: `${credential.label} deleted`,
-            redirectTo: "/credentials",
+            onConfirm: () =>
+              deleteCred.mutate(credential.id, {
+                onSuccess: () => navigate(ux("/credentials")),
+                onError: (e) => toast.error(e.message),
+              }),
           },
         ]}
       />

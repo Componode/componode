@@ -4,7 +4,7 @@ import { StatusBadge } from "@/ux/components/patterns/status-badge"
 import { EmptyState } from "@/ux/components/patterns/states"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
 import { formatNumber } from "@/ux/lib/format"
-import type { ImportAgent } from "@/ux/lib/mock-data"
+import type { ImportAgent } from "@/ux/lib/view-types"
 
 function formatUptime(seconds: number): string {
   const d = Math.floor(seconds / 86400)

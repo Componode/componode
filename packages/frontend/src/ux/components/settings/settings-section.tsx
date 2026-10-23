@@ -1,6 +1,5 @@
 
 import * as React from "react"
-import { toast } from "sonner"
 import { Button } from "@/ux/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ux/components/ui/card"
 import { Spinner } from "@/ux/components/ui/spinner"
@@ -10,8 +9,10 @@ interface SettingsSectionProps {
   title: string
   description?: React.ReactNode
   children: React.ReactNode
-  /** Omit for sections whose controls save instantly (toggles). */
-  onSave?: () => void
+  /** Called with the section's FormData; wire to a real mutation. Omit for instant-save toggles. */
+  onSave?: (formData: FormData) => void
+  /** Disables the submit button while the mutation is in flight. */
+  pending?: boolean
   saveLabel?: string
   footerNote?: React.ReactNode
   tone?: "default" | "destructive"
@@ -30,19 +31,14 @@ export function SettingsSection({
   saveLabel = "Save changes",
   footerNote,
   tone = "default",
+  pending = false,
 }: SettingsSectionProps) {
   const [dirty, setDirty] = React.useState(false)
-  const [saving, setSaving] = React.useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setSaving(true)
-    setTimeout(() => {
-      setSaving(false)
-      setDirty(false)
-      onSave?.()
-      toast.success(`${title} saved`)
-    }, 600)
+    onSave?.(new FormData(e.currentTarget))
+    setDirty(false)
   }
 
   return (
@@ -57,8 +53,8 @@ export function SettingsSection({
           <CardFooter className="justify-between gap-4 border-t">
             <p className="text-sm text-muted-foreground">{footerNote}</p>
             {onSave && (
-              <Button type="submit" disabled={!dirty || saving}>
-                {saving && <Spinner data-icon="inline-start" />}
+              <Button type="submit" disabled={!dirty || pending}>
+                {pending && <Spinner data-icon="inline-start" />}
                 {saveLabel}
               </Button>
             )}

@@ -369,3 +369,73 @@ describe("mapRunChange / mapRunError", () => {
     expect(view.assetExternalId).toBe("gh:componode");
   });
 });
+
+import { mapSession, mapUser } from "@/api/mappers/operations";
+import { mapActivityItem } from "@/api/mappers/dashboard";
+
+describe("mapUser", () => {
+  it("passes through nullable fields as null", () => {
+    const view = mapUser({
+      id: "u1",
+      username: "alice",
+      role: "EDITOR",
+      displayName: null,
+      email: null,
+      isActive: true,
+      createdAt: "2026-01-01T00:00:00Z",
+    } as never);
+    expect(view.displayName).toBeNull();
+    expect(view.email).toBeNull();
+    expect(view.role).toBe("EDITOR");
+    expect(view.lastActiveAt).toBeNull();
+  });
+
+  it("falls back to VIEWER on an unknown role", () => {
+    const view = mapUser({
+      id: "u2",
+      username: "bob",
+      role: "SUPERUSER",
+      displayName: "Bob",
+      email: "b@x.io",
+      isActive: false,
+      createdAt: "2026-01-01T00:00:00Z",
+    } as never);
+    expect(view.role).toBe("VIEWER");
+  });
+});
+
+describe("mapSession", () => {
+  it("maps timestamps; gap fields are placeholders", () => {
+    const view = mapSession(
+      {
+        id: "s1",
+        createdAt: "2026-01-01T00:00:00Z",
+        lastSeenAt: "2026-02-01T00:00:00Z",
+        expiresAt: "2026-03-01T00:00:00Z",
+      },
+      { username: "alice", displayName: "Alice A" },
+    );
+    expect(view.username).toBe("alice");
+    expect(view.displayName).toBe("Alice A");
+    expect(view.device).toBe("—");
+    expect(view.location).toBe("—");
+    expect(view.current).toBe(false);
+  });
+});
+
+describe("mapActivityItem fallback", () => {
+  it("unknown action/entityType fall back to other", () => {
+    const view = mapActivityItem({
+      kind: "entity",
+      id: "e9",
+      entityType: "mystery",
+      entityId: "x",
+      action: "teleported",
+      changes: null,
+      createdByName: "system",
+      createdAt: "2026-02-01T00:00:00Z",
+    } as never);
+    expect(view.action).toBe("other");
+    expect(view.entityKind).toBe("other");
+  });
+});

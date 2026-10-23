@@ -1,7 +1,6 @@
 
 import { KeyRoundIcon, RotateCwIcon } from "lucide-react"
 import { Link } from "react-router-dom"
-import * as React from "react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog"
 import { RelativeTime } from "@/ux/components/patterns/primitives"
@@ -11,20 +10,28 @@ import { CredentialStatusBadge, StatusBadge } from "@/ux/components/patterns/sta
 import { Button } from "@/ux/components/ui/button"
 import { Card } from "@/ux/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
-import { type Credential, NOW } from "@/ux/lib/mock-data"
+import { useRevokeCredential } from "@/api/hooks/credentials"
+import { ux } from "@/ux/lib/paths"
+import type { Credential } from "@/ux/lib/view-types"
 
 const DAY = 86_400_000
 
 function Expiry({ iso }: { iso: string | null }) {
   if (!iso) return <span className="text-muted-foreground">Never</span>
-  const days = Math.round((new Date(iso).getTime() - NOW.getTime()) / DAY)
+  const days = Math.round((new Date(iso).getTime() - Date.now()) / DAY)
   if (days < 0) return <StatusBadge tone="destructive" label="Expired" />
   if (days <= 30) return <StatusBadge tone="warning" label={`In ${days} days`} />
   return <RelativeTime iso={iso} className="text-muted-foreground" />
 }
 
 export function CredentialsTable({ data }: { data: Credential[] }) {
-  const [rows, setRows] = React.useState(data)
+  const rows = data
+  const revoke = useRevokeCredential()
+  const confirmRevoke = (c: Credential) =>
+    revoke.mutate(c.id, {
+      onSuccess: () => toast.success(`${c.label} revoked`),
+      onError: (e) => toast.error(e.message),
+    })
   if (rows.length === 0) {
     return (
       <Card className="py-0">
@@ -59,7 +66,7 @@ export function CredentialsTable({ data }: { data: Credential[] }) {
                 <div className="flex items-center gap-2.5">
                   <ProviderMark provider={c.provider} size="sm" />
                   <div className="flex flex-col">
-                    <Link to={`/credentials/${c.id}`} className="font-medium hover:underline">
+                    <Link to={ux(`/credentials/${c.id}`)} className="font-medium hover:underline">
                       {c.label}
                     </Link>
                     <code className="font-mono text-xs text-muted-foreground">{c.slug}</code>
@@ -82,9 +89,11 @@ export function CredentialsTable({ data }: { data: Credential[] }) {
               <TableCell className="pr-4">
                 {c.status === "ACTIVE" && (
                   <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => toast.success(`${c.label} rotated`)}>
-                      <RotateCwIcon data-icon="inline-start" />
-                      Rotate
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to={ux(`/credentials/${c.id}/edit`)}>
+                        <RotateCwIcon data-icon="inline-start" />
+                        Rotate
+                      </Link>
                     </Button>
                     <ConfirmDialog
                       trigger={
@@ -96,10 +105,7 @@ export function CredentialsTable({ data }: { data: Credential[] }) {
                       description={`${c.usedBy} importer${c.usedBy === 1 ? "" : "s"} will fail on their next run until you assign a new credential.`}
                       confirmLabel="Revoke credential"
                       typeToConfirm={c.slug}
-                      onConfirm={() => {
-                        setRows((prev) => prev.map((x) => (x.id === c.id ? { ...x, status: "REVOKED" } : x)))
-                        toast.success(`${c.label} revoked`)
-                      }}
+                      onConfirm={() => confirmRevoke(c)}
                     />
                   </div>
                 )}

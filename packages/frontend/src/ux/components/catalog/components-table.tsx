@@ -9,7 +9,7 @@ import { HealthBadge, LifecycleBadge } from "@/ux/components/patterns/status-bad
 import { Card } from "@/ux/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { CATEGORY_LABELS, PROVIDER_META, type InstanceStatus } from "@/ux/lib/domain"
-import type { Component } from "@/ux/lib/mock-data"
+import type { Component } from "@/ux/lib/view-types"
 
 const PRIORITY: InstanceStatus[] = ["ERROR", "STOPPED", "RUNNING", "GONE"]
 const worstStatus = (c: Component) => PRIORITY.find((s) => c.instances.some((i) => i.status === s)) ?? null

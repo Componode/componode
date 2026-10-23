@@ -9,7 +9,10 @@ import { Input } from "@/ux/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/ux/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select"
 import { Textarea } from "@/ux/components/ui/textarea"
+import { useCreateCredential, useUpdateCredential } from "@/api/hooks/credentials"
 import { PROVIDER_META, type Provider } from "@/ux/lib/domain"
+import { ux } from "@/ux/lib/paths"
+import type { SecretRefMap } from "@/api/types"
 
 type Kind = "STORED" | "AGENT_MANAGED"
 
@@ -55,15 +58,24 @@ const PROVIDERS: Provider[] = ["AWS", "GITHUB", "AZURE", "GOOGLE_CLOUD", "ALIBAB
 
 const REF_NAME = /^[A-Z][A-Z0-9_]*$|^[a-zA-Z0-9._/-]+$/
 
-export function CredentialForm() {
+interface CredentialFormProps {
+  /** "rotate" re-keys an existing credential (PATCH secrets only). */
+  mode?: "create" | "rotate"
+  credential?: { id: string; label: string; kind: Kind }
+}
+
+export function CredentialForm({ mode = "create", credential }: CredentialFormProps) {
   const navigate = useNavigate()
+  const createCred = useCreateCredential()
+  const updateCred = useUpdateCredential(credential?.id ?? "")
   const [label, setLabel] = React.useState("")
   const [provider, setProvider] = React.useState<Provider>("AWS")
-  const [kind, setKind] = React.useState<Kind>("STORED")
+  const [kind, setKind] = React.useState<Kind>(credential?.kind ?? "STORED")
   const [values, setValues] = React.useState<Record<string, string>>({})
   const [expiresAt, setExpiresAt] = React.useState("")
   const [errors, setErrors] = React.useState<Record<string, string>>({})
-  const [pending, setPending] = React.useState(false)
+  const pending = createCred.isPending || updateCred.isPending
+  const rotating = mode === "rotate" && credential !== undefined
 
   const fields = SECRET_FIELDS[provider] ?? FALLBACK_FIELDS
   const setValue = (key: string, v: string) => setValues((prev) => ({ ...prev, [key]: v }))
@@ -71,30 +83,61 @@ export function CredentialForm() {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const next: Record<string, string> = {}
-    if (!label.trim()) next.label = "Label is required."
+    if (!rotating && !label.trim()) next.label = "Label is required."
     for (const f of fields) {
       const v = (values[f.key] ?? "").trim()
       if (!v) next[f.key] = kind === "STORED" ? `${f.label} is required.` : "Reference name is required."
       else if (kind === "AGENT_MANAGED" && !REF_NAME.test(v)) next[f.key] = "Use an environment variable name or a file path without spaces."
     }
-    if (expiresAt && new Date(expiresAt).getTime() < Date.now()) next.expiresAt = "The expiry date is in the past."
+    if (!rotating && expiresAt && new Date(expiresAt).getTime() < Date.now()) next.expiresAt = "The expiry date is in the past."
     setErrors(next)
     if (Object.keys(next).length) return
-    setPending(true)
-    // Simulated save. Wire to POST /credentials (see /standards/wiring). Never log or echo secret values.
-    setTimeout(() => {
-      toast.success("Credential created (simulated)")
-      navigate("/credentials")
-    }, 600)
+
+    // Never log or echo secret values — send them straight to the API.
+    // AGENT_MANAGED sends references ({env}|{file}), never the values themselves.
+    const secrets = Object.fromEntries(fields.map((f) => [f.key, (values[f.key] ?? "").trim()]))
+    const secretRefMap: SecretRefMap = Object.fromEntries(
+      fields.map((f) => {
+        const v = (values[f.key] ?? "").trim()
+        return [f.key, /^[A-Z][A-Z0-9_]*$/.test(v) ? { env: v } : { file: v }]
+      }),
+    )
+    const body =
+      kind === "AGENT_MANAGED" ? { kind, secretRefMap } : { kind, secrets }
+
+    const onSuccess = () => {
+      toast.success(rotating ? `${credential.label} rotated` : "Credential created")
+      navigate(ux(rotating ? `/credentials/${credential.id}` : "/credentials"))
+    }
+    const onError = (e: Error) => toast.error(e.message)
+
+    if (rotating) {
+      updateCred.mutate(body, { onSuccess, onError })
+    } else {
+      createCred.mutate(
+        { label: label.trim(), expiresAt: expiresAt || null, ...body },
+        { onSuccess, onError },
+      )
+    }
   }
 
   return (
     <PageContainer width="narrow">
       <PageHeader
-        title="New credential"
-        description="Credentials let importers read from a provider. Secret values are write-only: after saving, only masked hints are shown."
+        title={rotating ? `Rotate ${credential.label}` : "New credential"}
+        description={
+          rotating
+            ? "Replace the secret values. Importers using this credential pick up the new values on their next run."
+            : "Credentials let importers read from a provider. Secret values are write-only: after saving, only masked hints are shown."
+        }
       />
-      <FormPage onSubmit={handleSubmit} cancelHref="/credentials" submitLabel="Create credential" pending={pending}>
+      <FormPage
+        onSubmit={handleSubmit}
+        cancelHref={ux(rotating ? `/credentials/${credential.id}` : "/credentials")}
+        submitLabel={rotating ? "Rotate secret" : "Create credential"}
+        pending={pending}
+      >
+        {!rotating && (
         <FormSection title="Details">
           <FieldGroup>
             <Field data-invalid={errors.label ? true : undefined}>
@@ -137,7 +180,9 @@ export function CredentialForm() {
             </Field>
           </FieldGroup>
         </FormSection>
+        )}
 
+        {!rotating && (
         <FormSection title="Where the secret lives">
           <RadioGroup value={kind} onValueChange={(v) => { setKind(v as Kind); setValues({}); setErrors({}) }} className="gap-3">
             {(Object.keys(KIND_META) as Kind[]).map((k) => (
@@ -151,6 +196,7 @@ export function CredentialForm() {
             ))}
           </RadioGroup>
         </FormSection>
+        )}
 
         <FormSection
           title={kind === "STORED" ? `${PROVIDER_META[provider].label} secret values` : "Agent references"}

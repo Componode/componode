@@ -1,0 +1,79 @@
+import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
+import { OrgDetail } from "@/ux/components/org/org-detail";
+import { PageContainer } from "@/ux/components/patterns/page-header";
+import { ErrorState, NotFoundState } from "@/ux/components/patterns/states";
+import { Skeleton } from "@/ux/components/ui/skeleton";
+import { useLobs, useUpdateLob, useDeleteLob } from "@/api/hooks/org";
+import { useProducts } from "@/api/hooks/products";
+import { mapProduct } from "@/api/mappers/catalog";
+import { errorMessage } from "@/ux/lib/api-state";
+import { ux } from "@/ux/lib/paths";
+
+/** No detail GET — the LOB resolves through the list (wiring contract). */
+export function UxLobDetailPage() {
+  const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+  const lobs = useLobs();
+  const lob = lobs.data?.lobs?.find((l) => l.slug === slug);
+  const updateLob = useUpdateLob();
+  const deleteLob = useDeleteLob();
+  const products = useProducts({ includeRetired: true });
+
+  if (lobs.isPending) {
+    return (
+      <PageContainer>
+        <Skeleton className="h-10 w-72" />
+        <Skeleton className="h-64 w-full" />
+      </PageContainer>
+    );
+  }
+  if (lobs.error) {
+    return (
+      <PageContainer>
+        <ErrorState description={errorMessage(lobs.error)} onRetry={() => void lobs.refetch()} />
+      </PageContainer>
+    );
+  }
+  if (!lob) {
+    return (
+      <PageContainer>
+        <NotFoundState backHref={ux("/lobs")} backLabel="All lines of business" />
+      </PageContainer>
+    );
+  }
+
+  const ownedProducts = (products.data?.products ?? []).filter((p) => p.lobOwnerId === lob.id).map((p) => mapProduct(p));
+
+  return (
+    <OrgDetail
+      noun="line of business"
+      icon="lob"
+      entity={lob}
+      stats={[
+        { label: "Products", value: ownedProducts.length },
+        { label: "Teams", value: "—" },
+        { label: "Slug", value: <code className="font-mono text-xs">{lob.slug}</code> },
+      ]}
+      ownedProducts={ownedProducts}
+      ownedComponents={[]}
+      ownedTotal={ownedProducts.length}
+      editPending={updateLob.isPending}
+      onEdit={({ name, slug: s, description }) =>
+        updateLob.mutate(
+          { id: lob.id, name, slug: s, description },
+          {
+            onSuccess: () => toast.success("Line of business updated"),
+            onError: (e) => toast.error(e.message),
+          },
+        )
+      }
+      onDelete={() =>
+        deleteLob.mutate(lob.id, {
+          onSuccess: () => navigate(ux("/lobs")),
+          onError: (e) => toast.error(e.message),
+        })
+      }
+    />
+  );
+}

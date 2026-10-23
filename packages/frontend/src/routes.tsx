@@ -40,6 +40,26 @@ import { UxComponentGroupDetailPage } from "@/ux/app/component-groups/$slug";
 import { UxSuggestionsPage } from "@/ux/app/suggestions";
 import { UxActivityPage } from "@/ux/app/activity";
 import { UxStandardsPage } from "@/ux/app/standards/index";
+import { UxUsersPage } from "@/ux/app/users";
+import { UxUserDetailPage } from "@/ux/app/users/$id";
+import { UxSessionsPage } from "@/ux/app/sessions";
+import { UxCredentialsPage } from "@/ux/app/credentials";
+import { UxCredentialDetailPage } from "@/ux/app/credentials/$id";
+import { UxCredentialNewPage } from "@/ux/app/credentials/new";
+import { UxCredentialEditPage } from "@/ux/app/credentials/$id.edit";
+import { UxTeamsPage } from "@/ux/app/teams";
+import { UxTeamDetailPage } from "@/ux/app/teams/$slug";
+import { UxLobsPage } from "@/ux/app/lobs";
+import { UxLobDetailPage } from "@/ux/app/lobs/$slug";
+import { SettingsShell } from "@/ux/components/settings/settings-shell";
+import { UxSettingsProfilePage } from "@/ux/app/settings/profile";
+import { UxSettingsAppearancePage } from "@/ux/app/settings/appearance";
+import { UxSettingsSecurityPage } from "@/ux/app/settings/security";
+import { UxSettingsNotificationsPage } from "@/ux/app/settings/notifications";
+import { UxSettingsWorkspacePage } from "@/ux/app/settings/workspace";
+import { UxSettingsAuthenticationPage } from "@/ux/app/settings/authentication";
+import { UxSettingsSessionPolicyPage } from "@/ux/app/settings/session-policy";
+import { UxSettingsAdvancedPage } from "@/ux/app/settings/advanced";
 import { UxWiringPage } from "@/ux/app/standards/wiring";
 import { UxImportersPage } from "@/ux/app/importers/index";
 import { UxImporterDetailPage } from "@/ux/app/importers/$id";
@@ -112,7 +132,29 @@ export const routes: RouteObject[] = [
       { path: "importers/:id/runs/:runId", element: authed(<UxRunDetailPage />) },
       { path: "agents", element: authed(<UxAgentsPage />, "ADMIN") },
       { path: "agents/:id", element: authed(<UxAgentDetailPage />, "ADMIN") },
+      { path: "users", element: authed(<UxUsersPage />, "ADMIN") },
+      { path: "users/:id", element: authed(<UxUserDetailPage />, "ADMIN") },
+      { path: "sessions", element: authed(<UxSessionsPage />) },
+      { path: "credentials", element: authed(<UxCredentialsPage />, "ADMIN") },
+      { path: "credentials/new", element: authed(<UxCredentialNewPage />, "ADMIN") },
+      { path: "credentials/:id", element: authed(<UxCredentialDetailPage />, "ADMIN") },
+      { path: "credentials/:id/edit", element: authed(<UxCredentialEditPage />, "ADMIN") },
+      { path: "teams", element: authed(<UxTeamsPage />) },
+      { path: "teams/:slug", element: authed(<UxTeamDetailPage />) },
+      { path: "lobs", element: authed(<UxLobsPage />) },
+      { path: "lobs/:slug", element: authed(<UxLobDetailPage />) },
       { path: "activity", element: authed(<UxActivityPage />, "ADMIN") },
+      { path: "settings", element: authed(<SettingsShell />), children: [
+        { index: true, element: <Navigate to="/ux/settings/profile" replace /> },
+        { path: "profile", element: authed(<UxSettingsProfilePage />) },
+        { path: "appearance", element: authed(<UxSettingsAppearancePage />) },
+        { path: "security", element: authed(<UxSettingsSecurityPage />) },
+        { path: "notifications", element: authed(<UxSettingsNotificationsPage />) },
+        { path: "workspace", element: authed(<UxSettingsWorkspacePage />, "ADMIN") },
+        { path: "authentication", element: authed(<UxSettingsAuthenticationPage />, "ADMIN") },
+        { path: "session-policy", element: authed(<UxSettingsSessionPolicyPage />, "ADMIN") },
+        { path: "advanced", element: authed(<UxSettingsAdvancedPage />, "ADMIN") },
+      ] },
       { path: "standards", element: authed(<UxStandardsPage />) },
       { path: "standards/wiring", element: authed(<UxWiringPage />) },
       { path: "design-system", element: <Navigate to="/ux/standards" replace /> },

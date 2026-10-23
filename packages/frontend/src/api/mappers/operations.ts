@@ -224,3 +224,88 @@ export function mapRunError(e: ImportRunError): RunError {
 export function mapCredentialStatus(status: string | null | undefined): CredentialStatus {
   return narrow<CredentialStatus>(status, ["ACTIVE", "REVOKED"], "ACTIVE");
 }
+
+const ROLES: readonly string[] = ["VIEWER", "EDITOR", "ADMIN"];
+
+/** API User → view. `lastActiveAt` is not exposed by the API yet (null). */
+export function mapUser(u: {
+  id: string;
+  username: string;
+  role: string;
+  displayName: string | null;
+  email: string | null;
+  isActive: boolean;
+  createdAt: string;
+}): import("@/ux/lib/view-types").User {
+  return {
+    id: u.id,
+    username: u.username,
+    displayName: u.displayName,
+    email: u.email,
+    role: narrow(u.role, ROLES, "VIEWER"),
+    isActive: u.isActive,
+    lastActiveAt: null,
+    createdAt: u.createdAt,
+  };
+}
+
+/**
+ * API Session → view. The API lists the caller's own sessions (or a user's,
+ * for admins) — `username`/`displayName` come from the page context.
+ * device/location are gap G2 placeholders; `current` is not derivable from
+ * the API row (noted under G2).
+ */
+export function mapSession(
+  s: {
+    id: string;
+    createdAt: string;
+    lastSeenAt: string;
+    expiresAt: string;
+  },
+  owner: { username: string; displayName: string },
+): import("@/ux/lib/view-types").Session {
+  return {
+    id: s.id,
+    username: owner.username,
+    displayName: owner.displayName,
+    device: "—",
+    location: "—",
+    createdAt: s.createdAt,
+    lastSeenAt: s.lastSeenAt,
+    expiresAt: s.expiresAt,
+    current: false,
+  };
+}
+
+/**
+ * Credential → view. `keyHints` are already masked/non-reversible server-side
+ * (ADR-107) — mapped verbatim, never raw values. `usedBy` comes from the
+ * detail endpoint's dependents; list rows pass 0 until then.
+ */
+export function mapCredential(
+  c: {
+    id: string;
+    slug: string;
+    label: string;
+    status: string;
+    kind: string;
+    keyHints: Record<string, string>;
+    expiresAt: string | null;
+    lastUsedAt: string | null;
+    updatedBy?: string | null;
+  },
+  usedBy = 0,
+): import("@/ux/lib/view-types").Credential {
+  return {
+    id: c.id,
+    slug: c.slug,
+    label: c.label,
+    provider: "OTHER",
+    status: mapCredentialStatus(c.status),
+    keyHints: c.keyHints ?? {},
+    expiresAt: c.expiresAt,
+    lastUsedAt: c.lastUsedAt,
+    usedBy,
+    updatedBy: c.updatedBy ?? "—",
+  };
+}
