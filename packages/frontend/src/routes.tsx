@@ -1,4 +1,4 @@
-import { type RouteObject } from "react-router-dom";
+import { Navigate, type RouteObject } from "react-router-dom";
 import { AuthGuard } from "@/components/layout/auth-guard";
 import { AppShell } from "@/components/layout/app-shell";
 import { LoginPage } from "@/pages/login";
@@ -23,6 +23,18 @@ import { AgentsPage } from "@/pages/agents";
 import { AgentDetailPage } from "@/pages/agent-detail";
 import { ActivityPage } from "@/pages/activity";
 import { NotFoundPage } from "@/pages/not-found";
+import { UxShell } from "@/ux/ux-shell";
+import { UxIndexPage } from "@/ux/app/index";
+import { UxProductsPage } from "@/ux/app/products/index";
+import { UxProductDetailPage } from "@/ux/app/products/$slug";
+import { UxComponentsPage } from "@/ux/app/components/index";
+import { UxComponentDetailPage } from "@/ux/app/components/$slug";
+import { UxComponentGroupsPage } from "@/ux/app/component-groups/index";
+import { UxComponentGroupDetailPage } from "@/ux/app/component-groups/$slug";
+import { UxSuggestionsPage } from "@/ux/app/suggestions";
+import { UxActivityPage } from "@/ux/app/activity";
+import { UxStandardsPage } from "@/ux/app/standards/index";
+import { UxWiringPage } from "@/ux/app/standards/wiring";
 
 // Auth pages render outside the shell (no sidebar/top bar/palette).
 const authed = (element: React.ReactNode, requiredRole?: string) => (
@@ -59,6 +71,25 @@ export const routes: RouteObject[] = [
       { path: "agents/:id", element: authed(<AgentDetailPage />, "ADMIN") },
       { path: "activity", element: authed(<ActivityPage />, "ADMIN") },
       { path: "*", element: authed(<NotFoundPage />) },
+    ],
+  },
+  // Staged v1.1.0 UX (spec 029) — parallel tree, deleted at cutover.
+  {
+    path: "/ux",
+    element: <UxShell />,
+    children: [
+      { index: true, element: authed(<UxIndexPage />) },
+      { path: "products", element: authed(<UxProductsPage />) },
+      { path: "products/:slug", element: authed(<UxProductDetailPage />) },
+      { path: "components", element: authed(<UxComponentsPage />) },
+      { path: "components/:slug", element: authed(<UxComponentDetailPage />) },
+      { path: "component-groups", element: authed(<UxComponentGroupsPage />) },
+      { path: "component-groups/:slug", element: authed(<UxComponentGroupDetailPage />) },
+      { path: "suggestions", element: authed(<UxSuggestionsPage />) },
+      { path: "activity", element: authed(<UxActivityPage />, "ADMIN") },
+      { path: "standards", element: authed(<UxStandardsPage />) },
+      { path: "standards/wiring", element: authed(<UxWiringPage />) },
+      { path: "design-system", element: <Navigate to="/ux/standards" replace /> },
     ],
   },
 ];

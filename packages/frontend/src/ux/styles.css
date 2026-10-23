@@ -1,0 +1,131 @@
+/*
+ * Staged v1.1.0 UX tokens (spec 029) — ported from the v0 prototype's
+ * app/globals.css. Values are scoped under .ux-root so the existing UI's
+ * theme is untouched until cutover. New token *names* are registered
+ * globally in @theme so the utilities exist; they only resolve to values
+ * inside .ux-root. Never use raw palette classes in product code.
+ */
+@import "tw-animate-css";
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+.ux-root {
+  color-scheme: light;
+  --canvas: oklch(0.984 0.003 247.86);
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.208 0.042 265.755);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.208 0.042 265.755);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.208 0.042 265.755);
+  --color-primary: oklch(0.508 0.118 165.612);
+  --color-primary-foreground: oklch(0.985 0.01 165);
+  --color-secondary: oklch(0.968 0.007 247.896);
+  --color-secondary-foreground: oklch(0.279 0.041 260.031);
+  --color-muted: oklch(0.968 0.007 247.896);
+  --color-muted-foreground: oklch(0.505 0.03 257.417);
+  --color-accent: oklch(0.955 0.02 170);
+  --color-accent-foreground: oklch(0.378 0.077 168.94);
+  --color-destructive: oklch(0.577 0.215 27.325);
+  --color-destructive-foreground: oklch(0.985 0 0);
+  --color-success: oklch(0.596 0.145 150.5);
+  --color-success-foreground: oklch(0.985 0 0);
+  --color-warning: oklch(0.666 0.157 58.318);
+  --color-warning-foreground: oklch(0.985 0 0);
+  --info: oklch(0.546 0.17 258);
+  --info-foreground: oklch(0.985 0 0);
+  --color-border: oklch(0.922 0.009 255);
+  --color-input: oklch(0.89 0.011 255);
+  --color-ring: oklch(0.596 0.127 163.225);
+  --chart-1: oklch(0.596 0.127 163.225);
+  --chart-2: oklch(0.546 0.17 258);
+  --chart-3: oklch(0.666 0.157 58.318);
+  --chart-4: oklch(0.585 0.18 300);
+  --chart-5: oklch(0.704 0.04 256.788);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.984 0.003 247.86);
+  --sidebar-foreground: oklch(0.372 0.044 257.287);
+  --sidebar-primary: oklch(0.508 0.118 165.612);
+  --sidebar-primary-foreground: oklch(0.985 0.01 165);
+  --sidebar-accent: oklch(0.94 0.008 255);
+  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
+  --sidebar-border: oklch(0.922 0.009 255);
+  --sidebar-ring: oklch(0.596 0.127 163.225);
+
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+}
+
+.dark .ux-root {
+  color-scheme: dark;
+  --canvas: oklch(0.17 0.02 264);
+  --color-background: oklch(0.17 0.02 264);
+  --color-foreground: oklch(0.968 0.007 247.896);
+  --color-card: oklch(0.205 0.024 264);
+  --color-card-foreground: oklch(0.968 0.007 247.896);
+  --color-popover: oklch(0.22 0.026 264);
+  --color-popover-foreground: oklch(0.968 0.007 247.896);
+  --color-primary: oklch(0.765 0.157 163.223);
+  --color-primary-foreground: oklch(0.2 0.04 166);
+  --color-secondary: oklch(0.26 0.028 264);
+  --color-secondary-foreground: oklch(0.968 0.007 247.896);
+  --color-muted: oklch(0.26 0.028 264);
+  --color-muted-foreground: oklch(0.72 0.03 257);
+  --color-accent: oklch(0.29 0.045 170);
+  --color-accent-foreground: oklch(0.86 0.12 165);
+  --color-destructive: oklch(0.704 0.191 22.216);
+  --color-destructive-foreground: oklch(0.2 0.04 25);
+  --color-success: oklch(0.765 0.16 150);
+  --color-success-foreground: oklch(0.2 0.04 150);
+  --color-warning: oklch(0.82 0.15 75);
+  --color-warning-foreground: oklch(0.25 0.05 60);
+  --info: oklch(0.72 0.14 255);
+  --info-foreground: oklch(0.2 0.04 260);
+  --color-border: oklch(1 0 0 / 9%);
+  --color-input: oklch(1 0 0 / 14%);
+  --color-ring: oklch(0.765 0.157 163.223);
+  --chart-1: oklch(0.765 0.157 163.223);
+  --chart-2: oklch(0.72 0.14 255);
+  --chart-3: oklch(0.82 0.15 75);
+  --chart-4: oklch(0.72 0.16 300);
+  --chart-5: oklch(0.55 0.03 257);
+  --sidebar: oklch(0.15 0.018 264);
+  --sidebar-foreground: oklch(0.8 0.02 257);
+  --sidebar-primary: oklch(0.765 0.157 163.223);
+  --sidebar-primary-foreground: oklch(0.2 0.04 166);
+  --sidebar-accent: oklch(0.24 0.026 264);
+  --sidebar-accent-foreground: oklch(0.968 0.007 247.896);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.765 0.157 163.223);
+}
+
+/* Tabular figures for numbers in tables, stats and badges. */
+.ux-root .tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--color-border) 70%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--color-border) 70%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+}
