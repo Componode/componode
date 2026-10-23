@@ -11,30 +11,28 @@ import { Button } from "@/ux/components/ui/button"
 import { Field, FieldDescription, FieldLabel } from "@/ux/components/ui/field"
 import { Input } from "@/ux/components/ui/input"
 import { Spinner } from "@/ux/components/ui/spinner"
+import { useBootstrapProducts } from "@/api/hooks/products"
 import { ux } from "@/ux/lib/paths"
 
-interface Report {
-  created: number
-  updated: number
-  edgesAdded: number
-  skipped: { name: string; reason: string }[]
-}
+import type { BootstrapReport } from "@componode/core"
+type Report = BootstrapReport
 
 const MAX_BYTES = 1024 * 1024
 
 /**
- * Catalog bootstrap (dry run, then apply). The prototype derives a report from the file
- * size; the real flow posts the file with dryRun=true, shows the report, then posts again to apply.
+ * Catalog bootstrap (dry run, then apply). Selecting a file posts it to
+ * `POST /products/bootstrap?dryRun=true`; apply posts again without dryRun
+ * (ADR-114).
  */
 export function ImportProducts() {
   const navigate = useNavigate()
+  const bootstrap = useBootstrapProducts()
   const [file, setFile] = React.useState<File | null>(null)
   const [fileError, setFileError] = React.useState<string | null>(null)
   const [preview, setPreview] = React.useState<Report | null>(null)
-  const [previewing, setPreviewing] = React.useState(false)
-  const [applying, setApplying] = React.useState(false)
+  const previewing = bootstrap.isPending && !preview
 
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const next = e.target.files?.[0] ?? null
     setPreview(null)
     setFileError(null)
@@ -53,27 +51,33 @@ export function ImportProducts() {
       return
     }
     setFile(next)
-    setPreviewing(true)
-    setTimeout(() => {
-      const total = Math.max(2, Math.min(40, Math.round(next.size / 180)))
-      const skipped = total > 4 ? [{ name: "legacy-billing", reason: "Missing required field: name" }] : []
-      setPreview({
-        created: Math.ceil((total - skipped.length) / 2),
-        updated: Math.floor((total - skipped.length) / 2),
-        edgesAdded: total * 2,
-        skipped,
-      })
-      setPreviewing(false)
-    }, 700)
+    try {
+      const report = await bootstrap.mutateAsync({ document: await next.text(), dryRun: true })
+      setPreview(report)
+    } catch (err) {
+      setFileError(err instanceof Error ? err.message : "Could not validate the file.")
+      setFile(null)
+    }
   }
 
   function apply() {
-    setApplying(true)
-    setTimeout(() => {
-      toast.success("Catalog imported (simulated)")
-      navigate("/products")
-    }, 800)
+    if (!file) return
+    void file.text().then((document) =>
+      bootstrap.mutate(
+        { document, dryRun: false },
+        {
+          onSuccess: (report) => {
+            toast.success(
+              `Imported ${report.created + report.updated} products (${report.created} created, ${report.updated} updated, ${report.edgesAdded} links)`,
+            )
+            navigate(ux("/products"))
+          },
+          onError: (err) => toast.error(err.message),
+        },
+      ),
+    )
   }
+  const applying = bootstrap.isPending && Boolean(preview)
 
   return (
     <PageContainer width="narrow">
@@ -107,8 +111,8 @@ export function ImportProducts() {
                 <AlertDescription>
                   <ul className="flex flex-col gap-1">
                     {preview.skipped.map((s) => (
-                      <li key={s.name}>
-                        <span className="font-mono text-xs">{s.name}</span>: {s.reason}
+                      <li key={s.item}>
+                        <span className="font-mono text-xs">{s.item}</span>: {s.reason}
                       </li>
                     ))}
                   </ul>

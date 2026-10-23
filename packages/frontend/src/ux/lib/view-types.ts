@@ -34,7 +34,9 @@ export interface Product {
   status: HealthStatus | null;
   criticality: Criticality | null;
   description: string | null;
+  lobOwnerId?: string | null;
   lobOwnerName: string | null;
+  teamOwnerId?: string | null;
   teamOwnerName: string | null;
   tags: string[];
   links: Link[];

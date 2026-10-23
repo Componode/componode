@@ -27,8 +27,14 @@ import { UxShell } from "@/ux/ux-shell";
 import { UxIndexPage } from "@/ux/app/index";
 import { UxProductsPage } from "@/ux/app/products/index";
 import { UxProductDetailPage } from "@/ux/app/products/$slug";
+import { UxProductNewPage } from "@/ux/app/products/new";
+import { UxProductImportPage } from "@/ux/app/products/import";
+import { UxProductEditPage } from "@/ux/app/products/$slug.edit";
+import { UxProductHistoryPage } from "@/ux/app/products/$slug.history";
 import { UxComponentsPage } from "@/ux/app/components/index";
 import { UxComponentDetailPage } from "@/ux/app/components/$slug";
+import { UxComponentPromotePage } from "@/ux/app/components/$slug.promote";
+import { UxComponentHistoryPage } from "@/ux/app/components/$slug.history";
 import { UxComponentGroupsPage } from "@/ux/app/component-groups/index";
 import { UxComponentGroupDetailPage } from "@/ux/app/component-groups/$slug";
 import { UxSuggestionsPage } from "@/ux/app/suggestions";
@@ -80,9 +86,15 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: authed(<UxIndexPage />) },
       { path: "products", element: authed(<UxProductsPage />) },
+      { path: "products/new", element: authed(<UxProductNewPage />) },
+      { path: "products/import", element: authed(<UxProductImportPage />) },
       { path: "products/:slug", element: authed(<UxProductDetailPage />) },
+      { path: "products/:slug/edit", element: authed(<UxProductEditPage />) },
+      { path: "products/:slug/history", element: authed(<UxProductHistoryPage />) },
       { path: "components", element: authed(<UxComponentsPage />) },
       { path: "components/:slug", element: authed(<UxComponentDetailPage />) },
+      { path: "components/:slug/promote", element: authed(<UxComponentPromotePage />) },
+      { path: "components/:slug/history", element: authed(<UxComponentHistoryPage />) },
       { path: "component-groups", element: authed(<UxComponentGroupsPage />) },
       { path: "component-groups/:slug", element: authed(<UxComponentGroupDetailPage />) },
       { path: "suggestions", element: authed(<UxSuggestionsPage />) },

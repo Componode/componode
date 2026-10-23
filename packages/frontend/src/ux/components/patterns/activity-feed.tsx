@@ -3,7 +3,7 @@ import { RelativeTime } from "@/ux/components/patterns/primitives"
 import { Avatar, AvatarFallback } from "@/ux/components/ui/avatar"
 import { Badge } from "@/ux/components/ui/badge"
 import { initials } from "@/ux/lib/format"
-import type { AuditEvent } from "@/ux/lib/mock-data"
+import type { AuditEvent } from "@/ux/lib/view-types"
 
 const ACTION_LABEL: Record<AuditEvent["action"], string> = {
   created: "created",

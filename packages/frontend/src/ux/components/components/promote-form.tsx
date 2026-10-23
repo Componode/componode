@@ -9,7 +9,10 @@ import { Checkbox } from "@/ux/components/ui/checkbox"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/ux/components/ui/field"
 import { Input } from "@/ux/components/ui/input"
 import { Textarea } from "@/ux/components/ui/textarea"
-import { products, type Component } from "@/ux/lib/mock-data"
+import { usePromoteComponent } from "@/api/hooks/components"
+import type { ComponentDependent } from "@/api/types"
+import { ux } from "@/ux/lib/paths"
+import type { Component } from "@/ux/lib/view-types"
 
 const slugify = (s: string) =>
   s
@@ -20,17 +23,17 @@ const slugify = (s: string) =>
 
 /**
  * Promote a component to a platform product and reroute consumers.
- * Consumers here are a sample of non-platform products; the real list comes from the component's dependents.
+ * Consumers are the component's real dependents (`GET /components/:id/dependents`).
  */
-export function PromoteForm({ component }: { component: Component }) {
+export function PromoteForm({ component, consumers }: { component: Component; consumers: ComponentDependent[] }) {
   const navigate = useNavigate()
-  const consumers = React.useMemo(() => products.filter((p) => p.type !== "PLATFORM").slice(0, 4), [])
+  const promote = usePromoteComponent()
   const [name, setName] = React.useState(component.name)
   const [slug, setSlug] = React.useState("")
   const [description, setDescription] = React.useState("")
   const [checked, setChecked] = React.useState<Set<string>>(() => new Set(consumers.map((c) => c.id)))
   const [errors, setErrors] = React.useState<{ name?: string; slug?: string }>({})
-  const [pending, setPending] = React.useState(false)
+
 
   function toggle(id: string, on: boolean) {
     setChecked((prev) => {
@@ -46,15 +49,26 @@ export function PromoteForm({ component }: { component: Component }) {
     const next: typeof errors = {}
     if (!name.trim()) next.name = "Name is required."
     if (slug && !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) next.slug = "Lowercase letters, numbers and single hyphens only."
-    if (!next.name && !next.slug && products.some((p) => p.slug === (slug || slugify(name)))) next.slug = "A product with this slug already exists."
     setErrors(next)
     if (Object.keys(next).length) return
-    setPending(true)
-    // Simulated. The real call creates the platform product and rewrites checked consumers' edges to CONSUMES_FROM.
-    setTimeout(() => {
-      toast.success(`${name} promoted to a platform product (simulated)`)
-      navigate(`/components/${component.slug}`)
-    }, 700)
+    promote.mutate(
+      {
+        id: component.id,
+        input: {
+          name: name.trim(),
+          slug: slug || slugify(name),
+          description: description.trim() || null,
+          consumerIds: [...checked],
+        },
+      },
+      {
+        onSuccess: (result) => {
+          toast.success(`${result.product.name} promoted to a platform product`)
+          navigate(ux(`/products/${result.product.slug}`))
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    )
   }
 
   return (
@@ -65,9 +79,9 @@ export function PromoteForm({ component }: { component: Component }) {
       />
       <FormPage
         onSubmit={handleSubmit}
-        cancelHref={`/components/${component.slug}`}
+        cancelHref={ux(`/components/${component.slug}`)}
         submitLabel={`Promote and reroute ${checked.size} ${checked.size === 1 ? "consumer" : "consumers"}`}
-        pending={pending}
+        pending={promote.isPending}
       >
         <FormSection title="Platform product">
           <FieldGroup>

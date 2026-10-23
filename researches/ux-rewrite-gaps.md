@@ -60,20 +60,23 @@
   importer list until the parameter lands.
 - **Flag**: `credentialUsageFilter`.
 
-## G7 — Team detail / edit / delete endpoints
+## G7 — Team detail endpoint
 
-- **UX surface**: `/ux/teams/:slug` detail page, edit + delete dialogs.
-- **Need**: `GET /teams/:id`, `PATCH /teams/:id`, `DELETE /teams/:id`.
-- **Current API**: list endpoint only. Detail resolves via filtered-list
-  strategy (fetch list, match slug) — see `contracts/wiring.md`.
-- **Flag**: `teamDetailMutations` — edit/delete dialogs disabled.
+- **Status**: partially resolved during implementation — `PATCH /teams/:id`
+  and `DELETE /teams/:id` exist (verified in `src/routes/org.ts`).
+- **UX surface**: `/ux/teams/:slug` detail page.
+- **Need**: `GET /teams/:id`. Until it lands, detail resolves via the
+  filtered-list strategy (fetch list, match slug) — see
+  `contracts/wiring.md`. `GET /teams/:id/members` already exists.
+- **Flag**: none.
 
-## G8 — LOB detail / edit / delete endpoints
+## G8 — LOB detail endpoint
 
-- **UX surface**: `/ux/lobs/:slug` detail page, edit + delete dialogs.
-- **Need**: `GET /lobs/:id`, `PATCH /lobs/:id`, `DELETE /lobs/:id`.
-- **Current API**: list endpoint only; same filtered-list detail strategy.
-- **Flag**: `lobDetailMutations`.
+- **Status**: partially resolved during implementation — `PATCH`/`DELETE
+  /lobs/:id` exist.
+- **UX surface**: `/ux/lobs/:slug` detail page.
+- **Need**: `GET /lobs/:id`; detail resolves via filtered-list meanwhile.
+- **Flag**: none.
 
 ## G9 — Component-group slug lookup
 
@@ -102,6 +105,14 @@
 - **Current API**: no `entityName`/`summary` field on audit feed items.
 - **Flag**: none — mapper degrades gracefully; recorded as a candidate API
   addition.
+
+## G12 — Team ↔ LOB association
+
+- **UX surface**: product form filters teams by selected LOB; team detail
+  shows its LOB.
+- **Need**: a `lobId` on teams (or a membership/ownership link). The
+  `teams` table has no LOB column today.
+- **Flag**: none — the form shows all teams unfiltered until resolved.
 
 ## Conditional gaps (flagged during implementation)
 

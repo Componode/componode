@@ -4,7 +4,7 @@ import * as React from "react"
 import { ActivityFeed } from "@/ux/components/patterns/activity-feed"
 import { EmptyState } from "@/ux/components/patterns/states"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select"
-import type { AuditEvent } from "@/ux/lib/mock-data"
+import type { AuditEvent } from "@/ux/lib/view-types"
 
 const ALL = "all"
 

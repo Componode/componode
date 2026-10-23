@@ -46,11 +46,11 @@
 
 **Independent test**: create product → edit → bulk import with bad row → promote component → open history.
 
-- [ ] T020 [P] [US2] Write failing mapper tests for `PromoteToPlatformInput` assembly and import-result rows in `src/test/unit/mappers.test.ts`
-- [ ] T021 [US2] Port `v0:components/products/product-form.tsx` → `/ux/products/new` + `/ux/products/:slug/edit`; wire `POST /products` + `PATCH /products/:slug` mutation hooks (create if absent in `api/hooks/products.ts`); slug generated from name, locked after create
-- [ ] T022 [US2] Port `v0:components/products/import-products.tsx` → `/ux/products/import`; wire the bulk-import endpoint; render per-row API errors. If no bulk endpoint exists: flag behind `flags.ts` + gap entry
-- [ ] T023 [US2] Port `v0:components/patterns/entity-history.tsx` usage → `/ux/products/:slug/history` + `/ux/components/:slug/history` via `GET /audit?entityKind=…&entityId=…`
-- [ ] T024 [US2] Port `v0:components/components/promote-form.tsx` → `/ux/components/:slug/promote`; wire `GET /components/:slug/dependents` + `POST /components/:id/promote-to-platform`; if dependents endpoint missing → flag + gap entry
+- [x] T020 [P] [US2] Write failing mapper tests for `PromoteToPlatformInput` assembly and import-result rows in `src/test/unit/mappers.test.ts`
+- [x] T021 [US2] Port `v0:components/products/product-form.tsx` → `/ux/products/new` + `/ux/products/:slug/edit`; wire `POST /products` + `PATCH /products/:slug` mutation hooks (create if absent in `api/hooks/products.ts`); slug generated from name, locked after create
+- [x] T022 [US2] Port `v0:components/products/import-products.tsx` → `/ux/products/import`; wire the bulk-import endpoint; render per-row API errors. If no bulk endpoint exists: flag behind `flags.ts` + gap entry
+- [x] T023 [US2] Port `v0:components/patterns/entity-history.tsx` usage → `/ux/products/:slug/history` + `/ux/components/:slug/history` via `GET /audit?entityKind=…&entityId=…`
+- [x] T024 [US2] Port `v0:components/components/promote-form.tsx` → `/ux/components/:slug/promote`; wire `GET /components/:slug/dependents` + `POST /components/:id/promote-to-platform`; if dependents endpoint missing → flag + gap entry
 
 ## Phase 5: [US3] Import operations (P3)
 

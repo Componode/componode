@@ -25,10 +25,6 @@ export const flags = {
   credentialExpiredState: false,
   /** Importer usage list filtered by credentialId (gap 6). */
   credentialUsageFilter: false,
-  /** Team detail/edit/delete endpoints (gap 7). */
-  teamDetailMutations: false,
-  /** LOB detail/edit/delete endpoints (gap 8). */
-  lobDetailMutations: false,
   /** Product bulk-import endpoint (gap — flagged only if absent at T022). */
   productBulkImport: false,
   /** Component dependents endpoint for the promote flow (gap — T024). */

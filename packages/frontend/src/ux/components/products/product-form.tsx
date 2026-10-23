@@ -17,7 +17,10 @@ import {
   type Lifecycle,
   type ProductType,
 } from "@/ux/lib/domain"
-import { lobs, teams, type Link, type Product } from "@/ux/lib/mock-data"
+import type { OrgEntity } from "@/api/types"
+import { useCreateProduct, useUpdateProduct } from "@/api/hooks/products"
+import { ux } from "@/ux/lib/paths"
+import type { Link, Product } from "@/ux/lib/view-types"
 
 const NONE = "__none__"
 
@@ -34,9 +37,11 @@ interface Errors {
   links?: Record<number, string>
 }
 
-export function ProductForm({ product }: { product?: Product }) {
+export function ProductForm({ product, lobs, teams }: { product?: Product; lobs: OrgEntity[]; teams: OrgEntity[] }) {
   const navigate = useNavigate()
   const editing = Boolean(product)
+  const createProduct = useCreateProduct()
+  const updateProduct = useUpdateProduct()
   const [name, setName] = React.useState(product?.name ?? "")
   const [slug, setSlug] = React.useState(product?.slug ?? "")
   const [slugTouched, setSlugTouched] = React.useState(editing)
@@ -44,15 +49,13 @@ export function ProductForm({ product }: { product?: Product }) {
   const [lifecycle, setLifecycle] = React.useState<Lifecycle>(product?.lifecycle ?? "ACTIVE")
   const [criticality, setCriticality] = React.useState<Criticality | typeof NONE>(product?.criticality ?? NONE)
   const [description, setDescription] = React.useState(product?.description ?? "")
-  const [lob, setLob] = React.useState(product?.lobOwnerName ?? NONE)
-  const [team, setTeam] = React.useState(product?.teamOwnerName ?? NONE)
+  const [lob, setLob] = React.useState(product?.lobOwnerId ?? NONE)
+  const [team, setTeam] = React.useState(product?.teamOwnerId ?? NONE)
   const [sunsetAt, setSunsetAt] = React.useState(product?.sunsetAt?.slice(0, 10) ?? "")
   const [tags, setTags] = React.useState<string[]>(product?.tags ?? [])
   const [links, setLinks] = React.useState<Link[]>(product?.links ?? [])
   const [errors, setErrors] = React.useState<Errors>({})
-  const [pending, setPending] = React.useState(false)
 
-  const visibleTeams = lob === NONE ? teams : teams.filter((t) => t.lob === lob)
 
   function validate(): Errors {
     const next: Errors = {}
@@ -68,14 +71,41 @@ export function ProductForm({ product }: { product?: Product }) {
     const next = validate()
     setErrors(next)
     if (Object.keys(next).length) return
-    setPending(true)
-    // Simulated save. Wire to POST /products or PATCH /products/:id (see /standards/wiring).
-    setTimeout(() => {
-      const finalSlug = slug || slugify(name)
-      toast.success(editing ? `Saved ${name} (simulated)` : `Created ${name} (simulated)`)
-      navigate(editing ? `/products/${product!.slug}` : "/products")
-      void finalSlug
-    }, 600)
+    const input = {
+      name: name.trim(),
+      type,
+      description: description.trim() || null,
+      lifecycle,
+      criticality: criticality === NONE ? null : criticality,
+      lobOwnerId: lob === NONE ? null : lob,
+      teamOwnerId: team === NONE ? null : team,
+      sunsetAt: sunsetAt || null,
+      tags,
+      links,
+    }
+    if (editing) {
+      updateProduct.mutate(
+        { id: product!.id, ...input },
+        {
+          onSuccess: () => {
+            toast.success(`Saved ${name}`)
+            navigate(ux(`/products/${product!.slug}`))
+          },
+          onError: (e) => toast.error(e.message),
+        },
+      )
+    } else {
+      createProduct.mutate(
+        { ...input, slug: slug || slugify(name) },
+        {
+          onSuccess: () => {
+            toast.success(`Created ${name}`)
+            navigate(ux("/products"))
+          },
+          onError: (e) => toast.error(e.message),
+        },
+      )
+    }
   }
 
   return (
@@ -90,9 +120,9 @@ export function ProductForm({ product }: { product?: Product }) {
       />
       <FormPage
         onSubmit={handleSubmit}
-        cancelHref={editing ? `/products/${product!.slug}` : "/products"}
+        cancelHref={ux(editing ? `/products/${product!.slug}` : "/products")}
         submitLabel={editing ? "Save changes" : "Create product"}
-        pending={pending}
+        pending={createProduct.isPending || updateProduct.isPending}
       >
         <FormSection title="Identity">
           <FieldGroup>
@@ -123,9 +153,10 @@ export function ProductForm({ product }: { product?: Product }) {
                   setSlug(e.target.value)
                 }}
                 placeholder="checkout"
+                disabled={editing}
               />
               <FieldDescription>
-                {editing ? "Changing the slug breaks existing links to this product." : "Derived from the name. Leave blank to auto-generate."}
+                {editing ? "Slugs are stable identifiers and can’t be changed after creation." : "Derived from the name. Leave blank to auto-generate."}
               </FieldDescription>
               {errors.slug && <FieldError>{errors.slug}</FieldError>}
             </Field>
@@ -162,21 +193,14 @@ export function ProductForm({ product }: { product?: Product }) {
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="p-lob">Line of business</FieldLabel>
-              <Select
-                value={lob}
-                onValueChange={(v) => {
-                  setLob(v)
-                  const stillValid = v === NONE || teams.find((t) => t.name === team)?.lob === v
-                  if (!stillValid) setTeam(NONE)
-                }}
-              >
+              <Select value={lob} onValueChange={setLob}>
                 <SelectTrigger id="p-lob" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>Unassigned</SelectItem>
                   {lobs.map((l) => (
-                    <SelectItem key={l.id} value={l.name}>
+                    <SelectItem key={l.id} value={l.id}>
                       {l.name}
                     </SelectItem>
                   ))}
@@ -191,14 +215,14 @@ export function ProductForm({ product }: { product?: Product }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>Unassigned</SelectItem>
-                  {visibleTeams.map((t) => (
-                    <SelectItem key={t.id} value={t.name}>
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
                       {t.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {lob !== NONE && <FieldDescription>Showing teams in {lob}.</FieldDescription>}
+              <FieldDescription>Teams aren’t linked to LOBs yet — all teams are shown.</FieldDescription>
             </Field>
           </FieldGroup>
         </FormSection>
