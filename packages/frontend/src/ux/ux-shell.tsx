@@ -9,9 +9,9 @@ import "./styles.css";
 
 const SIDEBAR_KEY = "ux_sidebar_state";
 
-// Staged shell for the v1.1.0 UX rewrite (spec 029): the ported prototype
-// app shell mounted under /ux, wrapped in .ux-root so its design tokens stay
-// scoped to this tree. Removed at cutover (T045) when this becomes the root.
+// Application shell for the v1.1.0 UX baseline (spec 029): the ported
+// prototype app shell mounted at /, wrapped in .ux-root so its design
+// tokens stay scoped to this tree.
 export function UxShell() {
   return (
     <div className="ux-root min-h-screen bg-background text-foreground">

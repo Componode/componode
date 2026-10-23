@@ -108,3 +108,7 @@
 ## Implementation strategy
 
 MVP = through Phase 3 (US1): the staged `/ux` tree already demonstrates the design on live data. Each story merges to `release/1.1.0`-bound branch independently; Phase 8 is the single cutover change. Test-first per constitution VI: mapper tests precede mappers; state smokes precede or accompany each ported route.
+
+## Phase 7: Convergence
+
+- [x] T047 Record in spec.md Clarifications that FR-015's schema-driven scope fields resolve via governed gap G13 (validated JSON scope editor) until the API exposes renderable field descriptors — intentional deviation, not an oversight (FR-015) (partial)

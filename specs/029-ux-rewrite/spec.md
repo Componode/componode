@@ -15,6 +15,10 @@
 - Q: When a prototype surface needs an API endpoint that doesn't exist yet, how should this feature handle it? → A: Do not build backend endpoints in this feature. Annotate each detailed gap in a control file under `researches/` specific to this job; when the UX work is 100% finished, those gaps are the next step of the 1.1.0 roadmap — grill them and create their own implementation specs. Keep this gap-governance rule clear in the repository's controls and development guides.
 - Q: When release/1.1.0 merges to main and the new UX becomes default, what happens to the old UI code? → A: Remove the old UI in this feature once every in-scope route passes — the release branch merge is the cutover and no runtime fallback is kept.
 
+### Session 2026-10-23 (convergence)
+
+- Q: FR-015 requires importer scope fields rendered from `ImporterManifest.configSchema`, but the API returns a serialized Zod schema that cannot render field descriptors — how is this resolved? → A: Governed gap **G13** (`researches/ux-rewrite-gaps.md`): the importer form ships a validated JSON scope editor until the API exposes renderable field descriptors. The follow-on backend spec is scheduled as part of the 1.1.0 gap program per FR-016/FR-016a. This is an intentional deviation, not an oversight.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Navigate and read the catalog in the new UX (Priority: P1)
