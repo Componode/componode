@@ -25,15 +25,14 @@ export interface NavItem {
   icon: LucideIcon
   /** Minimum role. Hide (don't disable) items the user cannot reach. */
   minRole?: Role
-  badge?: string
-}
+  }
 
 export interface NavSection {
   label: string
   items: NavItem[]
 }
 
-/** Mirrors packages/frontend/src/lib/nav-sections.ts — one source of truth for sidebar + ⌘K. */
+/** One source of truth for sidebar + ⌘K navigation. minRole hides the entry only; routes/APIs remain the enforcement. */
 export const NAV_SECTIONS: NavSection[] = [
   {
     label: "Overview",
@@ -45,7 +44,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { title: "Products", href: ux("/products"), icon: PackageIcon },
       { title: "Components", href: ux("/components"), icon: BoxesIcon },
       { title: "Component groups", href: ux("/component-groups"), icon: LayersIcon },
-      { title: "Suggestions", href: ux("/suggestions"), icon: SparklesIcon, minRole: "EDITOR", badge: "4" },
+      { title: "Suggestions", href: ux("/suggestions"), icon: SparklesIcon },
     ],
   },
   {
@@ -58,15 +57,15 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: "Sources",
     items: [
-      { title: "Importers", href: ux("/importers"), icon: DownloadCloudIcon, minRole: "EDITOR" },
-      { title: "Import agents", href: ux("/agents"), icon: RadioTowerIcon, minRole: "ADMIN", badge: "1" },
+      { title: "Importers", href: ux("/importers"), icon: DownloadCloudIcon },
+      { title: "Import agents", href: ux("/agents"), icon: RadioTowerIcon, minRole: "ADMIN" },
     ],
   },
   {
     label: "Administration",
     items: [
       { title: "Users", href: ux("/users"), icon: UsersIcon, minRole: "ADMIN" },
-      { title: "Sessions", href: ux("/sessions"), icon: MonitorSmartphoneIcon, minRole: "ADMIN" },
+      { title: "Sessions", href: ux("/sessions"), icon: MonitorSmartphoneIcon },
       { title: "Credentials", href: ux("/credentials"), icon: KeyRoundIcon, minRole: "ADMIN" },
       { title: "Activity", href: ux("/activity"), icon: ActivityIcon, minRole: "ADMIN" },
       { title: "Settings", href: ux("/settings"), icon: SettingsIcon },

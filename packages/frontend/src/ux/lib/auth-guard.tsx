@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useSession } from "@/api/hooks/auth";
+import { ux } from "@/ux/lib/paths";
 import { ForbiddenState, TableSkeleton } from "@/ux/components/patterns/states";
 
 const ROLE_LEVEL: Record<string, number> = {
@@ -25,7 +26,7 @@ export function AuthGuard({ children, requiredRole }: { children: ReactNode; req
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={ux("/login")} replace />;
   }
 
   if (

@@ -197,6 +197,9 @@ describe("mapComponentGroup", () => {
 });
 
 import {
+  mapAgentSession,
+  mapCredential,
+  mapCredentialStatus,
   mapImportAgent,
   mapImporterConfig,
   mapImportRun,
@@ -371,7 +374,9 @@ describe("mapRunChange / mapRunError", () => {
 });
 
 import { mapSession, mapUser } from "@/api/mappers/operations";
-import { mapActivityItem } from "@/api/mappers/dashboard";
+import { mapActivityItem, mapAttentionItem, mapCoverage } from "@/api/mappers/dashboard";
+import { mapDepComponent } from "@/api/mappers/catalog";
+import { mapSuggestion } from "@/api/mappers/suggestions";
 
 describe("mapUser", () => {
   it("passes through nullable fields as null", () => {
@@ -437,5 +442,124 @@ describe("mapActivityItem fallback", () => {
     } as never);
     expect(view.action).toBe("other");
     expect(view.entityKind).toBe("other");
+  });
+});
+
+describe("mapCredential", () => {
+  it("maps kind and status without inventing provider fields", () => {
+    const c = mapCredential(
+      {
+        id: "c1",
+        slug: "gh-ro",
+        label: "GitHub read-only",
+        status: "ACTIVE",
+        kind: "AGENT_MANAGED",
+        keyHints: { token: "env" },
+        expiresAt: null,
+        lastUsedAt: null,
+        updatedBy: "admin",
+      },
+      3,
+    );
+    expect(c.kind).toBe("AGENT_MANAGED");
+    expect(c.status).toBe("ACTIVE");
+    expect(c.usedBy).toBe(3);
+    expect(c).not.toHaveProperty("provider");
+  });
+
+  it("normalizes unknown status/kind to safe defaults", () => {
+    const c = mapCredential({
+      id: "c2", slug: "x", label: "x", status: "BOGUS", kind: "BOGUS",
+      keyHints: {}, expiresAt: null, lastUsedAt: null,
+    });
+    expect(c.status).toBe("ACTIVE");
+    expect(c.kind).toBe("STORED");
+    expect(c.usedBy).toBe(0);
+  });
+});
+
+describe("mapCredentialStatus", () => {
+  it("passes through known statuses and defaults unknowns to ACTIVE", () => {
+    expect(mapCredentialStatus("REVOKED")).toBe("REVOKED");
+    expect(mapCredentialStatus("WEIRD")).toBe("ACTIVE");
+    expect(mapCredentialStatus(null)).toBe("ACTIVE");
+  });
+});
+
+describe("mapImportRun errorType", () => {
+  it("carries failure classification (AGENT_LOST) into the view", () => {
+    const r = mapImportRun({
+      id: "r1", configId: "c1", agentId: null, agentName: null,
+      status: "FAILED", triggeredBy: "admin",
+      startedAt: "2026-01-01T00:00:00Z", completedAt: "2026-01-01T00:05:00Z",
+      assetsProcessed: 4, assetsCreated: 1, assetsUpdated: 3,
+      instancesOrphaned: 0, componentsRetired: 0, currentPhase: null,
+      cancelRequestedAt: null, errorMessage: "session dropped",
+      errorType: "AGENT_LOST", credentialIds: null, createdAt: "2026-01-01T00:00:00Z",
+    } as never);
+    expect(r.errorType).toBe("AGENT_LOST");
+  });
+});
+
+describe("mapAgentSession", () => {
+  it("narrows disconnect reasons and falls back for unknowns", () => {
+    const s = mapAgentSession({
+      id: "s1", agentId: "a1", connectedAt: "2026-01-01T00:00:00Z",
+      disconnectedAt: "2026-01-01T01:00:00Z", disconnectReason: "superseded",
+      remoteAddress: null, agentVersion: null,
+    });
+    expect(s.reason).toBe("superseded");
+    expect(s.remoteAddress).toBe("—");
+    const u = mapAgentSession({
+      id: "s2", agentId: "a1", connectedAt: "t", disconnectedAt: null,
+      disconnectReason: "bogus_reason", remoteAddress: "10.0.0.1", agentVersion: "1.0.0",
+    });
+    expect(u.reason).toBeNull();
+  });
+});
+
+describe("mapSuggestion", () => {
+  it("maps staged DEPENDS_ON pairs with confidence banding", () => {
+    const s = mapSuggestion({
+      id: "sug1",
+      product: { name: "Checkout" },
+      component: { name: "postgres-db" },
+      reason: null,
+      score: 0.9,
+    } as never);
+    expect(s.kind).toBe("DEPENDS_ON");
+    expect(s.from).toBe("Checkout");
+    expect(s.to).toBe("postgres-db");
+    expect(s.confidence).toBeDefined();
+  });
+});
+
+describe("mapAttentionItem", () => {
+  it("marks FAILED_RUN destructive, others warning", () => {
+    expect(mapAttentionItem({ kind: "FAILED_RUN", label: "x", href: "/a", at: null } as never).tone).toBe("destructive");
+    expect(mapAttentionItem({ kind: "UNWIRED", label: "x", href: "/a", at: null } as never).tone).toBe("warning");
+  });
+});
+
+describe("mapCoverage", () => {
+  it("computes per-facet percentages; null when total is 0", () => {
+    expect(mapCoverage({
+      products: { total: 10, missingOwner: 2, missingDescription: 0, missingDependencies: 5 },
+    } as never)).toEqual({ owner: 80, description: 100, dependencies: 50 });
+    expect(mapCoverage({
+      products: { total: 0, missingOwner: 0, missingDescription: 0, missingDependencies: 0 },
+    } as never)).toEqual({ owner: null, description: null, dependencies: null });
+  });
+});
+
+describe("mapDepComponent", () => {
+  it("joins the dep ref with catalog rows for provider/resourceType", () => {
+    const row = mapDepComponent(
+      { id: "c1", name: "pg", slug: "pg", category: "database", lifecycle: "ACTIVE", sources: ["COMPOSES"] } as never,
+      [{ id: "c1", provider: "AWS", resourceType: "rds", instanceCount: 2, componentGroupName: "data" } as never],
+    );
+    expect(row.provider).toBe("AWS");
+    expect(row.resourceType).toBe("rds");
+    expect(row.componentGroupName).toBe("data");
   });
 });

@@ -22,11 +22,15 @@
 ## G2 — Session device / location / owning user
 
 - **UX surface**: `/ux/sessions` columns and `/ux/users/:id` sessions tab.
-- **Need**: `device` (user-agent parse), `location`, and the owning `userId`
-  on the admin sessions list.
-- **Current API**: session records carry none of these; the sessions list is
-  scoped to the caller.
-- **Flags**: `sessionDevice`, `sessionLocation`, `sessionOwner`.
+- **Need**: `device` (user-agent parse), `location`, the owning `userId`
+  on the admin sessions list, and a `current` marker identifying the
+  caller's own session (for the "This device" badge and self-revoke
+  suppression on `/sessions`).
+- **Current API**: session records carry none of these; `GET /sessions`
+  returns `id`/`createdAt`/`lastSeenAt`/`expiresAt` only, scoped to the
+  caller — the caller's own session is indistinguishable in the list.
+- **Flags**: `sessionDevice`, `sessionLocation`, `sessionOwner`,
+  `sessionCurrent`.
 
 ## G3 — Per-run change feed — RESOLVED (verified T036)
 
@@ -45,9 +49,11 @@
 
 ## G14 — Self-service profile update
 
-- **UX surface**: `/ux/settings/profile` — display name/email editing.
+- **UX surface**: `/settings/profile` — display name/email editing.
 - **Need**: `PATCH /users/me` for non-admins; today `PATCH /users/:id`
   requires `user:update` (ADMIN) so non-admins get 403 on save.
+- **Flag**: `profileSelfEdit` — while off, non-admins see a read-only form
+  with a footer note instead of a doomed submit (admins save normally).
 
 ## G15 — Notification preferences
 
@@ -101,7 +107,7 @@
 - **Need**: `GET /importers?credentialId=:id`.
 - **Current API**: no filter; fallback is client-side filtering of the full
   importer list until the parameter lands.
-- **Flag**: `credentialUsageFilter`.
+- **Flag**: none (resolved during implementation).
 
 ## G7 — Team detail endpoint
 

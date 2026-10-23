@@ -1,4 +1,5 @@
 
+import { ux } from "@/ux/lib/paths";
 import { Link } from "react-router-dom"
 import * as React from "react"
 import { ListToolbar } from "@/ux/components/patterns/list-toolbar"
@@ -62,7 +63,7 @@ export function ComponentsTable({ data }: { data: Component[] }) {
               {rows.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell className="pl-4">
-                    <Link to={`/components/${c.slug}`} className="flex items-center gap-2.5 underline-offset-4 hover:underline">
+                    <Link to={ux(`/components/${c.slug}`)} className="flex items-center gap-2.5 underline-offset-4 hover:underline">
                       <ProviderMark provider={c.provider} size="sm" />
                       <span className="font-mono text-sm">{c.name}</span>
                     </Link>

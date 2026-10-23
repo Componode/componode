@@ -78,6 +78,7 @@ export function RunDetail({ importer, run, errors, changes, credential }: RunDet
         meta={
           <>
             <RunStatusBadge value={run.status} />
+            {run.errorType && <StatusBadge tone="destructive" label={run.errorType.replaceAll("_", " ").toLowerCase()} />}
             {run.currentPhase && (
               <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 {active && <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />}

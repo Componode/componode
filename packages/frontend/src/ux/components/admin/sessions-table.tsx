@@ -53,7 +53,7 @@ export function SessionsTable({ data }: { data: Session[] }) {
                   ) : (
                     <code className="font-mono text-xs text-muted-foreground">{s.id.slice(0, 8)}</code>
                   )}
-                  {s.current && <StatusBadge tone="brand" label="This device" />}
+                  {flags.sessionCurrent && s.current && <StatusBadge tone="brand" label="This device" />}
                 </div>
               </TableCell>
               {flags.sessionOwner && <TableCell className="text-sm">{s.displayName}</TableCell>}
@@ -65,7 +65,7 @@ export function SessionsTable({ data }: { data: Session[] }) {
                 <RelativeTime iso={s.expiresAt} />
               </TableCell>
               <TableCell className="pr-4 text-right">
-                {s.current ? (
+                {flags.sessionCurrent && s.current ? (
                   <span className="text-xs text-muted-foreground">Current</span>
                 ) : (
                   <ConfirmDialog

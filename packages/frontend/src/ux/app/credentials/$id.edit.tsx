@@ -33,5 +33,5 @@ export function UxCredentialEditPage() {
   }
 
   const c = detail.data.credential;
-  return <CredentialForm mode="rotate" credential={{ id: c.id, label: c.label, kind: c.kind }} />;
+  return <CredentialForm mode="rotate" credential={{ id: c.id, label: c.label, kind: c.kind, keyHints: c.keyHints }} />;
 }

@@ -1,8 +1,10 @@
 /**
- * Wiring contract for the design prototype. One entry per detail route.
- * `fixture` is the mock-data import to replace; `read` is the endpoint behind the TanStack Query hook;
- * `mutations` lists every control that currently only fires a toast or local state.
- * `gap` marks anything the prototype shows that the backend does not expose yet.
+ * Wiring registry for the v1.1.0 UX baseline (spec 029). One entry per
+ * detail route: `fixture` records which prototype fixture the surface was
+ * ported from (historical), `read` is the endpoint behind the TanStack
+ * Query hook, `mutations` lists every mutation control, and `gap` records
+ * anything the design shows that the backend does not expose yet
+ * (tracked in researches/ux-rewrite-gaps.md).
  */
 export interface Mutation {
   control: string
@@ -33,9 +35,9 @@ export const WIRING: WiringEntry[] = [
       { control: "Save role", call: "PATCH /users/:id { role }", note: "Disabled for the signed-in user; the API must also reject self role changes." },
       { control: "Deactivate / Reactivate", call: "PATCH /users/:id { isActive }", note: "Deactivating must end all sessions server-side." },
       { control: "Revoke session", call: "POST /sessions/:id/revoke" },
-      { control: "Send password reset", call: "POST /users/:id/password-reset", note: "Not in the API yet." },
+      { control: "Send password reset", call: "POST /auth/password/reset", note: "Admin generates a one-time token for copy-out." },
     ],
-    gap: "Password reset endpoint is not implemented. Audit has no actor filter in the prototype contract; confirm the query param name.",
+    gap: "Resolved: POST /auth/password/reset exists (admin token generation). Audit supports actor filtering.",
   },
   {
     route: "/credentials/[id]",
@@ -46,11 +48,11 @@ export const WIRING: WiringEntry[] = [
     tabs: ["overview", "usage", "activity"],
     mutations: [
       { control: "Test connection", call: "POST /credentials/:id/test" },
-      { control: "Rotate secret", call: "PATCH /credentials/:id { secret }", note: "Rotate needs a secret form; the prototype only confirms." },
+      { control: "Rotate secret", call: "PATCH /credentials/:id { secrets|secretRefMap }", note: "Rotate form re-keys existing secret names." },
       { control: "Revoke", call: "PATCH /credentials/:id { status: 'REVOKED' }" },
       { control: "Delete", call: "DELETE /credentials/:id", note: "Blocked in the UI while importers use it; the API should return 409." },
     ],
-    gap: "The usage list joins on credentialLabel in the fixture; use a credentialId filter once the API exposes it.",
+    gap: "Resolved: usage reads GET /credentials/:id dependents.importerConfigs — no filter needed (gap G6).",
   },
   {
     route: "/component-groups/[slug]",
@@ -74,7 +76,7 @@ export const WIRING: WiringEntry[] = [
       { control: "Edit team", call: "PATCH /teams/:id", note: "Dialog not built." },
       { control: "Delete team", call: "DELETE /teams/:id", note: "Blocked while it owns products or components." },
     ],
-    gap: "Only team listing exists in the backend today. Detail, edit and delete endpoints are needed. Members are a count only.",
+    gap: "No GET /teams/:id — the detail resolves from the filtered list. PATCH/DELETE exist (gap G7).",
   },
   {
     route: "/lobs/[slug]",
@@ -86,7 +88,7 @@ export const WIRING: WiringEntry[] = [
       { control: "Edit line of business", call: "PATCH /lobs/:id", note: "Dialog not built." },
       { control: "Delete line of business", call: "DELETE /lobs/:id", note: "Blocked while it has teams or products." },
     ],
-    gap: "Only LOB listing exists in the backend today. Detail, edit and delete endpoints are needed.",
+    gap: "No GET /lobs/:id — the detail resolves from the filtered list. PATCH/DELETE exist (gap G8).",
   },
   {
     route: "/agents/[id]",
@@ -187,7 +189,7 @@ export const WIRING: WiringEntry[] = [
       { control: "Create importer", call: "POST /importers", note: "Scope is rendered from the manifest configSchema; credentialIds replace deprecated secretRefs." },
       { control: "Save changes", call: "PATCH /importers/:id" },
     ],
-    gap: "The prototype hardcodes the scope fields per provider. Render them from ImporterManifest.configSchema.",
+    gap: "configSchema is a serialized Zod schema — not renderable. Scope is a validated JSON editor until the API exposes field descriptors (gap G13).",
   },
   {
     route: "/credentials/new",
@@ -200,14 +202,14 @@ export const WIRING: WiringEntry[] = [
 ]
 
 export const WIRING_RULES = [
-  "Replace the fixture import in the route's page.tsx with the read hook, then pass the result to the client component as `initial`.",
-  "Local useState copies of server data exist only so the prototype feels live. Remove them and use mutation hooks that invalidate the read query.",
-  "Every mutation currently fires a toast. Keep the toast on success and show the API error message on failure.",
-  "`?tab=` is the source of truth for the active tab. Keep it so tabs stay deep-linkable.",
-  "A `blockedReason` on DangerZone mirrors a server rule. The API must enforce it as well and return 409.",
-  "Show the 404 state when the read returns not found. The prototype already calls notFound().",
-  "Every guard in the UI is advisory: self role change, self deactivation, last-admin removal and blocked deletes must all be enforced by the API, which returns 403 or 409.",
-  "The prototype has no authentication. Replace the login stub and SessionProvider with the real session, and protect every (app) route and API endpoint server-side.",
-  "Map API responses to the fields each page displays before passing them to client components, so session ids, tokens and other internal fields never reach the browser.",
-  "Enrollment tokens and secrets are minted by the hub and returned once. Remove generateEnrollmentToken() and replace the `<your-hub-host>` placeholder in the enroll command with the real hub URL.",
+  "Every surface reads through TanStack Query hooks; no fixture or local-state copies of server data.",
+  "Mutations invalidate the read query they feed, keep the success toast, and show the API error message on failure.",
+  "`?tab=` is the source of truth for the active tab, validated via useValidatedTab so deep links never render an empty panel.",
+  "A `blockedReason` on DangerZone mirrors a server rule. The API enforces it too and returns 409 with the reason.",
+  "Reads that 404 render the not-found state; role-restricted routes render the forbidden state via AuthGuard.",
+  "Every UI guard is advisory: self role change, self deactivation, last-admin removal and blocked deletes are enforced by the API (403/409) and surfaced verbatim.",
+  "Every route is authenticated via AuthGuard; auth pages live outside the shell.",
+  "API responses pass through per-entity mappers before reaching components, so session ids, tokens and other internal fields stay off the page.",
+  "Enrollment tokens and secrets are minted by the hub and returned once — shown exactly once in the issuing dialog, never persisted in UI state.",
+  "Capabilities the backend does not expose are hidden behind flags in ux/lib/flags.ts with a matching entry in researches/ux-rewrite-gaps.md.",
 ]

@@ -4,7 +4,6 @@ import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog"
 import { RelativeTime } from "@/ux/components/patterns/primitives"
-import { ProviderMark } from "@/ux/components/patterns/provider-mark"
 import { EmptyState } from "@/ux/components/patterns/states"
 import { CredentialStatusBadge, StatusBadge } from "@/ux/components/patterns/status-badge"
 import { Button } from "@/ux/components/ui/button"
@@ -64,7 +63,6 @@ export function CredentialsTable({ data }: { data: Credential[] }) {
             <TableRow key={c.id} className={c.status === "REVOKED" ? "opacity-60" : undefined}>
               <TableCell className="pl-4">
                 <div className="flex items-center gap-2.5">
-                  <ProviderMark provider={c.provider} size="sm" />
                   <div className="flex flex-col">
                     <Link to={ux(`/credentials/${c.id}`)} className="font-medium hover:underline">
                       {c.label}

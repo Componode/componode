@@ -31,7 +31,6 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
@@ -97,7 +96,6 @@ export function AppSidebar() {
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
-                    {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
@@ -160,7 +158,7 @@ function UserMenu() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link to={ux("/design-system")}>
+                <Link to={ux("/standards")}>
                   <BookOpenIcon />
                   Design standard
                 </Link>
@@ -168,12 +166,9 @@ function UserMenu() {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
               <DropdownMenuItem
                 onSelect={() => {
-                  logout.mutate(undefined, { onSettled: () => navigate("/login") })
+                  logout.mutate(undefined, { onSettled: () => navigate(ux("/login")) })
                 }}
               >
                 <LogOutIcon />

@@ -118,6 +118,8 @@ export interface ImportRun {
   currentPhase: string | null;
   cancelRequestedAt?: string | null;
   errorMessage: string | null;
+  /** Failure classification from the hub (e.g. AGENT_LOST, AGENT_UNAVAILABLE). */
+  errorType: string | null;
   /** Null or absent = ran in-process on the hub. */
   agentId?: string | null;
   agentName?: string | null;
@@ -183,7 +185,8 @@ export interface Credential {
   id: string;
   slug: string;
   label: string;
-  provider: Provider;
+  /** STORED = hub-encrypted values; AGENT_MANAGED = references resolved on the agent host. */
+  kind: "STORED" | "AGENT_MANAGED";
   status: CredentialStatus;
   keyHints: Record<string, string>;
   expiresAt: string | null;

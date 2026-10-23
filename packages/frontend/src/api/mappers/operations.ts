@@ -119,6 +119,7 @@ export function mapImportRun(r: ApiImportRun): ImportRun {
     currentPhase: r.currentPhase,
     cancelRequestedAt: r.cancelRequestedAt,
     errorMessage: r.errorMessage,
+    errorType: r.errorType ?? null,
     agentId: r.agentId,
     agentName: r.agentName,
   };
@@ -300,7 +301,7 @@ export function mapCredential(
     id: c.id,
     slug: c.slug,
     label: c.label,
-    provider: "OTHER",
+    kind: c.kind === "AGENT_MANAGED" ? "AGENT_MANAGED" : "STORED",
     status: mapCredentialStatus(c.status),
     keyHints: c.keyHints ?? {},
     expiresAt: c.expiresAt,

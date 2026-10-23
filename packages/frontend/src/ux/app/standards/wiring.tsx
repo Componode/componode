@@ -13,7 +13,7 @@ export function UxWiringPage() {
     <PageContainer className="max-w-5xl">
       <PageHeader
         title="Wiring guide"
-        description="For every detail page: which fixture to replace, which endpoints to read, and which controls still need a mutation."
+        description="For every detail page: which endpoints back it, which mutations it issues, and which gaps are still flagged."
         actions={
           <Button variant="outline" asChild>
             <Link to={ux("/standards")}>UI standards</Link>
@@ -23,7 +23,7 @@ export function UxWiringPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Rules for all detail pages</CardTitle>
+          <CardTitle>Wiring rules</CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="flex list-disc flex-col gap-2 pl-5 text-sm leading-relaxed">
@@ -45,7 +45,7 @@ export function UxWiringPage() {
           <CardContent className="flex flex-col gap-5">
             <dl className="grid gap-4 text-sm md:grid-cols-2">
               <div className="flex flex-col gap-1">
-                <dt className="font-medium">Replace fixture</dt>
+                <dt className="font-medium">Prototype source</dt>
                 <dd className="text-muted-foreground">{w.fixture}</dd>
               </div>
               <div className="flex flex-col gap-1">

@@ -8,7 +8,6 @@ import { ActivityFeed } from "@/ux/components/patterns/activity-feed"
 import { DangerZone } from "@/ux/components/patterns/danger-zone"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { DescriptionList, MonoValue, RelativeTime } from "@/ux/components/patterns/primitives"
-import { ProviderMark } from "@/ux/components/patterns/provider-mark"
 import { CredentialStatusBadge, StatusBadge } from "@/ux/components/patterns/status-badge"
 import { EmptyState } from "@/ux/components/patterns/states"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
@@ -17,7 +16,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Spinner } from "@/ux/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ux/components/ui/tabs"
-import { PROVIDER_META } from "@/ux/lib/domain"
 import { formatDate } from "@/ux/lib/format"
 import { useRevokeCredential, useDeleteCredential, useTestCredential } from "@/api/hooks/credentials"
 import type { ImporterConfig } from "@/api/types"
@@ -69,9 +67,9 @@ export function CredentialDetail({ credential, importers, events }: CredentialDe
   return (
     <PageContainer>
       <PageHeader
-        media={<ProviderMark provider={credential.provider} size="lg" />}
+        media={<div className="flex h-10 w-10 items-center justify-center rounded-md border bg-muted text-muted-foreground"><KeyRoundIcon className="h-5 w-5" /></div>}
         title={credential.label}
-        description={`${PROVIDER_META[credential.provider].label} credential. Secret values are encrypted and never shown again.`}
+        description={credential.kind === "AGENT_MANAGED" ? "Agent-managed credential — references resolve on the agent host; no secret values are stored here." : "Stored credential — secret values are encrypted and never shown again."}
         meta={
           <>
             <CredentialStatusBadge value={credential.status} />
@@ -134,7 +132,7 @@ export function CredentialDetail({ credential, importers, events }: CredentialDe
               <DescriptionList
                 items={[
                   { label: "Credential ID", value: <MonoValue value={credential.id} /> },
-                  { label: "Provider", value: PROVIDER_META[credential.provider].label },
+                  { label: "Kind", value: credential.kind === "AGENT_MANAGED" ? "Agent-managed" : "Stored" },
                   {
                     label: "Expires",
                     value: credential.expiresAt ? (

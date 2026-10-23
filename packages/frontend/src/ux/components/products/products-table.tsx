@@ -3,6 +3,7 @@ import { PackageIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useNavigate } from "react-router-dom"
 import * as React from "react"
+import { ux } from "@/ux/lib/paths"
 import { CompletenessIndicator } from "@/ux/components/patterns/completeness"
 import { ListToolbar } from "@/ux/components/patterns/list-toolbar"
 import { RelativeTime } from "@/ux/components/patterns/primitives"
@@ -16,7 +17,7 @@ import type { Product } from "@/ux/lib/view-types"
 
 const toOptions = (meta: Record<string, { label: string }>) => Object.entries(meta).map(([value, m]) => ({ value, label: m.label }))
 
-export function ProductsTable({ data }: { data: Product[] }) {
+export function ProductsTable({ data, onlyIncomplete = false }: { data: Product[]; onlyIncomplete?: boolean }) {
   const navigate = useNavigate()
   const [query, setQuery] = React.useState("")
   const [type, setType] = React.useState("all")
@@ -25,6 +26,7 @@ export function ProductsTable({ data }: { data: Product[] }) {
 
   const rows = data.filter(
     (p) =>
+      (!onlyIncomplete || !Object.values(p.completeness).every(Boolean)) &&
       (type === "all" || p.type === type) &&
       (criticality === "all" || p.criticality === criticality) &&
       (lifecycle === "all" || p.lifecycle === lifecycle) &&
@@ -87,12 +89,12 @@ export function ProductsTable({ data }: { data: Product[] }) {
                   className="cursor-pointer"
                   onClick={(e) => {
                     if ((e.target as HTMLElement).closest("a,button")) return
-                    navigate(`/products/${p.slug}`)
+                    navigate(ux(`/products/${p.slug}`))
                   }}
                 >
                   <TableCell className="pl-4">
                     <div className="flex flex-col">
-                      <Link to={`/products/${p.slug}`} className="font-medium underline-offset-4 hover:underline">
+                      <Link to={ux(`/products/${p.slug}`)} className="font-medium underline-offset-4 hover:underline">
                         {p.name}
                       </Link>
                       <span className="max-w-72 truncate text-xs text-muted-foreground">{p.description ?? "No description"}</span>

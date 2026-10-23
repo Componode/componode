@@ -7,12 +7,15 @@ import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
 import { ProductsTable } from "@/ux/components/products/products-table";
 import { Button } from "@/ux/components/ui/button";
 import { Card } from "@/ux/components/ui/card";
+import { useSearchParams } from "react-router-dom";
 import { ux } from "@/ux/lib/paths";
 
 export function UxProductsPage() {
   // includeRetired: the table owns the lifecycle facet and must be able to
   // show retired rows; its default filter hides them.
   const { data, isPending, error, refetch } = useProducts({ includeRetired: true });
+  const [searchParams] = useSearchParams();
+  const onlyIncomplete = searchParams.get("incomplete") === "1";
 
   return (
     <PageContainer>
@@ -36,6 +39,14 @@ export function UxProductsPage() {
           </>
         }
       />
+      {onlyIncomplete && (
+        <p className="text-sm text-muted-foreground">
+          Showing products with incomplete metadata —{" "}
+          <Link to={ux("/products")} className="font-medium text-foreground underline-offset-4 hover:underline">
+            show all
+          </Link>
+        </p>
+      )}
       {isPending ? (
         <Card className="py-0">
           <TableSkeleton rows={8} columns={5} />
@@ -47,7 +58,7 @@ export function UxProductsPage() {
           onRetry={() => void refetch()}
         />
       ) : (
-        <ProductsTable data={data.products.map((p) => mapProduct(p))} />
+        <ProductsTable data={data.products.map((p) => mapProduct(p))} onlyIncomplete={onlyIncomplete} />
       )}
     </PageContainer>
   );

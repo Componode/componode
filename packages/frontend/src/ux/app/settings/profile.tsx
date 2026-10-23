@@ -6,11 +6,15 @@ import { Avatar, AvatarFallback } from "@/ux/components/ui/avatar";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/ux/components/ui/field";
 import { Input } from "@/ux/components/ui/input";
 import { useUpdateUser } from "@/api/hooks/users";
+import { flags } from "@/ux/lib/flags";
 import { initials } from "@/ux/lib/format";
 
 export function UxSettingsProfilePage() {
   const { user } = useSession();
   const updateUser = useUpdateUser();
+  // PATCH /users/:id is admin-only; non-admins get a read-only form until
+  // PATCH /users/me lands (gap G14, flag profileSelfEdit).
+  const canEdit = user.role === "ADMIN" || flags.profileSelfEdit;
 
   return (
     <>
@@ -18,7 +22,7 @@ export function UxSettingsProfilePage() {
         title="Profile"
         description="How you appear to teammates in ownership and activity."
         pending={updateUser.isPending}
-        onSave={(fd) =>
+        onSave={canEdit ? (fd) =>
           updateUser.mutate(
             {
               id: user.id,
@@ -27,12 +31,13 @@ export function UxSettingsProfilePage() {
             },
             {
               onSuccess: () => toast.success("Profile updated"),
-              // PATCH /users/:id is admin-only — non-admins see the 403 (gap G14).
               onError: (e) => toast.error(e.message),
             },
-          )
+          ) : undefined
         }
+        footerNote={canEdit ? undefined : "Only workspace admins can update profiles right now."}
       >
+        <fieldset disabled={!canEdit} className="contents">
         <FieldGroup>
           <div className="flex items-center gap-4">
             <Avatar className="size-16">
@@ -55,6 +60,7 @@ export function UxSettingsProfilePage() {
             <Input id="email" name="email" type="email" defaultValue={user.email ?? ""} autoComplete="email" />
           </Field>
         </FieldGroup>
+        </fieldset>
       </SettingsSection>
       <SettingsSection title="Workspace role" description="Your role is managed by a workspace admin.">
         <div className="flex items-center justify-between">
