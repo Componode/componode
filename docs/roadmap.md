@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–028)
+## Shipped (features 001–029)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -123,7 +123,10 @@ file tracks shipped and upcoming work — update it when a spec completes.
 ## Next — v1.1
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
-list — the Import Agents program (025–028) is now fully shipped:
+list — the Import Agents program (025–028) and the UX baseline (029) are
+shipped on `release/1.1.0`. First follow-on: the UX-rewrite backend gaps
+in `researches/ux-rewrite-gaps.md` (session metadata, run aggregates,
+schema-driven importer forms, …) — each becomes its own spec:
 
 - Runtime-loaded importer plugins
 - Invite-based registration

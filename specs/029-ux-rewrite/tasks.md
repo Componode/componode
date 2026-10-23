@@ -94,7 +94,7 @@
 
 - [x] T044 Gap audit: every flag in `src/ux/lib/flags.ts` has a detailed entry in `researches/ux-rewrite-gaps.md`; every fixture import is gone from the shipped route set (`grep -r mock-data src/ux` empty)
 - [x] T045 Cutover: `/ux` tree becomes `/` in `routes.tsx`; delete `src/pages/` + retired `src/components/` (keep pieces still imported by `src/ux/`); `/ux` paths redirect or 404 cleanly; update `authed` role mapping on the new route table
-- [ ] T046 Full verification: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`; walk the quickstart.md scenario list; `docs/roadmap.md` updated (029 shipped under v1.1.0; gap specs listed as next step)
+- [x] T046 Full verification: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`; walk the quickstart.md scenario list; `docs/roadmap.md` updated (029 shipped under v1.1.0; gap specs listed as next step)
 
 ## Dependencies
 
