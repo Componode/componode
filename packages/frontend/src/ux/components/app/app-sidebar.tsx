@@ -1,7 +1,6 @@
 
 import {
   BadgeCheckIcon,
-  BookOpenIcon,
   ChevronsUpDownIcon,
   LogOutIcon,
   PaletteIcon,
@@ -155,12 +154,6 @@ function UserMenu() {
                 <Link to={ux("/settings/appearance")}>
                   <PaletteIcon />
                   Appearance
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={ux("/standards")}>
-                  <BookOpenIcon />
-                  Design standard
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>

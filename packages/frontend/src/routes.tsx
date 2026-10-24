@@ -21,7 +21,6 @@ import { UxComponentGroupsPage } from "@/ux/app/component-groups/index";
 import { UxComponentGroupDetailPage } from "@/ux/app/component-groups/$slug";
 import { UxSuggestionsPage } from "@/ux/app/suggestions";
 import { UxActivityPage } from "@/ux/app/activity";
-import { UxStandardsPage } from "@/ux/app/standards/index";
 import { UxUsersPage } from "@/ux/app/users";
 import { UxUserDetailPage } from "@/ux/app/users/$id";
 import { UxSessionsPage } from "@/ux/app/sessions";
@@ -42,7 +41,6 @@ import { UxSettingsWorkspacePage } from "@/ux/app/settings/workspace";
 import { UxSettingsAuthenticationPage } from "@/ux/app/settings/authentication";
 import { UxSettingsSessionPolicyPage } from "@/ux/app/settings/session-policy";
 import { UxSettingsAdvancedPage } from "@/ux/app/settings/advanced";
-import { UxWiringPage } from "@/ux/app/standards/wiring";
 import { UxImportersPage } from "@/ux/app/importers/index";
 import { UxImporterDetailPage } from "@/ux/app/importers/$id";
 import { UxImporterNewPage } from "@/ux/app/importers/new";
@@ -119,9 +117,6 @@ export const routes: RouteObject[] = [
           { path: "advanced", element: authed(<UxSettingsAdvancedPage />, "ADMIN") },
         ],
       },
-      { path: "standards", element: authed(<UxStandardsPage />) },
-      { path: "standards/wiring", element: authed(<UxWiringPage />) },
-      { path: "design-system", element: <Navigate to="/standards" replace /> },
       {
         path: "*",
         element: authed(
