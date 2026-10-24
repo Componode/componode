@@ -99,7 +99,6 @@ tab (`sessionStorage`).
 | `/credentials`, `…/new`, `…/:id` (+`/edit` rotate) | Credential store | ADMIN |
 | `/activity` | Audit feed | ADMIN |
 | `/settings/*` | profile, appearance, security, notifications / workspace, authentication, session-policy, advanced | admin sections ADMIN |
-| `/standards`, `/standards/wiring` | Design system + wiring contract docs | — |
 | `/login`, `/register`, `/auth/oidc/callback` | Auth (no shell) | — |
 
 ### Internal links

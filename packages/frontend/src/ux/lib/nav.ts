@@ -1,6 +1,5 @@
 import {
   ActivityIcon,
-  BookOpenIcon,
   BoxesIcon,
   Building2Icon,
   DownloadCloudIcon,
@@ -69,7 +68,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { title: "Credentials", href: ux("/credentials"), icon: KeyRoundIcon, minRole: "ADMIN" },
       { title: "Activity", href: ux("/activity"), icon: ActivityIcon, minRole: "ADMIN" },
       { title: "Settings", href: ux("/settings"), icon: SettingsIcon },
-      { title: "UI standards", href: ux("/standards"), icon: BookOpenIcon },
     ],
   },
 ]
@@ -112,7 +110,6 @@ export const SEGMENT_LABELS: Record<string, string> = {
   credentials: "Credentials",
   activity: "Activity",
   settings: "Settings",
-  standards: "UI standards",
   profile: "Profile",
   appearance: "Appearance",
   security: "Security",
