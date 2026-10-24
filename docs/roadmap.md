@@ -125,8 +125,13 @@ file tracks shipped and upcoming work — update it when a spec completes.
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028) and the UX baseline (029) are
 shipped on `release/1.1.0`. First follow-on: the UX-rewrite backend gaps
-in `researches/ux-rewrite-gaps.md` (session metadata, run aggregates,
-schema-driven importer forms, …) — each becomes its own spec:
+in `researches/ux-rewrite-gaps.md`, resolved as their own specs on
+`release/1.1.0` in queue order — `030` self-service profile (G14),
+`031` importer run aggregates (G1), `032` admin session visibility (G2),
+`033` detail reads + feed names (G7/G8/G9/G11), `034` team↔LOB (G12),
+`035` schema-driven importer forms (G13). G20 resolves client-side
+without a spec; G15–G19 are deferred unscheduled (see the registry's
+spec-queue block):
 
 - Runtime-loaded importer plugins
 - Invite-based registration
