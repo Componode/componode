@@ -27,13 +27,13 @@ Deferred past this program — re-triaged after it closes: G15 (merged
 with the email-delivery half of G4), G16, G17, G18, G19. G20 resolves
 client-side without a spec.
 
-## G1 — Per-day importer run aggregates
+## G1 — Per-day importer run aggregates — RESOLVED by spec 031
 
-- **UX surface**: importer detail → history chart (`/ux/importers/:id`).
-- **Need**: counts of runs per day (created/updated/failed) over a window.
-- **Current API**: `GET /import-runs?importerId=` returns runs; no aggregate
-  endpoint. Client-side aggregation over the full run list does not scale.
-- **Flag**: `historyAggregates` — chart hidden until resolved.
+- `GET /importer-configs/:id/run-aggregates?days=N` (1–90, default 14)
+  returns zero-filled ascending `{day, runs, created, updated, failed}`
+  buckets computed by a SQL group-by — O(days), not O(rows). The
+  importer-card sparkline renders live data via `useRunAggregates`;
+  `historyAggregates` is ON and the fallback notice removed.
 
 ## G2 — Session device / location / owning user
 

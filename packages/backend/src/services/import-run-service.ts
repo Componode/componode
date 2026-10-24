@@ -19,7 +19,7 @@ import { loadKeyring } from "../utils/credential-crypto.js";
 import { generateUniqueSlug, generateComponentSlug, generateInstanceSlug } from "../utils/slug.js";
 import { metrics } from "../plugins/metrics.js";
 import { traceDbQuery } from "../plugins/tracing.js";
-import type { Kysely } from "kysely";
+import { sql, type Kysely } from "kysely";
 import type { DB } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
@@ -746,6 +746,51 @@ export async function listRunsForConfig(configId: string) {
     .where("import_runs.configId", "=", configId)
     .orderBy("import_runs.createdAt", "desc")
     .execute();
+}
+
+/**
+ * Per-day run aggregates for one importer config over a bounded window
+ * (spec 031, gap G1). Buckets by UTC day of createdAt via a parameterized
+ * sql-template expression — never sql.raw/fragment (ADR-084). Cost is
+ * O(days), not O(run rows); the sparse group-by result is zero-filled so
+ * every day in the window appears, ascending.
+ */
+export async function listRunDayAggregates(configId: string, days: number) {
+  const cutoff = new Date(Date.now() - days * 86400000)
+    .toISOString()
+    .slice(0, 10);
+
+  const rows = await db
+    .selectFrom("import_runs")
+    .select((eb) => [
+      sql<string>`to_char("createdAt", 'YYYY-MM-DD')`.as("day"),
+      eb.fn.countAll<number>().as("runs"),
+      eb.fn.sum("assetsCreated").as("created"),
+      eb.fn.sum("assetsUpdated").as("updated"),
+      eb.fn
+        .countAll<number>()
+        .filterWhere("status", "=", "FAILED")
+        .as("failed"),
+    ])
+    .where("configId", "=", configId)
+    .where("createdAt", ">=", cutoff)
+    .groupBy(sql`to_char("createdAt", 'YYYY-MM-DD')`)
+    .orderBy("day")
+    .execute();
+
+  const byDay = new Map(rows.map((r) => [r.day, r]));
+  const start = Date.now() - (days - 1) * 86400000;
+  return Array.from({ length: days }, (_, i) => {
+    const day = new Date(start + i * 86400000).toISOString().slice(0, 10);
+    const r = byDay.get(day);
+    return {
+      day,
+      runs: r ? Number(r.runs) : 0,
+      created: r ? Number(r.created ?? 0) : 0,
+      updated: r ? Number(r.updated ?? 0) : 0,
+      failed: r ? Number(r.failed) : 0,
+    };
+  });
 }
 
 export async function listRunErrors(runId: string) {

@@ -274,6 +274,7 @@ same fields plus `lifecycle`.
 | DELETE | `/api/v1/importer-configs/:id` | Delete an importer configuration | `importer:config:delete` |
 | POST | `/api/v1/importer-configs/:id/convert-secrets` | Convert legacy secret refs to a stored credential | `importer:config:update` |
 | POST | `/api/v1/importer-configs/:id/trigger` | Trigger an import run | `importer:run:trigger` |
+| GET | `/api/v1/importer-configs/:id/run-aggregates` | Per-day run aggregates for an importer configuration | Authenticated |
 | GET | `/api/v1/importer-configs/:id/runs` | List runs for an importer configuration | Authenticated |
 | GET | `/api/v1/importer-configs/:configId/runs/:runId` | Get an import run | Authenticated |
 | GET | `/api/v1/importer-configs/:configId/runs/:runId/errors` | List errors for an import run | Authenticated |

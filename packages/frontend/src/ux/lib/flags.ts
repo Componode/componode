@@ -11,7 +11,7 @@
  */
 export const flags = {
   /** Per-day importer run aggregates for the history chart (gap 1). */
-  historyAggregates: false,
+  historyAggregates: true,
   /** Session device column (gap 2). */
   sessionDevice: false,
   /** Session location column (gap 2). */
