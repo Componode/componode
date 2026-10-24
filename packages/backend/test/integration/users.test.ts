@@ -309,6 +309,29 @@ describe("users CRUD", () => {
       },
     );
 
+    it("cleared displayName stores null — single empty representation", async () => {
+      const { session } = await createNonAdminAndLogin("clearname");
+
+      await app.inject({
+        method: "PATCH",
+        url: "/api/v1/users/me",
+        cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
+        headers: csrfHeader,
+        payload: { displayName: "Has Name" },
+      });
+
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/users/me",
+        cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
+        headers: csrfHeader,
+        payload: { displayName: "" },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().user.displayName).toBeNull();
+    });
+
     it("non-admin cannot reach the admin path — PATCH /users/:id still 403", async () => {
       const { user, session } = await createNonAdminAndLogin("boundary1");
 
