@@ -21,7 +21,7 @@ export function UxSettingsProfilePage() {
         onSave={(fd) =>
           updateSelf.mutate(
             {
-              displayName: String(fd.get("displayName") ?? "") || undefined,
+              displayName: String(fd.get("displayName") ?? ""),
               email: String(fd.get("email") ?? "") || undefined,
             },
             {

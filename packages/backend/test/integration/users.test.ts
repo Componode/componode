@@ -195,14 +195,14 @@ describe("users CRUD", () => {
   });
 
   describe("PATCH /api/v1/users/me (self-service, spec 030)", () => {
-    async function createNonAdminAndLogin(username: string) {
+    async function createNonAdminAndLogin(username: string, role = "VIEWER") {
       const password = "SelfEdit12345!";
       const res = await app.inject({
         method: "POST",
         url: "/api/v1/users",
         cookies: { [SESSION_COOKIE_NAME]: adminSession!, ...csrfCookie },
         headers: csrfHeader,
-        payload: { username, password, role: "VIEWER" },
+        payload: { username, password, role },
       });
       const user = res.json().user;
       const session = await loginAs(app, username, password);
@@ -247,6 +247,27 @@ describe("users CRUD", () => {
       expect(res.statusCode).toBe(200);
       expect(res.json().user.username).toBe("selfedit2");
     });
+
+    it.each(["EDITOR", "ADMIN"])(
+      "%s user also self-updates via PATCH /users/me → 200 (US1/AC4, SC-001)",
+      async (role) => {
+        const { session } = await createNonAdminAndLogin(
+          `self-${role.toLowerCase()}`,
+          role,
+        );
+
+        const res = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/users/me",
+          cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
+          headers: csrfHeader,
+          payload: { displayName: `${role} Self` },
+        });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.json().user.displayName).toBe(`${role} Self`);
+      },
+    );
 
     it("unauthenticated → 401", async () => {
       const res = await app.inject({

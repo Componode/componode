@@ -94,3 +94,8 @@ change with that user as actor.
 - **MVP**: Phases 1–3 (US1) — the endpoint + flag flip alone resolves the gap
 - US2/US3 add verification depth without new surface
 - Phase 6 keeps ADR-104 and the gap registry consistent with the shipped code
+
+## Phase 7: Review
+
+- [x] T017 Add integration cases in `packages/backend/test/integration/users.test.ts`: an EDITOR-role user self-updates via `PATCH /users/me` → 200, and an ADMIN user self-updates via `PATCH /users/me` → 200 (US1/AC4, SC-001 — all roles covered, not just VIEWER) (code-review: spec)
+- [x] T018 Fix displayName clearing in `packages/frontend/src/ux/app/settings/profile.tsx`: send `displayName` verbatim (allowing `""` to clear, matching the API/admin-path semantics — the schema accepts empty displayName) while keeping `email` as `|| undefined` (empty email is not clearable via the API); add a component case in `packages/frontend/src/test/unit/ux-settings-profile.test.tsx` asserting a cleared displayName submits `""` (spec edge case: clearing follows the same rules as the admin update path) (code-review: spec)

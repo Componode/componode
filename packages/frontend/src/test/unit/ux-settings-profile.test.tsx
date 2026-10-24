@@ -61,4 +61,16 @@ describe("UxSettingsProfilePage — self-service profile (spec 030, G14)", () =>
     );
     expect(updateUserMutate).not.toHaveBeenCalled();
   });
+
+  it("cleared display name submits an empty string — clearing follows API rules", () => {
+    wrap(<UxSettingsProfilePage />);
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+    expect(updateSelfMutate).toHaveBeenCalledWith(
+      { displayName: "", email: "view@example.com" },
+      expect.anything(),
+    );
+  });
 });
