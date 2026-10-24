@@ -34,8 +34,8 @@ export const flags = {
   advancedOps: false,
   /** Client display prefs (density/reduced-motion/relative-time) not yet consumed (gap 20). */
   displayPrefs: false,
-  /** Non-admin self profile save needs PATCH /users/me (gap 14). */
-  profileSelfEdit: false,
+  /** Non-admin self profile save — PATCH /users/me exists (gap 14, resolved by spec 030). */
+  profileSelfEdit: true,
 } as const;
 
 export type GapFlag = keyof typeof flags;

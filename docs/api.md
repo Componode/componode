@@ -135,6 +135,7 @@ Notes:
 | GET | `/api/v1/users` | List users | `user:list` |
 | POST | `/api/v1/users` | Create a user | `user:create` |
 | GET | `/api/v1/users/me` | Get the current user's profile | Authenticated |
+| PATCH | `/api/v1/users/me` | Update the current user's profile (display name, email) | Authenticated |
 | GET | `/api/v1/users/:id` | Get a user by ID | `user:list` |
 | PATCH | `/api/v1/users/:id` | Update a user (role, display name, email, team, active flag) | `user:update` |
 <!-- /GENERATED:table:Users -->
