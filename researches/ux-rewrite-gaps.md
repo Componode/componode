@@ -11,6 +11,22 @@
 > § Gap registry. When a gap is resolved by a shipped spec, mark it
 > **Resolved by spec NNN** rather than deleting it.
 
+## Spec queue (v1.1.x program)
+
+Open gaps resolve as their own specs on `release/1.1.0`, in this order —
+numbers are sequential at creation and may shift:
+
+1. `030` — self-service profile (G14)
+2. `031` — importer run aggregates (G1)
+3. `032` — admin session visibility (G2)
+4. `033` — detail reads + feed names (G7, G8, G9, G11)
+5. `034` — team↔LOB association (G12)
+6. `035` — schema-driven importer forms (G13)
+
+Deferred past this program — re-triaged after it closes: G15 (merged
+with the email-delivery half of G4), G16, G17, G18, G19. G20 resolves
+client-side without a spec.
+
 ## G1 — Per-day importer run aggregates
 
 - **UX surface**: importer detail → history chart (`/ux/importers/:id`).
@@ -38,14 +54,14 @@
   changes tab wires `useRunChanges`. No flag needed; entry retained for
   audit trail.
 
-## G4 — Password reset — PARTIAL
+## G4 — Password reset — RESOLVED (token flow)
 
 - **Verified**: `POST /auth/password/reset` (admin) returns a reset token;
-  `POST /auth/password/reset/confirm` is public. There is no email delivery —
-  the admin copies the link and delivers it out-of-band. The UX wires the
-  token-generation call and shows the link for copy-out; an email-delivery
-  workflow remains deferred.
-- **Flag**: `passwordReset` ON (token flow); email delivery would be a new gap.
+  `POST /auth/password/reset/confirm` is public. The UX wires the
+  token-generation call and shows the link for copy-out.
+- **Flag**: `passwordReset` ON. Email delivery merged into the deferred
+  G15 notification-delivery entry — the same SMTP infrastructure serves
+  both, so they land in one spec.
 
 ## G14 — Self-service profile update — RESOLVED by spec 030
 
@@ -55,39 +71,56 @@
   audit attribution. The profile page uses the self path for all roles;
   `profileSelfEdit` is ON and the read-only fallback removed.
 
-## G15 — Notification preferences
+## G15 — Notification delivery & preferences — DEFERRED (unscheduled)
 
 - **UX surface**: `/ux/settings/notifications` — event × channel matrix.
-- **Need**: per-user notification prefs endpoint (none exists). Matrix
-  renders disabled behind `notifications` flag.
+- **Need**: notification delivery infrastructure (SMTP or equivalent) plus
+  a per-user preferences endpoint (none exists). Absorbs the deferred
+  email-delivery half of G4 — a prefs matrix without delivery is dead
+  state, so the matrix stays flagged until delivery exists.
+- **Flag**: `notifications`.
+- **Deferred**: no spec scheduled; re-triaged after the v1.1.x gap
+  program.
 
-## G16 — Two-factor authentication
+## G16 — Two-factor authentication — DEFERRED (unscheduled)
 
 - **UX surface**: `/ux/settings/security` — TOTP toggle. No backend. Hidden
   behind `twoFactor`.
+- **Deferred**: no spec scheduled; re-triaged after the v1.1.x gap
+  program. Needs its own ADR (enrollment, recovery, session policy).
 
-## G17 — Session concurrency controls
+## G17 — Session concurrency controls — DEFERRED (unscheduled)
 
 - **UX surface**: `/ux/settings/session-policy` — one-session-per-user and
   IP-binding toggles. `AppSettings` only carries the two timeouts; hidden
   behind `sessionConcurrency`.
+- **Deferred**: no spec scheduled; re-triaged after the v1.1.x gap
+  program.
 
-## G18 — Workspace profile fields
+## G18 — Workspace profile fields — DEFERRED (unscheduled)
 
 - **UX surface**: `/ux/settings/workspace` — workspace name/URL/regional
   defaults. `AppSettings` has no such fields; hidden behind `workspaceProfile`.
+- **Deferred**: no spec scheduled; re-triaged after the v1.1.x gap
+  program. Spec must check the no-Organization/tenant guardrail —
+  workspace fields are org-level config.
 
-## G19 — Retention + export operations
+## G19 — Retention + export operations — DEFERRED (unscheduled)
 
 - **UX surface**: `/ux/settings/advanced` — gone-instance retention window,
   catalog export, destructive reset. No endpoints; hidden behind
   `advancedOps`.
+- **Deferred**: no spec scheduled; re-triaged after the v1.1.x gap
+  program. Destructive reset may split into its own spec.
 
 ## G20 — Client display preferences
 
 - **UX surface**: `/ux/settings/appearance` — density, reduce-motion,
   relative-time toggles. Persisted to `localStorage` (`ux.prefs`) but no
   component consumes them yet; flagged `displayPrefs`.
+- **Resolution**: client-side only — consume the persisted prefs
+  app-wide, flip the flag, mark resolved. No backend, no spec; ships as
+  a small standalone change.
 
 ## G5 — Expired-credential state rule — RESOLVED (derived, T036)
 
