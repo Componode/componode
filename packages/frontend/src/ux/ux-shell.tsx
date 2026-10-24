@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { AppHeader } from "@/ux/components/app/app-header";
 import { AppSidebar } from "@/ux/components/app/app-sidebar";
@@ -12,13 +13,21 @@ const SIDEBAR_KEY = "ux_sidebar_state";
 // prototype app shell mounted at /, wrapped in .ux-root so its design
 // tokens stay scoped to this tree.
 export function UxShell() {
+  // Controlled: passing onOpenChange alone would suppress the provider's
+  // internal state (stock shadcn sidebar semantics).
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => localStorage.getItem(SIDEBAR_KEY) !== "false",
+  );
   return (
     <div className="ux-root min-h-screen bg-background text-foreground">
       <SessionProvider>
         <CommandMenuProvider>
           <SidebarProvider
-            defaultOpen={localStorage.getItem(SIDEBAR_KEY) !== "false"}
-            onOpenChange={(open) => localStorage.setItem(SIDEBAR_KEY, String(open))}
+            open={sidebarOpen}
+            onOpenChange={(open) => {
+              setSidebarOpen(open);
+              localStorage.setItem(SIDEBAR_KEY, String(open));
+            }}
           >
             <AppSidebar />
             <SidebarInset className="min-w-0">
