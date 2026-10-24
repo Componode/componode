@@ -4,7 +4,6 @@ import { AppSidebar } from "@/ux/components/app/app-sidebar";
 import { CommandMenuProvider } from "@/ux/components/app/command-menu";
 import { SessionProvider } from "@/ux/components/app/session-context";
 import { SidebarInset, SidebarProvider } from "@/ux/components/ui/sidebar";
-import { TooltipProvider } from "@/ux/components/ui/tooltip";
 import "./styles.css";
 
 const SIDEBAR_KEY = "ux_sidebar_state";
@@ -17,7 +16,6 @@ export function UxShell() {
     <div className="ux-root min-h-screen bg-background text-foreground">
       <SessionProvider>
         <CommandMenuProvider>
-          <TooltipProvider>
           <SidebarProvider
             defaultOpen={localStorage.getItem(SIDEBAR_KEY) !== "false"}
             onOpenChange={(open) => localStorage.setItem(SIDEBAR_KEY, String(open))}
@@ -30,7 +28,6 @@ export function UxShell() {
               </main>
             </SidebarInset>
           </SidebarProvider>
-          </TooltipProvider>
         </CommandMenuProvider>
       </SessionProvider>
     </div>
