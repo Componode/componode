@@ -193,4 +193,186 @@ describe("users CRUD", () => {
     // ensure it's not the zero/sentinel value
     expect(id).not.toBe(uuidv7());
   });
+
+  describe("PATCH /api/v1/users/me (self-service, spec 030)", () => {
+    async function createNonAdminAndLogin(username: string, role = "VIEWER") {
+      const password = "SelfEdit12345!";
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/users",
+        cookies: { [SESSION_COOKIE_NAME]: adminSession!, ...csrfCookie },
+        headers: csrfHeader,
+        payload: { username, password, role },
+      });
+      const user = res.json().user;
+      const session = await loginAs(app, username, password);
+      return { user, session: session! };
+    }
+
+    it("non-admin updates own displayName and email → 200 + persists", async () => {
+      const { session } = await createNonAdminAndLogin("selfedit1");
+
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/users/me",
+        cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
+        headers: csrfHeader,
+        payload: { displayName: "Self Editor", email: "self@example.com" },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().user.displayName).toBe("Self Editor");
+      expect(res.json().user.email).toBe("self@example.com");
+
+      const me = await app.inject({
+        method: "GET",
+        url: "/api/v1/users/me",
+        cookies: { [SESSION_COOKIE_NAME]: session },
+      });
+      expect(me.json().user.displayName).toBe("Self Editor");
+      expect(me.json().user.email).toBe("self@example.com");
+    });
+
+    it("empty body {} → 200 no-op returning current record", async () => {
+      const { session } = await createNonAdminAndLogin("selfedit2");
+
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/users/me",
+        cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
+        headers: csrfHeader,
+        payload: {},
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().user.username).toBe("selfedit2");
+    });
+
+    it.each(["EDITOR", "ADMIN"])(
+      "%s user also self-updates via PATCH /users/me → 200 (US1/AC4, SC-001)",
+      async (role) => {
+        const { session } = await createNonAdminAndLogin(
+          `self-${role.toLowerCase()}`,
+          role,
+        );
+
+        const res = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/users/me",
+          cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
+          headers: csrfHeader,
+          payload: { displayName: `${role} Self` },
+        });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.json().user.displayName).toBe(`${role} Self`);
+      },
+    );
+
+    it("unauthenticated → 401", async () => {
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/users/me",
+        cookies: csrfCookie,
+        headers: csrfHeader,
+        payload: { displayName: "Nobody" },
+      });
+
+      expect(res.statusCode).toBe(401);
+    });
+
+    it.each(["role", "isActive", "teamId", "username", "password", "id"])(
+      "rejects privileged/unknown key %s → 400 and record unchanged",
+      async (key) => {
+        const { session } = await createNonAdminAndLogin(
+          `strict-${key.toLowerCase()}`,
+        );
+
+        const res = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/users/me",
+          cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
+          headers: csrfHeader,
+          payload: { [key]: key === "role" ? "ADMIN" : "x", displayName: "Sneaky" },
+        });
+
+        expect(res.statusCode).toBe(400);
+        expect(res.json().code).toBe("VALIDATION_FAILED");
+
+        const me = await app.inject({
+          method: "GET",
+          url: "/api/v1/users/me",
+          cookies: { [SESSION_COOKIE_NAME]: session },
+        });
+        expect(me.json().user.displayName).not.toBe("Sneaky");
+        expect(me.json().user.role).toBe("VIEWER");
+      },
+    );
+
+    it("cleared displayName stores null — single empty representation", async () => {
+      const { session } = await createNonAdminAndLogin("clearname");
+
+      await app.inject({
+        method: "PATCH",
+        url: "/api/v1/users/me",
+        cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
+        headers: csrfHeader,
+        payload: { displayName: "Has Name" },
+      });
+
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/users/me",
+        cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
+        headers: csrfHeader,
+        payload: { displayName: "" },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().user.displayName).toBeNull();
+    });
+
+    it("non-admin cannot reach the admin path — PATCH /users/:id still 403", async () => {
+      const { user, session } = await createNonAdminAndLogin("boundary1");
+
+      const res = await app.inject({
+        method: "PATCH",
+        url: `/api/v1/users/${user.id}`,
+        cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
+        headers: csrfHeader,
+        payload: { role: "ADMIN" },
+      });
+
+      expect(res.statusCode).toBe(403);
+    });
+
+    it("self-edit writes an audited user change attributed to the caller", async () => {
+      const { user, session } = await createNonAdminAndLogin("selfaudit");
+
+      const patch = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/users/me",
+        cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
+        headers: csrfHeader,
+        payload: { displayName: "Audited Self", email: "audit@example.com" },
+      });
+      expect(patch.statusCode).toBe(200);
+
+      const feed = await app.inject({
+        method: "GET",
+        url: "/api/v1/audit/activity?actor=selfaudit&entityType=user",
+        cookies: { [SESSION_COOKIE_NAME]: adminSession! },
+      });
+      expect(feed.statusCode).toBe(200);
+      const items = feed.json().items;
+      const entry = items.find(
+        (i: { entityId: string; action: string }) =>
+          i.entityId === user.id && i.action === "updated",
+      );
+      expect(entry).toBeDefined();
+      expect(entry.createdByName).toBe("selfaudit");
+      expect(entry.changes.displayName).toBe("Audited Self");
+      expect(entry.changes.email).toBe("audit@example.com");
+    });
+  });
 });

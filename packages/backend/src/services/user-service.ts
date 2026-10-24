@@ -141,7 +141,12 @@ export async function updateUser(id: string, input: UpdateUserInput, actor: Acto
 
   const updates: Record<string, unknown> = {};
   if (input.role !== undefined) updates.role = input.role;
-  if (input.displayName !== undefined) updates.displayName = input.displayName;
+  // persons.displayName is nullable and createUser stores null — normalize
+  // "" to null so there is one empty representation (`displayName ?? username`
+  // fallbacks on audit/avatar surfaces would render blank on "").
+  if (input.displayName !== undefined) {
+    updates.displayName = input.displayName === "" ? null : input.displayName;
+  }
   if (input.email !== undefined) updates.email = input.email;
   if (input.teamId !== undefined) updates.teamId = input.teamId;
   if (input.isActive !== undefined) updates.isActive = input.isActive;

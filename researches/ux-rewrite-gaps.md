@@ -63,13 +63,13 @@ client-side without a spec.
   G15 notification-delivery entry — the same SMTP infrastructure serves
   both, so they land in one spec.
 
-## G14 — Self-service profile update
+## G14 — Self-service profile update — RESOLVED by spec 030
 
-- **UX surface**: `/settings/profile` — display name/email editing.
-- **Need**: `PATCH /users/me` for non-admins; today `PATCH /users/:id`
-  requires `user:update` (ADMIN) so non-admins get 403 on save.
-- **Flag**: `profileSelfEdit` — while off, non-admins see a read-only form
-  with a footer note instead of a doomed submit (admins save normally).
+- `PATCH /users/me` ships: self-bound to the session user, strict
+  `updateSelfSchema` (`displayName` + `email` only — privileged keys
+  rejected, not stripped), routed through `updateUser` for identical
+  audit attribution. The profile page uses the self path for all roles;
+  `profileSelfEdit` is ON and the read-only fallback removed.
 
 ## G15 — Notification delivery & preferences — DEFERRED (unscheduled)
 

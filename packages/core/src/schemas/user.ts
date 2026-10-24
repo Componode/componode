@@ -22,5 +22,16 @@ export const updateUserSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+// Self-service profile update (PATCH /users/me): only the two self-editable
+// fields. .strict() rejects privileged/unknown keys rather than silently
+// stripping them — a caller who sends `role` must get an error, not a no-op.
+export const updateSelfSchema = z
+  .object({
+    displayName: z.string().max(100).optional(),
+    email: z.string().email().optional(),
+  })
+  .strict();
+
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+export type UpdateSelfInput = z.infer<typeof updateSelfSchema>;

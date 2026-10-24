@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–029)
+## Shipped (features 001–030)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -119,6 +119,12 @@ file tracks shipped and upcoming work — update it when a spec completes.
   duration, session-duration, and last-contact series, and the UI shows
   an Agent-reported block with a stale-heartbeat signal plus a
   last-disconnect column. Remote Import Agents program complete.
+- `030-self-service-profile` — first ux-rewrite gap resolution (G14):
+  `PATCH /users/me` bound to the session user behind a strict
+  `updateSelfSchema` (`displayName` + `email` only — privileged keys
+  rejected, not stripped), reusing `updateUser` for identical audit
+  attribution; the profile page uses the self path for all roles and the
+  `profileSelfEdit` fallback is retired.
 
 ## Next — v1.1
 
@@ -126,12 +132,11 @@ See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028) and the UX baseline (029) are
 shipped on `release/1.1.0`. First follow-on: the UX-rewrite backend gaps
 in `researches/ux-rewrite-gaps.md`, resolved as their own specs on
-`release/1.1.0` in queue order — `030` self-service profile (G14),
-`031` importer run aggregates (G1), `032` admin session visibility (G2),
-`033` detail reads + feed names (G7/G8/G9/G11), `034` team↔LOB (G12),
-`035` schema-driven importer forms (G13). G20 resolves client-side
-without a spec; G15–G19 are deferred unscheduled (see the registry's
-spec-queue block):
+`release/1.1.0` in queue order — `031` importer run aggregates (G1),
+`032` admin session visibility (G2), `033` detail reads + feed names
+(G7/G8/G9/G11), `034` team↔LOB (G12), `035` schema-driven importer forms
+(G13). G20 resolves client-side without a spec; G15–G19 are deferred
+unscheduled (see the registry's spec-queue block):
 
 - Runtime-loaded importer plugins
 - Invite-based registration

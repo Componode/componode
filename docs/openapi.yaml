@@ -365,6 +365,35 @@ paths:
                   user: { $ref: '#/components/schemas/Person' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Users]
+      summary: Update the current user's profile (display name, email)
+      description: >-
+        Self-service profile update bound to the session user. Only
+        `displayName` and `email` are accepted — any other key (including
+        `role`, `isActive`, `teamId`, `username`) is rejected with 400.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                displayName: { type: string, maxLength: 100 }
+                email: { type: string, format: email }
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/Person' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /users/{id}:
     get:
       tags: [Users]
