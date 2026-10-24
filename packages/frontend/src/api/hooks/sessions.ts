@@ -9,6 +9,15 @@ export function useSessions() {
   });
 }
 
+/** Admin-only: sessions for an arbitrary user (user:listSessions). */
+export function useUserSessions(userId: string | null) {
+  return useQuery({
+    queryKey: ["users", userId, "sessions"],
+    queryFn: () => api<{ sessions: Session[] }>(`/users/${userId}/sessions`),
+    enabled: userId !== null,
+  });
+}
+
 export function useRevokeSession() {
   const qc = useQueryClient();
   return useMutation({

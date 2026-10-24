@@ -76,6 +76,21 @@ export function useUpdateCredential(id: string) {
   });
 }
 
+/** Revoke = PATCH {status:"REVOKED"}; id is a mutate variable (safe in row callbacks). */
+export function useRevokeCredential() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ credential: Credential }>(`/credentials/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "REVOKED" }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["credentials"] });
+    },
+  });
+}
+
 export function useDeleteCredential() {
   const qc = useQueryClient();
   return useMutation({

@@ -22,6 +22,7 @@ export interface ComponentListFilters {
   wired?: string;
   tag?: string;
   search?: string;
+  includeRetired?: boolean;
   sort?: "name" | "lastSeenAt" | "createdAt";
   order?: "asc" | "desc";
 }
