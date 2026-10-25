@@ -29,6 +29,10 @@ export interface SessionRow {
   lastSeenAt: Generated<string>;
   expiresAt: string;
   revokedAt: string | null;
+  // Captured at session creation for the sessions UX (spec 032); NULL for
+  // sessions minted before migration 020 or without a request context.
+  userAgent: string | null;
+  ip: string | null;
 }
 
 export interface PasswordResetTokenRow {
