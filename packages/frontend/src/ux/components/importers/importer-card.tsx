@@ -10,7 +10,7 @@ import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader,
 import { Switch } from "@/ux/components/ui/switch"
 import { PROVIDER_META } from "@/ux/lib/domain"
 import { formatNumber } from "@/ux/lib/format"
-import { useTriggerImportRun, useUpdateImporterConfig } from "@/api/hooks/importers"
+import { useRunAggregates, useTriggerImportRun, useUpdateImporterConfig } from "@/api/hooks/importers"
 import { flags } from "@/ux/lib/flags"
 import { ux } from "@/ux/lib/paths"
 import type { ImporterConfig } from "@/ux/lib/view-types"
@@ -35,6 +35,7 @@ function RunHistory({ history }: { history: ImporterConfig["history"] }) {
 export function ImporterCard({ importer: i }: { importer: ImporterConfig }) {
   const trigger = useTriggerImportRun()
   const update = useUpdateImporterConfig()
+  const aggregates = useRunAggregates(i.id)
   const enabled = i.enabled
   return (
     <Card className={cn("h-full", !enabled && "opacity-70")}>
@@ -77,7 +78,7 @@ export function ImporterCard({ importer: i }: { importer: ImporterConfig }) {
           )}
         </div>
         {flags.historyAggregates ? (
-          <RunHistory history={i.history} />
+          <RunHistory history={aggregates.data ?? []} />
         ) : (
           <div className="flex h-8 items-center text-xs text-muted-foreground" role="img" aria-label="Run history unavailable">
             Per-day run history lands with the aggregates endpoint.

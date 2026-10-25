@@ -1640,6 +1640,34 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+  /importer-configs/{id}/run-aggregates:
+    get:
+      tags: [Importers]
+      summary: Per-day run aggregates for an importer configuration
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - in: query
+          name: days
+          schema: { type: integer, minimum: 1, maximum: 90, default: 14 }
+      responses:
+        '200':
+          description: Per-day buckets, ascending, zero-filled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  days:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        day: { type: string, format: date }
+                        runs: { type: integer }
+                        created: { type: integer }
+                        updated: { type: integer }
+                        failed: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /importer-configs/{id}/runs:
     get:
       tags: [Importers]

@@ -20,6 +20,7 @@ import {
   cancelRun,
   getRun,
   listRunsForConfig,
+  listRunDayAggregates,
   listRunErrors,
 } from "../services/import-run-service.js";
 import { getRunChanges } from "../services/audit-query-service.js";
@@ -135,6 +136,18 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
       }
       throw err;
     }
+  });
+
+  // GET /importer-configs/:id/run-aggregates — per-day run buckets (spec 031)
+  app.get("/importer-configs/:id/run-aggregates", {
+    preHandler: [app.verifySession],
+  }, async (req: FastifyRequest, reply: FastifyReply) => {
+    const { id } = req.params as { id: string };
+    const { days: daysParam } = req.query as { days?: string };
+    const parsed = Number.parseInt(daysParam ?? "14", 10);
+    const days = Math.min(90, Math.max(1, Number.isNaN(parsed) ? 14 : parsed));
+    const aggregates = await listRunDayAggregates(id, days);
+    return reply.status(200).send({ days: aggregates });
   });
 
   app.get("/importer-configs/:id/runs", {

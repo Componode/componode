@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–030)
+## Shipped (features 001–031)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -125,6 +125,11 @@ file tracks shipped and upcoming work — update it when a spec completes.
   rejected, not stripped), reusing `updateUser` for identical audit
   attribution; the profile page uses the self path for all roles and the
   `profileSelfEdit` fallback is retired.
+- `031-importer-run-aggregates` — ux-rewrite gap G1: `GET
+  /importer-configs/:id/run-aggregates?days=N` returns zero-filled
+  per-day run buckets (runs, failed count, asset created/updated sums)
+  computed server-side; the importer-card sparkline renders live data and
+  `historyAggregates` is on.
 
 ## Next — v1.1
 
@@ -132,8 +137,8 @@ See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028) and the UX baseline (029) are
 shipped on `release/1.1.0`. First follow-on: the UX-rewrite backend gaps
 in `researches/ux-rewrite-gaps.md`, resolved as their own specs on
-`release/1.1.0` in queue order — `031` importer run aggregates (G1),
-`032` admin session visibility (G2), `033` detail reads + feed names
+`release/1.1.0` in queue order — `032` admin session visibility (G2),
+`033` detail reads + feed names
 (G7/G8/G9/G11), `034` team↔LOB (G12), `035` schema-driven importer forms
 (G13). G20 resolves client-side without a spec; G15–G19 are deferred
 unscheduled (see the registry's spec-queue block):
