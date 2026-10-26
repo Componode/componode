@@ -13,10 +13,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/ux/components/ui/dialog"
-import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/ux/components/ui/field"
+import { PASSWORD_MIN_LENGTH } from "@componode/core"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/ux/components/ui/field"
 import { Input } from "@/ux/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/ux/components/ui/radio-group"
 import { useCreateUser } from "@/api/hooks/users"
+import { describeApiError, fieldErrors, type ApiError } from "@/api/client"
 import { ROLE_META, type Role } from "@/ux/lib/domain"
 
 const ROLE_HELP: Record<Role, string> = {
@@ -25,12 +27,23 @@ const ROLE_HELP: Record<Role, string> = {
   ADMIN: "Everything, plus users, credentials and workspace settings.",
 }
 
+/** Fields rendered by this form — server issues naming any other field toast instead. */
+const FORM_FIELDS = new Set(["username", "displayName", "email", "password", "role"])
+
 /** Standard create-dialog pattern: ≤ 4 fields, primary action on the right, closes + toasts on success. */
 export function InviteUserDialog() {
   const [open, setOpen] = React.useState(false)
+  const [errors, setErrors] = React.useState<Record<string, string>>({})
   const createUser = useCreateUser()
+  const clearError = (name: string) =>
+    setErrors((prev) => {
+      if (!(name in prev)) return prev
+      const next = { ...prev }
+      delete next[name]
+      return next
+    })
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) setErrors({}) }}>
       <DialogTrigger asChild>
         <Button>
           <UserPlusIcon data-icon="inline-start" />
@@ -54,9 +67,19 @@ export function InviteUserDialog() {
               {
                 onSuccess: () => {
                   setOpen(false)
+                  setErrors({})
                   toast.success("User created")
                 },
-                onError: (err) => toast.error(err.message),
+                onError: (err) => {
+                  const fieldMap = fieldErrors(err as unknown as ApiError)
+                  setErrors(fieldMap)
+                  const stray = Object.entries(fieldMap).filter(([k]) => !FORM_FIELDS.has(k))
+                  if (stray.length > 0) {
+                    toast.error(stray.map(([k, r]) => `${k}: ${r}`).join("; "))
+                  } else if (Object.keys(fieldMap).length === 0) {
+                    toast.error(describeApiError(err as unknown as ApiError))
+                  }
+                },
               },
             )
           }}
@@ -66,22 +89,25 @@ export function InviteUserDialog() {
             <DialogDescription>Set a temporary password — the user should change it after first sign-in.</DialogDescription>
           </DialogHeader>
           <FieldGroup>
-            <Field>
+            <Field data-invalid={errors.username ? true : undefined}>
               <FieldLabel htmlFor="invite-username">Username</FieldLabel>
-              <Input id="invite-username" name="username" required placeholder="jdoe" autoComplete="off" pattern="[a-z0-9_-]+" />
-              <FieldDescription>Lowercase alphanumeric with _ or -.</FieldDescription>
+              <Input id="invite-username" name="username" required placeholder="jdoe" autoComplete="off" pattern="[a-z0-9_\-]+" aria-invalid={errors.username ? true : undefined} onChange={() => clearError("username")} />
+              {errors.username ? <FieldError>{errors.username}</FieldError> : <FieldDescription>Lowercase alphanumeric with _ or -.</FieldDescription>}
             </Field>
-            <Field>
+            <Field data-invalid={errors.displayName ? true : undefined}>
               <FieldLabel htmlFor="invite-name">Display name</FieldLabel>
-              <Input id="invite-name" name="displayName" placeholder="Jane Doe" autoComplete="off" />
+              <Input id="invite-name" name="displayName" placeholder="Jane Doe" autoComplete="off" aria-invalid={errors.displayName ? true : undefined} onChange={() => clearError("displayName")} />
+              {errors.displayName && <FieldError>{errors.displayName}</FieldError>}
             </Field>
-            <Field>
+            <Field data-invalid={errors.email ? true : undefined}>
               <FieldLabel htmlFor="invite-email">Email</FieldLabel>
-              <Input id="invite-email" name="email" type="email" placeholder="name@company.com" autoComplete="off" />
+              <Input id="invite-email" name="email" type="email" placeholder="name@company.com" autoComplete="off" aria-invalid={errors.email ? true : undefined} onChange={() => clearError("email")} />
+              {errors.email && <FieldError>{errors.email}</FieldError>}
             </Field>
-            <Field>
+            <Field data-invalid={errors.password ? true : undefined}>
               <FieldLabel htmlFor="invite-password">Temporary password</FieldLabel>
-              <Input id="invite-password" name="password" type="password" required minLength={8} autoComplete="new-password" />
+              <Input id="invite-password" name="password" type="password" required minLength={PASSWORD_MIN_LENGTH} autoComplete="new-password" aria-invalid={errors.password ? true : undefined} onChange={() => clearError("password")} />
+              {errors.password && <FieldError>{errors.password}</FieldError>}
             </Field>
             <FieldSet>
               <FieldLegend variant="label">Role</FieldLegend>
