@@ -194,17 +194,19 @@ export function mapAgentSession(s: {
   };
 }
 
-/** EntityChange → RunChange row (gap G11: the API carries ids, not names). */
+const RUN_KIND: Record<string, RunChange["entityKind"]> = {
+  component: "component",
+  component_instance: "instance",
+  digital_product: "product",
+};
+
+/** EntityChange → RunChange row. entityName arrives resolved server-side (spec 033). */
 export function mapRunChange(c: EntityChange): RunChange {
   return {
     id: c.id,
     runId: c.importRunId ?? "",
-    entityKind: narrow(
-      c.entityType,
-      ["component", "instance", "product"],
-      "component",
-    ),
-    entityName: c.entityId ?? c.entityType,
+    entityKind: RUN_KIND[c.entityType] ?? "component",
+    entityName: c.entityName ?? RUN_KIND[c.entityType] ?? "component",
     action: narrow(c.action, ["created", "updated", "orphaned", "retired"], "updated"),
     actor: c.createdByName ?? "importer",
     at: c.createdAt,

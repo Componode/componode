@@ -19,7 +19,7 @@ numbers are sequential at creation and may shift:
 1. `030` — self-service profile (G14)
 2. `031` — importer run aggregates (G1)
 3. `032` — admin session visibility (G2)
-4. `033` — detail reads + feed names (G7, G8, G9, G11)
+4. `033` — detail reads + feed names (G7, G8, G9, G11) — RESOLVED
 5. `034` — team↔LOB association (G12)
 6. `035` — schema-driven importer forms (G13)
 
@@ -140,33 +140,25 @@ client-side without a spec.
   importer list until the parameter lands.
 - **Flag**: none (resolved during implementation).
 
-## G7 — Team detail endpoint
+## G7 — Team detail endpoint — RESOLVED by spec 033
 
-- **Status**: partially resolved during implementation — `PATCH /teams/:id`
-  and `DELETE /teams/:id` exist (verified in `src/routes/org.ts`).
-- **UX surface**: `/ux/teams/:slug` detail page.
-- **Need**: `GET /teams/:id`. Until it lands, detail resolves via the
-  filtered-list strategy (fetch list, match slug) — see
-  `contracts/wiring.md`. `GET /teams/:id/members` already exists.
-- **Flag**: none.
+- `GET /teams/:id` ships inside the `register()` block in
+  `src/routes/org.ts`. The `:id` param resolves **id-or-slug** —
+  UUID-shaped values match `id` first and fall back to `slug`, so the
+  `/ux/teams/:slug` route resolves in one read via `useTeam`. The
+  list-and-match fallback is retired.
 
-## G8 — LOB detail endpoint
+## G8 — LOB detail endpoint — RESOLVED by spec 033
 
-- **Status**: partially resolved during implementation — `PATCH`/`DELETE
-  /lobs/:id` exist.
-- **UX surface**: `/ux/lobs/:slug` detail page.
-- **Need**: `GET /lobs/:id`; detail resolves via filtered-list meanwhile.
-- **Flag**: none.
+- `GET /lobs/:id` ships the same way; `/ux/lobs/:slug` resolves via
+  `useLob` in one read.
 
-## G9 — Component-group slug lookup
+## G9 — Component-group slug lookup — RESOLVED by spec 033
 
-- **UX surface**: `/ux/component-groups/:slug`.
-- **Need**: groups addressed by slug, or a documented client-side slug→id
-  resolution (prototype routes use slugs; API addresses groups by id).
-- **Current API**: group endpoints take `:id`. Resolution strategy per
-  `contracts/wiring.md`: list + match, or a `?slug=` filter if added.
-- **Flag**: none — handled by read-hook resolution; recorded here as a
-  candidate API addition.
+- `GET /component-groups/:id` accepts id-or-slug (same resolution rule);
+  `/ux/component-groups/:slug` resolves via `useComponentGroup`. The
+  detail read now also carries `memberCount` (matching the list row) so
+  the members stat and delete-confirm copy stay truthful.
 
 ## G10 — Audit `actor` filter — RESOLVED (verified T034)
 
@@ -176,15 +168,15 @@ client-side without a spec.
   The user detail activity tab wires `useActivityFeed({ actor: username })`.
   No gap — entry retained for audit trail only.
 
-## G11 — Audit feed entity display names
+## G11 — Audit feed entity display names — RESOLVED by spec 033
 
-- **UX surface**: dashboard recent activity, `/ux/activity`, entity-history
-  tabs — the feed renders `<entityName>` per row.
-- **Need**: `ActivityFeedItem`/`EntityChange` carry `entityId` but no display
-  name or human summary; the UI must render `entityType:entityId` pairs.
-- **Current API**: no `entityName`/`summary` field on audit feed items.
-- **Flag**: none — mapper degrades gracefully; recorded as a candidate API
-  addition.
+- `EntityChange` gains `entityName`; `EdgeChange` gains `fromEntityName`
+  and `toEntityName` — resolved server-side at read time
+  (`audit-query-service.attachEntityNames`) across `/audit/activity`,
+  `/audit/entities/:type/:id`, and run changes, covering all historical
+  rows and renames. Unresolvable rows (deleted entities, `settings`/`auth`
+  events) return null and the mapper renders the entity-kind label —
+  never a raw identifier pair.
 
 ## G12 — Team ↔ LOB association
 

@@ -1311,9 +1311,9 @@ paths:
   /component-groups/{id}:
     get:
       tags: [ComponentGroups]
-      summary: Get a component group by ID
+      summary: Get a component group by ID or slug
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IdOrSlug' }
       responses:
         '200':
           description: Component group
@@ -1323,6 +1323,7 @@ paths:
                 type: object
                 properties:
                   group: { $ref: '#/components/schemas/ComponentGroup' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
@@ -1802,6 +1803,23 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
   /lobs/{id}:
+    get:
+      tags: [Organization]
+      summary: Get a line of business by ID or slug
+      parameters:
+        - { $ref: '#/components/parameters/IdOrSlug' }
+      responses:
+        '200':
+          description: LoB
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lob: { $ref: '#/components/schemas/LineOfBusiness' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [Organization]
       summary: Update a line of business
@@ -1881,6 +1899,23 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
   /teams/{id}:
+    get:
+      tags: [Organization]
+      summary: Get a team by ID or slug
+      parameters:
+        - { $ref: '#/components/parameters/IdOrSlug' }
+      responses:
+        '200':
+          description: Team
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  team: { $ref: '#/components/schemas/Team' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [Organization]
       summary: Update a team
@@ -1925,13 +1960,14 @@ paths:
       tags: [Organization]
       summary: List members of a team
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IdOrSlug' }
       responses:
         '200':
           description: Team members
           content:
             application/json:
               schema: { type: object }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -2020,7 +2056,9 @@ paths:
               schema:
                 type: object
                 properties:
-                  items: { type: array, items: { type: object } }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ActivityFeedItem' }
                   total: { type: integer }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -2067,7 +2105,9 @@ paths:
               schema:
                 type: object
                 properties:
-                  items: { type: array, items: { type: object } }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ActivityFeedItem' }
                   total: { type: integer }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
@@ -2794,6 +2834,12 @@ components:
       required: true
       schema: { type: string, format: uuid }
       description: Entity ID (UUID v7)
+    IdOrSlug:
+      in: path
+      name: id
+      required: true
+      schema: { type: string }
+      description: Entity ID (UUID v7) or slug — UUID-shaped values match id first, then slug
   responses:
     ValidationFailed:
       description: Input validation failed (`VALIDATION_FAILED`)
@@ -2910,12 +2956,51 @@ components:
               name: { type: string }
               reason: { type: string }
 
+    ActivityFeedItem:
+      description: >-
+        An entity change or an edge change. Entity-kind items carry
+        `entityName`; edge-kind items carry `fromEntityName`/`toEntityName` —
+        display names resolved at read time, null when unresolvable.
+      oneOf:
+        - type: object
+          properties:
+            kind: { type: string, enum: [entity] }
+            id: { type: string, format: uuid }
+            entityType: { type: string }
+            entityId: { type: string, nullable: true }
+            entityName: { type: string, nullable: true }
+            action: { type: string }
+            changes: { type: object, nullable: true }
+            createdBy: { type: string, format: uuid, nullable: true }
+            createdByName: { type: string, nullable: true }
+            importRunId: { type: string, format: uuid, nullable: true }
+            createdAt: { type: string, format: date-time }
+        - type: object
+          properties:
+            kind: { type: string, enum: [edge] }
+            id: { type: string, format: uuid }
+            edgeType: { type: string }
+            fromEntityType: { type: string }
+            fromEntityId: { type: string }
+            fromEntityName: { type: string, nullable: true }
+            toEntityType: { type: string }
+            toEntityId: { type: string }
+            toEntityName: { type: string, nullable: true }
+            action: { type: string }
+            reason: { type: string, nullable: true }
+            createdBy: { type: string, format: uuid, nullable: true }
+            createdByName: { type: string, nullable: true }
+            createdAt: { type: string, format: date-time }
     EntityChange:
       type: object
       properties:
         id: { type: string, format: uuid }
         entityType: { type: string }
         entityId: { type: string, nullable: true }
+        entityName:
+          type: string
+          nullable: true
+          description: Display name resolved server-side at read time; null when the entity is gone or the type has no name
         action: { type: string }
         changes: { type: object, nullable: true }
         createdBy: { type: string, format: uuid, nullable: true }

@@ -252,7 +252,7 @@ reassigns `{ componentGroupId?, teamOwnerId? }` (nullable).
 |---|---|---|---|
 | GET | `/api/v1/component-groups` | List component groups | Authenticated |
 | POST | `/api/v1/component-groups` | Create a component group | `componentGroup:create` |
-| GET | `/api/v1/component-groups/:id` | Get a component group by ID | Authenticated |
+| GET | `/api/v1/component-groups/:id` | Get a component group by ID or slug | Authenticated |
 | PATCH | `/api/v1/component-groups/:id` | Update a component group | `componentGroup:update` |
 | DELETE | `/api/v1/component-groups/:id` | Delete a component group | `componentGroup:delete` |
 <!-- /GENERATED:table:ComponentGroups -->
@@ -326,10 +326,12 @@ Notes:
 |---|---|---|---|
 | GET | `/api/v1/lobs` | List lines of business | Authenticated |
 | POST | `/api/v1/lobs` | Create a line of business | `lob:create` |
+| GET | `/api/v1/lobs/:id` | Get a line of business by ID or slug | Authenticated |
 | PATCH | `/api/v1/lobs/:id` | Update a line of business | `lob:update` |
 | DELETE | `/api/v1/lobs/:id` | Delete a line of business | `lob:delete` |
 | GET | `/api/v1/teams` | List teams | Authenticated |
 | POST | `/api/v1/teams` | Create a team | `team:create` |
+| GET | `/api/v1/teams/:id` | Get a team by ID or slug | Authenticated |
 | PATCH | `/api/v1/teams/:id` | Update a team | `team:update` |
 | DELETE | `/api/v1/teams/:id` | Delete a team | `team:delete` |
 | GET | `/api/v1/teams/:id/members` | List members of a team | Authenticated |

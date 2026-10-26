@@ -350,13 +350,28 @@ describe("mapRunChange / mapRunError", () => {
       id: "e1",
       entityType: "component",
       entityId: "c1",
+      entityName: "payments-db",
       action: "created",
       createdByName: "importer",
       createdAt: "2026-02-01T00:00:00Z",
     } as never);
+    expect(view.entityName).toBe("payments-db");
     expect(view.entityKind).toBe("component");
     expect(view.action).toBe("created");
     expect(view.actor).toBe("importer");
+  });
+
+  it("falls back to the entity type when entityName is null", () => {
+    const view = mapRunChange({
+      id: "e1b",
+      entityType: "component",
+      entityId: "c-deleted",
+      entityName: null,
+      action: "updated",
+      createdByName: "importer",
+      createdAt: "2026-02-01T00:00:00Z",
+    } as never);
+    expect(view.entityName).toBe("component");
   });
 
   it("maps a run error row", () => {
@@ -446,6 +461,64 @@ describe("mapSession", () => {
     expect(view.device).toBe("—");
     expect(view.location).toBe("—");
     expect(view.current).toBe(false);
+  });
+});
+
+describe("mapActivityItem names", () => {
+  it("renders entityName when the API provides it", () => {
+    const view = mapActivityItem({
+      kind: "entity",
+      id: "en1",
+      entityType: "component",
+      entityId: "c1",
+      entityName: "payments-db",
+      action: "updated",
+      changes: { name: "x" },
+      createdByName: "admin",
+      createdAt: "2026-02-01T00:00:00Z",
+    } as never);
+    expect(view.entityName).toBe("payments-db");
+  });
+
+  it("renders endpoint names on edge rows", () => {
+    const view = mapActivityItem({
+      kind: "edge",
+      id: "ee1",
+      edgeType: "DEPENDS_ON_COMPONENT",
+      fromEntityType: "digital_product",
+      fromEntityId: "p1",
+      fromEntityName: "Payments App",
+      toEntityType: "component",
+      toEntityId: "c1",
+      toEntityName: "payments-db",
+      action: "added",
+      createdByName: "admin",
+      createdAt: "2026-02-01T00:00:00Z",
+    } as never);
+    expect(view.entityName).toBe("Payments App");
+    expect(view.summary).toContain("payments-db");
+    expect(view.summary).not.toContain("c1");
+  });
+
+  it("falls back to kind labels when names are null — never type:id", () => {
+    const view = mapActivityItem({
+      kind: "edge",
+      id: "ee2",
+      edgeType: "COMPOSES",
+      fromEntityType: "digital_product",
+      fromEntityId: "p-gone",
+      fromEntityName: null,
+      toEntityType: "digital_product",
+      toEntityId: "p2",
+      toEntityName: null,
+      action: "removed",
+      createdByName: "admin",
+      createdAt: "2026-02-01T00:00:00Z",
+    } as never);
+    expect(view.entityName).toBe("product");
+    expect(view.summary).toContain("product");
+    expect(view.summary).not.toContain("p2");
+    expect(view.summary).not.toContain(":");
   });
 });
 

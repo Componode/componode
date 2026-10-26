@@ -1,8 +1,12 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { z } from "zod";
+
+const detailParamsSchema = z.object({ id: z.string().min(1).max(200) });
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
 import {
   listOrgEntities,
+  getOrgEntity,
   getTeamMembers,
   createOrgEntity,
   updateOrgEntity,
@@ -26,6 +30,27 @@ export async function orgRoutes(app: FastifyInstance): Promise<void> {
         const rows = await listOrgEntities(table);
         const key = base === "/lobs" ? "lobs" : "teams";
         return reply.status(200).send({ [key]: rows });
+      },
+    );
+
+    app.get(
+      `${base}/:id`,
+      { preHandler: [app.verifySession] },
+      async (req: FastifyRequest, reply: FastifyReply) => {
+        const parsed = detailParamsSchema.safeParse(req.params);
+        if (!parsed.success) {
+          return reply.status(400).send({
+            code: "VALIDATION_FAILED",
+            message: "Invalid path parameters",
+          });
+        }
+        const row = await getOrgEntity(table, parsed.data.id);
+        if (!row) {
+          return reply
+            .status(404)
+            .send({ code: "NOT_FOUND", message: "Not found" });
+        }
+        return reply.status(200).send({ [prefix]: row });
       },
     );
 
@@ -88,8 +113,14 @@ export async function orgRoutes(app: FastifyInstance): Promise<void> {
     "/teams/:id/members",
     { preHandler: [app.verifySession] },
     async (req: FastifyRequest, reply: FastifyReply) => {
-      const { id } = req.params as { id: string };
-      const result = await getTeamMembers(id);
+      const parsed = detailParamsSchema.safeParse(req.params);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          code: "VALIDATION_FAILED",
+          message: "Invalid path parameters",
+        });
+      }
+      const result = await getTeamMembers(parsed.data.id);
       if (!result) {
         return reply
           .status(404)

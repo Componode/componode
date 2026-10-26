@@ -1,4 +1,5 @@
 import { uuidv7 } from "uuidv7";
+import { resolveIdOrSlug } from "../utils/ids.js";
 import {
   createComponentGroupSchema,
   updateComponentGroupSchema,
@@ -70,11 +71,11 @@ export async function listComponentGroups(rawQuery: ListComponentGroupsQuery) {
   return rows.map((r) => ({ ...r, memberCount: Number(r.memberCount) }));
 }
 
-export async function getComponentGroup(id: string) {
+function groupDetailQuery() {
   return db
     .selectFrom("component_groups")
     .leftJoin("teams", "component_groups.teamOwnerId", "teams.id")
-    .select([
+    .select((eb) => [
       "component_groups.id",
       "component_groups.name",
       "component_groups.slug",
@@ -84,9 +85,41 @@ export async function getComponentGroup(id: string) {
       "teams.name as teamOwnerName",
       "component_groups.createdAt",
       "component_groups.updatedAt",
-    ])
+      eb
+        .selectFrom("components")
+        .whereRef("components.componentGroupId", "=", "component_groups.id")
+        .select((eb2) => eb2.fn.countAll().as("c"))
+        .as("memberCount"),
+    ]);
+}
+
+type GroupDetailRow = Awaited<ReturnType<ReturnType<typeof groupDetailQuery>["executeTakeFirst"]>>;
+
+/** PG count comes back as a bigint string — normalize to number. */
+function normalizeGroup<T extends GroupDetailRow>(row: T | undefined) {
+  return row ? { ...row, memberCount: Number(row.memberCount) } : row;
+}
+
+/** Strict id lookup — used by mutation paths that write `where id = …`. */
+async function getComponentGroupById(id: string) {
+  const row = await groupDetailQuery()
     .where("component_groups.id", "=", id)
     .executeTakeFirst();
+  return normalizeGroup(row);
+}
+
+/** Detail read accepts the id OR the slug (the identifier UX routes carry). */
+export async function getComponentGroup(idOrSlug: string) {
+  return resolveIdOrSlug(
+    idOrSlug,
+    () => getComponentGroupById(idOrSlug),
+    async () =>
+      normalizeGroup(
+        await groupDetailQuery()
+          .where("component_groups.slug", "=", idOrSlug)
+          .executeTakeFirst(),
+      ),
+  );
 }
 
 export async function createComponentGroup(
@@ -156,7 +189,7 @@ export async function updateComponentGroup(
   input: UpdateComponentGroupInput,
   actor: Actor,
 ) {
-  const existing = await getComponentGroup(id);
+  const existing = await getComponentGroupById(id);
   if (!existing) {
     return null;
   }
@@ -224,7 +257,7 @@ export async function updateComponentGroup(
 }
 
 export async function deleteComponentGroup(id: string, actor: Actor) {
-  const existing = await getComponentGroup(id);
+  const existing = await getComponentGroupById(id);
   if (!existing) {
     return null;
   }
@@ -301,7 +334,7 @@ export async function updateComponent(
   }
 
   if (parsed.componentGroupId) {
-    const group = await getComponentGroup(parsed.componentGroupId);
+    const group = await getComponentGroupById(parsed.componentGroupId);
     if (!group) {
       throw Object.assign(new Error("Component group not found"), {
         statusCode: 404,

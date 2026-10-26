@@ -8,11 +8,18 @@ export interface OrgEntityInput {
   description?: string | null;
 }
 
-function orgHooks(base: "lobs" | "teams", key: "lob" | "team") {
+function orgHooks(base: "lobs" | "teams") {
   const list = () =>
     useQuery({
       queryKey: [base],
       queryFn: () => api<Record<string, OrgEntity[]>>(`/${base}`),
+    });
+  // Detail read accepts id-or-slug — the route slug resolves directly (spec 033).
+  const detail = (idOrSlug: string | undefined) =>
+    useQuery({
+      queryKey: [base, "detail", idOrSlug],
+      queryFn: () => api<Record<string, OrgEntity>>(`/${base}/${idOrSlug}`),
+      enabled: !!idOrSlug,
     });
   const create = () => {
     const qc = useQueryClient();
@@ -44,19 +51,20 @@ function orgHooks(base: "lobs" | "teams", key: "lob" | "team") {
       onSuccess: () => qc.invalidateQueries({ queryKey: [base] }),
     });
   };
-  void key;
-  return { list, create, update, del };
+  return { list, detail, create, update, del };
 }
 
-const lobs = orgHooks("lobs", "lob");
-const teams = orgHooks("teams", "team");
+const lobs = orgHooks("lobs");
+const teams = orgHooks("teams");
 
 export const useLobs = lobs.list;
+export const useLob = lobs.detail;
 export const useCreateLob = lobs.create;
 export const useUpdateLob = lobs.update;
 export const useDeleteLob = lobs.del;
 
 export const useTeams = teams.list;
+export const useTeam = teams.detail;
 export const useCreateTeam = teams.create;
 export const useUpdateTeam = teams.update;
 export const useDeleteTeam = teams.del;

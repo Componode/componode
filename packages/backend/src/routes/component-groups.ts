@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { z } from "zod";
 import {
   createComponentGroupSchema,
   updateComponentGroupSchema,
@@ -25,8 +26,14 @@ export async function componentGroupRoutes(app: FastifyInstance): Promise<void> 
   app.get("/component-groups/:id", {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const { id } = req.params as { id: string };
-    const group = await getComponentGroup(id);
+    const parsed = z.object({ id: z.string().min(1).max(200) }).safeParse(req.params);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid path parameters",
+      });
+    }
+    const group = await getComponentGroup(parsed.data.id);
     if (!group) {
       return reply.status(404).send({ code: "NOT_FOUND", message: "Component group not found" });
     }

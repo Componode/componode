@@ -4,23 +4,23 @@ import { OrgDetail } from "@/ux/components/org/org-detail";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, NotFoundState } from "@/ux/components/patterns/states";
 import { Skeleton } from "@/ux/components/ui/skeleton";
-import { useLobs, useUpdateLob, useDeleteLob } from "@/api/hooks/org";
+import { useLob, useUpdateLob, useDeleteLob } from "@/api/hooks/org";
 import { useProducts } from "@/api/hooks/products";
 import { mapProduct } from "@/api/mappers/catalog";
-import { errorMessage } from "@/ux/lib/api-state";
+import { errorMessage, isNotFound } from "@/ux/lib/api-state";
 import { ux } from "@/ux/lib/paths";
 
-/** No detail GET — the LOB resolves through the list (wiring contract). */
+/** Direct detail read — `GET /lobs/:id` accepts the route slug (spec 033). */
 export function UxLobDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const lobs = useLobs();
-  const lob = lobs.data?.lobs?.find((l) => l.slug === slug);
+  const lobQ = useLob(slug);
+  const lob = lobQ.data?.lob;
   const updateLob = useUpdateLob();
   const deleteLob = useDeleteLob();
   const products = useProducts({ includeRetired: true });
 
-  if (lobs.isPending) {
+  if (lobQ.isPending) {
     return (
       <PageContainer>
         <Skeleton className="h-10 w-72" />
@@ -28,10 +28,14 @@ export function UxLobDetailPage() {
       </PageContainer>
     );
   }
-  if (lobs.error) {
+  if (lobQ.error) {
     return (
       <PageContainer>
-        <ErrorState description={errorMessage(lobs.error)} onRetry={() => void lobs.refetch()} />
+        {isNotFound(lobQ.error) ? (
+          <NotFoundState backHref={ux("/lobs")} backLabel="All lines of business" />
+        ) : (
+          <ErrorState description={errorMessage(lobQ.error)} onRetry={() => void lobQ.refetch()} />
+        )}
       </PageContainer>
     );
   }

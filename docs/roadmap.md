@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–032)
+## Shipped (features 001–031, 033)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -130,10 +130,13 @@ file tracks shipped and upcoming work — update it when a spec completes.
   per-day run buckets (runs, failed count, asset created/updated sums)
   computed server-side; the importer-card sparkline renders live data and
   `historyAggregates` is on.
-- `032-session-visibility` — ux-rewrite gap G2: sessions persist
-  `userAgent` + `ip` at creation (migration 020); session lists return
-  `device` (parsed label), `ip` location, `userId`, and a caller-relative
-  `current` marker — all four session flags on.
+- `033-detail-reads-feed-names` — ux-rewrite gaps G7/G8/G9/G11:
+  `GET /teams/:id` and `GET /lobs/:id` ship; all three detail reads
+  (teams, LOBs, component groups) resolve id-or-slug so `/ux/*/:slug`
+  pages drop list-and-match; audit feed, entity history, and run changes
+  carry server-resolved `entityName`/`fromEntityName`/`toEntityName`
+  (read-time lookup — history and renames covered, null fallback on
+  unresolvable rows).
 
 ## Next — v1.1
 
@@ -141,8 +144,8 @@ See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028) and the UX baseline (029) are
 shipped on `release/1.1.0`. First follow-on: the UX-rewrite backend gaps
 in `researches/ux-rewrite-gaps.md`, resolved as their own specs on
-`release/1.1.0` in queue order — `033` detail reads + feed names
-(G7/G8/G9/G11), `034` team↔LOB (G12), `035` schema-driven importer forms
+`release/1.1.0` in queue order — `032` admin session visibility (G2),
+`034` team↔LOB (G12), `035` schema-driven importer forms
 (G13). G20 resolves client-side without a spec; G15–G19 are deferred
 unscheduled (see the registry's spec-queue block):
 

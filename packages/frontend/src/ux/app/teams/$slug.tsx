@@ -4,20 +4,20 @@ import { OrgDetail } from "@/ux/components/org/org-detail";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, NotFoundState } from "@/ux/components/patterns/states";
 import { Skeleton } from "@/ux/components/ui/skeleton";
-import { useTeams, useUpdateTeam, useDeleteTeam, useTeamMembers } from "@/api/hooks/org";
+import { useTeam, useUpdateTeam, useDeleteTeam, useTeamMembers } from "@/api/hooks/org";
 import { useProducts } from "@/api/hooks/products";
 import { useAllComponents } from "@/api/hooks/components";
 import { useComponentGroups } from "@/api/hooks/component-groups";
 import { mapComponent, mapProduct } from "@/api/mappers/catalog";
-import { errorMessage } from "@/ux/lib/api-state";
+import { errorMessage, isNotFound } from "@/ux/lib/api-state";
 import { ux } from "@/ux/lib/paths";
 
-/** No detail GET — the team resolves through the list (wiring contract). */
+/** Direct detail read — `GET /teams/:id` accepts the route slug (spec 033). */
 export function UxTeamDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const teams = useTeams();
-  const team = teams.data?.teams?.find((t) => t.slug === slug);
+  const teamQ = useTeam(slug);
+  const team = teamQ.data?.team;
   const members = useTeamMembers(team?.id);
   const updateTeam = useUpdateTeam();
   const deleteTeam = useDeleteTeam();
@@ -26,7 +26,7 @@ export function UxTeamDetailPage() {
   const components = useAllComponents({ includeRetired: true });
   const groups = useComponentGroups();
 
-  if (teams.isPending) {
+  if (teamQ.isPending) {
     return (
       <PageContainer>
         <Skeleton className="h-10 w-72" />
@@ -34,10 +34,14 @@ export function UxTeamDetailPage() {
       </PageContainer>
     );
   }
-  if (teams.error) {
+  if (teamQ.error) {
     return (
       <PageContainer>
-        <ErrorState description={errorMessage(teams.error)} onRetry={() => void teams.refetch()} />
+        {isNotFound(teamQ.error) ? (
+          <NotFoundState backHref={ux("/teams")} backLabel="All teams" />
+        ) : (
+          <ErrorState description={errorMessage(teamQ.error)} onRetry={() => void teamQ.refetch()} />
+        )}
       </PageContainer>
     );
   }
