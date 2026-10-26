@@ -51,7 +51,7 @@
     "@types/node": "^26.6.5",
     "@types/pg": "^8.23.1",
     "@types/ws": "^8.18.1",
-    "jose": "^6.2.12",
+    "jose": "^6.2.13",
     "testcontainers": "^12.2.1",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
