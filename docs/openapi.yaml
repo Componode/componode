@@ -2959,6 +2959,17 @@ components:
           type: string
           description: Last 4 characters of the session token (display only)
         userId: { type: string, format: uuid }
+        device:
+          type: string
+          nullable: true
+          description: Coarse "Browser · OS" label parsed from the user-agent captured at session creation
+        ip:
+          type: string
+          nullable: true
+          description: Client IP address captured at session creation
+        current:
+          type: boolean
+          description: True when this row is the session making the request
         createdAt: { type: string, format: date-time }
         lastSeenAt: { type: string, format: date-time }
         expiresAt: { type: string, format: date-time }

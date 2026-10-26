@@ -4,7 +4,34 @@ import { uuidv7 } from "uuidv7";
 import { getSetting } from "./settings-service.js";
 import { writeAuthEvent, type Actor } from "./audit-service.js";
 
-export async function createSession(userId: string): Promise<string> {
+export interface SessionMeta {
+  userAgent?: string;
+  ip?: string;
+}
+
+/** Coarse "Browser · OS" label from a user-agent string; null-safe. */
+export function parseDevice(userAgent: string | null): string | null {
+  if (!userAgent) return null;
+  const ua = userAgent;
+  const browser = ua.includes("Edg") ? "Edge"
+    : ua.includes("Firefox") ? "Firefox"
+    : ua.includes("Chrome") ? "Chrome"
+    : ua.includes("Safari") ? "Safari"
+    : ua.includes("curl") || ua.includes("wget") ? "CLI"
+    : "Unknown browser";
+  const os = ua.includes("Windows") ? "Windows"
+    : ua.includes("Mac OS") || ua.includes("Macintosh") ? "macOS"
+    : ua.includes("Android") ? "Android"
+    : ua.includes("iPhone") || ua.includes("iPad") ? "iOS"
+    : ua.includes("Linux") ? "Linux"
+    : null;
+  return os ? `${browser} · ${os}` : browser;
+}
+
+export async function createSession(
+  userId: string,
+  meta?: SessionMeta,
+): Promise<string> {
   const sessionToken = generateSessionToken();
   const now = new Date();
   const absoluteTimeoutMs = Number(await getSetting("sessionAbsoluteTimeoutMs"));
@@ -23,6 +50,8 @@ export async function createSession(userId: string): Promise<string> {
       createdAt: now.toISOString(),
       lastSeenAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
+      userAgent: meta?.userAgent ?? null,
+      ip: meta?.ip ?? null,
     })
     .execute();
 
@@ -88,12 +117,19 @@ export async function revokeUserSessions(userId: string, actor: Actor): Promise<
  * plus the last 4 characters of the token for display (001-foundation
  * contract: session tokens are never returned by the API).
  */
-export async function listUserSessions(userId: string) {
+export async function listUserSessions(
+  userId: string,
+  opts?: { currentSessionHash?: string },
+) {
   const rows = await db
     .selectFrom("sessions")
     .select([
+      "sessions.id",
       "sessions.publicId",
       "sessions.tokenLast4",
+      "sessions.userId",
+      "sessions.userAgent",
+      "sessions.ip",
       "sessions.createdAt",
       "sessions.lastSeenAt",
       "sessions.expiresAt",
@@ -104,8 +140,14 @@ export async function listUserSessions(userId: string) {
     .execute();
 
   return rows.map((row) => ({
+    // `id` exposed is the non-secret publicId; the token hash in row.id is
+    // only compared internally to mark the caller's own session (ADR-099).
     id: row.publicId,
     tokenLast4: row.tokenLast4,
+    userId: row.userId,
+    device: parseDevice(row.userAgent),
+    ip: row.ip,
+    current: opts?.currentSessionHash != null && row.id === opts.currentSessionHash,
     createdAt: row.createdAt,
     lastSeenAt: row.lastSeenAt,
     expiresAt: row.expiresAt,

@@ -40,7 +40,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    const { user, sessionToken } = await login(parsed.data.username, parsed.data.password);
+    const { user, sessionToken } = await login(parsed.data.username, parsed.data.password, {
+      userAgent: req.headers["user-agent"],
+      ip: req.ip,
+    });
 
     reply.setCookie(SESSION_COOKIE_NAME, sessionToken, SESSION_COOKIE_OPTIONS);
     // Set CSRF cookie (double-submit pattern)
@@ -176,7 +179,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(500).send({ code: "INTERNAL_ERROR", message: "Failed to create user" });
       }
 
-      const sessionToken = await createSession(user.id);
+      const sessionToken = await createSession(user.id, {
+        userAgent: req.headers["user-agent"],
+        ip: req.ip,
+      });
       reply.setCookie(SESSION_COOKIE_NAME, sessionToken, SESSION_COOKIE_OPTIONS);
       const csrfToken = (reply as unknown as { setCsrfCookie: () => string }).setCsrfCookie();
 
@@ -237,7 +243,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     try {
       const baseUrl = process.env.PUBLIC_URL ?? `${req.protocol}://${req.host}`;
       const callbackUrl = new URL(req.url, baseUrl);
-      const { sessionToken, redirectUri } = await handleCallback(callbackUrl);
+      const { sessionToken, redirectUri } = await handleCallback(callbackUrl, {
+        userAgent: req.headers["user-agent"],
+        ip: req.ip,
+      });
       reply.setCookie(SESSION_COOKIE_NAME, sessionToken, SESSION_COOKIE_OPTIONS);
       const csrfToken = (reply as unknown as { setCsrfCookie: () => string }).setCsrfCookie();
       // Pass CSRF token as query param for the frontend to store (since this is a redirect, not JSON)

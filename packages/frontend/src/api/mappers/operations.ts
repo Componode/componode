@@ -259,6 +259,9 @@ export function mapUser(u: {
 export function mapSession(
   s: {
     id: string;
+    device: string | null;
+    ip: string | null;
+    current: boolean;
     createdAt: string;
     lastSeenAt: string;
     expiresAt: string;
@@ -269,12 +272,12 @@ export function mapSession(
     id: s.id,
     username: owner.username,
     displayName: owner.displayName,
-    device: "—",
-    location: "—",
+    device: s.device ?? "—",
+    location: s.ip ?? "—",
     createdAt: s.createdAt,
     lastSeenAt: s.lastSeenAt,
     expiresAt: s.expiresAt,
-    current: false,
+    current: s.current,
   };
 }
 

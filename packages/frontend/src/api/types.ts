@@ -25,6 +25,11 @@ export interface User {
 
 export interface Session {
   id: string;
+  tokenLast4?: string;
+  userId: string;
+  device: string | null;
+  ip: string | null;
+  current: boolean;
   createdAt: string;
   lastSeenAt: string;
   expiresAt: string;
