@@ -2,7 +2,7 @@ import { LayersIcon } from "lucide-react";
 import * as React from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { useComponentGroups, useDeleteComponentGroup, useUpdateComponentGroup } from "@/api/hooks/component-groups";
+import { useComponentGroup, useDeleteComponentGroup, useUpdateComponentGroup } from "@/api/hooks/component-groups";
 import { useComponents } from "@/api/hooks/components";
 import { useTeams } from "@/api/hooks/org";
 import { mapComponentGroup } from "@/api/mappers/catalog";
@@ -25,10 +25,9 @@ import { ux } from "@/ux/lib/paths";
 
 export function UxComponentGroupDetailPage() {
   const { slug } = useParams<{ slug: string }>();
-  // Slug→id per wiring contract: groups are addressed by id but routes
-  // keep the prototype's slug convention — resolve via the list.
-  const groups = useComponentGroups();
-  const group = groups.data?.groups.find((g) => g.slug === slug);
+  // Direct detail read — `GET /component-groups/:id` accepts the route slug (spec 033).
+  const groupQ = useComponentGroup(slug);
+  const group = groupQ.data?.group;
   const members = useComponents(
     { group: group?.id, includeRetired: true, pageSize: 100 },
   );
@@ -38,7 +37,7 @@ export function UxComponentGroupDetailPage() {
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = React.useState(false);
 
-  if (groups.isPending) {
+  if (groupQ.isPending) {
     return (
       <PageContainer>
         <Skeleton className="h-10 w-72" />
@@ -49,13 +48,13 @@ export function UxComponentGroupDetailPage() {
     );
   }
 
-  if (groups.error) {
+  if (groupQ.error) {
     return (
       <PageContainer>
-        {isNotFound(groups.error) ? (
+        {isNotFound(groupQ.error) ? (
           <NotFoundState backHref={ux("/component-groups")} backLabel="All groups" />
         ) : (
-          <ErrorState description={errorMessage(groups.error)} onRetry={() => void groups.refetch()} />
+          <ErrorState description={errorMessage(groupQ.error)} onRetry={() => void groupQ.refetch()} />
         )}
       </PageContainer>
     );

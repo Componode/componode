@@ -7,6 +7,7 @@ import {
 } from "@componode/core";
 import { db } from "../db/connection.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
+import { resolveIdOrSlug } from "../utils/ids.js";
 
 type OrgTable = "line_of_businesses" | "teams";
 const ENTITY_TYPE: Record<OrgTable, string> = {
@@ -41,8 +42,27 @@ export function listOrgEntities(table: OrgTable) {
   return db.selectFrom(table).selectAll().orderBy("name").execute();
 }
 
-export function getOrgEntity(table: OrgTable, id: string) {
-  return db.selectFrom(table).selectAll().where("id", "=", id).executeTakeFirst();
+/** Strict id lookup — used by mutation paths that write `where id = …`. */
+function getOrgEntityById(table: OrgTable, id: string) {
+  return db
+    .selectFrom(table)
+    .selectAll()
+    .where("id", "=", id)
+    .executeTakeFirst();
+}
+
+/** Detail read accepts the id OR the slug (the identifier UX routes carry). */
+export function getOrgEntity(table: OrgTable, idOrSlug: string) {
+  return resolveIdOrSlug(
+    idOrSlug,
+    () => getOrgEntityById(table, idOrSlug),
+    () =>
+      db
+        .selectFrom(table)
+        .selectAll()
+        .where("slug", "=", idOrSlug)
+        .executeTakeFirst(),
+  );
 }
 
 export async function getTeamMembers(teamId: string) {
@@ -51,7 +71,7 @@ export async function getTeamMembers(teamId: string) {
   const members = await db
     .selectFrom("persons")
     .select(["id", "displayName", "username", "slug"])
-    .where("teamId", "=", teamId)
+    .where("teamId", "=", team.id)
     .where("isActive", "=", true)
     .orderBy("displayName")
     .execute();
@@ -108,7 +128,7 @@ export async function updateOrgEntity(
   input: UpdateOrgEntityInput,
   actor: Actor,
 ) {
-  const existing = await getOrgEntity(table, id);
+  const existing = await getOrgEntityById(table, id);
   if (!existing) return null;
   const parsed = updateOrgEntitySchema.parse(input);
   if (parsed.slug) await assertUniqueSlug(table, parsed.slug, id);
@@ -165,7 +185,7 @@ async function referenceCounts(table: OrgTable, id: string) {
 }
 
 export async function deleteOrgEntity(table: OrgTable, id: string, actor: Actor) {
-  const existing = await getOrgEntity(table, id);
+  const existing = await getOrgEntityById(table, id);
   if (!existing) return null;
 
   const counts = await referenceCounts(table, id);

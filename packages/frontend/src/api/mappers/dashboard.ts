@@ -59,30 +59,36 @@ const ACTIONS = new Set([
 
 /**
  * ActivityFeedItem (entity or edge change) → sentence-style feed row.
- * The audit API carries ids, not display names — `entityName` falls back
- * to `entityType:entityId` until the feed exposes names (gap G11).
+ * The API resolves display names server-side; unresolvable rows (deleted
+ * or non-entity) fall back to the entity-kind label — never raw
+ * identifiers (gap G11 resolved, spec 033).
  */
 export function mapActivityItem(item: ActivityFeedItem): AuditEvent {
+  const kindLabel = (entityType: string) => ENTITY_KIND[entityType] ?? "other";
+  const nameFallback = (entityType: string) =>
+    ENTITY_KIND[entityType] && ENTITY_KIND[entityType] !== "other"
+      ? ENTITY_KIND[entityType]
+      : entityType;
   if (item.kind === "edge") {
     return {
       id: item.id,
       actor: item.createdByName ?? "system",
       action: ACTIONS.has(item.action) ? (item.action as AuditEvent["action"]) : "other",
-      entityKind: ENTITY_KIND[item.fromEntityType] ?? "other",
-      entityName: `${item.fromEntityType}:${item.fromEntityId}`,
-      summary: `${item.edgeType} edge ${item.action} → ${item.toEntityType}:${item.toEntityId}`,
+      entityKind: kindLabel(item.fromEntityType),
+      entityName: item.fromEntityName ?? nameFallback(item.fromEntityType),
+      summary: `${item.edgeType} edge ${item.action} → ${item.toEntityName ?? nameFallback(item.toEntityType)}`,
       at: item.createdAt,
     };
   }
   const action = ACTIONS.has(item.action) ? (item.action as AuditEvent["action"]) : "other";
-  const entityKind = ENTITY_KIND[item.entityType] ?? "other";
+  const entityKind = kindLabel(item.entityType);
   const changes = item.changes ? Object.keys(item.changes).join(", ") : null;
   return {
     id: item.id,
     actor: item.createdByName ?? "system",
     action,
     entityKind,
-    entityName: item.entityId ?? item.entityType,
+    entityName: item.entityName ?? nameFallback(item.entityType),
     summary: changes ?? item.action,
     at: item.createdAt,
   };
