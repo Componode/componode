@@ -30,6 +30,15 @@ export function useComponentGroups(enabled = true) {
   });
 }
 
+// Detail read accepts id-or-slug — the route slug resolves directly (spec 033).
+export function useComponentGroup(idOrSlug: string | undefined) {
+  return useQuery({
+    queryKey: ["component-groups", "detail", idOrSlug],
+    queryFn: () => api<{ group: ComponentGroup }>(`/component-groups/${idOrSlug}`),
+    enabled: !!idOrSlug,
+  });
+}
+
 export function useCreateComponentGroup() {
   const qc = useQueryClient();
   return useMutation({

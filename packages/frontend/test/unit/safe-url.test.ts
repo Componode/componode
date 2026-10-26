@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { safeUrl } from "../../src/components/safe-url";
+import { safeUrl } from "../../src/ux/lib/safe-url";
 
 describe("safeUrl", () => {
   it("returns http URLs unchanged", () => {

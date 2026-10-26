@@ -247,8 +247,10 @@ framework, component catalog, UX shell, product hierarchy, audit, deployment,
 plus post-v1 hardening and fixes). Features 017–023 delivered the
 practical-DPAM stream: catalog metadata, edge-rule ergonomics, group
 dependencies, product health, the platform product workflow, catalog
-bootstrap, edge suggestions, and coverage & hygiene. What's next lives in
-[docs/roadmap.md](docs/roadmap.md).
+bootstrap, edge suggestions, and coverage & hygiene. v1.1.0 adds the eighth
+in-tree importer (Alibaba Cloud, 024), the Import Agents program (025–028),
+the v1.1 UX baseline (029), and the ux-rewrite gap resolutions (030–034).
+What's next lives in [docs/roadmap.md](docs/roadmap.md).
 
 ## License
 

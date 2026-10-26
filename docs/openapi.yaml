@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Componode API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     Componode is an open-source, self-hosted Digital Product Asset Management
     (DPAM) tool. This document describes the REST API exposed by the backend
@@ -363,6 +363,35 @@ paths:
                 type: object
                 properties:
                   user: { $ref: '#/components/schemas/Person' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Users]
+      summary: Update the current user's profile (display name, email)
+      description: >-
+        Self-service profile update bound to the session user. Only
+        `displayName` and `email` are accepted — any other key (including
+        `role`, `isActive`, `teamId`, `username`) is rejected with 400.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                displayName: { type: string, maxLength: 100 }
+                email: { type: string, format: email }
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/Person' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
   /users/{id}:
@@ -1282,9 +1311,9 @@ paths:
   /component-groups/{id}:
     get:
       tags: [ComponentGroups]
-      summary: Get a component group by ID
+      summary: Get a component group by ID or slug
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IdOrSlug' }
       responses:
         '200':
           description: Component group
@@ -1294,6 +1323,7 @@ paths:
                 type: object
                 properties:
                   group: { $ref: '#/components/schemas/ComponentGroup' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
@@ -1611,6 +1641,34 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+  /importer-configs/{id}/run-aggregates:
+    get:
+      tags: [Importers]
+      summary: Per-day run aggregates for an importer configuration
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - in: query
+          name: days
+          schema: { type: integer, minimum: 1, maximum: 90, default: 14 }
+      responses:
+        '200':
+          description: Per-day buckets, ascending, zero-filled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  days:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        day: { type: string, format: date }
+                        runs: { type: integer }
+                        created: { type: integer }
+                        updated: { type: integer }
+                        failed: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /importer-configs/{id}/runs:
     get:
       tags: [Importers]
@@ -1745,6 +1803,23 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
   /lobs/{id}:
+    get:
+      tags: [Organization]
+      summary: Get a line of business by ID or slug
+      parameters:
+        - { $ref: '#/components/parameters/IdOrSlug' }
+      responses:
+        '200':
+          description: LoB
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lob: { $ref: '#/components/schemas/LineOfBusiness' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [Organization]
       summary: Update a line of business
@@ -1809,7 +1884,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CreateOrgEntity' }
+            schema: { $ref: '#/components/schemas/CreateTeam' }
       responses:
         '201':
           description: Team created
@@ -1824,6 +1899,23 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
   /teams/{id}:
+    get:
+      tags: [Organization]
+      summary: Get a team by ID or slug
+      parameters:
+        - { $ref: '#/components/parameters/IdOrSlug' }
+      responses:
+        '200':
+          description: Team
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  team: { $ref: '#/components/schemas/Team' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [Organization]
       summary: Update a team
@@ -1835,7 +1927,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/UpdateOrgEntity' }
+            schema: { $ref: '#/components/schemas/UpdateTeam' }
       responses:
         '200':
           description: Updated team
@@ -1868,13 +1960,14 @@ paths:
       tags: [Organization]
       summary: List members of a team
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IdOrSlug' }
       responses:
         '200':
           description: Team members
           content:
             application/json:
               schema: { type: object }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -1963,7 +2056,9 @@ paths:
               schema:
                 type: object
                 properties:
-                  items: { type: array, items: { type: object } }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ActivityFeedItem' }
                   total: { type: integer }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -2010,7 +2105,9 @@ paths:
               schema:
                 type: object
                 properties:
-                  items: { type: array, items: { type: object } }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ActivityFeedItem' }
                   total: { type: integer }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
@@ -2737,6 +2834,12 @@ components:
       required: true
       schema: { type: string, format: uuid }
       description: Entity ID (UUID v7)
+    IdOrSlug:
+      in: path
+      name: id
+      required: true
+      schema: { type: string }
+      description: Entity ID (UUID v7) or slug — UUID-shaped values match id first, then slug
   responses:
     ValidationFailed:
       description: Input validation failed (`VALIDATION_FAILED`)
@@ -2853,12 +2956,51 @@ components:
               name: { type: string }
               reason: { type: string }
 
+    ActivityFeedItem:
+      description: >-
+        An entity change or an edge change. Entity-kind items carry
+        `entityName`; edge-kind items carry `fromEntityName`/`toEntityName` —
+        display names resolved at read time, null when unresolvable.
+      oneOf:
+        - type: object
+          properties:
+            kind: { type: string, enum: [entity] }
+            id: { type: string, format: uuid }
+            entityType: { type: string }
+            entityId: { type: string, nullable: true }
+            entityName: { type: string, nullable: true }
+            action: { type: string }
+            changes: { type: object, nullable: true }
+            createdBy: { type: string, format: uuid, nullable: true }
+            createdByName: { type: string, nullable: true }
+            importRunId: { type: string, format: uuid, nullable: true }
+            createdAt: { type: string, format: date-time }
+        - type: object
+          properties:
+            kind: { type: string, enum: [edge] }
+            id: { type: string, format: uuid }
+            edgeType: { type: string }
+            fromEntityType: { type: string }
+            fromEntityId: { type: string }
+            fromEntityName: { type: string, nullable: true }
+            toEntityType: { type: string }
+            toEntityId: { type: string }
+            toEntityName: { type: string, nullable: true }
+            action: { type: string }
+            reason: { type: string, nullable: true }
+            createdBy: { type: string, format: uuid, nullable: true }
+            createdByName: { type: string, nullable: true }
+            createdAt: { type: string, format: date-time }
     EntityChange:
       type: object
       properties:
         id: { type: string, format: uuid }
         entityType: { type: string }
         entityId: { type: string, nullable: true }
+        entityName:
+          type: string
+          nullable: true
+          description: Display name resolved server-side at read time; null when the entity is gone or the type has no name
         action: { type: string }
         changes: { type: object, nullable: true }
         createdBy: { type: string, format: uuid, nullable: true }
@@ -2902,6 +3044,17 @@ components:
           type: string
           description: Last 4 characters of the session token (display only)
         userId: { type: string, format: uuid }
+        device:
+          type: string
+          nullable: true
+          description: Coarse "Browser · OS" label parsed from the user-agent captured at session creation
+        ip:
+          type: string
+          nullable: true
+          description: Client IP address captured at session creation
+        current:
+          type: boolean
+          description: True when this row is the session making the request
         createdAt: { type: string, format: date-time }
         lastSeenAt: { type: string, format: date-time }
         expiresAt: { type: string, format: date-time }
@@ -3619,6 +3772,20 @@ components:
         name: { type: string }
         slug: { type: string }
         description: { type: string, nullable: true }
+        lobId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Associated Line of Business (spec 034); null when unassociated
+        lob:
+          type: object
+          nullable: true
+          description: Resolved LOB summary; null when unassociated
+          required: [id, name, slug]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            slug: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     LineOfBusiness:
@@ -3651,6 +3818,39 @@ components:
           maxLength: 100
           pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
         description: { type: string, maxLength: 2000, nullable: true }
+    CreateTeam:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        slug:
+          type: string
+          maxLength: 100
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        description: { type: string, maxLength: 2000, nullable: true }
+        lobId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Associated Line of Business; must reference an existing LOB
+    UpdateTeam:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        slug:
+          type: string
+          maxLength: 100
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        description: { type: string, maxLength: 2000, nullable: true }
+        lobId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >-
+            Associated Line of Business; must reference an existing
+            LOB. Null clears the association.
   securitySchemes:
     sessionCookie:
       type: apiKey

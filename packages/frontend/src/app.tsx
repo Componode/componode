@@ -8,8 +8,9 @@ import {
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { toast } from "sonner";
 import { routes } from "./routes";
-import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/ux/components/app/theme-provider";
+import { Toaster } from "@/ux/components/ui/sonner";
+import { TooltipProvider } from "@/ux/components/ui/tooltip";
 import type { ApiError } from "@/api/client";
 
 // Global default error UX per ADR-072: 401 → login redirect, 403 → permission
@@ -101,9 +102,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
 export function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
+          <TooltipProvider><RouterProvider router={router} /></TooltipProvider>
           <Toaster richColors={false} position="bottom-right" />
         </QueryClientProvider>
       </ThemeProvider>

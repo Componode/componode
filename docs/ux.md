@@ -1,349 +1,218 @@
-# UX & UI Reference
+# UX & UI Reference — v1.1.0 baseline
 
-> **Status**: Normative — ratified by ADR-103. Feature specs and
-> implementations MUST follow this document. Genuinely new binding decisions
-> graduate to ADRs (ADR-104+). Where this file conflicts with a ratified ADR
-> or the constitution, the more specific document wins.
+> **Status**: Normative — ratified by ADR-103; this edition records the
+> v1.1.0 redesign shipped by spec 029 (v0-generated design ported onto the
+> existing stack). Feature specs and implementations MUST follow this
+> document. Genuinely new binding decisions graduate to ADRs (ADR-104+).
+> Where this file conflicts with a ratified ADR or the constitution, the
+> more specific document wins.
 
-This document is the single UX/UI reference for Componode. It consolidates
-already-ratified decisions, defines the conventions that were previously
-implicit, and records explicit open decisions. It relates to the ADRs the same
-way `docs/data-model.md` does: the ADRs are the record of *why*; this file is
-the working reference for *what the UI must look like*.
+This document is the single UX/UI reference for Componode: the design
+system (tokens, components, patterns) plus the conventions every page must
+follow. ADRs record *why*; this file records *what the UI must look like*.
 
 ---
 
 ## 1. Principles
 
-1. **Data-heavy internal tool.** Componode is a catalog-management tool, not a
-   marketing surface or a graph explorer. Density, scannability, and fast
-   navigation beat visual flair.
-2. **Desktop-first.** Optimized for ≥1280px, usable down to ~768px. No mobile
-   design promise (see §9).
+1. **Data-heavy internal tool.** Density, scannability, and fast navigation
+   beat visual flair.
+2. **Desktop-first.** Optimized for ≥1280px, usable down to ~768px. The one
+   sub-`md` concession is the off-canvas nav drawer (ADR-108).
 3. **Hierarchy is the product.** The Composable Product Model must be visible
-   in the primary navigation and the primary Products view — not buried in
-   detail pages.
+   in primary navigation and the primary Products view.
 4. **Consistency over novelty.** Same table, same states, same badges, same
    page anatomy everywhere. Deviations need a reason in the spec.
-5. **WCAG 2.1 AA is binding.** Ratified in `specs/001-foundation/spec.md`
-   (FR-026, SC-012). Keyboard reachability, focus-visible rings, 4.5:1
-   contrast, screen-reader navigability — on every page, not just the ones the
-   spec named.
+5. **WCAG 2.1 AA is binding.** Keyboard reachability, focus-visible rings,
+   4.5:1 contrast, screen-reader navigability — every page. Icon-only
+   controls always carry an accessible name (`aria-label` or `sr-only` text).
 
 ---
 
-## 2. Already decided (consolidated from ratified sources)
+## 2. Design tokens
 
-These are recorded here for convenience. The ADRs/spec remain authoritative.
+All color/space/typography comes from the CSS custom properties in
+`packages/frontend/src/ux/styles.css` and `index.css` — **never hardcoded**
+hex or palette utilities (`bg-amber-500`, `text-red-600`) in components.
 
-| Decision | Source |
+| Token group | Role |
 |---|---|
-| Stack: React 18 + Vite + TanStack Query + Tailwind + shadcn/ui | ADR-010 |
-| Importer config forms rendered from each importer's JSON Schema | ADR-042 |
-| Importer run progress reporting (phases) | ADR-062 |
-| Global TanStack Query `onError` → toast/redirect; form mutations use inline field errors via `parseFieldErrors` | ADR-072 |
-| Pagination: cursor-based for high-cardinality lists, offset for low-cardinality; `usePaginatedQuery` abstracts both | ADR-080 |
-| Error responses are `{code, message, details?}`; never leak internals | ADR-071, ADR-096 |
-| `GET`/`HEAD` are side-effect-free (no "run on click of a link") | ADR-094 |
-| All `href`s validated with `safeUrl()`; no `dangerouslySetInnerHTML` | ADR-085 |
-| WCAG 2.1 AA conformance | spec 001, FR-026 |
+| `background`/`foreground`, `card`, `muted`, `accent`, `border`, `input`, `ring` | Base surfaces and text |
+| `primary`, `secondary`, `destructive`, `warning`, `info` (+ `-foreground` pairs) | Semantic emphasis — status tones come from these |
+| `sidebar-*` | Shell sidebar surfaces |
+| `chart-1`…`chart-5` | Data visualization series only |
+| `radius` scale (`rounded-md` etc.) | Consistent cornering |
 
----
+- **Dark mode** ships via `next-themes`; tokens carry dark values. Default
+  follows `prefers-color-scheme`; a picker lives in Settings → Appearance.
+- **Status tone mapping is centralized** in `src/ux/lib/domain.ts`
+  (`*_META` tables: label + tone per enum). New enums get a META entry;
+  components render `StatusBadge`/`*Badge` wrappers, never ad-hoc colors.
+- **Density**: compact by default (`text-sm` tables, tight rows). A
+  user-facing density preference is a recorded gap, not shipped (§10).
 
-## 3. Information architecture
+## 3. Component inventory
 
-### Layout shell
+- **Primitives** (`src/ux/components/ui/`): the shadcn/Radix set —
+  button, input, field, select, switch, checkbox, radio-group, textarea,
+  input-group, dialog, alert-dialog, dropdown-menu, tabs, card, table,
+  badge, avatar, skeleton, spinner, alert, tooltip, sonner toasts.
+- **Patterns** (`src/ux/components/patterns/`):
+  - `page-header` — `PageContainer` (+ `width="narrow"` for forms) and
+    `PageHeader` (media/title/description/meta/actions).
+  - `states` — `EmptyState`, `ErrorState`, `NotFoundState`, `ForbiddenState`,
+    `TableSkeleton`. **Every async region uses these.**
+  - `status-badge` — enum → tone chips (`StatusBadge`, `RoleBadge`,
+    `LifecycleBadge`, `CredentialStatusBadge`, `RunStatusBadge`, …).
+  - `primitives` — `MonoValue` (copyable ids), `RelativeTime` (null-tolerant
+    "—"), `DescriptionList`, `ProviderMark`, `ListToolbar` (search +
+    filter selects + result count), `ConfirmDialog`, `DangerZone`
+    (type-to-confirm destructive block), `EntityHistory`, `ActivityFeed`,
+    `FieldRow`/`SettingRow`.
+- **Forms** (`src/ux/components/forms/`): `FormPage`/`FormSection` page
+  anatomy and list editors — mutations wired by the owning page.
 
-A **persistent left sidebar** with grouped sections; a slim top bar carrying
-breadcrumbs / page context (left) and a `Ctrl+K` search trigger, theme toggle,
-user identity + sign-out (right).
+## 4. Information architecture
 
-```text
-┌────────────┬──────────────────────────────────────────┐
-│ Componode  │ Breadcrumbs            user  ☾  Sign out │
-│────────────┼──────────────────────────────────────────┤
-│ Catalog    │                                          │
-│  Dashboard │                                          │
-│  Products  │              <page content>              │
-│  Components│                                          │
-│  Component │                                          │
-│   Groups   │                                          │
-│ Organiz.   │                                          │
-│  LOBs      │                                          │
-│  Teams     │                                          │
-│ Sources    │                                          │
-│  Importers │                                          │
-│ Admin*     │                                          │
-│  Users     │                                          │
-│  Sessions  │                                          │
-│  Credential│                                          │
-│  Import    │                                          │
-│   Agents   │                                          │
-│  Activity  │                                          │
-│  Settings  │                                          │
-└────────────┴──────────────────────────────────────────┘
-```
+### Shell
 
-- *Admin section is visible only to `ADMIN` role (current behavior, kept).*
-- Sidebar is collapsible to icons; state persists per browser session
-  (`sessionStorage` — per tab, not across devices).
-- Group labels render in `text-xs uppercase text-muted-foreground`.
-- The flat top-nav (current `nav.tsx`) is replaced by this shell.
+Persistent collapsible sidebar (grouped: Catalog, Organization, Sources,
+Administration; Admin hidden below `ADMIN`), slim header with breadcrumbs +
+`Ctrl+K` command palette (real `/search` results + nav actions), theme
+toggle, user menu. The sidebar collapses to icons; the state persists per
+tab (`sessionStorage`).
 
-### Route map
+### Route map (post-cutover `/` tree)
 
-| Route | Page | Sidebar section |
+| Route | Page | Min role |
 |---|---|---|
-| `/` | Dashboard | Catalog |
-| `/products`, `/products/:slug` | Products tree, product detail | Catalog |
-| `/components`, `/components/:id` | Component catalog, detail | Catalog |
-| `/component-groups` | Component groups | Catalog |
-| `/suggestions` | Edge suggestion queue | Catalog |
-| `/importers`, `/importers/:configId/runs/:runId` | Importer configs and runs | Sources |
-| `/lobs`, `/teams` | Org entities | Organization |
-| `/users` | User management | Admin |
-| `/sessions` | Active sessions | Admin |
-| `/credentials` | Credential store | Admin |
-| `/agents`, `/agents/:id` | Import Agent fleet + detail (overview w/ in-flight jobs, configs, runs, connection history) | Admin |
-| `/activity` | Audit activity feed | Admin |
-| `/settings` | App settings (OIDC, registration) | Admin |
+| `/` | Dashboard | — |
+| `/products`, `/products/new`, `/products/import`, `/products/:slug` (+`/edit`,`/history`) | Product tree, authoring, detail | editor for writes |
+| `/components`, `/components/:slug` (+`/promote`,`/history`) | Catalog, promotion, detail | editor for writes |
+| `/component-groups`, `…/:slug` | Groups | — |
+| `/suggestions` | Edge-suggestion queue | — |
+| `/importers`, `…/new`, `…/:id` (+`/edit`,`/runs/:runId`) | Import operations | — |
+| `/agents`, `/agents/:id` | Import Agent fleet | ADMIN |
+| `/lobs`, `…/:slug`, `/teams`, `…/:slug` | Org entities | editor for writes |
+| `/users`, `/users/:id` | User management | ADMIN |
+| `/sessions` | Own sessions | — |
+| `/credentials`, `…/new`, `…/:id` (+`/edit` rotate) | Credential store | ADMIN |
+| `/activity` | Audit feed | ADMIN |
+| `/settings/*` | profile, appearance, security, notifications / workspace, authentication, session-policy, advanced | admin sections ADMIN |
 | `/login`, `/register`, `/auth/oidc/callback` | Auth (no shell) | — |
-| *(future)* `/people` | Person entities | Organization |
 
-### Breadcrumbs
+### Internal links
 
-Slug-based, on every detail page: `Products / payments-api`,
-`Components / github.com/org/repo`. Each crumb links to its list root.
-Detail pages resolve the final crumb to the entity's slug/name via a crumb
-context (the raw route id is never shown when a slug is available); UUID
-segments without a detail page are omitted.
+Routes never hand-write absolute paths — the `ux()` helper in
+`src/ux/lib/paths.ts` prefixes every internal link, so the tree can be
+mounted anywhere during staging.
 
-### Global search (Ctrl+K)
+## 5. Conventions
 
-A `cmdk`-style command palette is a **v1 feature**: jump to any product,
-component, importer, or group by name or slug; plus nav actions ("Go to
-Settings"). At catalog scale (tens of thousands of components, ADR-080),
-search is the primary navigation, not the sidebar.
+### Page anatomy
 
----
+List pages: `PageHeader` (title/description/primary action) → `ListToolbar`
+(search + filters + result count) → table/card collection. Detail pages:
+`PageHeader` (badge meta + actions) → `Tabs` → tab content cards; the
+`DangerZone` renders last. Detail pages resolve entities through
+**filtered-list strategies** where the API lacks a detail GET (orgs, users).
 
-## 4. Page templates
+### `?tab=` convention
 
-### List page
+Every tabbed detail page keeps the active tab in `?tab=` (replace, not
+push) via the **`useValidatedTab` hook** — unknown/missing values fall back
+to the first tab so deep links never render an empty panel. Never hand-roll
+`searchParams.get("tab")`.
 
-```text
-┌─ Page header: title, description, primary action ───────────┐
-├─ Filter bar: search input + filter chips/selects ───────────┤
-├─ Table (or tree-table): sortable headers, compact rows ─────┤
-└─ Pagination footer ─────────────────────────────────────────┘
-```
-
-- Row click (or a dedicated name link) navigates to the detail page.
-- Sortable column headers where the API supports it (ADR-081).
-- Filters live in the URL query string — shareable, back-button friendly.
-- Default filters follow the constitution: `RETIRED` components and `GONE`
-  instances are excluded unless explicitly requested — surface this as a
-  visible toggle, not a hidden default.
-
-### Detail page
-
-```text
-┌─ Breadcrumbs ───────────────────────────────────────────────┐
-├─ Header: name, type badge, slug, lifecycle, owner, actions ─┤
-├─ Tabs ──────────────────────────────────────────────────────┤
-│  <tab content: sections or embedded tables>                 │
-```
-
-This anatomy is the **standard template for all entities** — products,
-components, groups, users. Entity-specific tabs differ; the chrome does not.
-
----
-
-## 5. Products: the hierarchy view
-
-The `/products` primary view is an **expandable indented tree** of the
-COMPOSES DAG: products with no COMPOSES parent render as roots — usually
-Business Capability / Customer-Facing products, but an unparented Platform
-is a root too;
-Platform products nested beneath. Typing in search or applying a filter
-flattens the tree to a normal list.
-
-- A product with multiple parents (legal in a DAG) appears under each parent;
-  a "shared" indicator marks duplicates.
-- Retired products excluded by default (constitution IV) with a visible toggle.
-- Each row carries a **completeness chip** (spec 023): three independent
-  facets — Owner, Desc, Deps — never merged into a score. Satisfied facets
-  render muted; missing facets render in the warning tone so gaps draw the
-  eye. The same chip repeats in the detail-page header.
-- `PLATFORM` rows additionally show their consumer count
-  ("consumed by N", muted "not consumed" at zero); non-platform rows never
-  do. A **Completeness** facet filters the list by gap
-  (`?missing=owner,dependencies,description`, values OR'd).
-
-### Product detail tabs
-
-| Tab | Content |
-|---|---|
-| Overview | Description, owners, LOB, counts (N composed-by, M composes, K components, J instances) |
-| Composition | Labeled sections: **Composed by** (parents, upward), **Composes** (children, downward), **Consumes from** (CONSUMES_FROM edges — a different relationship type, never mixed into the COMPOSES tree), and for `PLATFORM` products **Consumed by** (reverse lookups) |
-| Components | The product's component dependencies split into **Declared** (direct `DEPENDS_ON_COMPONENT` edges) and **Inherited** (via composed products, annotated with the `via` product) — reuses the catalog table |
-| Instances | Component instances grouped by environment, with the same Declared/Inherited split |
-
-### Deferred: graph visualization
-
-A node-edge canvas (e.g., React Flow) is **explicitly deferred** and requires
-its own ADR before implementation. Reasons: accessibility cost under WCAG AA,
-build complexity, and catalog workflows are list-shaped. When it arrives, it
-is a secondary "Map" tab — never the primary view.
-
----
-
-## 6. State matrix
-
-Every page and every async region implements these states. Toast feedback
-(ADR-072) is *transient* feedback — it never replaces a page-level state.
+### State matrix
 
 | State | Convention |
 |---|---|
-| Initial loading | Skeleton placeholders shaped like the content (`Skeleton`). No full-page spinners. |
-| Refetch / pagination | Keep existing data; small progress indicator; no layout shift. |
-| Empty | Standard empty-state block: icon, one-line explanation, one primary action ("Import your first components →"). Never a blank table. |
-| Page error | Inline error panel with retry button. |
-| Section error | Section-level error + retry; the rest of the page survives. |
-| 403 Forbidden | Distinct "You don't have permission" state; no retry. |
-| 404 | Dedicated not-found page; link back to the section root. |
+| Initial loading | `TableSkeleton`/shaped `Skeleton` — no full-page spinners |
+| Refetch | Keep existing data (TanStack `placeholderData`); no layout shift |
+| Empty | `EmptyState` — icon, one-line explanation, one primary action |
+| Error | `ErrorState` with `errorMessage(err)` + retry |
+| 403 Forbidden | `ForbiddenState`/in-page notice; UI guards are advisory — the API enforces |
+| 404 | `NotFoundState` linking back to the section root |
 
-### Formatting
+`errorMessage`/`isNotFound`/`isForbidden` in `src/ux/lib/api-state.ts`
+classify API errors uniformly.
 
-- **Timestamps**: relative for recent events ("3m ago"), absolute ISO on
-  hover/tooltip.
-- **Enums → badges** with a fixed color map, identical everywhere:
-  `ACTIVE`/`RUNNING`/`CONNECTED` green-ish, `STOPPED`/`OFFLINE` neutral,
-  `ERROR`/`GONE` red, `RETIRED` muted, `PENDING`/`QUEUED`/`NEVER_CONNECTED`
-  yellow. Status color must mean one thing across the whole app.
-- **Identifiers**: slugs rendered in `font-mono` where shown.
-- **Import Agents**: `agentVersion`, `protocolVersion`, `importerVersions`,
-  and `maxConcurrentJobs` on the agent detail page are *agent-reported*
-  (labeled as such); `allowedImporters` is hub-managed policy. The
-  enrollment token surfaces exactly once in a copy-dialog after create or
-  rotate — the hub URL field is editable and prefilled from the browser
-  origin.
-- **Agent ops reporting (spec 028)**: the detail page overview gains
-  `Last heartbeat` (freshness of the live session; suffixed `(stale —
-  expected every ~30s)` when older than ~2 beats) and `Last disconnect`
-  (most recent closed session's reason). An "Agent-reported" block shows
-  the heartbeat `ops` snapshot — uptime, active jobs, cumulative
-  jobs/assets/credential-test/secret-resolution/reconnect counters, and a
-  `Received (hub)` timestamp (the hub's stamp, never the agent's clock) —
-  with the caption "since agent start" so process-lifetime resets are not
-  misread as lifetime totals; agents that never reported show "Not
-  reported by this agent." The agents list gains a `Last disconnect`
-  column.
-- **Credentials (spec 026)**: `AGENT_MANAGED` rows carry an `AGENT` badge
-  and their key column renders source-type chips (`key · env` / `key ·
-  file`) instead of last-4 hints — the hints only exist for `STORED`. The
-  credential form asks "Where do the values live?": `Stored in Componode`
-  (default, write-only value inputs) or `Resolved on an Import Agent`
-  (per-key rows of key + source select + reference name; no value fields
-  ever). The Rotate dialog becomes "Edit references" for agent-managed
-  credentials — the hub copy changes, values rotate on the agent host.
-  The credential test dialog names the executing agent on remote results.
-  Hub-executed importer configs filter `AGENT_MANAGED` credentials out of
-  the selector (server still enforces `CREDENTIAL_KIND_MISMATCH`).
-- **Remote execution (spec 027)**: importer config forms lead with a
-  framework-level **Execution** select — `This hub (in-process)` or an
-  agent by name — above the credential selector. Options are disabled for
-  revoked agents or policies missing the importer; an offline selected
-  agent shows an inline warning. Choosing an agent filters credentials to
-  `AGENT_MANAGED`; hub mode filters them out — the credential form locks
-  the incompatible kind so it can't be picked at all. Agent-bound config
-  cards show `Runs on: <agent>` with an offline/incompatible warning;
-  run detail shows `Ran on agent <name>` (link, with `agent:read`) or
-  `Waiting for agent <name>` while pending, `In-process` otherwise. The
-  agent list gains a running-jobs count; agent detail gains in-flight
-  jobs on overview plus Configs and Runs tabs. Offline agents with bound
-  configs surface as `OFFLINE_AGENT` dashboard attention items.
+### Mapper rule
 
----
+**No component reads API contracts directly.** API types convert to view
+types through one mapper per entity under `src/api/mappers/` (`catalog`,
+`dashboard`, `operations`, `suggestions`) — enum narrowing with
+documented fallbacks, null-first-class fields kept explicit, masked
+`keyHints` passed verbatim (never values). View types live in
+`src/ux/lib/view-types.ts`; mappers are unit-tested.
 
-## 7. Forms and voice
+### Mutations
 
-- shadcn `Form` + react-hook-form + `parseFieldErrors` (ADR-072) is the
-  required form stack; importer config forms are JSON-Schema-driven (ADR-042).
-- Labels above inputs; inline errors directly below the field.
-- Destructive actions require a confirm dialog (`Dialog`), never a bare click.
-- Sentence case everywhere ("Run import", not "Run Import").
-- Domain terms verbatim: Component, ComponentInstance, DigitalProduct,
-  ComponentGroup, Importer. No synonyms ("asset", "service") in UI copy.
-- Edge names are written as natural-language phrases, never bare enum names:
-  "X is composed of Y" / "X composes Y" for `COMPOSES`, "X consumes Y" for
-  `CONSUMES_FROM`, "X depends on Y" for `DEPENDS_ON_COMPONENT`. `COMPOSES` in
-  particular reads backwards from its semantics (the parent *is composed of*
-  the child), so the bare enum is forbidden in UI copy.
-- Button labels are verbs or verb phrases.
+TanStack Query hooks own all writes; `onSuccess` invalidates the read
+query keys. Success → `toast.success`; failure → `toast.error(e.message)`
+(API `message` already human-readable — never invent copy). Destructive
+actions go through `ConfirmDialog`/`DangerZone` (type-to-confirm for
+slugged entities); 409/423 conflicts surface as toasts, not crashes.
+Simulated saves (`setTimeout`, optimistic fake rows) are forbidden in
+shipped routes.
 
----
+### Secrets
 
-## 8. Theming
+- Credential values are write-only: forms POST `secrets`, afterwards only
+  masked `keyHints` render.
+- `AGENT_MANAGED` credentials send `{env}`/`{file}` **references**, never
+  values.
+- Agent enrollment tokens display exactly once in `EnrollmentTokenPanel`
+  (prefilled from `window.location.origin`) — never persisted or refetched.
+- Password-reset tokens surface once in a toast for admin copy-out
+  (`POST /auth/password/reset`); there is no email delivery yet.
 
-- **Dark mode**: defined and shipped. Default follows `prefers-color-scheme`;
-  explicit toggle in the user menu. All colors come from the CSS token set —
-  no hardcoded `bg-white`/`text-black` in components.
-- **Accent**: one `--primary` hue for interactive/primary elements; everything
-  else stays neutral. The stock all-grayscale theme is replaced.
-- **Density**: compact by default — `text-sm` in tables, reduced row padding.
-  No density toggle in v1.
+### Formatting & voice
 
----
+- Timestamps relative for recent events (`RelativeTime`), absolute on
+  hover; nullable timestamps render "—".
+- Slugs/ids in `font-mono`. Sentence case. Button labels are verbs.
+- Domain terms verbatim (Component, ComponentInstance, DigitalProduct,
+  ComponentGroup, Importer); edge names as phrases ("X consumes Y"),
+  never bare enums.
 
-## 9. Scope boundaries
+## 6. Auth surfaces
 
-- Optimized for ≥1280px; usable at ~768px (sidebar collapses to icons).
-- Below 768px the app renders but is not designed for: no mobile layouts, no
-  touch-target work — **with one ratified exception**: navigation becomes an
-  off-canvas drawer (hamburger in the top bar) so the shell degrades
-  gracefully instead of crushing content. That is the only sub-768px change;
-  see ADR-108. Anything further is a recorded decision, not an oversight —
-  revisit only via a dedicated spec.
-- No in-app graph canvas (see §5). No customizable dashboard widgets, no
-  per-user layout customization in v1.
+Login, register, and the OIDC callback live outside the app shell with the
+two-column `AuthShowcase` layout. The backend redirects OIDC outcomes to
+`/login?error=oidc_*`; the login page renders those inline. The callback
+page renders `?error=` states and forwards to `/` on success — the session
+cookie is already set by the backend 302.
 
----
+## 7. Feature flags & gap governance
 
-## 10. Dashboard intent
+Runtime-flagged gaps live in **`src/ux/lib/flags.ts`**, each tied to a
+detailed entry in **`researches/ux-rewrite-gaps.md`**:
 
-The dashboard is a **health + attention** overview, not a navigation hub
-(the sidebar already navigates):
+- A flag is added **only** alongside its gap-registry entry (flagged
+  surface, missing backend capability, resolution plan).
+- The flagged UI renders its defined fallback — hidden column, disabled
+  control, or a notice naming the gap — never a fake interaction.
+- When the backend capability lands, the flag flips and the gap entry is
+  marked resolved; gap specs are the next roadmap items after v1.1.0.
 
-1. **Attention needed** (top; hidden when empty): failed importer runs,
-   `ERROR`/`GONE` instances, reconciliation anomalies, and `OFFLINE_AGENT`
-   items for offline agents that still own bound configs (spec 027) —
-   then, below the operational items, overdue `sunsetAt` on non-retired
-   products and components, labeled "Sunset overdue" (spec 023).
-2. **Stat cards**: products (by type), components (by lifecycle), instances
-   (by status), last import time.
-3. **Catalog coverage** (spec 023): wired share of the default-visible
-   component set and the three product hygiene gaps (missing owner,
-   missing dependencies, missing description). Every figure links to its
-   filtered worklist; a zero denominator renders `—`, never `0%`.
-4. **Importer status**: last run per configured importer — status, when,
-   assets found/created/updated.
-5. **Empty install**: getting-started strip ("Configure your first importer")
-   replaces all of the above.
+## 8. Scope boundaries
 
-This section records *layout intent only*; the dashboard as shipped (specs
-004 and 015) implements it, including the importer run-history stacked chart.
+- ≥1280px optimized, ~768px usable; sub-`md` = nav drawer only (ADR-108).
+- No in-app graph canvas — the product "Map" is the textual relations view;
+  a node-edge canvas still requires its own ADR (deferred).
+- No dashboard widget customization, no notification backend, no TOTP —
+  all flagged gaps, not hidden bugs.
 
----
+## 9. Open decisions
 
-## 11. Open decisions
+Deferred — each needs its own ADR or spec:
 
-Deferred — each needs its own ADR or spec before implementation:
-
-- Graph/map visualization of the COMPOSES DAG (§5)
-- Mobile/tablet support beyond the sub-`md` nav drawer (§9, ADR-108)
-- Custom importer-form widgets beyond the generic JSON-Schema renderer
-  (ADR-042 marks these v1.1)
-- Density toggle, per-user layout preferences
-- A `/people` surface for `Person` entities beyond user management (route
-  map §3)
+- Graph visualization of the COMPOSES DAG
+- Mobile/tablet support beyond the nav drawer
+- Custom importer-form widgets beyond the generic manifest/JSON editor
+- Per-user display preferences consumed app-wide (gap G20)
+- Notification delivery (gap G15), TOTP (gap G16), session concurrency
+  controls (gap G17), workspace profile fields (gap G18), retention/export
+  operations (gap G19)

@@ -25,6 +25,11 @@ export interface User {
 
 export interface Session {
   id: string;
+  tokenLast4?: string;
+  userId: string;
+  device: string | null;
+  ip: string | null;
+  current: boolean;
   createdAt: string;
   lastSeenAt: string;
   expiresAt: string;
@@ -335,6 +340,12 @@ export interface OrgEntity {
   description: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Team rows carry their LOB association (spec 034). */
+export interface TeamEntity extends OrgEntity {
+  lobId: string | null;
+  lob: { id: string; name: string; slug: string } | null;
 }
 
 export interface TeamMember {

@@ -46,3 +46,18 @@ have no human actor). **Nullable `triggeredBy`** for scheduled runs.
 in the Session 2 review of Principle IV — a first-class entity for human-
 declared equivalence across distinct source assets, NOT a graph node (no
 `DEPENDS_ON` to a group; products depend on member components individually).
+## Amendment 1 — `teams.lobId` (2026-10-26, spec 034)
+
+**Context**: The spec's enumerated FK list was presented as closed, but the
+ux-rewrite gap G12 requires a Team → Line of Business association: teams may
+serve at most one LOB so the product form can group its team picker by the
+product's LOB and team detail can name the LOB it belongs to.
+
+**Refinement**: `teams.lobId uuid NULL → line_of_businesses(id) ON DELETE
+SET NULL` joins the 1-to-many FK list — same advisory-ownership shape as
+`digital_products.lobOwnerId`, `components.teamOwnerId`, `persons.teamId`.
+Unlike those ownership references, the association is *advisory*: deleting
+a LOB clears the link on its teams (set-null) rather than blocking, and the
+API does not enforce consistency between a product's `lobOwnerId` and its
+`teamOwnerId`'s LOB. Team read payloads carry the resolved `lob` summary so
+clients never render a raw identifier.

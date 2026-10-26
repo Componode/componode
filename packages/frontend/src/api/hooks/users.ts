@@ -54,3 +54,23 @@ export function useUpdateUser() {
     },
   });
 }
+
+export interface UpdateSelfVariables {
+  displayName?: string;
+  email?: string;
+}
+
+export function useUpdateSelf() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: UpdateSelfVariables) =>
+      api<{ user: User }>("/users/me", {
+        method: "PATCH",
+        body: JSON.stringify(vars),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["auth", "session"] });
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}

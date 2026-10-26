@@ -135,6 +135,7 @@ Notes:
 | GET | `/api/v1/users` | List users | `user:list` |
 | POST | `/api/v1/users` | Create a user | `user:create` |
 | GET | `/api/v1/users/me` | Get the current user's profile | Authenticated |
+| PATCH | `/api/v1/users/me` | Update the current user's profile (display name, email) | Authenticated |
 | GET | `/api/v1/users/:id` | Get a user by ID | `user:list` |
 | PATCH | `/api/v1/users/:id` | Update a user (role, display name, email, team, active flag) | `user:update` |
 <!-- /GENERATED:table:Users -->
@@ -251,7 +252,7 @@ reassigns `{ componentGroupId?, teamOwnerId? }` (nullable).
 |---|---|---|---|
 | GET | `/api/v1/component-groups` | List component groups | Authenticated |
 | POST | `/api/v1/component-groups` | Create a component group | `componentGroup:create` |
-| GET | `/api/v1/component-groups/:id` | Get a component group by ID | Authenticated |
+| GET | `/api/v1/component-groups/:id` | Get a component group by ID or slug | Authenticated |
 | PATCH | `/api/v1/component-groups/:id` | Update a component group | `componentGroup:update` |
 | DELETE | `/api/v1/component-groups/:id` | Delete a component group | `componentGroup:delete` |
 <!-- /GENERATED:table:ComponentGroups -->
@@ -273,6 +274,7 @@ same fields plus `lifecycle`.
 | DELETE | `/api/v1/importer-configs/:id` | Delete an importer configuration | `importer:config:delete` |
 | POST | `/api/v1/importer-configs/:id/convert-secrets` | Convert legacy secret refs to a stored credential | `importer:config:update` |
 | POST | `/api/v1/importer-configs/:id/trigger` | Trigger an import run | `importer:run:trigger` |
+| GET | `/api/v1/importer-configs/:id/run-aggregates` | Per-day run aggregates for an importer configuration | Authenticated |
 | GET | `/api/v1/importer-configs/:id/runs` | List runs for an importer configuration | Authenticated |
 | GET | `/api/v1/importer-configs/:configId/runs/:runId` | Get an import run | Authenticated |
 | GET | `/api/v1/importer-configs/:configId/runs/:runId/errors` | List errors for an import run | Authenticated |
@@ -324,17 +326,22 @@ Notes:
 |---|---|---|---|
 | GET | `/api/v1/lobs` | List lines of business | Authenticated |
 | POST | `/api/v1/lobs` | Create a line of business | `lob:create` |
+| GET | `/api/v1/lobs/:id` | Get a line of business by ID or slug | Authenticated |
 | PATCH | `/api/v1/lobs/:id` | Update a line of business | `lob:update` |
 | DELETE | `/api/v1/lobs/:id` | Delete a line of business | `lob:delete` |
 | GET | `/api/v1/teams` | List teams | Authenticated |
 | POST | `/api/v1/teams` | Create a team | `team:create` |
+| GET | `/api/v1/teams/:id` | Get a team by ID or slug | Authenticated |
 | PATCH | `/api/v1/teams/:id` | Update a team | `team:update` |
 | DELETE | `/api/v1/teams/:id` | Delete a team | `team:delete` |
 | GET | `/api/v1/teams/:id/members` | List members of a team | Authenticated |
 <!-- /GENERATED:table:Organization -->
 
-`/lobs` and `/teams` share an identical CRUD shape. Body:
-`{ name, slug?, description? }` (strict — unknown fields rejected). Slug
+`/lobs` and `/teams` share a near-identical CRUD shape. Body:
+`{ name, slug?, description? }` (strict — unknown fields rejected); team
+writes additionally accept `lobId` (uuid or `null`, must reference an
+existing LOB — `null` clears the association). Team reads embed
+`lobId` and a resolved `lob {id,name,slug}` summary. Slug
 pattern: `^[a-z0-9]+(?:-[a-z0-9]+)*$`.
 
 ## Dashboard

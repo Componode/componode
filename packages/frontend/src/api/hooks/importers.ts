@@ -21,12 +21,21 @@ export function useImporterConfigs() {
   });
 }
 
+export function useImporterConfig(id: string | null) {
+  return useQuery({
+    queryKey: ["importer-configs", id],
+    queryFn: () => api<{ config: ImporterConfig }>(`/importer-configs/${id}`),
+    enabled: id !== null,
+  });
+}
+
 export interface CreateImporterConfigInput {
   importerName: string;
   label: string;
   scope: Record<string, unknown>;
   secretRefs: Array<{ key: string; env?: string; file?: string }>;
   credentialIds?: string[];
+  agentId?: string | null;
   schedule?: string | null;
   enabled: boolean;
 }
@@ -37,6 +46,7 @@ export interface UpdateImporterConfigInput {
   scope?: Record<string, unknown>;
   secretRefs?: Array<{ key: string; env?: string; file?: string }>;
   credentialIds?: string[];
+  agentId?: string | null;
   schedule?: string | null;
   enabled?: boolean;
 }
@@ -179,5 +189,31 @@ export function useImportRunErrors(
         `/importer-configs/${configId}/runs/${runId}/errors`,
       ),
     enabled: configId !== null && runId !== null,
+  });
+}
+
+export interface RunDayAggregate {
+  day: string;
+  runs: number;
+  created: number;
+  updated: number;
+  failed: number;
+}
+
+export function useRunAggregates(configId: string | null, days = 14) {
+  return useQuery({
+    queryKey: ["importerConfigs", configId, "runAggregates", days],
+    queryFn: async () => {
+      const res = await api<{ days: RunDayAggregate[] }>(
+        `/importer-configs/${configId}/run-aggregates?days=${days}`,
+      );
+      return res.days.map(({ day, created, updated, failed }) => ({
+        day,
+        created,
+        updated,
+        failed,
+      }));
+    },
+    enabled: configId != null,
   });
 }

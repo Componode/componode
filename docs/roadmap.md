@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–028)
+## Shipped (features 001–034)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -119,11 +119,53 @@ file tracks shipped and upcoming work — update it when a spec completes.
   duration, session-duration, and last-contact series, and the UI shows
   an Agent-reported block with a stale-heartbeat signal plus a
   last-disconnect column. Remote Import Agents program complete.
+- `029-ux-rewrite` — the v1.1 UX baseline: the v0 prototype ported under
+  `/ux` (design tokens, primitives, and patterns scoped to `.ux-root`)
+  and wired to the live API — dashboard, products (authoring, promote,
+  bootstrap import, history), components, component groups, suggestions,
+  activity, import operations (importers, runs, agents), org, and
+  settings. Backend capabilities the API lacks render flagged fallbacks
+  tracked in `researches/ux-rewrite-gaps.md`.
+- `030-self-service-profile` — first ux-rewrite gap resolution (G14):
+  `PATCH /users/me` bound to the session user behind a strict
+  `updateSelfSchema` (`displayName` + `email` only — privileged keys
+  rejected, not stripped), reusing `updateUser` for identical audit
+  attribution; the profile page uses the self path for all roles and the
+  `profileSelfEdit` fallback is retired.
+- `031-importer-run-aggregates` — ux-rewrite gap G1: `GET
+  /importer-configs/:id/run-aggregates?days=N` returns zero-filled
+  per-day run buckets (runs, failed count, asset created/updated sums)
+  computed server-side; the importer-card sparkline renders live data and
+  `historyAggregates` is on.
+- `032-session-visibility` — ux-rewrite gap G2: sessions persist
+  `userAgent` + `ip` at creation (migration 020); session lists return
+  `device` (parsed label), `ip` location, `userId`, and a caller-relative
+  `current` marker — all four session flags on.
+- `033-detail-reads-feed-names` — ux-rewrite gaps G7/G8/G9/G11:
+  `GET /teams/:id` and `GET /lobs/:id` ship; all three detail reads
+  (teams, LOBs, component groups) resolve id-or-slug so `/ux/*/:slug`
+  pages drop list-and-match; audit feed, entity history, and run changes
+  carry server-resolved `entityName`/`fromEntityName`/`toEntityName`
+  (read-time lookup — history and renames covered, null fallback on
+  unresolvable rows).
+- `034-team-lob-association` — ux-rewrite gap G12: `teams.lobId` links a
+  team to at most one LOB (migration 021, ADR-077 Amendment 1 — advisory,
+  `ON DELETE SET NULL`, not counted in the LOB delete guard); team writes
+  accept and validate it, team reads embed a resolved `lob` summary. The
+  product form groups its team picker by the selected LOB (that LOB's
+  teams first, all others reachable below — nothing hidden), the team
+  dialog assigns the association, team detail shows its LOB, and LOB
+  detail/grid list their teams.
 
-## Next — v1.1
+## Next — post-v1.1
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
-list — the Import Agents program (025–028) is now fully shipped:
+list — the Import Agents program (025–028), the UX baseline (029), and
+the gap specs `030`–`034` (G14, G1, G2, G7/G8/G9/G11, G12) are shipped on
+`release/1.1.0`. Remaining UX-rewrite backend gap from
+`researches/ux-rewrite-gaps.md`: `035` schema-driven importer forms (G13).
+G20 resolves client-side without a spec; G15–G19 are deferred
+unscheduled (see the registry's spec-queue block):
 
 - Runtime-loaded importer plugins
 - Invite-based registration

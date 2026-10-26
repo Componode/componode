@@ -147,7 +147,7 @@ export {
   passwordResetConfirmSchema,
   passwordResetRequestSchema,
 } from "./schemas/auth.js";
-export { createUserSchema, updateUserSchema } from "./schemas/user.js";
+export { createUserSchema, updateUserSchema, updateSelfSchema } from "./schemas/user.js";
 export {
   updateSettingsSchema,
   updateOidcConfigSchema,
@@ -231,10 +231,17 @@ export type {
 } from "./contracts/bootstrap.js";
 export { listSuggestionsQuerySchema } from "./schemas/suggestions.js";
 export type { ListSuggestionsQuery } from "./schemas/suggestions.js";
-export { createOrgEntitySchema, updateOrgEntitySchema } from "./schemas/org.js";
+export {
+  createOrgEntitySchema,
+  updateOrgEntitySchema,
+  createTeamSchema,
+  updateTeamSchema,
+} from "./schemas/org.js";
 export type {
   CreateOrgEntityInput,
   UpdateOrgEntityInput,
+  CreateTeamInput,
+  UpdateTeamInput,
 } from "./schemas/org.js";
 export type {
   ListComponentsQuery,
@@ -251,7 +258,7 @@ export type {
   PasswordResetConfirmInput,
   PasswordResetRequestInput,
 } from "./schemas/auth.js";
-export type { CreateUserInput, UpdateUserInput } from "./schemas/user.js";
+export type { CreateUserInput, UpdateUserInput, UpdateSelfInput } from "./schemas/user.js";
 export type {
   UpdateSettingsInput,
   UpdateOidcConfigInput,

@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { createUserSchema, updateUserSchema } from "@componode/core";
+import { createUserSchema, updateUserSchema, updateSelfSchema } from "@componode/core";
 import { createUser, listUsers, getUserById, updateUser } from "../services/user-service.js";
 import { requireRole } from "../plugins/rbac.js";
 import type { AuthenticatedRequest } from "../plugins/session.js";
@@ -27,6 +27,30 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(401).send({ code: "AUTH_NO_SESSION", message: "Not authenticated" });
     }
     const user = await getUserById(req.user.id);
+    if (!user) {
+      return reply.status(404).send({ code: "NOT_FOUND", message: "User not found" });
+    }
+    return reply.status(200).send({ user });
+  });
+
+  // PATCH /users/me — all authenticated users (self-service profile, spec 030).
+  // Self-bound to req.user.id; the strict self schema rejects privileged keys.
+  app.patch("/users/me", {
+    preHandler: [app.verifySession],
+  }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
+    if (!req.user) {
+      return reply.status(401).send({ code: "AUTH_NO_SESSION", message: "Not authenticated" });
+    }
+    const parsed = updateSelfSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid input",
+        details: parsed.error.issues,
+      });
+    }
+
+    const user = await updateUser(req.user.id, parsed.data, toActor(req));
     if (!user) {
       return reply.status(404).send({ code: "NOT_FOUND", message: "User not found" });
     }

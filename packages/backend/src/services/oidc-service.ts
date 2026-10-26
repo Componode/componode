@@ -3,7 +3,7 @@ import * as client from "openid-client";
 import { db } from "../db/connection.js";
 import { EnvSecretResolver } from "../utils/secret-resolver.js";
 import { decryptSecrets, loadKeyring } from "../utils/credential-crypto.js";
-import { createSession } from "./session-service.js";
+import { createSession, type SessionMeta } from "./session-service.js";
 import { getSetting } from "./settings-service.js";
 import { writeAuthEvent, writeEntityChange } from "./audit-service.js";
 import type { Role } from "@componode/core";
@@ -95,7 +95,7 @@ export async function initiateLogin(redirectUri: string = "/", callbackBaseUrl: 
   return authorizationUrl.href;
 }
 
-export async function handleCallback(callbackUrl: URL): Promise<{ sessionToken: string; redirectUri: string }> {
+export async function handleCallback(callbackUrl: URL, meta?: SessionMeta): Promise<{ sessionToken: string; redirectUri: string }> {
   const config = await getOidcConfig();
   if (!config || !config.enabled || !config.issuer || !config.clientId) {
     throw Object.assign(new Error("OIDC not configured"), {
@@ -214,7 +214,7 @@ export async function handleCallback(callbackUrl: URL): Promise<{ sessionToken: 
     });
   }
 
-  const sessionToken = await createSession(user.id);
+  const sessionToken = await createSession(user.id, meta);
 
   await writeAuthEvent("oidc_signin", null, {
     id: user.id,
