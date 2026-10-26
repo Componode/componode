@@ -157,7 +157,7 @@ file tracks shipped and upcoming work — update it when a spec completes.
   dialog assigns the association, team detail shows its LOB, and LOB
   detail/grid list their teams.
 
-## Next — v1.1
+## Next — post-v1.1
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and
