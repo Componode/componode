@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table";
 import { EmptyState } from "@/ux/components/patterns/states";
 import { ux } from "@/ux/lib/paths";
-import type { OrgEntity } from "@/api/types";
+import type { OrgEntity, TeamEntity } from "@/api/types";
 
 export interface OrgCounts {
   products: number;
@@ -18,7 +18,7 @@ export function TeamsTable({
   data,
   counts,
 }: {
-  data: OrgEntity[];
+  data: TeamEntity[];
   counts: Map<string, OrgCounts>;
 }) {
   if (data.length === 0) {
@@ -34,6 +34,7 @@ export function TeamsTable({
         <TableHeader>
           <TableRow className="bg-muted/40 hover:bg-muted/40">
             <TableHead className="pl-4">Team</TableHead>
+            <TableHead>Line of business</TableHead>
             <TableHead className="text-right">Members</TableHead>
             <TableHead className="text-right">Products</TableHead>
             <TableHead className="pr-4 text-right">Components</TableHead>
@@ -52,6 +53,15 @@ export function TeamsTable({
                     <code className="font-mono text-xs text-muted-foreground">{t.slug}</code>
                   </div>
                 </TableCell>
+                <TableCell>
+                  {t.lob ? (
+                    <Link to={ux(`/lobs/${t.lob.slug}`)} className="hover:underline">
+                      {t.lob.name}
+                    </Link>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
                 <TableCell className="tabular text-right">{c?.members ?? "—"}</TableCell>
                 <TableCell className="tabular text-right">{c?.products ?? 0}</TableCell>
                 <TableCell className="tabular pr-4 text-right">{c?.components ?? 0}</TableCell>
@@ -64,7 +74,7 @@ export function TeamsTable({
   );
 }
 
-/** LOB grid — teams count is unavailable (no team→LOB association; gap G14). */
+/** LOB grid — products owned + teams associated (spec 034). */
 export function LobsGrid({ data, counts }: { data: OrgEntity[]; counts: Map<string, OrgCounts> }) {
   if (data.length === 0) {
     return (
@@ -102,8 +112,8 @@ export function LobsGrid({ data, counts }: { data: OrgEntity[]; counts: Map<stri
                     <dd className="tabular text-lg font-semibold">{c?.products ?? 0}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-muted-foreground">Slug</dt>
-                    <dd className="truncate font-mono text-sm">{l.slug}</dd>
+                    <dt className="text-xs text-muted-foreground">Teams</dt>
+                    <dd className="tabular text-lg font-semibold">{c?.teams ?? "—"}</dd>
                   </div>
                 </dl>
               </CardContent>

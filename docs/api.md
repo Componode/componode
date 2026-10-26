@@ -337,8 +337,11 @@ Notes:
 | GET | `/api/v1/teams/:id/members` | List members of a team | Authenticated |
 <!-- /GENERATED:table:Organization -->
 
-`/lobs` and `/teams` share an identical CRUD shape. Body:
-`{ name, slug?, description? }` (strict — unknown fields rejected). Slug
+`/lobs` and `/teams` share a near-identical CRUD shape. Body:
+`{ name, slug?, description? }` (strict — unknown fields rejected); team
+writes additionally accept `lobId` (uuid or `null`, must reference an
+existing LOB — `null` clears the association). Team reads embed
+`lobId` and a resolved `lob {id,name,slug}` summary. Slug
 pattern: `^[a-z0-9]+(?:-[a-z0-9]+)*$`.
 
 ## Dashboard

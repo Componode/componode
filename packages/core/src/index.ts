@@ -231,10 +231,17 @@ export type {
 } from "./contracts/bootstrap.js";
 export { listSuggestionsQuerySchema } from "./schemas/suggestions.js";
 export type { ListSuggestionsQuery } from "./schemas/suggestions.js";
-export { createOrgEntitySchema, updateOrgEntitySchema } from "./schemas/org.js";
+export {
+  createOrgEntitySchema,
+  updateOrgEntitySchema,
+  createTeamSchema,
+  updateTeamSchema,
+} from "./schemas/org.js";
 export type {
   CreateOrgEntityInput,
   UpdateOrgEntityInput,
+  CreateTeamInput,
+  UpdateTeamInput,
 } from "./schemas/org.js";
 export type {
   ListComponentsQuery,

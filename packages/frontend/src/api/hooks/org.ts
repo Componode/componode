@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import type { OrgEntity, TeamMember } from "@/api/types";
+import type { OrgEntity, TeamEntity, TeamMember } from "@/api/types";
 
 export interface OrgEntityInput {
   name: string;
@@ -8,24 +8,29 @@ export interface OrgEntityInput {
   description?: string | null;
 }
 
-function orgHooks(base: "lobs" | "teams") {
+/** Team writes additionally accept the LOB association (spec 034). */
+export interface TeamEntityInput extends OrgEntityInput {
+  lobId?: string | null;
+}
+
+function orgHooks<T extends OrgEntity = OrgEntity, TIn extends OrgEntityInput = OrgEntityInput>(base: "lobs" | "teams") {
   const list = () =>
     useQuery({
       queryKey: [base],
-      queryFn: () => api<Record<string, OrgEntity[]>>(`/${base}`),
+      queryFn: () => api<Record<string, T[]>>(`/${base}`),
     });
   // Detail read accepts id-or-slug — the route slug resolves directly (spec 033).
   const detail = (idOrSlug: string | undefined) =>
     useQuery({
       queryKey: [base, "detail", idOrSlug],
-      queryFn: () => api<Record<string, OrgEntity>>(`/${base}/${idOrSlug}`),
+      queryFn: () => api<Record<string, T>>(`/${base}/${idOrSlug}`),
       enabled: !!idOrSlug,
     });
   const create = () => {
     const qc = useQueryClient();
     return useMutation({
-      mutationFn: (vars: OrgEntityInput) =>
-        api<Record<string, OrgEntity>>(`/${base}`, {
+      mutationFn: (vars: TIn) =>
+        api<Record<string, T>>(`/${base}`, {
           method: "POST",
           body: JSON.stringify(vars),
         }),
@@ -35,12 +40,18 @@ function orgHooks(base: "lobs" | "teams") {
   const update = () => {
     const qc = useQueryClient();
     return useMutation({
-      mutationFn: (vars: { id: string } & Partial<OrgEntityInput>) =>
-        api<Record<string, OrgEntity>>(`/${base}/${vars.id}`, {
+      mutationFn: (vars: { id: string } & Partial<TIn>) => {
+        const { id, ...body } = vars;
+        return api<Record<string, T>>(`/${base}/${id}`, {
           method: "PATCH",
-          body: JSON.stringify(vars),
-        }),
-      onSuccess: () => qc.invalidateQueries({ queryKey: [base] }),
+          body: JSON.stringify(body),
+        });
+      },
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: [base] });
+        // LOB rename/delete changes the lob summary embedded on team reads.
+        if (base === "lobs") qc.invalidateQueries({ queryKey: ["teams"] });
+      },
     });
   };
   const del = () => {
@@ -48,14 +59,17 @@ function orgHooks(base: "lobs" | "teams") {
     return useMutation({
       mutationFn: (id: string) =>
         api<undefined>(`/${base}/${id}`, { method: "DELETE" }),
-      onSuccess: () => qc.invalidateQueries({ queryKey: [base] }),
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: [base] });
+        if (base === "lobs") qc.invalidateQueries({ queryKey: ["teams"] });
+      },
     });
   };
   return { list, detail, create, update, del };
 }
 
 const lobs = orgHooks("lobs");
-const teams = orgHooks("teams");
+const teams = orgHooks<TeamEntity, TeamEntityInput>("teams");
 
 export const useLobs = lobs.list;
 export const useLob = lobs.detail;

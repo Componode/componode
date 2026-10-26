@@ -19,9 +19,10 @@ interface OwnedTableProps {
   noun: string;
   hrefBase: string;
   empty: string;
+  metaLabel?: string;
 }
 
-function OwnedTable({ rows, noun, hrefBase, empty }: OwnedTableProps) {
+function OwnedTable({ rows, noun, hrefBase, empty, metaLabel = "Lifecycle" }: OwnedTableProps) {
   if (rows.length === 0) {
     return <EmptyState icon={UsersIcon} title={`No owned ${noun}`} description={empty} />;
   }
@@ -30,7 +31,7 @@ function OwnedTable({ rows, noun, hrefBase, empty }: OwnedTableProps) {
       <TableHeader>
         <TableRow className="bg-muted/40 hover:bg-muted/40">
           <TableHead className="pl-4 capitalize">{noun.slice(0, -1)}</TableHead>
-          <TableHead>Lifecycle</TableHead>
+          <TableHead>{metaLabel}</TableHead>
           <TableHead className="pr-4 text-right">—</TableHead>
         </TableRow>
       </TableHeader>
@@ -60,7 +61,11 @@ interface OrgDetailProps {
   ownedComponents: Component[];
   /** When >0 the DangerZone delete action is blocked. */
   ownedTotal: number;
-  onEdit: (vars: { name: string; slug: string; description?: string | null }) => void;
+  /** LOB options for the team edit dialog (spec 034). */
+  lobs?: OrgEntity[];
+  /** Teams associated with this LOB — renders a teams card (spec 034). */
+  associatedTeams?: OrgEntity[];
+  onEdit: (vars: { name: string; slug: string; description?: string | null; lobId?: string | null }) => void;
   onDelete: () => void;
   editPending?: boolean;
 }
@@ -73,6 +78,8 @@ export function OrgDetail({
   ownedProducts,
   ownedComponents,
   ownedTotal,
+  lobs,
+  associatedTeams,
   onEdit,
   onDelete,
   editPending,
@@ -98,7 +105,8 @@ export function OrgDetail({
           <OrgFormDialog
             noun={noun}
             initial={entity}
-            onSubmit={({ name, slug, description }) => onEdit({ name, slug, description })}
+            lobs={lobs}
+            onSubmit={({ name, slug, description, lobId }) => onEdit({ name, slug, description, lobId })}
             pending={editPending}
             trigger={<Button variant="outline">Edit {noun}</Button>}
           />
@@ -116,6 +124,27 @@ export function OrgDetail({
         </Card>
 
         <div className="flex flex-col gap-4 lg:col-span-2">
+          {associatedTeams && (
+            <Card className="overflow-hidden py-0">
+              <CardHeader className="pt-6">
+                <CardTitle>Teams</CardTitle>
+                <CardDescription>Teams associated with this line of business.</CardDescription>
+              </CardHeader>
+              <OwnedTable
+                noun="teams"
+                hrefBase="/teams"
+                empty="Assign a team's line of business to see it here."
+                metaLabel="Slug"
+                rows={associatedTeams.map((t) => ({
+                  id: t.id,
+                  slug: t.slug,
+                  name: t.name,
+                  meta: <code className="font-mono text-xs text-muted-foreground">{t.slug}</code>,
+                }))}
+              />
+            </Card>
+          )}
+
           <Card className="overflow-hidden py-0">
             <CardHeader className="pt-6">
               <CardTitle>Products</CardTitle>

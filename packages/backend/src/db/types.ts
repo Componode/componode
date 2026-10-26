@@ -152,6 +152,7 @@ export interface TeamRow {
   name: string;
   slug: string;
   description: string | null;
+  lobId: string | null;
   createdAt: Generated<string>;
   updatedAt: Generated<string>;
 }

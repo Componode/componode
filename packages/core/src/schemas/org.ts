@@ -18,5 +18,17 @@ export const updateOrgEntitySchema = z
   })
   .strict();
 
+// Team ↔ LOB association (spec 034 / G12): teams only — the base schemas
+// stay strict so lobId on a /lobs write is rejected as an unknown field.
+export const createTeamSchema = createOrgEntitySchema.extend({
+  lobId: z.string().uuid().nullable().optional(),
+});
+
+export const updateTeamSchema = updateOrgEntitySchema.extend({
+  lobId: z.string().uuid().nullable().optional(),
+});
+
 export type CreateOrgEntityInput = z.infer<typeof createOrgEntitySchema>;
 export type UpdateOrgEntityInput = z.infer<typeof updateOrgEntitySchema>;
+export type CreateTeamInput = z.infer<typeof createTeamSchema>;
+export type UpdateTeamInput = z.infer<typeof updateTeamSchema>;

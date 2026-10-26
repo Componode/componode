@@ -1884,7 +1884,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CreateOrgEntity' }
+            schema: { $ref: '#/components/schemas/CreateTeam' }
       responses:
         '201':
           description: Team created
@@ -1927,7 +1927,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/UpdateOrgEntity' }
+            schema: { $ref: '#/components/schemas/UpdateTeam' }
       responses:
         '200':
           description: Updated team
@@ -3772,6 +3772,20 @@ components:
         name: { type: string }
         slug: { type: string }
         description: { type: string, nullable: true }
+        lobId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Associated Line of Business (spec 034); null when unassociated
+        lob:
+          type: object
+          nullable: true
+          description: Resolved LOB summary; null when unassociated
+          required: [id, name, slug]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            slug: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     LineOfBusiness:
@@ -3804,6 +3818,39 @@ components:
           maxLength: 100
           pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
         description: { type: string, maxLength: 2000, nullable: true }
+    CreateTeam:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        slug:
+          type: string
+          maxLength: 100
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        description: { type: string, maxLength: 2000, nullable: true }
+        lobId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Associated Line of Business; must reference an existing LOB
+    UpdateTeam:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        slug:
+          type: string
+          maxLength: 100
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        description: { type: string, maxLength: 2000, nullable: true }
+        lobId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >-
+            Associated Line of Business; must reference an existing
+            LOB. Null clears the association.
   securitySchemes:
     sessionCookie:
       type: apiKey

@@ -178,13 +178,18 @@ client-side without a spec.
   events) return null and the mapper renders the entity-kind label —
   never a raw identifier pair.
 
-## G12 — Team ↔ LOB association
+## G12 — Team ↔ LOB association — RESOLVED by spec 034
 
-- **UX surface**: product form filters teams by selected LOB; team detail
-  shows its LOB.
-- **Need**: a `lobId` on teams (or a membership/ownership link). The
-  `teams` table has no LOB column today.
-- **Flag**: none — the form shows all teams unfiltered until resolved.
+- `teams.lobId` ships (migration 021, ADR-077 Amendment 1): optional
+  single-LOB association, `ON DELETE SET NULL` — deleting a LOB clears the
+  link, it does not block. Team writes accept `lobId` (unknown LOB →
+  `VALIDATION_FAILED`); team reads embed a resolved `lob {id,name,slug}`
+  summary.
+- Product form team picker **groups** rather than filters (clarified):
+  the selected LOB's teams lead, all remaining teams stay reachable in an
+  "Other teams" group — nothing hidden. Team form assigns the LOB; team
+  detail shows it (linked); LOB detail lists its teams.
+- **Flag**: none — resolved unflagged.
 
 ## G13 — Importer `configSchema` is not renderable
 

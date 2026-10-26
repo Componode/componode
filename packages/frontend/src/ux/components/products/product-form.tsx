@@ -7,7 +7,7 @@ import { LinksEditor, TagsInput, validateLinks } from "@/ux/components/forms/lis
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/ux/components/ui/field"
 import { Input } from "@/ux/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/ux/components/ui/select"
 import { Textarea } from "@/ux/components/ui/textarea"
 import {
   CRITICALITY_META,
@@ -17,7 +17,8 @@ import {
   type Lifecycle,
   type ProductType,
 } from "@/ux/lib/domain"
-import type { OrgEntity } from "@/api/types"
+import type { OrgEntity, TeamEntity } from "@/api/types"
+import { groupTeams } from "@/ux/lib/org-grouping"
 import { useCreateProduct, useUpdateProduct } from "@/api/hooks/products"
 import { ux } from "@/ux/lib/paths"
 import type { Link, Product } from "@/ux/lib/view-types"
@@ -37,7 +38,7 @@ interface Errors {
   links?: Record<number, string>
 }
 
-export function ProductForm({ product, lobs, teams }: { product?: Product; lobs: OrgEntity[]; teams: OrgEntity[] }) {
+export function ProductForm({ product, lobs, teams }: { product?: Product; lobs: OrgEntity[]; teams: TeamEntity[] }) {
   const navigate = useNavigate()
   const editing = Boolean(product)
   const createProduct = useCreateProduct()
@@ -215,14 +216,44 @@ export function ProductForm({ product, lobs, teams }: { product?: Product; lobs:
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>Unassigned</SelectItem>
-                  {teams.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
+                  {(() => {
+                    const { primary, others } = groupTeams(teams, lob === NONE ? null : lob)
+                    if (!others) {
+                      return primary.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))
+                    }
+                    const lobName = lobs.find((l) => l.id === lob)?.name ?? "This line of business"
+                    return (
+                      <>
+                        {primary.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>{lobName}</SelectLabel>
+                            {primary.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
+                        {others.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>Other teams</SelectLabel>
+                            {others.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
+                      </>
+                    )
+                  })()}
                 </SelectContent>
               </Select>
-              <FieldDescription>Teams aren’t linked to LOBs yet — all teams are shown.</FieldDescription>
+              <FieldDescription>Teams in the selected line of business are listed first.</FieldDescription>
             </Field>
           </FieldGroup>
         </FormSection>

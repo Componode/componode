@@ -342,6 +342,12 @@ export interface OrgEntity {
   updatedAt: string;
 }
 
+/** Team rows carry their LOB association (spec 034). */
+export interface TeamEntity extends OrgEntity {
+  lobId: string | null;
+  lob: { id: string; name: string; slug: string } | null;
+}
+
 export interface TeamMember {
   id: string;
   displayName: string | null;

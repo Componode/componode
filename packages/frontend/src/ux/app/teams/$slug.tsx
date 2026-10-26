@@ -1,10 +1,10 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { OrgDetail } from "@/ux/components/org/org-detail";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, NotFoundState } from "@/ux/components/patterns/states";
 import { Skeleton } from "@/ux/components/ui/skeleton";
-import { useTeam, useUpdateTeam, useDeleteTeam, useTeamMembers } from "@/api/hooks/org";
+import { useTeam, useUpdateTeam, useDeleteTeam, useTeamMembers, useLobs } from "@/api/hooks/org";
 import { useProducts } from "@/api/hooks/products";
 import { useAllComponents } from "@/api/hooks/components";
 import { useComponentGroups } from "@/api/hooks/component-groups";
@@ -21,6 +21,7 @@ export function UxTeamDetailPage() {
   const members = useTeamMembers(team?.id);
   const updateTeam = useUpdateTeam();
   const deleteTeam = useDeleteTeam();
+  const lobs = useLobs();
 
   const products = useProducts({ includeRetired: true });
   const components = useAllComponents({ includeRetired: true });
@@ -63,18 +64,29 @@ export function UxTeamDetailPage() {
       icon="team"
       entity={team}
       stats={[
+        {
+          label: "Line of business",
+          value: team.lob ? (
+            <Link to={ux(`/lobs/${team.lob.slug}`)} className="hover:underline">
+              {team.lob.name}
+            </Link>
+          ) : (
+            "Unassociated"
+          ),
+        },
         { label: "Members", value: members.data ? members.data.members.length : "—" },
         { label: "Products", value: ownedProducts.length },
         { label: "Components", value: ownedComponents.length },
         { label: "Component groups", value: ownedGroups.length },
       ]}
+      lobs={lobs.data?.lobs ?? []}
       ownedProducts={ownedProducts}
       ownedComponents={ownedComponents}
       ownedTotal={ownedProducts.length + ownedComponents.length}
       editPending={updateTeam.isPending}
-      onEdit={({ name, slug: s, description }) =>
+      onEdit={({ name, slug: s, description, lobId }) =>
         updateTeam.mutate(
-          { id: team.id, name, slug: s, description },
+          { id: team.id, name, slug: s, description, lobId },
           {
             onSuccess: () => toast.success("Team updated"),
             onError: (e) => toast.error(e.message),
