@@ -13,13 +13,13 @@ export const flags = {
   /** Per-day importer run aggregates for the history chart (gap 1). */
   historyAggregates: true,
   /** Session device column (gap 2). */
-  sessionDevice: false,
+  sessionDevice: true,
   /** Session location column (gap 2). */
-  sessionLocation: false,
+  sessionLocation: true,
   /** Owning user on the sessions list (gap 2). */
-  sessionOwner: false,
+  sessionOwner: true,
   /** "This device" marker — the API cannot identify the caller's session (gap 2). */
-  sessionCurrent: false,
+  sessionCurrent: true,
   /** "Send password reset" action — admin token generation exists (POST /auth/password/reset). */
   passwordReset: true,
   /** Notification channel preferences — no backend (gap 15). */

@@ -35,18 +35,16 @@ client-side without a spec.
   importer-card sparkline renders live data via `useRunAggregates`;
   `historyAggregates` is ON and the fallback notice removed.
 
-## G2 — Session device / location / owning user
+## G2 — Session device / location / owning user — RESOLVED by spec 032
 
-- **UX surface**: `/ux/sessions` columns and `/ux/users/:id` sessions tab.
-- **Need**: `device` (user-agent parse), `location`, the owning `userId`
-  on the admin sessions list, and a `current` marker identifying the
-  caller's own session (for the "This device" badge and self-revoke
-  suppression on `/sessions`).
-- **Current API**: session records carry none of these; `GET /sessions`
-  returns `id`/`createdAt`/`lastSeenAt`/`expiresAt` only, scoped to the
-  caller — the caller's own session is indistinguishable in the list.
-- **Flags**: `sessionDevice`, `sessionLocation`, `sessionOwner`,
-  `sessionCurrent`.
+- Sessions persist `userAgent` + `ip` at creation (migration 020);
+  `GET /sessions` and `GET /users/:id/sessions` return `device`
+  (server-parsed "Browser · OS" label), `ip` as the location value
+  (geo lookup deferred), `userId`, and a caller-relative `current`
+  marker compared against the request's session hash internally.
+  `sessionDevice`/`sessionLocation`/`sessionOwner`/`sessionCurrent` are
+  ON; the admin tab renders the owner column and the self view marks
+  "This device" with revoke suppressed.
 
 ## G3 — Per-run change feed — RESOLVED (verified T036)
 

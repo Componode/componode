@@ -2,7 +2,7 @@ import { db } from "../db/connection.js";
 import { verifyPassword, hashPassword, verifyAgainstDummyHash } from "../utils/argon2.js";
 import { hashToken } from "../utils/crypto.js";
 import { metrics } from "../plugins/metrics.js";
-import { createSession } from "./session-service.js";
+import { createSession, type SessionMeta } from "./session-service.js";
 import { writeAuthEvent, type Actor } from "./audit-service.js";
 
 interface AuthenticatedUser {
@@ -15,6 +15,7 @@ interface AuthenticatedUser {
 export async function login(
   username: string,
   password: string,
+  meta?: SessionMeta,
 ): Promise<{ user: AuthenticatedUser; sessionToken: string }> {
   const user = await db
     .selectFrom("persons")
@@ -45,7 +46,7 @@ export async function login(
     throw Object.assign(new Error("Invalid credentials"), { statusCode: 401, code: "AUTH_INVALID_CREDENTIALS" });
   }
 
-  const sessionToken = await createSession(user.id);
+  const sessionToken = await createSession(user.id, meta);
 
   metrics.authEventsTotal.inc({ event: "login", outcome: "success" });
   await writeAuthEvent("login", null, { id: user.id, name: user.displayName ?? user.username });

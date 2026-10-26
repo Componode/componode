@@ -12,7 +12,9 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
     if (!req.user) {
       return reply.status(401).send({ code: "AUTH_NO_SESSION", message: "Not authenticated" });
     }
-    const sessions = await listUserSessions(req.user.id);
+    const sessions = await listUserSessions(req.user.id, {
+      currentSessionHash: req.sessionId,
+    });
     return reply.status(200).send({ sessions });
   });
 
@@ -48,7 +50,9 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [app.verifySession, requireRole("user:listSessions")],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as { id: string };
-    const sessions = await listUserSessions(id);
+    const sessions = await listUserSessions(id, {
+      currentSessionHash: (req as AuthenticatedRequest).sessionId,
+    });
     return reply.status(200).send({ sessions });
   });
 }

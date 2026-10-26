@@ -425,10 +425,13 @@ describe("mapUser", () => {
 });
 
 describe("mapSession", () => {
-  it("maps timestamps; gap fields are placeholders", () => {
+  it("maps timestamps, device/ip, and the current marker", () => {
     const view = mapSession(
       {
         id: "s1",
+        device: "Chrome · Windows",
+        ip: "10.0.0.5",
+        current: true,
         createdAt: "2026-01-01T00:00:00Z",
         lastSeenAt: "2026-02-01T00:00:00Z",
         expiresAt: "2026-03-01T00:00:00Z",
@@ -437,6 +440,24 @@ describe("mapSession", () => {
     );
     expect(view.username).toBe("alice");
     expect(view.displayName).toBe("Alice A");
+    expect(view.device).toBe("Chrome · Windows");
+    expect(view.location).toBe("10.0.0.5");
+    expect(view.current).toBe(true);
+  });
+
+  it("renders missing metadata as em-dash placeholders", () => {
+    const view = mapSession(
+      {
+        id: "s2",
+        device: null,
+        ip: null,
+        current: false,
+        createdAt: "2026-01-01T00:00:00Z",
+        lastSeenAt: "2026-02-01T00:00:00Z",
+        expiresAt: "2026-03-01T00:00:00Z",
+      },
+      { username: "alice", displayName: "Alice A" },
+    );
     expect(view.device).toBe("—");
     expect(view.location).toBe("—");
     expect(view.current).toBe(false);
