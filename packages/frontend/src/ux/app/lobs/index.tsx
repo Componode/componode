@@ -4,7 +4,7 @@ import { LobsGrid, type OrgCounts } from "@/ux/components/org/org-tables";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
 import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Card } from "@/ux/components/ui/card";
-import { useLobs, useCreateLob } from "@/api/hooks/org";
+import { useLobs, useCreateLob, useTeams } from "@/api/hooks/org";
 import { useProducts } from "@/api/hooks/products";
 import { errorMessage } from "@/ux/lib/api-state";
 
@@ -12,11 +12,13 @@ export function UxLobsPage() {
   const lobs = useLobs();
   const createLob = useCreateLob();
   const products = useProducts({ includeRetired: true });
+  const teams = useTeams();
 
   const counts = new Map<string, OrgCounts>();
   for (const l of lobs.data?.lobs ?? []) {
     counts.set(l.id, {
       products: (products.data?.products ?? []).filter((p) => p.lobOwnerId === l.id).length,
+      teams: teams.data ? (teams.data.teams ?? []).filter((t) => t.lobId === l.id).length : undefined,
     });
   }
 

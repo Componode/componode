@@ -4,7 +4,7 @@ import { TeamsTable, type OrgCounts } from "@/ux/components/org/org-tables";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
 import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Card } from "@/ux/components/ui/card";
-import { useTeams, useCreateTeam } from "@/api/hooks/org";
+import { useTeams, useCreateTeam, useLobs } from "@/api/hooks/org";
 import { useProducts } from "@/api/hooks/products";
 import { useAllComponents } from "@/api/hooks/components";
 import { errorMessage } from "@/ux/lib/api-state";
@@ -12,6 +12,7 @@ import { errorMessage } from "@/ux/lib/api-state";
 export function UxTeamsPage() {
   const teams = useTeams();
   const createTeam = useCreateTeam();
+  const lobs = useLobs();
   const products = useProducts({ includeRetired: true });
   const components = useAllComponents({ includeRetired: true });
 
@@ -31,10 +32,11 @@ export function UxTeamsPage() {
         actions={
           <OrgFormDialog
             noun="team"
+            lobs={lobs.data?.lobs ?? []}
             pending={createTeam.isPending}
-            onSubmit={({ name, slug, description }) =>
+            onSubmit={({ name, slug, description, lobId }) =>
               createTeam.mutate(
-                { name, slug, description },
+                { name, slug, description, lobId },
                 {
                   onSuccess: () => toast.success(`Team ${name} created`),
                   onError: (e) => toast.error(e.message),
@@ -46,7 +48,7 @@ export function UxTeamsPage() {
       />
       {teams.isPending ? (
         <Card className="py-0">
-          <TableSkeleton rows={5} columns={4} />
+          <TableSkeleton rows={5} columns={5} />
         </Card>
       ) : teams.error ? (
         <ErrorState description={errorMessage(teams.error)} onRetry={() => void teams.refetch()} />

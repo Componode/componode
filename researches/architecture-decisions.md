@@ -131,7 +131,7 @@
 | [ADR-074](./adrs/ADR-074-oidc-claim-to-role-mapping.md) | OIDC claim-to-role mapping |
 | [ADR-075](./adrs/ADR-075-self-registration.md) | Self-registration |
 | [ADR-076](./adrs/ADR-076-app-settings-storage.md) | App settings storage |
-| [ADR-077](./adrs/ADR-077-v1-entity-schema.md) | v1 entity schema (consolidated) |
+| [ADR-077](./adrs/ADR-077-v1-entity-schema.md) | v1 entity schema (consolidated); Amendment 1 adds `teams.lobId` (spec 034 — advisory team→LOB link, `ON DELETE SET NULL`) |
 | [ADR-078](./adrs/ADR-078-database-migrations.md) | Database migrations |
 | [ADR-079](./adrs/ADR-079-enum-constant-structure.md) | Enum constant structure |
 | [ADR-080](./adrs/ADR-080-pagination-strategy.md) | Pagination strategy |

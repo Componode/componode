@@ -130,6 +130,14 @@ file tracks shipped and upcoming work — update it when a spec completes.
   per-day run buckets (runs, failed count, asset created/updated sums)
   computed server-side; the importer-card sparkline renders live data and
   `historyAggregates` is on.
+- `034-team-lob-association` — ux-rewrite gap G12: `teams.lobId` links a
+  team to at most one LOB (migration 021, ADR-077 Amendment 1 — advisory,
+  `ON DELETE SET NULL`, not counted in the LOB delete guard); team writes
+  accept and validate it, team reads embed a resolved `lob` summary. The
+  product form groups its team picker by the selected LOB (that LOB's
+  teams first, all others reachable below — nothing hidden), the team
+  dialog assigns the association, team detail shows its LOB, and LOB
+  detail/grid list their teams.
 - `033-detail-reads-feed-names` — ux-rewrite gaps G7/G8/G9/G11:
   `GET /teams/:id` and `GET /lobs/:id` ship; all three detail reads
   (teams, LOBs, component groups) resolve id-or-slug so `/ux/*/:slug`
@@ -145,7 +153,7 @@ list — the Import Agents program (025–028) and the UX baseline (029) are
 shipped on `release/1.1.0`. First follow-on: the UX-rewrite backend gaps
 in `researches/ux-rewrite-gaps.md`, resolved as their own specs on
 `release/1.1.0` in queue order — `032` admin session visibility (G2),
-`034` team↔LOB (G12), `035` schema-driven importer forms
+`035` schema-driven importer forms
 (G13). G20 resolves client-side without a spec; G15–G19 are deferred
 unscheduled (see the registry's spec-queue block):
 

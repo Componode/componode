@@ -4,7 +4,7 @@ import { OrgDetail } from "@/ux/components/org/org-detail";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, NotFoundState } from "@/ux/components/patterns/states";
 import { Skeleton } from "@/ux/components/ui/skeleton";
-import { useLob, useUpdateLob, useDeleteLob } from "@/api/hooks/org";
+import { useLob, useUpdateLob, useDeleteLob, useTeams } from "@/api/hooks/org";
 import { useProducts } from "@/api/hooks/products";
 import { mapProduct } from "@/api/mappers/catalog";
 import { errorMessage, isNotFound } from "@/ux/lib/api-state";
@@ -19,6 +19,7 @@ export function UxLobDetailPage() {
   const updateLob = useUpdateLob();
   const deleteLob = useDeleteLob();
   const products = useProducts({ includeRetired: true });
+  const teams = useTeams();
 
   if (lobQ.isPending) {
     return (
@@ -48,6 +49,9 @@ export function UxLobDetailPage() {
   }
 
   const ownedProducts = (products.data?.products ?? []).filter((p) => p.lobOwnerId === lob.id).map((p) => mapProduct(p));
+  const associatedTeams = teams.isPending
+    ? undefined
+    : (teams.data?.teams ?? []).filter((t) => t.lobId === lob.id);
 
   return (
     <OrgDetail
@@ -56,9 +60,10 @@ export function UxLobDetailPage() {
       entity={lob}
       stats={[
         { label: "Products", value: ownedProducts.length },
-        { label: "Teams", value: "—" },
+        { label: "Teams", value: associatedTeams ? associatedTeams.length : "—" },
         { label: "Slug", value: <code className="font-mono text-xs">{lob.slug}</code> },
       ]}
+      associatedTeams={associatedTeams}
       ownedProducts={ownedProducts}
       ownedComponents={[]}
       ownedTotal={ownedProducts.length}

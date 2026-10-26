@@ -13,7 +13,11 @@ import {
 } from "@/ux/components/ui/dialog";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/ux/components/ui/field";
 import { Input } from "@/ux/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select";
 import { Textarea } from "@/ux/components/ui/textarea";
+import type { OrgEntity } from "@/api/types";
+
+const NONE = "__none__";
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -28,19 +32,22 @@ function deriveSlug(name: string) {
 interface OrgFormDialogProps {
   noun: "team" | "line of business";
   /** Set for edit; absent for create. */
-  initial?: { id: string; name: string; slug: string; description?: string | null };
-  onSubmit: (vars: { id?: string; name: string; slug: string; description?: string | null }) => void;
+  initial?: { id: string; name: string; slug: string; description?: string | null; lobId?: string | null };
+  /** LOB options — only rendered for teams (spec 034). */
+  lobs?: OrgEntity[];
+  onSubmit: (vars: { id?: string; name: string; slug: string; description?: string | null; lobId?: string | null }) => void;
   pending?: boolean;
   trigger?: React.ReactNode;
 }
 
 /** Create/edit dialog for teams and lines of business (POST/PATCH /teams|/lobs). */
-export function OrgFormDialog({ noun, initial, onSubmit, pending, trigger }: OrgFormDialogProps) {
+export function OrgFormDialog({ noun, initial, lobs, onSubmit, pending, trigger }: OrgFormDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState(initial?.name ?? "");
   const [slug, setSlug] = React.useState(initial?.slug ?? "");
   const [slugTouched, setSlugTouched] = React.useState(Boolean(initial));
   const [description, setDescription] = React.useState(initial?.description ?? "");
+  const [lobId, setLobId] = React.useState(initial?.lobId ?? NONE);
   const [error, setError] = React.useState<string | null>(null);
   const editing = Boolean(initial);
 
@@ -49,6 +56,7 @@ export function OrgFormDialog({ noun, initial, onSubmit, pending, trigger }: Org
       setName(initial.name);
       setSlug(initial.slug);
       setDescription(initial.description ?? "");
+      setLobId(initial.lobId ?? NONE);
       setSlugTouched(true);
       setError(null);
     }
@@ -59,7 +67,13 @@ export function OrgFormDialog({ noun, initial, onSubmit, pending, trigger }: Org
     if (!name.trim()) return setError("Name is required.");
     if (!SLUG_RE.test(slug)) return setError("Slug must be lowercase kebab-case (a-z, 0-9, -).");
     setError(null);
-    onSubmit({ id: initial?.id, name: name.trim(), slug, description: description.trim() || null });
+    onSubmit({
+      id: initial?.id,
+      name: name.trim(),
+      slug,
+      description: description.trim() || null,
+      ...(noun === "team" ? { lobId: lobId === NONE ? null : lobId } : {}),
+    });
     setOpen(false);
   };
 
@@ -116,6 +130,25 @@ export function OrgFormDialog({ noun, initial, onSubmit, pending, trigger }: Org
               <FieldLabel htmlFor="org-desc">Description</FieldLabel>
               <Textarea id="org-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
             </Field>
+            {noun === "team" && (
+              <Field>
+                <FieldLabel htmlFor="org-lob">Line of business</FieldLabel>
+                <Select value={lobId} onValueChange={setLobId}>
+                  <SelectTrigger id="org-lob" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>Unassociated</SelectItem>
+                    {(lobs ?? []).map((l) => (
+                      <SelectItem key={l.id} value={l.id}>
+                        {l.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldDescription>The LOB this team serves — used to group the team picker on product forms.</FieldDescription>
+              </Field>
+            )}
             {error && <p className="text-sm text-destructive">{error}</p>}
           </FieldGroup>
           <DialogFooter>
