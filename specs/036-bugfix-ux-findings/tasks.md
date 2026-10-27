@@ -23,6 +23,9 @@
 - [x] T015 F009 fix: scope reseeds on every importer change in create mode — no cross-importer leakage
 - [x] T016 F009 regression test: importer switch GitHub -> Kubernetes yields {}
 
+- [x] T017 F010 fix: rotate PATCH strips immutable  (strict update schema)
+- [x] T018 F010 regression test: rotate payload carries , no 
+
 ## Phase 2 — Ship (runs once, when the batch is approved)
 
 - [x] T901 Add changeset(s) for every touched package (patch for fixes)

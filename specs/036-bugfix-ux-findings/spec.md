@@ -149,6 +149,19 @@
 - **Regression test**: importer-form-scope.test.tsx — switching GitHub ->
   Kubernetes resets the textarea to {} (no org leak).
 
+### F010 - Credential rotate 400s on unrecognized kind
+
+- **Reported**: rotating a credential sends {kind: STORED, secrets:{...}} ->
+  400 "Unrecognized key: kind".
+- **Surface**: credential-form.tsx rotate mode (PATCH /credentials/:id).
+- **Root cause**: handleSubmit built one body ({kind, secrets|secretRefMap})
+  for both POST and PATCH; updateCredentialSchema is .strict() without kind
+  (kind is immutable; enforcement is service-side on the row). Same class of
+  bug as F006.
+- **Fix**: rotate path strips kind before mutate; create keeps it.
+- **Regression test**: credential-rotate.test.tsx — rotate PATCH carries
+  secrets and no kind key.
+
 ## Acceptance criteria (batch)
 
 - Every finding below has a failing regression test written before its fix.

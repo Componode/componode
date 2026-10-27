@@ -103,7 +103,8 @@ export function CredentialForm({ mode = "create", credential }: CredentialFormPr
     const onError = (e: Error) => toast.error(e.message)
 
     if (rotating) {
-      updateCred.mutate(body, { onSuccess, onError })
+      // kind is immutable — updateCredentialSchema is .strict() without it.
+      updateCred.mutate(kind === "AGENT_MANAGED" ? { secretRefMap } : { secrets }, { onSuccess, onError })
     } else {
       createCred.mutate({ label: label.trim(), expiresAt: expiresAt || null, ...body }, { onSuccess, onError })
     }
