@@ -76,7 +76,7 @@ export function ProductForm({ product, lobs, teams }: { product?: Product; lobs:
       name: name.trim(),
       type,
       description: description.trim() || null,
-      lifecycle,
+      ...(product ? { lifecycle } : {}),
       criticality: criticality === NONE ? null : criticality,
       lobOwnerId: lob === NONE ? null : lob,
       teamOwnerId: team === NONE ? null : team,

@@ -94,10 +94,12 @@ describe("UxProductNewPage", () => {
         slug: "checkout",
         lobOwnerId: null,
         teamOwnerId: null,
-        lifecycle: "ACTIVE",
       }),
       expect.anything(),
     );
+    // F006: lifecycle is edit-only — createProductSchema is .strict() and
+    // rejects the key with 400 unrecognized_keys.
+    expect(createMutate.mock.calls[0]![0]).not.toHaveProperty("lifecycle");
   });
 
   it("renders org options from the API, not fixtures", () => {

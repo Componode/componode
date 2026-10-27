@@ -38,7 +38,12 @@ export function fieldErrors(err: ApiError): Record<string, string> {
     if (p.name && p.reason) out[p.name] = p.reason;
   }
   if (Object.keys(out).length === 0 && Array.isArray(err.details)) {
-    for (const issue of err.details as { path?: (string | number)[]; message?: string }[]) {
+    for (const issue of err.details as { path?: (string | number)[]; keys?: string[]; message?: string }[]) {
+      // unrecognized_keys issues carry the rejected names in `keys` and an
+      // empty `path` — map each key so "Unrecognized key: \"x\"" binds to x.
+      for (const k of issue.keys ?? []) {
+        if (issue.message) out[k] = issue.message;
+      }
       const key = issue.path?.join(".");
       if (key && issue.message) out[key] = issue.message;
     }
