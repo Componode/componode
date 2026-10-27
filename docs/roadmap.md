@@ -168,7 +168,7 @@ See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and
 the gap specs `030`–`034` (G14, G1, G2, G7/G8/G9/G11, G12) are shipped on
 `release/1.1.0`. Remaining UX-rewrite backend gap from
-`researches/ux-rewrite-gaps.md`: `036` schema-driven importer forms (G13).
+`researches/ux-rewrite-gaps.md`: `037` schema-driven importer forms (G13).
 G20 resolves client-side without a spec; G15–G19 are deferred
 unscheduled (see the registry's spec-queue block):
 
