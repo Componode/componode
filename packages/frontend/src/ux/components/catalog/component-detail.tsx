@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { CATEGORY_LABELS, PROVIDER_META } from "@/ux/lib/domain"
 import { formatDate } from "@/ux/lib/format"
+import { ComponentEditDialog } from "@/ux/components/catalog/component-edit-dialog"
 import type { Component } from "@/ux/lib/view-types"
 import { ux } from "@/ux/lib/paths"
 
@@ -34,6 +35,7 @@ export function ComponentDetail({ component: c }: { component: Component }) {
         }
         actions={
           <>
+            <ComponentEditDialog component={c} />
             <Button variant="outline" asChild>
               <Link to={ux(`/components/${c.slug}/history`)}>
                 <HistoryIcon data-icon="inline-start" />

@@ -183,6 +183,22 @@
   JSON.stringify(vars) when the URL interpolates vars.*; renderHook asserts
   resetToken->token mapping.
 
+### F012 - Component detail has no edit affordance
+
+- **Reported**: can't edit a component's owning team, group, or other info.
+- **Surface**: catalog/component-detail.tsx (no edit UI existed at all).
+- **Root cause**: updateComponentSchema (componentGroupId, teamOwnerId,
+  links, tags, sunsetAt) and useUpdateComponent existed — and the F011 id
+  leak would have 400'd it anyway — but no screen surfaced an edit. The
+  view type/mapper also dropped componentGroupId/teamOwnerId/links needed
+  to preselect values.
+- **Fix**: pass the ids/links through mapComponent; new
+  component-edit-dialog.tsx (team/group selects, TagsInput, LinksEditor,
+  sunset date) with unconditional reset on open; Edit button in the detail
+  actions.
+- **Regression test**: component-edit-dialog.test.tsx - prefill + PATCH
+  carries only schema keys with the component id.
+
 ## Acceptance criteria (batch)
 
 - Every finding below has a failing regression test written before its fix.

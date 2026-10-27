@@ -29,6 +29,9 @@
 - [x] T019 F011 audit: cross-checked every strict schema vs every frontend payload; fixed 3 id-leaks + resetToken->token + register floor
 - [x] T020 F011 regression test: payload-key-leaks source-scan + resetToken mapping
 
+- [x] T021 F012 fix: mapper passes componentGroupId/teamOwnerId/links; new component-edit-dialog + Edit button on detail page
+- [x] T022 F012 regression test: prefill + schema-valid PATCH body
+
 ## Phase 2 — Ship (runs once, when the batch is approved)
 
 - [x] T901 Add changeset(s) for every touched package (patch for fixes)
