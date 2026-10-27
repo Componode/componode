@@ -20,6 +20,9 @@
 - [x] T013 F008 fix: serialize  to JSON Schema on  routes; form shows required keys + prefills scope template
 - [x] T014 F008 regression tests:  contains  (backend); form hint + template (frontend)
 
+- [x] T015 F009 fix: scope reseeds on every importer change in create mode — no cross-importer leakage
+- [x] T016 F009 regression test: importer switch GitHub -> Kubernetes yields {}
+
 ## Phase 2 — Ship (runs once, when the batch is approved)
 
 - [x] T901 Add changeset(s) for every touched package (patch for fixes)

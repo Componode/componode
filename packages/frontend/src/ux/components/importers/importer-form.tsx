@@ -81,7 +81,6 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
   const [scopeJson, setScopeJson] = React.useState(
     config?.scope ? JSON.stringify(config.scope, null, 2) : "{}",
   )
-  const [scopeTouched, setScopeTouched] = React.useState(false)
   const [errors, setErrors] = React.useState<Errors>({})
 
   const boundToAgent = agentId !== HUB
@@ -89,16 +88,18 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
   const requiresSecrets = Boolean(manifest?.secrets?.length)
   const scopeRequired = scopeRequiredFor(manifests, importerName)
 
-  // Until field-level scope controls land (G13), seed a JSON template with
-  // the importer's required keys so the user sees what the schema demands.
+  // Until field-level scope controls land (G13), scope is seeded from the
+  // selected importer's required keys — and reseeded when the importer
+  // changes, so one importer's keys never leak into another's scope.
   React.useEffect(() => {
-    if (config || scopeTouched || (scopeJson !== "{}" && scopeJson !== "")) return
-    if (scopeRequired.length) {
-      setScopeJson(
-        JSON.stringify(Object.fromEntries(scopeRequired.map((k) => [k, ""])), null, 2),
-      )
-    }
-  }, [config, scopeTouched, scopeJson, scopeRequired, importerName, manifests])
+    if (config) return
+    const req = scopeRequiredFor(manifests, importerName)
+    setScopeJson(
+      req.length
+        ? JSON.stringify(Object.fromEntries(req.map((k) => [k, ""])), null, 2)
+        : "{}",
+    )
+  }, [config, importerName, manifests])
   // Agent-bound configs resolve AGENT_MANAGED references on the agent host;
   // hub-bound configs use stored credentials (spec 026/027).
   const matching = credentials.filter((c) =>
@@ -296,7 +297,7 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
               <Textarea
                 id="i-scope"
                 value={scopeJson}
-                onChange={(e) => { setScopeJson(e.target.value); setScopeTouched(true) }}
+                onChange={(e) => setScopeJson(e.target.value)}
                 rows={6}
                 className="font-mono text-xs"
                 aria-invalid={errors.scope ? true : undefined}

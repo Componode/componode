@@ -135,6 +135,20 @@
 - **Regression test**: importers.test.ts asserts configSchema.required
   contains org; importer-form-scope.test.tsx asserts the hint + template.
 
+### F009 - Importer scope template leaks across importer types
+
+- **Reported**: switching the importer type keeps the previous importer's
+  scope (GitHub's {"org":""} leaks into Kubernetes, etc.).
+- **Surface**: importer-form.tsx create mode.
+- **Root cause**: the F008 seeding effect only ran while scope was pristine
+  — once a template existed, changing importers left the old importer's
+  keys in place.
+- **Fix**: the effect is keyed on importerName and reseeds unconditionally
+  in create mode — scope always matches the selected importer (template of
+  its required keys, or {} when none). scopeTouched no longer needed.
+- **Regression test**: importer-form-scope.test.tsx — switching GitHub ->
+  Kubernetes resets the textarea to {} (no org leak).
+
 ## Acceptance criteria (batch)
 
 - Every finding below has a failing regression test written before its fix.
