@@ -14,6 +14,9 @@
 - [x] T009 F006 fix: `product-form.tsx` omits `lifecycle` on create; `fieldErrors` maps `unrecognized_keys.keys[]` to field names
 - [x] T010 F006 regression test: create payload lacks `lifecycle` (ux-authoring); `unrecognized_keys` → `{lifecycle: msg}` (api-client)
 
+- [x] T011 F007 fix: `error-handler.ts` forwards `err.details`/`invalid-params` on coded VALIDATION_FAILED errors
+- [x] T012 F007 regression test: `importers.test.ts` — invalid github scope returns populated `details[]` + `invalid-params[]`
+
 ## Phase 2 — Ship (runs once, when the batch is approved)
 
 - [x] T901 Add changeset(s) for every touched package (patch for fixes)

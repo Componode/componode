@@ -100,6 +100,23 @@
   lacks `lifecycle`; `api-client.test.ts` asserts `keys[]`→field mapping
   from the reported payload.
 
+### F007 — Importer create: scope validation error has no field detail
+
+- **Reported**: creating a GitHub importer with `scope:{}` returns 400
+  "Scope validation failed" with no `details`/`invalid-params` — the user
+  can't tell which scope keys are missing (`org` is required).
+- **Surface**: `error-handler.ts` (all service-thrown coded errors).
+- **Root cause**: `validateScopeForImporter` attaches `details` (zod issues)
+  to the thrown error, but the handler only forwarded `err.validation`
+  (Fastify's own shape) — a thrown `Error` has no `validation` property, so
+  `details`/`invalid-params` were silently dropped for every coded
+  VALIDATION_FAILED that bypassed Fastify schema validation.
+- **Fix**: handler forwards `err.details` + `buildInvalidParams` when a
+  coded error is `VALIDATION_FAILED` and details weren't already set.
+- **Regression test**: `importers.test.ts` integration — POST
+  importer-configs with `scope:{}` asserts `details[]` + `invalid-params[]`
+  are populated.
+
 ## Acceptance criteria (batch)
 
 - Every finding below has a failing regression test written before its fix.
