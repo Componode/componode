@@ -1,4 +1,5 @@
 import { LaptopIcon } from "lucide-react";
+import { PASSWORD_MIN_LENGTH } from "@componode/core";
 import { toast } from "sonner";
 import { useSession } from "@/ux/components/app/session-context";
 import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog";
@@ -27,7 +28,7 @@ export function UxSettingsSecurityPage() {
     <>
       <SettingsSection
         title="Password"
-        description="Use at least 8 characters. Passphrases work great."
+        description={`At least ${PASSWORD_MIN_LENGTH} characters on every password-setting path (ADR-099). Passphrases work great.`}
         saveLabel="Update password"
         pending={changePassword.isPending}
         onSave={(fd) => {
@@ -53,7 +54,7 @@ export function UxSettingsSecurityPage() {
           <div className="grid gap-6 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="new-password">New password</FieldLabel>
-              <Input id="new-password" name="new-password" type="password" autoComplete="new-password" minLength={8} required />
+              <Input id="new-password" name="new-password" type="password" autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} required />
               <FieldDescription>8+ characters.</FieldDescription>
             </Field>
             <Field>
