@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–034)
+## Shipped (features 001–035)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -156,6 +156,11 @@ file tracks shipped and upcoming work — update it when a spec completes.
   teams first, all others reachable below — nothing hidden), the team
   dialog assigns the association, team detail shows its LOB, and LOB
   detail/grid list their teams.
+- `035-bugfix-user-form-validation` — user creation surfaces server
+  validation detail: `VALIDATION_FAILED` `invalid-params`/`details` render
+  inline per field (not a bare "Invalid input" toast), the username
+  `pattern` is escaped for the `v` flag, and password `minLength` matches
+  `PASSWORD_MIN_LENGTH`.
 
 ## Next — post-v1.1
 
@@ -163,7 +168,7 @@ See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and
 the gap specs `030`–`034` (G14, G1, G2, G7/G8/G9/G11, G12) are shipped on
 `release/1.1.0`. Remaining UX-rewrite backend gap from
-`researches/ux-rewrite-gaps.md`: `035` schema-driven importer forms (G13).
+`researches/ux-rewrite-gaps.md`: `036` schema-driven importer forms (G13).
 G20 resolves client-side without a spec; G15–G19 are deferred
 unscheduled (see the registry's spec-queue block):
 

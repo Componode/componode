@@ -21,7 +21,8 @@ numbers are sequential at creation and may shift:
 3. `032` — admin session visibility (G2)
 4. `033` — detail reads + feed names (G7, G8, G9, G11) — RESOLVED
 5. `034` — team↔LOB association (G12)
-6. `035` — schema-driven importer forms (G13)
+6. `036` — schema-driven importer forms (G13) — `035` was taken by
+   `035-bugfix-user-form-validation`
 
 Deferred past this program — re-triaged after it closes: G15 (merged
 with the email-delivery half of G4), G16, G17, G18, G19. G20 resolves
