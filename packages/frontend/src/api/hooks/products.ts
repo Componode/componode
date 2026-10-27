@@ -79,11 +79,14 @@ export function useCreateProduct() {
 export function useUpdateProduct() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { id: string } & ProductFormInput) =>
-      api<{ product: DigitalProduct }>(`/products/${vars.id}`, {
+    mutationFn: (vars: { id: string } & ProductFormInput) => {
+      // id is the URL param — updateProductSchema is .strict() and rejects it.
+      const { id, ...body } = vars;
+      return api<{ product: DigitalProduct }>(`/products/${id}`, {
         method: "PATCH",
-        body: JSON.stringify(vars),
-      }),
+        body: JSON.stringify(body),
+      });
+    },
     onSuccess: () => invalidateProducts(qc),
   });
 }

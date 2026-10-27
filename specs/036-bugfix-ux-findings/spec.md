@@ -162,6 +162,27 @@
 - **Regression test**: credential-rotate.test.tsx — rotate PATCH carries
   secrets and no kind key.
 
+### F011 - Systemic audit: request payloads vs strict schemas
+
+- **Reported**: user asked whether the F006/F010 unrecognized_keys class of
+  bug exists on other screens.
+- **Method**: enumerated every .strict() create/update schema in core
+  (keys dumped from dist) and every frontend mutation body; cross-checked.
+- **Found + fixed**:
+  - products.ts PATCH - id leaked into body vs strict updateProductSchema.
+  - component-groups.ts PATCH - same vs updateComponentGroupSchema.
+  - components.ts PATCH - same vs updateComponentSchema (every edit 400'd).
+  - useConfirmReset sent resetToken; schema wants token (reset confirm 400'd).
+  - register.tsx stale password floor 8 -> PASSWORD_MIN_LENGTH.
+- **Verified clean**: users/org PATCH destructure id; credentials (F010);
+  agents (core-typed inputs); settings/OIDC (types match schema keys);
+  importer config (non-strict); user/component-group create (non-strict);
+  login/register/password-change/reset-request payloads match; edge and
+  promote mutations pass explicit bodies.
+- **Regression test**: payload-key-leaks.test.tsx - source-scan bans
+  JSON.stringify(vars) when the URL interpolates vars.*; renderHook asserts
+  resetToken->token mapping.
+
 ## Acceptance criteria (batch)
 
 - Every finding below has a failing regression test written before its fix.

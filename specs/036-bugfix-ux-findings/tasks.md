@@ -26,6 +26,9 @@
 - [x] T017 F010 fix: rotate PATCH strips immutable  (strict update schema)
 - [x] T018 F010 regression test: rotate payload carries , no 
 
+- [x] T019 F011 audit: cross-checked every strict schema vs every frontend payload; fixed 3 id-leaks + resetToken->token + register floor
+- [x] T020 F011 regression test: payload-key-leaks source-scan + resetToken mapping
+
 ## Phase 2 — Ship (runs once, when the batch is approved)
 
 - [x] T901 Add changeset(s) for every touched package (patch for fixes)

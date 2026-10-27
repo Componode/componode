@@ -45,7 +45,8 @@ export function useConfirmReset() {
     mutationFn: (vars: ConfirmResetVariables) =>
       api<void>("/auth/password/reset/confirm", {
         method: "POST",
-        body: JSON.stringify(vars),
+        // API field is `token`; the response names it `resetToken`.
+        body: JSON.stringify({ token: vars.resetToken, newPassword: vars.newPassword }),
       }),
   });
 }
