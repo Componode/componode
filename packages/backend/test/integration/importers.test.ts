@@ -143,6 +143,9 @@ describe("importers", () => {
     const github = body.importers.find((m: { name: string }) => m.name === "github");
     expect(github).toBeDefined();
     expect(github.configSchema).toBeDefined();
+    // F008: configSchema arrives as JSON Schema so the scope editor can
+    // surface required keys — `org` must be listed.
+    expect(github.configSchema.required).toContain("org");
   });
 
   it("admin creates and updates a github importer config", async () => {

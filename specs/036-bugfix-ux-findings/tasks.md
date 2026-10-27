@@ -17,6 +17,9 @@
 - [x] T011 F007 fix: `error-handler.ts` forwards `err.details`/`invalid-params` on coded VALIDATION_FAILED errors
 - [x] T012 F007 regression test: `importers.test.ts` — invalid github scope returns populated `details[]` + `invalid-params[]`
 
+- [x] T013 F008 fix: serialize  to JSON Schema on  routes; form shows required keys + prefills scope template
+- [x] T014 F008 regression tests:  contains  (backend); form hint + template (frontend)
+
 ## Phase 2 — Ship (runs once, when the batch is approved)
 
 - [x] T901 Add changeset(s) for every touched package (patch for fixes)

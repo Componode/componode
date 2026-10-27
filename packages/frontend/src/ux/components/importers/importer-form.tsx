@@ -42,6 +42,15 @@ interface Errors {
   scope?: string
 }
 
+// `configSchema` arrives as JSON Schema (serialized from zod server-side) —
+// read `required` to seed the scope template and show what the schema demands.
+function scopeRequiredFor(manifests: ImporterManifest[], name: string): string[] {
+  const schema = manifests.find((m) => m.name === name)?.configSchema as
+    | { required?: unknown }
+    | undefined
+  return Array.isArray(schema?.required) ? (schema.required as string[]) : []
+}
+
 interface ImporterFormProps {
   config?: ImporterConfig
   manifests: ImporterManifest[]
@@ -72,11 +81,24 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
   const [scopeJson, setScopeJson] = React.useState(
     config?.scope ? JSON.stringify(config.scope, null, 2) : "{}",
   )
+  const [scopeTouched, setScopeTouched] = React.useState(false)
   const [errors, setErrors] = React.useState<Errors>({})
 
   const boundToAgent = agentId !== HUB
   const manifest = manifests.find((m) => m.name === importerName)
   const requiresSecrets = Boolean(manifest?.secrets?.length)
+  const scopeRequired = scopeRequiredFor(manifests, importerName)
+
+  // Until field-level scope controls land (G13), seed a JSON template with
+  // the importer's required keys so the user sees what the schema demands.
+  React.useEffect(() => {
+    if (config || scopeTouched || (scopeJson !== "{}" && scopeJson !== "")) return
+    if (scopeRequired.length) {
+      setScopeJson(
+        JSON.stringify(Object.fromEntries(scopeRequired.map((k) => [k, ""])), null, 2),
+      )
+    }
+  }, [config, scopeTouched, scopeJson, scopeRequired, importerName, manifests])
   // Agent-bound configs resolve AGENT_MANAGED references on the agent host;
   // hub-bound configs use stored credentials (spec 026/027).
   const matching = credentials.filter((c) =>
@@ -262,7 +284,11 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
 
         <FormSection
           title="Scope"
-          description="What the importer reads — orgs, clusters, accounts, URLs. Field-level controls land when the manifest schema is exposed (see the wiring registry); until then scope is edited as JSON."
+          description={
+            scopeRequired.length
+              ? `Edited as JSON until field-level controls land. ${manifest?.label} requires: ${scopeRequired.join(", ")}.`
+              : "What the importer reads — orgs, clusters, accounts, URLs. Edited as JSON until field-level controls land."
+          }
         >
           <FieldGroup>
             <Field data-invalid={errors.scope ? true : undefined}>
@@ -270,7 +296,7 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
               <Textarea
                 id="i-scope"
                 value={scopeJson}
-                onChange={(e) => setScopeJson(e.target.value)}
+                onChange={(e) => { setScopeJson(e.target.value); setScopeTouched(true) }}
                 rows={6}
                 className="font-mono text-xs"
                 aria-invalid={errors.scope ? true : undefined}

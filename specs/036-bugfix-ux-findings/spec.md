@@ -117,6 +117,24 @@
   importer-configs with `scope:{}` asserts `details[]` + `invalid-params[]`
   are populated.
 
+### F008 - Importer scope editor gives no hint of required keys
+
+- **Reported**: GitHub importer create sends scope:{} — user cannot know org
+  is required (response now shows the org issue after F007).
+- **Surface**: /importers + /importers/:name/schema responses;
+  importer-form.tsx scope editor.
+- **Root cause**: configSchema was shipped as the raw zod object — opaque
+  over JSON — so the form rendered a bare JSON textarea, prefilled {}. This
+  is the shipped state of gap G13 (schema-driven forms = spec 037); the
+  bugfix exposes what is already known server-side instead of building
+  field-level controls.
+- **Fix**: routes serialize configSchema via z.toJSONSchema (openapi already
+  documents it as generic object); the form reads required[] — shows
+  "requires: org" in the Scope description and prefills a JSON template of
+  required keys until the user edits.
+- **Regression test**: importers.test.ts asserts configSchema.required
+  contains org; importer-form-scope.test.tsx asserts the hint + template.
+
 ## Acceptance criteria (batch)
 
 - Every finding below has a failing regression test written before its fix.
