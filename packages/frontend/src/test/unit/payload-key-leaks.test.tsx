@@ -29,7 +29,7 @@ describe("mutation payloads — no routing fields in the body (F011)", () => {
 });
 
 // F010/F011 functional: the reset-confirm call must rename resetToken -> token.
-const apiMock = vi.fn(async (..._args: unknown[]) => ({}));
+const apiMock = vi.fn<(url: string, opts?: { body?: string }) => Promise<unknown>>().mockResolvedValue({});
 vi.mock("@/api/client", async (importOriginal) => {
   const orig = await importOriginal<typeof import("@/api/client")>();
   return { ...orig, api: (...a: unknown[]) => apiMock(...a) };
