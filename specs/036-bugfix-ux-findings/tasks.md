@@ -34,6 +34,16 @@
 
 ## Phase 2 — Ship (runs once, when the batch is approved)
 
-- [x] T901 Add changeset(s) for every touched package (patch for fixes)
-- [x] T902 Add `036-bugfix-ux-findings` to `docs/roadmap.md` shipped list + header bump
-- [x] T903 `pnpm lint && pnpm typecheck && pnpm test && pnpm build` green; mark draft PR ready for review — merge only on user approval
+- [ ] T901 Add changeset(s) for every touched package (patch for fixes)
+- [ ] T902 Add `036-bugfix-ux-findings` to `docs/roadmap.md` shipped list + header bump
+- [ ] T903 `pnpm lint && pnpm typecheck && pnpm test && pnpm build` green; mark draft PR ready for review — merge only on user approval
+
+## Phase 3 — Review findings (code-review, round 1)
+
+- [x] T023 CRITICAL (standards+spec): stale "8+ characters." FieldDescription in register.tsx:98 and security.tsx:58 — interpolate PASSWORD_MIN_LENGTH
+- [x] T024 HIGH (standards): product-form.tsx sends raw YYYY-MM-DD sunsetAt vs datetime({offset:true}) — ISO-normalize; every product save with a sunset 400s
+- [x] T025 HIGH (spec): importer-form reseed effect deps include manifests — a refetch wipes user-edited scope; key on importerName only (ref for manifests)
+- [x] T026 MEDIUM (spec): lifecycle Select enabled on create — disable it (edit-only) so users can't pick RETIRED and silently get ACTIVE
+- [x] T027 MEDIUM (spec): session-context redirects on any session-query failure — only Navigate when data===null (definitively unauthenticated); error case renders provider (AuthGuard decides)
+- [x] T028 LOW (standards): lastActiveAt: null stub in session-context — check if view-type requires it; drop if optional
+- [x] T029 NOTE (standards, judgement): err.details forwarding is inside ADR-071's documented {code,message,details?} surface — fields already existed; no ADR needed. NONE-sentinel/duplicate useComponentGroups baseline smells noted — deferred (not introduced by this batch)

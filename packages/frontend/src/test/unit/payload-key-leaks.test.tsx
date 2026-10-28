@@ -22,7 +22,7 @@ describe("mutation payloads — no routing fields in the body (F011)", () => {
       const src = readFileSync(join(hooksDir, file), "utf-8");
       // Each api( call: URL uses vars.<field> AND body is the whole vars.
       const calls = src.match(/api<[^`]*?`\$\{vars\.[^}]*\}`[\s\S]*?body:\s*JSON\.stringify\(vars\)/g);
-      if (calls) offenders.push(...calls.map((c, i) => `${file}#${i}`));
+      if (calls) offenders.push(...calls.map((call) => `${file}: ${call.slice(0, 80)}`));
     }
     expect(offenders).toEqual([]);
   });

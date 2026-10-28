@@ -55,7 +55,7 @@ export function UxSettingsSecurityPage() {
             <Field>
               <FieldLabel htmlFor="new-password">New password</FieldLabel>
               <Input id="new-password" name="new-password" type="password" autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} required />
-              <FieldDescription>8+ characters.</FieldDescription>
+              <FieldDescription>{`${PASSWORD_MIN_LENGTH}+ characters.`}</FieldDescription>
             </Field>
             <Field>
               <FieldLabel htmlFor="confirm-password">Confirm new password</FieldLabel>

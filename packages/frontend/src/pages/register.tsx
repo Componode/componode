@@ -95,7 +95,7 @@ export function RegisterPage() {
                   {errors.password ? (
                     <FieldError>{errors.password}</FieldError>
                   ) : (
-                    <FieldDescription>8+ characters.</FieldDescription>
+                    <FieldDescription>{`${PASSWORD_MIN_LENGTH}+ characters.`}</FieldDescription>
                   )}
                 </Field>
                 <Field>

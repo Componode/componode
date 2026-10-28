@@ -91,15 +91,19 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
   // Until field-level scope controls land (G13), scope is seeded from the
   // selected importer's required keys — and reseeded when the importer
   // changes, so one importer's keys never leak into another's scope.
+  // manifests goes through a ref so a refetch (new array identity) can't
+  // wipe a user-edited scope.
+  const manifestsRef = React.useRef(manifests)
+  manifestsRef.current = manifests
   React.useEffect(() => {
     if (config) return
-    const req = scopeRequiredFor(manifests, importerName)
+    const req = scopeRequiredFor(manifestsRef.current, importerName)
     setScopeJson(
       req.length
         ? JSON.stringify(Object.fromEntries(req.map((k) => [k, ""])), null, 2)
         : "{}",
     )
-  }, [config, importerName, manifests])
+  }, [config, importerName])
   // Agent-bound configs resolve AGENT_MANAGED references on the agent host;
   // hub-bound configs use stored credentials (spec 026/027).
   const matching = credentials.filter((c) =>
