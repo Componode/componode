@@ -65,8 +65,8 @@ export async function errorHandler(app: FastifyInstance): Promise<void> {
     request.log.error({ err, url: request.url, method: request.method }, "Request error");
 
     let code: ErrorCode;
-    let status = err.statusCode ?? 500;
-    let message = err.message;
+    let status: number;
+    let message: string;
     let details: unknown | undefined;
     let invalidParams: InvalidParam[] | undefined;
 

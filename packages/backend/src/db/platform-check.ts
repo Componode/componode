@@ -41,7 +41,8 @@ export async function assertDatabasePlatform(database: Kysely<DB> = db): Promise
   } catch (err) {
     if (!(await hasPgcrypto(database))) {
       throw new Error(
-        `Required PostgreSQL extension 'pgcrypto' is missing and could not be created. Grant CREATE on the database or install it as a superuser. Cause: ${err instanceof Error ? err.message : String(err)}`,
+        "Required PostgreSQL extension 'pgcrypto' is missing and could not be created. Grant CREATE on the database or install it as a superuser.",
+        { cause: err },
       );
     }
   }
