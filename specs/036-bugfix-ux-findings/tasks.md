@@ -34,9 +34,9 @@
 
 ## Phase 2 — Ship (runs once, when the batch is approved)
 
-- [ ] T901 Add changeset(s) for every touched package (patch for fixes)
-- [ ] T902 Add `036-bugfix-ux-findings` to `docs/roadmap.md` shipped list + header bump
-- [ ] T903 `pnpm lint && pnpm typecheck && pnpm test && pnpm build` green; mark draft PR ready for review — merge only on user approval
+- [x] T901 Add changeset(s) for every touched package (patch for fixes)
+- [x] T902 Add `036-bugfix-ux-findings` to `docs/roadmap.md` shipped list + header bump
+- [x] T903 `pnpm lint && pnpm typecheck && pnpm test && pnpm build` green; mark draft PR ready for review — merge only on user approval
 
 ## Phase 3 — Review findings (code-review, round 1)
 
