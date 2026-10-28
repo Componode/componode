@@ -56,11 +56,14 @@ export function useCreateComponentGroup() {
 export function useUpdateComponentGroup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { id: string } & UpdateComponentGroupInput) =>
-      api<{ group: ComponentGroup }>(`/component-groups/${vars.id}`, {
+    mutationFn: (vars: { id: string } & UpdateComponentGroupInput) => {
+      // id is the URL param — updateComponentGroupSchema is .strict() and rejects it.
+      const { id, ...body } = vars;
+      return api<{ group: ComponentGroup }>(`/component-groups/${id}`, {
         method: "PATCH",
-        body: JSON.stringify(vars),
-      }),
+        body: JSON.stringify(body),
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["component-groups"] });
     },

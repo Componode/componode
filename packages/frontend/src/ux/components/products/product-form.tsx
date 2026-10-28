@@ -76,11 +76,11 @@ export function ProductForm({ product, lobs, teams }: { product?: Product; lobs:
       name: name.trim(),
       type,
       description: description.trim() || null,
-      lifecycle,
+      ...(product ? { lifecycle } : {}),
       criticality: criticality === NONE ? null : criticality,
       lobOwnerId: lob === NONE ? null : lob,
       teamOwnerId: team === NONE ? null : team,
-      sunsetAt: sunsetAt || null,
+      sunsetAt: sunsetAt ? new Date(`${sunsetAt}T00:00:00Z`).toISOString() : null,
       tags,
       links,
     }
@@ -278,7 +278,7 @@ export function ProductForm({ product, lobs, teams }: { product?: Product; lobs:
             </Field>
             <Field>
               <FieldLabel htmlFor="p-life">Lifecycle</FieldLabel>
-              <Select value={lifecycle} onValueChange={(v) => setLifecycle(v as Lifecycle)}>
+              <Select value={lifecycle} disabled={!product} onValueChange={(v) => setLifecycle(v as Lifecycle)}>
                 <SelectTrigger id="p-life" className="w-full">
                   <SelectValue />
                 </SelectTrigger>

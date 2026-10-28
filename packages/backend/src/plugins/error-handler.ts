@@ -121,6 +121,17 @@ export async function errorHandler(app: FastifyInstance): Promise<void> {
       message = err.statusCode === 500 || !err.statusCode ? "An internal error occurred" : err.message;
     }
 
+    // Coded errors thrown by services (e.g. importer scope validation) may
+    // carry a `details` payload — forward it for VALIDATION_FAILED so the
+    // client can render per-field problems.
+    if (code === "VALIDATION_FAILED" && details === undefined) {
+      const codedDetails = (err as { details?: unknown }).details;
+      if (codedDetails !== undefined) {
+        details = codedDetails;
+        invalidParams = buildInvalidParams(codedDetails);
+      }
+    }
+
     // Internal errors — never leak details unless debugging
     if (status >= 500 && code === "INTERNAL_ERROR") {
       if (debugErrorDetails) {

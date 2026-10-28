@@ -102,3 +102,16 @@ describe("fieldErrors — VALIDATION_FAILED detail extraction (bugfix 035)", () 
     ).toEqual({});
   });
 });
+
+describe("fieldErrors — unrecognized_keys mapping (F006)", () => {
+  it("binds rejected keys from the keys array when path is empty", () => {
+    const err: ApiError = {
+      code: "VALIDATION_FAILED",
+      message: "Invalid input",
+      details: [
+        { code: "unrecognized_keys", keys: ["lifecycle"], path: [], message: 'Unrecognized key: "lifecycle"' },
+      ],
+    };
+    expect(fieldErrors(err)).toEqual({ lifecycle: 'Unrecognized key: "lifecycle"' });
+  });
+});

@@ -143,6 +143,9 @@ describe("importers", () => {
     const github = body.importers.find((m: { name: string }) => m.name === "github");
     expect(github).toBeDefined();
     expect(github.configSchema).toBeDefined();
+    // F008: configSchema arrives as JSON Schema so the scope editor can
+    // surface required keys — `org` must be listed.
+    expect(github.configSchema.required).toContain("org");
   });
 
   it("admin creates and updates a github importer config", async () => {
@@ -173,6 +176,30 @@ describe("importers", () => {
     });
     expect(patchRes.statusCode).toBe(200);
     expect(JSON.parse(patchRes.payload).config.label).toBe("Updated GitHub");
+  });
+
+  it("returns field-level detail when importer scope validation fails (F007)", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/importer-configs",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
+      headers: csrfHeader,
+      payload: {
+        importerName: "github",
+        label: "Bad scope",
+        scope: {},
+        credentialIds: [],
+        schedule: "0 * * * *",
+        enabled: true,
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.payload);
+    expect(body.code).toBe("VALIDATION_FAILED");
+    expect(Array.isArray(body.details)).toBe(true);
+    expect(body.details.length).toBeGreaterThan(0);
+    expect(Array.isArray(body["invalid-params"])).toBe(true);
+    expect(body["invalid-params"].length).toBeGreaterThan(0);
   });
 
   it("masks secretRefs env/file locations in config API responses", async () => {

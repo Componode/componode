@@ -42,6 +42,15 @@ interface Errors {
   scope?: string
 }
 
+// `configSchema` arrives as JSON Schema (serialized from zod server-side) —
+// read `required` to seed the scope template and show what the schema demands.
+function scopeRequiredFor(manifests: ImporterManifest[], name: string): string[] {
+  const schema = manifests.find((m) => m.name === name)?.configSchema as
+    | { required?: unknown }
+    | undefined
+  return Array.isArray(schema?.required) ? (schema.required as string[]) : []
+}
+
 interface ImporterFormProps {
   config?: ImporterConfig
   manifests: ImporterManifest[]
@@ -77,6 +86,24 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
   const boundToAgent = agentId !== HUB
   const manifest = manifests.find((m) => m.name === importerName)
   const requiresSecrets = Boolean(manifest?.secrets?.length)
+  const scopeRequired = scopeRequiredFor(manifests, importerName)
+
+  // Until field-level scope controls land (G13), scope is seeded from the
+  // selected importer's required keys — and reseeded when the importer
+  // changes, so one importer's keys never leak into another's scope.
+  // manifests goes through a ref so a refetch (new array identity) can't
+  // wipe a user-edited scope.
+  const manifestsRef = React.useRef(manifests)
+  manifestsRef.current = manifests
+  React.useEffect(() => {
+    if (config) return
+    const req = scopeRequiredFor(manifestsRef.current, importerName)
+    setScopeJson(
+      req.length
+        ? JSON.stringify(Object.fromEntries(req.map((k) => [k, ""])), null, 2)
+        : "{}",
+    )
+  }, [config, importerName])
   // Agent-bound configs resolve AGENT_MANAGED references on the agent host;
   // hub-bound configs use stored credentials (spec 026/027).
   const matching = credentials.filter((c) =>
@@ -262,7 +289,11 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
 
         <FormSection
           title="Scope"
-          description="What the importer reads — orgs, clusters, accounts, URLs. Field-level controls land when the manifest schema is exposed (see the wiring registry); until then scope is edited as JSON."
+          description={
+            scopeRequired.length
+              ? `Edited as JSON until field-level controls land. ${manifest?.label} requires: ${scopeRequired.join(", ")}.`
+              : "What the importer reads — orgs, clusters, accounts, URLs. Edited as JSON until field-level controls land."
+          }
         >
           <FieldGroup>
             <Field data-invalid={errors.scope ? true : undefined}>

@@ -88,11 +88,14 @@ export function useComponentDetail(id: string | null) {
 export function useUpdateComponent() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { id: string } & Record<string, unknown>) =>
-      api<{ component: unknown }>(`/components/${vars.id}`, {
+    mutationFn: (vars: { id: string } & Record<string, unknown>) => {
+      // id is the URL param — updateComponentSchema is .strict() and rejects it.
+      const { id, ...body } = vars;
+      return api<{ component: unknown }>(`/components/${id}`, {
         method: "PATCH",
-        body: JSON.stringify(vars),
-      }),
+        body: JSON.stringify(body),
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["components"] });
     },

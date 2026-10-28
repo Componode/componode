@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { z } from "zod";
 import {
   createImporterConfigSchema,
   updateImporterConfigSchema,
@@ -31,7 +32,14 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [app.verifySession],
   }, async (_req: FastifyRequest, reply: FastifyReply) => {
     const manifests = await getManifests();
-    return reply.status(200).send({ importers: manifests });
+    // configSchema is a live zod schema — serialize to JSON Schema so the
+    // client can read required/properties for the scope editor.
+    return reply.status(200).send({
+      importers: manifests.map((m) => ({
+        ...m,
+        configSchema: m.configSchema ? z.toJSONSchema(m.configSchema as z.ZodType) : m.configSchema,
+      })),
+    });
   });
 
   app.get("/importers/:name/schema", {
@@ -39,7 +47,10 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const { name } = req.params as { name: string };
     const manifest = await getManifest(name);
-    return reply.status(200).send({ name: manifest.name, configSchema: manifest.configSchema });
+    return reply.status(200).send({
+      name: manifest.name,
+      configSchema: manifest.configSchema ? z.toJSONSchema(manifest.configSchema as z.ZodType) : manifest.configSchema,
+    });
   });
 
   // Configs

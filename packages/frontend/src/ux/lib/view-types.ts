@@ -66,10 +66,13 @@ export interface Component {
   provider: Provider;
   resourceType: string;
   lifecycle: Lifecycle;
+  componentGroupId: string | null;
   componentGroupName: string | null;
+  teamOwnerId: string | null;
   teamOwnerName: string | null;
   tags: string[];
   sunsetAt: string | null;
+  links: Link[];
   instanceCount: number;
   instances: ComponentInstance[];
   lastSeenAt: string | null;

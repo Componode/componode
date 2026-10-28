@@ -52,12 +52,12 @@ export function OrgFormDialog({ noun, initial, lobs, onSubmit, pending, trigger 
   const editing = Boolean(initial);
 
   React.useEffect(() => {
-    if (open && initial) {
-      setName(initial.name);
-      setSlug(initial.slug);
-      setDescription(initial.description ?? "");
-      setLobId(initial.lobId ?? NONE);
-      setSlugTouched(true);
+    if (open) {
+      setName(initial?.name ?? "");
+      setSlug(initial?.slug ?? "");
+      setDescription(initial?.description ?? "");
+      setLobId(initial?.lobId ?? NONE);
+      setSlugTouched(Boolean(initial));
       setError(null);
     }
   }, [open, initial]);

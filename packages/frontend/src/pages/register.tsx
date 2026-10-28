@@ -1,4 +1,5 @@
 import { AlertCircleIcon } from "lucide-react";
+import { PASSWORD_MIN_LENGTH } from "@componode/core";
 import { Link, useNavigate } from "react-router-dom";
 import * as React from "react";
 import { api, type ApiError } from "@/api/client";
@@ -40,7 +41,7 @@ export function RegisterPage() {
     const next: Errors = {};
     if (!username) next.username = "Choose a username.";
     if (!password) next.password = "Choose a password.";
-    else if (password.length < 8) next.password = "Use at least 8 characters.";
+    else if (password.length < PASSWORD_MIN_LENGTH) next.password = `Use at least ${PASSWORD_MIN_LENGTH} characters.`;
     setErrors(next);
     if (Object.keys(next).length) return;
 
@@ -94,7 +95,7 @@ export function RegisterPage() {
                   {errors.password ? (
                     <FieldError>{errors.password}</FieldError>
                   ) : (
-                    <FieldDescription>8+ characters.</FieldDescription>
+                    <FieldDescription>{`${PASSWORD_MIN_LENGTH}+ characters.`}</FieldDescription>
                   )}
                 </Field>
                 <Field>
