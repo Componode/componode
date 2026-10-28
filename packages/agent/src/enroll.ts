@@ -51,7 +51,6 @@ export async function enrollAgent(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ token: enrollmentToken }),
-      // @ts-expect-error — undici dispatcher is a Node fetch extension.
       dispatcher: enrollDispatcher(cfg),
     });
   } catch (err) {
