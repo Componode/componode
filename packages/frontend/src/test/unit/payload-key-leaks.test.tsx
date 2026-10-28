@@ -32,7 +32,7 @@ describe("mutation payloads — no routing fields in the body (F011)", () => {
 const apiMock = vi.fn<(url: string, opts?: { body?: string }) => Promise<unknown>>().mockResolvedValue({});
 vi.mock("@/api/client", async (importOriginal) => {
   const orig = await importOriginal<typeof import("@/api/client")>();
-  return { ...orig, api: (...a: unknown[]) => apiMock(...a) };
+  return { ...orig, api: (...a: Parameters<typeof apiMock>) => apiMock(...a) };
 });
 
 describe("useConfirmReset payload mapping (F011)", () => {
