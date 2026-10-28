@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–035)
+## Shipped (features 001–036)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -157,6 +157,7 @@ file tracks shipped and upcoming work — update it when a spec completes.
   dialog assigns the association, team detail shows its LOB, and LOB
   detail/grid list their teams.
 - `035-bugfix-user-form-validation` — user creation surfaces server
+- `036-bugfix-ux-findings` — UX findings batch F001–F012: session-expiry redirect, checked-state controls, password policy surfacing, stale form state, strict-schema payload fixes, scope-validation detail, importer scope hints, credential rotate, component edit dialog.
   validation detail: `VALIDATION_FAILED` `invalid-params`/`details` render
   inline per field (not a bare "Invalid input" toast), the username
   `pattern` is escaped for the `v` flag, and password `minLength` matches
