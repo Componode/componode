@@ -1,3 +1,4 @@
+import { flags } from "@/ux/lib/flags";
 import { LayersIcon, PlusIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useComponentGroups } from "@/api/hooks/component-groups";
@@ -12,7 +13,7 @@ import { errorMessage } from "@/ux/lib/api-state";
 import { ux } from "@/ux/lib/paths";
 
 export function UxComponentGroupsPage() {
-  const { data, isPending, error, refetch } = useComponentGroups();
+  const { data, isPending, error, refetch } = useComponentGroups({ includeRetired: true });
 
   return (
     <PageContainer>
@@ -20,7 +21,7 @@ export function UxComponentGroupsPage() {
         title="Component groups"
         description="Logical bundles of components that ship and retire together — useful when a product composes dozens of services."
         actions={
-          <Button disabled title="Group creation isn't available yet">
+          <Button disabled={!flags.manualEntityCreate} title="Group creation isn't available yet">
             <PlusIcon data-icon="inline-start" />
             New group
           </Button>

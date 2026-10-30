@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 import { PlusIcon } from "lucide-react";
+import { ShieldCheckIcon } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert";
 import { CredentialsTable } from "@/ux/components/admin/credentials-table";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
 import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
@@ -27,6 +29,11 @@ export function UxCredentialsPage() {
           </Button>
         }
       />
+      <Alert>
+        <ShieldCheckIcon />
+        <AlertTitle>Write-only by design</AlertTitle>
+        <AlertDescription>You can rotate or revoke a credential, but its secret is never readable — only a hint of the last characters.</AlertDescription>
+      </Alert>
       {credentials.isPending ? (
         <Card className="py-0">
           <TableSkeleton rows={5} columns={6} />

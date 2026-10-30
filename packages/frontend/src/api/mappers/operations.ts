@@ -6,7 +6,7 @@ import type {
   ImportRunError,
   ImporterConfig as ApiImporterConfig,
 } from "@/api/types";
-import { narrow, narrowOrNull } from "@/api/mappers/catalog";
+import { narrow, narrowOrNull, narrowOrRaw } from "@/api/mappers/catalog";
 import type {
   CredentialStatus,
   DisconnectReason,
@@ -98,6 +98,7 @@ export function mapImporterConfig(
     credentialLabel: credential?.label ?? "None",
     agent: c.agent ? { id: c.agent.id, name: c.agent.name } : null,
     agentIncompatible: c.agentIncompatible,
+    secretRefsDeprecated: c.secretRefsDeprecated,
     lastRun: null,
     history: [],
   };
@@ -107,7 +108,7 @@ export function mapImportRun(r: ApiImportRun): ImportRun {
   return {
     id: r.id,
     configId: r.configId,
-    status: narrow<RunStatus>(r.status, RUN_STATUSES, "FAILED"),
+    status: narrowOrRaw<RunStatus>(r.status, RUN_STATUSES),
     triggeredBy: r.triggeredBy ?? "system",
     startedAt: r.startedAt,
     durationSec: runDurationSec(r.startedAt, r.completedAt),
@@ -225,7 +226,7 @@ export function mapRunError(e: ImportRunError): RunError {
 }
 
 export function mapCredentialStatus(status: string | null | undefined): CredentialStatus {
-  return narrow<CredentialStatus>(status, ["ACTIVE", "REVOKED"], "ACTIVE");
+  return status == null ? "ACTIVE" : narrowOrRaw<CredentialStatus>(status, ["ACTIVE", "REVOKED"]);
 }
 
 const ROLES: readonly string[] = ["VIEWER", "EDITOR", "ADMIN"];

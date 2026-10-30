@@ -63,7 +63,7 @@ export async function listComponentGroups(rawQuery: ListComponentGroupsQuery) {
 
   if (parsed.lifecycle) {
     query = query.where("component_groups.lifecycle", "=", parsed.lifecycle);
-  } else {
+  } else if (!parsed.includeRetired) {
     query = query.where("component_groups.lifecycle", "!=", "RETIRED");
   }
 

@@ -61,6 +61,8 @@ interface OrgDetailProps {
   ownedComponents: Component[];
   /** When >0 the DangerZone delete action is blocked. */
   ownedTotal: number;
+  /** Overrides the default blocked-delete message (e.g. LOBs also count teams). */
+  blockedReason?: string;
   /** LOB options for the team edit dialog (spec 034). */
   lobs?: OrgEntity[];
   /** Teams associated with this LOB — renders a teams card (spec 034). */
@@ -78,6 +80,7 @@ export function OrgDetail({
   ownedProducts,
   ownedComponents,
   ownedTotal,
+  blockedReason: blockedReasonProp,
   lobs,
   associatedTeams,
   onEdit,
@@ -198,7 +201,10 @@ export function OrgDetail({
             confirmLabel: `Delete ${noun}`,
             typeToConfirm: entity.slug,
             blockedReason:
-              ownedTotal > 0 ? `Reassign the ${ownedTotal} product${ownedTotal === 1 ? "" : "s"}/components it owns first.` : undefined,
+              ownedTotal > 0
+                ? (blockedReasonProp ??
+                  `Reassign the ${ownedTotal} product${ownedTotal === 1 ? "" : "s"}/components it owns first.`)
+                : undefined,
             successMessage: `${entity.name} deleted`,
             onConfirm: onDelete,
           },

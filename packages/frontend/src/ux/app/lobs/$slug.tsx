@@ -2,12 +2,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { OrgDetail } from "@/ux/components/org/org-detail";
 import { PageContainer } from "@/ux/components/patterns/page-header";
-import { ErrorState, NotFoundState } from "@/ux/components/patterns/states";
+import { ErrorState, ForbiddenState, NotFoundState } from "@/ux/components/patterns/states";
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import { useLob, useUpdateLob, useDeleteLob, useTeams } from "@/api/hooks/org";
 import { useProducts } from "@/api/hooks/products";
 import { mapProduct } from "@/api/mappers/catalog";
-import { errorMessage, isNotFound } from "@/ux/lib/api-state";
+import { errorMessage, isForbidden, isNotFound } from "@/ux/lib/api-state";
 import { ux } from "@/ux/lib/paths";
 
 /** Direct detail read — `GET /lobs/:id` accepts the route slug (spec 033). */
@@ -34,6 +34,8 @@ export function UxLobDetailPage() {
       <PageContainer>
         {isNotFound(lobQ.error) ? (
           <NotFoundState backHref={ux("/lobs")} backLabel="All lines of business" />
+        ) : isForbidden(lobQ.error) ? (
+          <ForbiddenState />
         ) : (
           <ErrorState description={errorMessage(lobQ.error)} onRetry={() => void lobQ.refetch()} />
         )}
@@ -66,7 +68,8 @@ export function UxLobDetailPage() {
       associatedTeams={associatedTeams}
       ownedProducts={ownedProducts}
       ownedComponents={[]}
-      ownedTotal={ownedProducts.length}
+      ownedTotal={ownedProducts.length + (associatedTeams?.length ?? 0)}
+      blockedReason={`Move its ${associatedTeams?.length ?? 0} team${(associatedTeams?.length ?? 0) === 1 ? "" : "s"} and ${ownedProducts.length} product${ownedProducts.length === 1 ? "" : "s"} elsewhere before deleting.`}
       editPending={updateLob.isPending}
       onEdit={({ name, slug: s, description }) =>
         updateLob.mutate(

@@ -121,7 +121,12 @@ export const routes: RouteObject[] = [
         path: "*",
         element: authed(
           <PageContainer>
-            <NotFoundState backHref="/" backLabel="Dashboard" />
+            <NotFoundState
+              title="We couldn't find that page"
+              description="The page may have moved, or the link is stale."
+              backHref="/"
+              backLabel="Back to dashboard"
+            />
           </PageContainer>,
         ),
       },

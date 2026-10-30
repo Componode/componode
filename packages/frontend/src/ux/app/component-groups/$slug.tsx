@@ -10,7 +10,7 @@ import { DangerZone } from "@/ux/components/patterns/danger-zone";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
 import { DescriptionList } from "@/ux/components/patterns/primitives";
 import { LifecycleBadge } from "@/ux/components/patterns/status-badge";
-import { EmptyState, ErrorState, NotFoundState, TableSkeleton } from "@/ux/components/patterns/states";
+import { EmptyState, ErrorState, ForbiddenState, NotFoundState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Button } from "@/ux/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/ux/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel } from "@/ux/components/ui/field";
@@ -20,7 +20,7 @@ import { Textarea } from "@/ux/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card";
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table";
-import { errorMessage, isNotFound } from "@/ux/lib/api-state";
+import { errorMessage, isForbidden, isNotFound } from "@/ux/lib/api-state";
 import { ux } from "@/ux/lib/paths";
 
 export function UxComponentGroupDetailPage() {
@@ -53,6 +53,8 @@ export function UxComponentGroupDetailPage() {
       <PageContainer>
         {isNotFound(groupQ.error) ? (
           <NotFoundState backHref={ux("/component-groups")} backLabel="All groups" />
+        ) : isForbidden(groupQ.error) ? (
+          <ForbiddenState />
         ) : (
           <ErrorState description={errorMessage(groupQ.error)} onRetry={() => void groupQ.refetch()} />
         )}

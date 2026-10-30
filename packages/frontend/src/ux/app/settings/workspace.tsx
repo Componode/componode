@@ -1,3 +1,4 @@
+import { Alert, AlertDescription } from "@/ux/components/ui/alert";
 import { toast } from "sonner";
 import { SettingsSection, SettingRow } from "@/ux/components/settings/settings-section";
 import { ErrorState } from "@/ux/components/patterns/states";
@@ -61,13 +62,16 @@ export function UxSettingsWorkspacePage() {
               <SelectGroup>
                 <SelectItem value="VIEWER">Viewer</SelectItem>
                 <SelectItem value="EDITOR">Editor</SelectItem>
-                <SelectItem value="ADMIN">Admin</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
         }
       />
-      {flags.workspaceProfile && null /* name/URL/regional — gap G18 */}
+      {!flags.workspaceProfile && (
+        <Alert>
+          <AlertDescription>Workspace name, URL and regional defaults need backend support — tracked as gap G18.</AlertDescription>
+        </Alert>
+      )}
     </SettingsSection>
   );
 }

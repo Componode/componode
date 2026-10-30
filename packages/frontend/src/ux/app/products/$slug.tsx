@@ -1,3 +1,4 @@
+import type { Criticality } from "@/ux/lib/domain";
 import { useParams } from "react-router-dom";
 import { useAllComponents } from "@/api/hooks/components";
 import { useEntityHistory } from "@/api/hooks/audit";
@@ -70,7 +71,13 @@ export function UxProductDetailPage() {
     <ProductDetail
       product={mapProduct(d.product, { componentCount: d.counts.components })}
       components={rows}
-      consumers={d.consumedBy.map((p) => ({ id: p.id, name: p.name, slug: p.slug }))}
+      consumers={d.consumedBy.map((p) => ({ id: p.id, name: p.name, slug: p.slug, criticality: (p as { criticality?: Criticality | null }).criticality ?? null }))}
+      relations={[
+        { label: "Composed by", names: (d.composedBy ?? []).map((x) => x.name) },
+        { label: "Composes", names: (d.composes ?? []).map((x) => x.name) },
+        { label: "Consumes from", names: (d.consumesFrom ?? []).map((x) => x.name) },
+        { label: "Depends on groups", names: (d.dependsOnGroups ?? []).map((x) => (x as unknown as { name?: string }).name ?? "—") },
+      ].filter((r) => r.names.length > 0)}
       suggestions={(suggestions.data?.items ?? [])
         .filter((s) => s.productId === d.product.id)
         .map(mapSuggestion)}

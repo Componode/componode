@@ -1,3 +1,4 @@
+import { flags } from "@/ux/lib/flags";
 import { AlertTriangleIcon, CircleAlertIcon, ChevronRightIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { RelativeTime } from "@/ux/components/patterns/primitives"
@@ -45,7 +46,7 @@ export function AttentionList({ items }: { items: AttentionEntry[] }) {
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-sm font-medium">{item.label}</span>
-                      {item.detail ? (
+                      {flags.attentionDetail && item.detail ? (
                         <span className="truncate text-xs text-muted-foreground">{item.detail}</span>
                       ) : null}
                     </span>

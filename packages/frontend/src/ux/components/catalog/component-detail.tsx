@@ -64,7 +64,7 @@ export function ComponentDetail({ component: c }: { component: Component }) {
         <Card className="lg:col-span-2 overflow-hidden pb-0">
           <CardHeader>
             <CardTitle>Instances</CardTitle>
-            <CardDescription>One row per environment the importer observed. Gone instances are kept for 30 days.</CardDescription>
+            <CardDescription>One row per environment the importer observed. Instances reported gone are hidden here.</CardDescription>
           </CardHeader>
           <Table>
             <TableHeader>

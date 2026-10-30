@@ -64,6 +64,14 @@ export function narrow<T extends string>(
   return value != null && allowed.includes(value) ? (value as T) : fallback;
 }
 
+/** Passes the API value through verbatim — the badge layer renders unknown values with a neutral fallback instead of mislabeling them. */
+export function narrowOrRaw<T extends string>(
+  value: string | null | undefined,
+  allowed: readonly string[],
+): T {
+  return value != null && allowed.includes(value) ? (value as T) : (String(value ?? "unknown") as T);
+}
+
 export function narrowOrNull<T extends string>(
   value: string | null | undefined,
   allowed: readonly string[],

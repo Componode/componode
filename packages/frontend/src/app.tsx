@@ -11,6 +11,7 @@ import { routes } from "./routes";
 import { ThemeProvider } from "@/ux/components/app/theme-provider";
 import { Toaster } from "@/ux/components/ui/sonner";
 import { TooltipProvider } from "@/ux/components/ui/tooltip";
+import { ErrorState } from "@/ux/components/patterns/states";
 import type { ApiError } from "@/api/client";
 
 // Global default error UX per ADR-072: 401 → login redirect, 403 → permission
@@ -75,23 +76,12 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
   render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <div
-          className="flex min-h-screen items-center justify-center bg-background p-6"
-          role="alert"
-        >
-          <div className="max-w-md space-y-4 text-center">
-            <h1 className="text-2xl font-bold">Something went wrong</h1>
-            <p className="text-muted-foreground">
-              {this.state.message ?? "An unexpected error occurred."}
-            </p>
-            <button
-              type="button"
-              onClick={this.handleRetry}
-              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Retry
-            </button>
-          </div>
+        <div className="flex min-h-screen items-center justify-center bg-background p-6" role="alert">
+          <ErrorState
+            title="Something went wrong"
+            description="An unexpected error occurred. Try again — if it persists, check the hub logs."
+            onRetry={this.handleRetry}
+          />
         </div>
       );
     }

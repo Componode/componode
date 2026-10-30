@@ -25,6 +25,12 @@ import {
 } from "@/ux/lib/domain"
 import { cn } from "@/ux/lib/utils"
 
+/** Unknown enum values from the API render a labelled neutral badge — never throw. */
+const metaOr = <T extends { label: string; description: string; tone: Tone }>(
+  table: Record<string, T>,
+  value: string,
+): T => table[value] ?? ({ label: value, description: "Unrecognized status reported by the API", tone: "neutral" } as T)
+
 const DOT: Record<Tone, string> = {
   neutral: "bg-muted-foreground/60",
   success: "bg-success",
@@ -67,29 +73,29 @@ export function StatusBadge({ tone, label, description, pulse, className }: Stat
 
 export function CriticalityBadge({ value }: { value: Criticality | null }) {
   if (!value) return <span className="text-sm text-muted-foreground">—</span>
-  return <StatusBadge {...CRITICALITY_META[value]} />
+  return <StatusBadge {...metaOr(CRITICALITY_META, value)} />
 }
-export const LifecycleBadge = ({ value }: { value: Lifecycle }) => <StatusBadge {...LIFECYCLE_META[value]} />
+export const LifecycleBadge = ({ value }: { value: Lifecycle }) => <StatusBadge {...metaOr(LIFECYCLE_META, value)} />
 export function HealthBadge({ value }: { value: InstanceStatus | null }) {
   if (!value) return <span className="text-sm text-muted-foreground">No data</span>
-  return <StatusBadge {...HEALTH_META[value]} />
+  return <StatusBadge {...metaOr(HEALTH_META, value)} />
 }
-export const EnvironmentBadge = ({ value }: { value: Environment }) => <StatusBadge {...ENVIRONMENT_META[value]} />
+export const EnvironmentBadge = ({ value }: { value: Environment }) => <StatusBadge {...metaOr(ENVIRONMENT_META, value)} />
 export const RunStatusBadge = ({ value }: { value: RunStatus }) => (
-  <StatusBadge {...RUN_STATUS_META[value]} pulse={value === "RUNNING"} />
+  <StatusBadge {...metaOr(RUN_STATUS_META, value)} pulse={value === "RUNNING"} />
 )
 export const CredentialStatusBadge = ({ value }: { value: CredentialStatus }) => (
-  <StatusBadge {...CREDENTIAL_STATUS_META[value]} />
+  <StatusBadge {...metaOr(CREDENTIAL_STATUS_META, value)} />
 )
 export const AgentStatusBadge = ({ value }: { value: AgentStatus }) => (
-  <StatusBadge {...AGENT_STATUS_META[value]} pulse={value === "CONNECTED"} />
+  <StatusBadge {...metaOr(AGENT_STATUS_META, value)} pulse={value === "CONNECTED"} />
 )
 export const AgentCredentialBadge = ({ value }: { value: AgentCredentialState }) => (
-  <StatusBadge {...AGENT_CREDENTIAL_META[value]} />
+  <StatusBadge {...metaOr(AGENT_CREDENTIAL_META, value)} />
 )
-export const RoleBadge = ({ value }: { value: Role }) => <StatusBadge {...ROLE_META[value]} />
+export const RoleBadge = ({ value }: { value: Role }) => <StatusBadge {...metaOr(ROLE_META, value)} />
 export function ProductTypeBadge({ value }: { value: ProductType }) {
-  const meta = PRODUCT_TYPE_META[value]
+  const meta = metaOr(PRODUCT_TYPE_META, value)
   return (
     <Tooltip>
       <TooltipTrigger asChild>

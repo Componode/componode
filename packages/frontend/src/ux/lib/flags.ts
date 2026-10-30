@@ -34,8 +34,26 @@ export const flags = {
   advancedOps: false,
   /** Client display prefs (density/reduced-motion/relative-time) not yet consumed (gap 20). */
   displayPrefs: false,
-  /** Non-admin self profile save — PATCH /users/me exists (gap 14, resolved by spec 030). */
-  profileSelfEdit: true,
+  /** Component-list Health column — needs per-row instance rollup on GET /components (gap G21). */
+  componentListHealth: false,
+  /** Component-list Last-seen column — needs lastSeenAt on GET /components (gap G21). */
+  componentListLastSeen: false,
+  /** Team-list Members column — needs member counts on GET /teams (gap G22). */
+  teamMemberCounts: false,
+  /** Stat-grid "+N this week" deltas — needs dashboard delta fields (gap G23). */
+  statDeltas: false,
+  /** Attention-row detail sub-line — needs backend detail strings (gap G24). */
+  attentionDetail: false,
+  /** CREDENTIAL_EXPIRING attention kind — needs backend kind emission (gap G24). */
+  credentialExpiring: false,
+  /** Agent "Enrolled by" header — needs createdBy on GET /agents/:id (gap G25). */
+  agentEnrolledBy: false,
+  /** GONE instances on component detail — needs includeGone on the detail read (gap G26). */
+  detailGoneInstances: false,
+  /** Manual component/group creation — needs POST endpoints + forms (gap G29). */
+  manualEntityCreate: false,
+  /** Suggestions decided-history view — ACCEPTED/DISMISSED/SUPERSEDED reads (gap G32). */
+  suggestionsHistory: false,
 } as const;
 
 export type GapFlag = keyof typeof flags;

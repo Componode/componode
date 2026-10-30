@@ -204,6 +204,12 @@ describe("dashboard summary", () => {
     const failedRun = body.attention.find((a: any) => a.kind === "FAILED_RUN");
     expect(failedRun.label).toContain("github");
     expect(failedRun.href).toMatch(/^\/importers\/.+\/runs\//);
+    // Component links must be slug-keyed — the frontend route resolves slugs,
+    // not ids (038 FR-001).
+    const instError = body.attention.find((a: any) => a.kind === "INSTANCE_ERROR");
+    expect(instError.href).toMatch(/^\/components\/comp-/);
+    const instGone = body.attention.find((a: any) => a.kind === "INSTANCE_GONE");
+    expect(instGone.href).toMatch(/^\/components\/comp-/);
   });
 
   it("returns lastRuns per importer config with run counters", async () => {

@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–036)
+## Shipped (features 001–038)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -169,6 +169,8 @@ file tracks shipped and upcoming work — update it when a spec completes.
   defaults, a per-field JSON fallback for complex fields, an
   "Unrecognized fields" block for stored keys outside the schema, and a
   lossless Edit-as-JSON mode. Frontend-only.
+
+- `038-ux-11-conformance` — v1.1.0-vs-v0 conformance corrections: defect fixes (slug-keyed attention links, wired password-reset, `replaced` disconnect META, LOB delete guard, GONE/RETIRED opt-ins, breadcrumbs, ForbiddenState coverage, importer lastRun + convert-secrets, promote slug field error, feed sentences, ErrorState boundary), restorations (auth checklist/shell/footer, credentials alert, radius scale, command-menu adornments, org table columns, session device/location), product-map relations canvas ratified by ADR-118, and gap registry G21–G32 with flag gates — no dead controls or unbacked renders ship.
 
 ## Next — post-v1.1
 

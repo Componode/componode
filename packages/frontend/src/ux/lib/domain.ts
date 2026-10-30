@@ -16,7 +16,8 @@ export type RunStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCEL
 export type CredentialStatus = "ACTIVE" | "REVOKED"
 export type AgentStatus = "CONNECTED" | "OFFLINE" | "NEVER_CONNECTED"
 export type AgentCredentialState = "PENDING_ENROLLMENT" | "ACTIVE" | "REVOKED"
-export type DisconnectReason = "client_close" | "heartbeat_timeout" | "revoked" | "shutdown" | "superseded"
+export type DisconnectReason = "client_close" | "heartbeat_timeout" | "revoked" | "shutdown" | "superseded" | "replaced"
+export type CredentialKind = "STORED" | "AGENT_MANAGED"
 export type Provider =
   | "GITHUB"
   | "AWS"
@@ -112,6 +113,18 @@ export const DISCONNECT_REASON_META: Record<DisconnectReason, { label: string; d
   revoked: { label: "Revoked", description: "An admin revoked the credential", tone: "destructive" },
   shutdown: { label: "Hub shutdown", description: "The hub restarted or shut down", tone: "neutral" },
   superseded: { label: "Superseded", description: "A newer connection used the same credential", tone: "warning" },
+  replaced: { label: "Replaced", description: "A rotated credential took over this session", tone: "neutral" },
+}
+
+export const KIND_META: Record<CredentialKind, { label: string; description: string }> = {
+  STORED: {
+    label: "Stored in Componode",
+    description: "Secret values are encrypted at rest and resolved on the hub. Values cannot be read back after saving.",
+  },
+  AGENT_MANAGED: {
+    label: "Resolved on an Import Agent",
+    description: "Holds references only. Values live on the agent host as environment variables or files.",
+  },
 }
 
 /** Importer names an agent may be allowed to serve. Mirrors the compiled importer packages. */

@@ -102,6 +102,8 @@ export interface ImporterConfig {
   agent?: { id: string; name: string } | null;
   /** Bound agent is revoked or its policy no longer covers this importer. */
   agentIncompatible?: boolean;
+  /** Still uses legacy env/file secretRefs — eligible for convert-secrets. */
+  secretRefsDeprecated?: boolean;
   lastRun: { status: RunStatus; at: string; processed: number; durationSec: number } | null;
   history: { day: string; created: number; updated: number; failed: number }[];
 }

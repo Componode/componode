@@ -291,9 +291,9 @@ describe("mapImportRun", () => {
     expect(view.durationSec).toBeNull();
   });
 
-  it("maps unknown statuses to INTERRUPTED-safe fallback", () => {
+  it("passes unknown statuses through for the neutral badge fallback", () => {
     const view = mapImportRun({ ...apiRun, status: "WEIRD" } as never);
-    expect(view.status).toBe("FAILED");
+    expect(view.status).toBe("WEIRD");
   });
 });
 
@@ -566,16 +566,16 @@ describe("mapCredential", () => {
       id: "c2", slug: "x", label: "x", status: "BOGUS", kind: "BOGUS",
       keyHints: {}, expiresAt: null, lastUsedAt: null,
     });
-    expect(c.status).toBe("ACTIVE");
+    expect(c.status).toBe("BOGUS"); // raw pass-through — neutral badge at render
     expect(c.kind).toBe("STORED");
     expect(c.usedBy).toBe(0);
   });
 });
 
 describe("mapCredentialStatus", () => {
-  it("passes through known statuses and defaults unknowns to ACTIVE", () => {
+  it("passes through known statuses, keeps unknowns raw, defaults null to ACTIVE", () => {
     expect(mapCredentialStatus("REVOKED")).toBe("REVOKED");
-    expect(mapCredentialStatus("WEIRD")).toBe("ACTIVE");
+    expect(mapCredentialStatus("WEIRD")).toBe("WEIRD");
     expect(mapCredentialStatus(null)).toBe("ACTIVE");
   });
 });

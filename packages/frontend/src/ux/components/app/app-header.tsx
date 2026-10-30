@@ -1,5 +1,5 @@
 
-import { BellIcon, CircleHelpIcon, MoonIcon, SunIcon } from "lucide-react"
+import { MoonIcon, SunIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useLocation } from "react-router-dom"
 import { useTheme } from "next-themes"
@@ -17,22 +17,40 @@ import { Separator } from "@/ux/components/ui/separator"
 import { SidebarTrigger } from "@/ux/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ux/components/ui/tooltip"
 import { SEGMENT_LABELS } from "@/ux/lib/nav"
+import { ux } from "@/ux/lib/paths"
+import { useGlobalSearch } from "@/api/hooks/search"
 
-// Entity names in breadcrumbs are a staged-UX gap (gap registry): the shell
-// renders the URL segment until detail pages can publish resolved titles.
 function labelFor(segment: string): string {
   return SEGMENT_LABELS[segment] ?? segment
 }
 
+/** Resolve a URL segment to an entity display name via global search (exact slug/id match). */
+function useEntityName(segment: string): string {
+  const isStatic = segment in SEGMENT_LABELS || segment === "ux"
+  const search = useGlobalSearch(isStatic ? "" : segment)
+  if (isStatic) return labelFor(segment)
+  for (const hits of Object.values(search.data ?? {})) {
+    const hit = (hits as { name?: string; slug?: string; id?: string }[]).find(
+      (h) => h.slug === segment || h.id === segment,
+    )
+    if (hit?.name) return hit.name
+  }
+  return segment
+}
+
 function useCrumbs() {
   const { pathname } = useLocation()
-  // The staged tree lives under /ux — drop the mount segment from the trail.
   const segments = pathname.split("/").filter(Boolean).filter((s) => s !== "ux")
-  if (!segments.length) return [{ href: "/ux", label: "Dashboard" }]
+  if (!segments.length) return [{ href: ux("/"), label: "Dashboard", seg: "" }]
   return segments.map((seg, i) => ({
-    href: `/ux/${segments.slice(0, i + 1).join("/")}`,
-    label: labelFor(seg),
+    href: ux(`/${segments.slice(0, i + 1).join("/")}`),
+    seg,
+    label: "",
   }))
+}
+
+function CrumbLabel({ seg }: { seg: string }) {
+  return <>{useEntityName(seg)}</>
 }
 
 export function AppHeader() {
@@ -49,10 +67,10 @@ export function AppHeader() {
               <React.Fragment key={c.href}>
                 <BreadcrumbItem className={last ? "min-w-0" : "hidden md:inline-flex"}>
                   {last ? (
-                    <BreadcrumbPage className="truncate">{c.label}</BreadcrumbPage>
+                    <BreadcrumbPage className="truncate">{c.label || <CrumbLabel seg={c.seg} />}</BreadcrumbPage>
                   ) : (
                     <BreadcrumbLink asChild>
-                      <Link to={c.href}>{c.label}</Link>
+                      <Link to={c.href}>{c.label || <CrumbLabel seg={c.seg} />}</Link>
                     </BreadcrumbLink>
                   )}
                 </BreadcrumbItem>
@@ -63,25 +81,9 @@ export function AppHeader() {
         </BreadcrumbList>
       </Breadcrumb>
       <div className="flex items-center gap-1">
-        <HeaderIconButton label="Help & docs" icon={CircleHelpIcon} />
-        <HeaderIconButton label="Notifications" icon={BellIcon} dot />
         <ThemeToggle />
       </div>
     </header>
-  )
-}
-
-function HeaderIconButton({ label, icon: Icon, dot }: { label: string; icon: typeof BellIcon; dot?: boolean }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={label} className="relative">
-          <Icon />
-          {dot && <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-destructive" aria-hidden="true" />}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
   )
 }
 

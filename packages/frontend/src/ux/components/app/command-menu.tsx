@@ -1,3 +1,4 @@
+import { ProviderMark } from "@/ux/components/patterns/provider-mark";
 import { MoonIcon, PlusIcon, SunIcon } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useTheme } from "next-themes"
@@ -77,6 +78,7 @@ function CommandMenu({ open, setOpen }: { open: boolean; setOpen: (v: boolean) =
                 {hits.products.map((p) => (
                   <CommandItem key={p.id} value={`product ${p.name} ${p.slug ?? ""}`} onSelect={() => go(`/products/${p.slug ?? p.id}`)}>
                     <span className="truncate">{p.name}</span>
+                    <span className="ml-auto truncate text-xs text-muted-foreground">{(p as { teamOwnerName?: string }).teamOwnerName ?? ""}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -85,6 +87,7 @@ function CommandMenu({ open, setOpen }: { open: boolean; setOpen: (v: boolean) =
               <CommandGroup heading="Components">
                 {hits.components.map((c) => (
                   <CommandItem key={c.id} value={`component ${c.name}`} onSelect={() => go(`/components/${c.slug ?? c.id}`)}>
+                    {(c as { provider?: string }).provider ? <ProviderMark provider={(c as { provider?: string }).provider as never} size="sm" /> : null}
                     <span className="truncate font-mono text-xs">{c.name}</span>
                   </CommandItem>
                 ))}

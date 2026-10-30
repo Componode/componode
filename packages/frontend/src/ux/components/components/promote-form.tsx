@@ -66,7 +66,13 @@ export function PromoteForm({ component, consumers }: { component: Component; co
           toast.success(`${result.product.name} promoted to a platform product`)
           navigate(ux(`/products/${result.product.slug}`))
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => {
+          if ((err as { code?: string }).code === "SLUG_TAKEN") {
+            setErrors((p) => ({ ...p, slug: "A product with this slug already exists." }))
+            return
+          }
+          toast.error(err.message)
+        },
       },
     )
   }

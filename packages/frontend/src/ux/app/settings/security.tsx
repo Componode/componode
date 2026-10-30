@@ -84,11 +84,11 @@ export function UxSettingsSecurityPage() {
               <LaptopIcon className="size-4 text-muted-foreground" aria-hidden="true" />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="flex items-center gap-2 text-sm font-medium">
-                  <code className="font-mono text-xs">{s.id.slice(0, 8)}</code>
+                  <span className="text-sm font-medium">{s.device}</span>
                   {s.current && <StatusBadge tone="brand" label="This device" />}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  Last seen <RelativeTime iso={s.lastSeenAt} />
+                  {s.location} · <RelativeTime iso={s.lastSeenAt} />
                 </span>
               </div>
               {!s.current && (
