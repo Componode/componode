@@ -63,3 +63,10 @@ correctness hardening that must ship in the same PR.
 - [x] T021 MEDIUM (code-review: spec) Unresolvable `scope.*` server error paths (e.g. `scope.a.b`) currently drop invisibly — fall back to the section-level scope error per the spec's FR-009 edge case
 - [x] T022 LOW (code-review: spec) String-list blank filter must drop whitespace-only rows; enum kind accepts numeric enums per the contract mapping table
 - [x] T023 LOW (code-review: standards) Dedupe `isRecord` (export from scope-schema) and the known/unknown+`jsonTexts` seed block shared by the seeding effect and `toggleScopeMode`; drop the redundant `as unknown` hop; constant for the `__unknown` error key
+
+## Phase 8: Review
+
+- [x] T024 MEDIUM (code-review: spec) Invalid `unknownText` (unrecognized-fields buffer) was silently dropped on typed→raw toggle — the bad-JSON check now covers it alongside per-field buffers; regression test added
+- [x] T025 HIGH (code-review: spec) Missing-schema edit marked `seededFor` — a manifest refetch can no longer wipe raw-mode edits over a stored scope (FR-007); regression test added
+- [x] T026 MEDIUM (code-review: spec) Bare non-field paths (`repos.0`) and scoped errors while `rawMode`/`!renderable` no longer drop invisibly — unresolvable keys fall back to the section error; `label` maps to its field (FR-009)
+- [x] T027 LOW (code-review: spec+standards) Dead `json`-kind clause removed from submit validation; `docs/ux.md` §9 deferred-widgets line updated (schema-driven renderer shipped); remaining smells (mapper-rule carve-out, state clumps) documented as judgement calls — the form consumes the manifest pass-through contract by design

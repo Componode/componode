@@ -144,8 +144,15 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
       setRawText(
         JSON.stringify(isRecord(config.scope) ? config.scope : {}, null, 2),
       )
+      // Mark seeded even without a schema — otherwise a manifest refetch
+      // would re-run this and wipe raw-mode edits over a stored scope.
+      if (!s) {
+        seededFor.current = key
+        return
+      }
+    } else if (!s) {
+      return
     }
-    if (!s) return
     seededFor.current = key
     const fields = fieldsForSchema(s)
     if (config) {
@@ -228,18 +235,24 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
 
   function toggleScopeMode() {
     if (!rawMode) {
-      // Invalid per-field JSON can't be represented in scopeValues —
-      // switching would silently drop the edit, so block instead.
-      const badJson = scopeFields.some((f) => {
-        const t = jsonTexts[f.key]
-        if (f.kind !== "json" || !t?.trim()) return false
+      // Invalid JSON buffers can't be represented in scopeValues —
+      // switching would silently drop the edit, so block instead. Covers
+      // per-field editors AND the unrecognized-fields buffer.
+      const parseJson = (t: string | undefined): unknown => {
         try {
-          JSON.parse(t)
-          return false
+          return JSON.parse(t ?? "")
         } catch {
-          return true
+          return undefined
         }
-      })
+      }
+      const badJson =
+        scopeFields.some(
+          (f) =>
+            f.kind === "json" &&
+            Boolean(jsonTexts[f.key]?.trim()) &&
+            parseJson(jsonTexts[f.key]) === undefined,
+        ) ||
+        (Boolean(unknownText.trim()) && !isRecord(parseJson(unknownText)))
       if (badJson) {
         setErrors((prev) => ({
           ...prev,
@@ -277,15 +290,22 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
     // attach to the matching field. Paths that resolve to no field fall
     // back to the section-level error instead of going invisible.
     const known = new Set(scopeFields.map((f) => f.key))
+    const fieldsRendered = renderable && !rawMode
     const scoped: [string, string][] = []
     const unresolvable: string[] = []
     for (const [k, v] of Object.entries(fe)) {
       if (k.startsWith("scope.")) {
         const fieldKey = k.slice("scope.".length)
-        if (known.has(fieldKey)) scoped.push([fieldKey, v])
+        if (fieldsRendered && known.has(fieldKey)) scoped.push([fieldKey, v])
         else unresolvable.push(`${fieldKey}: ${v}`)
-      } else if (known.has(k)) {
+      } else if (fieldsRendered && known.has(k)) {
         scoped.push([k, v])
+      } else if (k === "label") {
+        setErrors((prev) => ({ ...prev, label: v }))
+      } else if (k !== "scope") {
+        // Bare paths that resolve to nothing visible (nested indices like
+        // "repos.0", unknown keys) still surface at the section level.
+        unresolvable.push(`${k}: ${v}`)
       }
     }
     if (scoped.length) {
@@ -342,8 +362,7 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
           v === undefined ||
           v === "" ||
           (f.kind === "string-list" &&
-            (!Array.isArray(v) || v.every((s) => String(s).trim() === ""))) ||
-          (f.kind === "json" && !(f.key in scopeValues))
+            (!Array.isArray(v) || v.every((s) => String(s).trim() === "")))
         if (f.required && missing) fieldErrs[f.key] = `${f.label} is required.`
       }
       scope = typedScope()

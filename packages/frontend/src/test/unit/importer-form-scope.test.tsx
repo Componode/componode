@@ -409,6 +409,62 @@ describe("ImporterForm — schema-driven scope fields (G13)", () => {
     expect("includeForks" in payload.scope).toBe(false);
   });
 
+  it("blocks the JSON toggle while an unrecognized-fields buffer is invalid", () => {
+    const config = {
+      id: "c1",
+      importerName: "github",
+      label: "GH",
+      scope: { org: "acme", legacyKey: "v" },
+      secretRefs: [],
+      credentialIds: [],
+      schedule: null,
+      enabled: true,
+      agentId: null,
+      secretRefsDeprecated: false,
+      agentIncompatible: false,
+    };
+    renderForm({ config });
+    fireEvent.change(document.getElementById("i-scope-unknown")!, {
+      target: { value: "{broken" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /edit as json/i }));
+    expect(screen.getByText(/fix the invalid json fields/i)).toBeTruthy();
+    // still in typed mode — the invalid buffer is not silently dropped
+    expect(document.getElementById("i-scope-unknown")).toBeTruthy();
+  });
+
+  it("missing-schema edit does not wipe raw edits on manifest refetch", () => {
+    const config = {
+      id: "c1",
+      importerName: "ghost",
+      label: "Ghost",
+      scope: { token: "abc" },
+      secretRefs: [],
+      credentialIds: [],
+      schedule: null,
+      enabled: true,
+      agentId: null,
+      secretRefsDeprecated: false,
+      agentIncompatible: false,
+    };
+    const { rerender } = renderForm({ config });
+    const raw = () => document.getElementById("i-scope-json") as HTMLTextAreaElement;
+    fireEvent.change(raw(), { target: { value: '{"token": "edited"}' } });
+    rerender(
+      <MemoryRouter>
+        <TooltipProvider>
+          <ImporterForm
+            manifests={[...manifests] as never}
+            credentials={[]}
+            agents={[]}
+            config={config as never}
+          />
+        </TooltipProvider>
+      </MemoryRouter>,
+    );
+    expect(JSON.parse(raw().value)).toEqual({ token: "edited" });
+  });
+
   it("a manifest refetch mid-edit does not wipe entered values", () => {
     const { rerender } = renderForm();
     fireEvent.change(document.getElementById("i-scope-org")!, { target: { value: "acme" } });
