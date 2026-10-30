@@ -133,14 +133,18 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
   const manifestsRef = React.useRef(manifests)
   manifestsRef.current = manifests
   const seededFor = React.useRef<string | null>(null)
+  const seededSchemaLess = React.useRef<string | null>(null)
   React.useEffect(() => {
     const m = manifestsRef.current.find((x) => x.name === importerName)
     const s = m?.configSchema
     const key = `${config?.id ?? "new"}:${importerName}`
-    if (seededFor.current === key) return
-    // The raw fallback must always mirror the stored scope — a missing
-    // schema may never surface an empty editor over real data.
-    if (config) {
+    // A schema arriving after a schema-less seed upgrades to typed fields,
+    // seeded from the live raw buffer so in-progress edits survive.
+    const upgradeFromRaw = Boolean(s && seededSchemaLess.current === key)
+    if (seededFor.current === key && !upgradeFromRaw) return
+    if (config && !upgradeFromRaw) {
+      // The raw fallback must always mirror the stored scope — a missing
+      // schema may never surface an empty editor over real data.
       setRawText(
         JSON.stringify(isRecord(config.scope) ? config.scope : {}, null, 2),
       )
@@ -148,6 +152,7 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
       // would re-run this and wipe raw-mode edits over a stored scope.
       if (!s) {
         seededFor.current = key
+        seededSchemaLess.current = key
         return
       }
     } else if (!s) {
@@ -156,13 +161,26 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
     seededFor.current = key
     const fields = fieldsForSchema(s)
     if (config) {
-      const stored = isRecord(config.scope) ? config.scope : {}
+      const fromRaw = (() => {
+        try {
+          return upgradeFromRaw ? JSON.parse(rawText) : undefined
+        } catch {
+          return undefined
+        }
+      })()
+      const stored = isRecord(fromRaw)
+        ? fromRaw
+        : isRecord(config.scope)
+          ? config.scope
+          : {}
+      seededSchemaLess.current = null
       const split = seedScope(stored, fields, s)
       setScopeValues({ ...defaultsFor(fields), ...split.known })
       setJsonTexts(split.jsonTexts)
       setUnknownScope(split.unknown)
       setUnknownText(split.unknownText)
     } else {
+      seededSchemaLess.current = null
       setScopeValues(defaultsFor(fields))
       setJsonTexts({})
       setUnknownScope({})
@@ -170,7 +188,7 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
       setRawText("{}")
     }
     setScopeFieldErrors({})
-  }, [config, importerName, manifest])
+  }, [config, importerName, manifest, rawText])
 
   function typedScope(): Record<string, unknown> {
     return scopeFromValues(scopeFields, scopeValues, unknownScope)

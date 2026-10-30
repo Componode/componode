@@ -174,7 +174,12 @@ export function unknownKeys(
   stored: Record<string, unknown>,
   schema: unknown,
 ): Record<string, unknown> {
-  if (!isRecord(schema) || !isRecord(schema.properties)) return {};
+  if (!isRecord(schema) || schema.type !== "object") return {};
+  if (!isRecord(schema.properties)) {
+    // No declared properties: every stored key is unrecognized — they must
+    // surface in the block, never drop silently into an empty submission.
+    return { ...stored };
+  }
   const known = new Set(Object.keys(schema.properties));
   return Object.fromEntries(Object.entries(stored).filter(([k]) => !known.has(k)));
 }

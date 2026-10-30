@@ -192,7 +192,9 @@ describe("unknownKeys", () => {
 
   it("returns {} when all keys are known or schema has no properties", () => {
     expect(unknownKeys({ org: "x" }, GITHUB)).toEqual({});
-    expect(unknownKeys({ a: 1 }, { type: "object" })).toEqual({});
+    // no declared properties → every stored key is unrecognized
+    expect(unknownKeys({ a: 1 }, { type: "object" })).toEqual({ a: 1 });
+    expect(unknownKeys({ a: 1 }, { type: "string" })).toEqual({});
   });
 });
 

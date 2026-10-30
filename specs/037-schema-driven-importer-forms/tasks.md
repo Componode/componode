@@ -70,3 +70,8 @@ correctness hardening that must ship in the same PR.
 - [x] T025 HIGH (code-review: spec) Missing-schema edit marked `seededFor` — a manifest refetch can no longer wipe raw-mode edits over a stored scope (FR-007); regression test added
 - [x] T026 MEDIUM (code-review: spec) Bare non-field paths (`repos.0`) and scoped errors while `rawMode`/`!renderable` no longer drop invisibly — unresolvable keys fall back to the section error; `label` maps to its field (FR-009)
 - [x] T027 LOW (code-review: spec+standards) Dead `json`-kind clause removed from submit validation; `docs/ux.md` §9 deferred-widgets line updated (schema-driven renderer shipped); remaining smells (mapper-rule carve-out, state clumps) documented as judgement calls — the form consumes the manifest pass-through contract by design
+
+## Phase 9: Review
+
+- [x] T028 HIGH (code-review: spec+standards) `unknownKeys` returned `{}` for properties-absent schemas — a `{type:"object"}` manifest could silently drop the whole stored scope on save; absent `properties` now means every stored key is unrecognized (renders in the block, preserved on save)
+- [x] T029 MEDIUM (code-review: spec) Schema arriving after a schema-less seed upgrades to typed fields seeded from the live raw buffer — in-progress raw edits survive instead of being overwritten by `{}`
