@@ -101,10 +101,10 @@ describe("fieldsForSchema", () => {
 });
 
 describe("schemaRenderable", () => {
-  it("is true only for object schemas with a properties object", () => {
+  it("is true for object schemas, with or without properties", () => {
     expect(schemaRenderable(GITHUB)).toBe(true);
     expect(schemaRenderable({ type: "object", properties: {} })).toBe(true);
-    expect(schemaRenderable({ type: "object" })).toBe(false);
+    expect(schemaRenderable({ type: "object" })).toBe(true);
     expect(schemaRenderable({ type: "string" })).toBe(false);
     expect(schemaRenderable(undefined)).toBe(false);
   });
@@ -156,6 +156,20 @@ describe("scopeFromValues", () => {
   it("keeps explicit empty string-lists (cleared defaults)", () => {
     const scope = scopeFromValues(fields, { org: "x", repos: [] });
     expect(scope.repos).toEqual([]);
+  });
+
+  it("drops whitespace-only string-list rows", () => {
+    const scope = scopeFromValues(fields, { org: "x", repos: ["a", " ", "b"] });
+    expect(scope.repos).toEqual(["a", "b"]);
+  });
+
+  it("maps numeric enums to the enum kind", () => {
+    const f = fieldsForSchema({
+      type: "object",
+      properties: { level: { enum: [1, 2, 3] } },
+    });
+    expect(f[0]!.kind).toBe("enum");
+    expect(f[0]!.options).toEqual([1, 2, 3]);
   });
 
   it("coerces number fields", () => {

@@ -53,3 +53,13 @@ correctness hardening that must ship in the same PR.
 - [x] T014 Unit test per FR-009 (partial): mocked `useUpdateImporterConfig` failing with `VALIDATION_FAILED` `details[]` carrying scope paths — `["scope","repos"]` and bare `["org"]` — attaches errors to the matching scope fields; `unrecognized_keys` issues attach to the Unrecognized-fields block
 - [x] T015 Reject non-object JSON in `kind:"json"` scope fields per contracts/scope-fields.md (partial): `setJsonFieldText` reports `${label} must be a valid JSON object.` when the parsed value is a scalar or array instead of passing it through to submit
 - [x] T016 Map unmatched server field errors to the Unrecognized block per FR-005a (partial): `applyServerErrors` attaches field errors whose key matches no scope field (e.g. `unrecognized_keys` names from strict schemas) to `scopeFieldErrors.__unknown` so strict-schema rejections surface where the keys live
+
+## Phase 7: Review
+
+- [x] T017 HIGH (code-review: spec) Missing `configSchema` on edit shows `"{}"` and saving wipes the stored scope — seed `rawText` from the stored scope unconditionally, and reseed typed once the schema arrives (add `manifest` to the seed effect deps; `seededFor` still guards refetch wipes)
+- [x] T018 HIGH (code-review: spec) Per-field JSON editor rejects non-object values but contract rule 7 maps nested arrays/unions to `kind:"json"` — `setJsonFieldText` must accept any valid JSON (server validates type); drop the `isRecord` gate and fix the "(JSON)"/"Key/value object" copy in `scope-fields.tsx`
+- [x] T019 MEDIUM (code-review: spec) Contract rule 4: `{type:"object"}` without `properties` must render the "no scope options" typed state (with the Edit-as-JSON toggle), not the whole-section raw fallback — relax `schemaRenderable` to require only `type:"object"`
+- [x] T020 MEDIUM (code-review: spec) FR-005 lossless round-trip: raw→typed must not resurrect deleted defaults (`setScopeValues(known)`, not `defaultsFor+known`); toggling→raw while a per-field JSON buffer is invalid must surface an error instead of silently dropping the edit
+- [x] T021 MEDIUM (code-review: spec) Unresolvable `scope.*` server error paths (e.g. `scope.a.b`) currently drop invisibly — fall back to the section-level scope error per the spec's FR-009 edge case
+- [x] T022 LOW (code-review: spec) String-list blank filter must drop whitespace-only rows; enum kind accepts numeric enums per the contract mapping table
+- [x] T023 LOW (code-review: standards) Dedupe `isRecord` (export from scope-schema) and the known/unknown+`jsonTexts` seed block shared by the seeding effect and `toggleScopeMode`; drop the redundant `as unknown` hop; constant for the `__unknown` error key

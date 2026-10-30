@@ -17,7 +17,7 @@ export interface ScopeField {
   label: string;
   kind: ScopeFieldKind;
   required: boolean;
-  options?: string[];
+  options?: (string | number)[];
   default?: unknown;
   description?: string;
 }
@@ -37,7 +37,7 @@ interface JsonSchemaObject {
   required?: string[];
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> =>
+export const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
 const ACRONYMS: Record<string, string> = {
@@ -72,8 +72,11 @@ function humanize(key: string): string {
     .join(" ");
 }
 
+const isEnumOptions = (v: unknown[]): v is (string | number)[] =>
+  v.length > 0 && v.every((o) => typeof o === "string" || typeof o === "number");
+
 function kindFor(prop: JsonSchemaProperty): ScopeFieldKind {
-  if (Array.isArray(prop.enum) && prop.enum.every((v) => typeof v === "string")) {
+  if (Array.isArray(prop.enum) && isEnumOptions(prop.enum)) {
     return "enum";
   }
   switch (prop.type) {
@@ -91,14 +94,16 @@ function kindFor(prop: JsonSchemaProperty): ScopeFieldKind {
   }
 }
 
-/** True when the schema is an object shape with a properties map. */
+/** True when the schema is an object shape — properties may be absent. */
 export function schemaRenderable(schema: unknown): boolean {
-  return isRecord(schema) && schema.type === "object" && isRecord(schema.properties);
+  return isRecord(schema) && schema.type === "object";
 }
 
 /** One descriptor per top-level property, in declaration order. */
 export function fieldsForSchema(schema: unknown): ScopeField[] {
-  if (!schemaRenderable(schema)) return [];
+  if (!isRecord(schema) || schema.type !== "object" || !isRecord(schema.properties)) {
+    return [];
+  }
   const s = schema as JsonSchemaObject;
   const required = new Set(Array.isArray(s.required) ? s.required : []);
   return Object.entries(s.properties as Record<string, JsonSchemaProperty>).map(
@@ -108,8 +113,8 @@ export function fieldsForSchema(schema: unknown): ScopeField[] {
       kind: kindFor(prop ?? {}),
       required: required.has(key),
       options:
-        Array.isArray(prop?.enum) && prop.enum.every((v) => typeof v === "string")
-          ? (prop.enum as string[])
+        Array.isArray(prop?.enum) && isEnumOptions(prop.enum)
+          ? prop.enum
           : undefined,
       default: prop?.default,
       description: typeof prop?.description === "string" ? prop.description : undefined,
@@ -153,8 +158,10 @@ export function scopeFromValues(
     }
     if (v === "" && !f.required) continue;
     if (f.kind === "string-list" && Array.isArray(v)) {
-      // blank rows are editing artifacts, not values
-      scope[f.key] = v.filter((s) => typeof s !== "string" || s !== "");
+      // blank/whitespace rows are editing artifacts, not values
+      scope[f.key] = v.filter(
+        (s) => typeof s !== "string" || s.trim() !== "",
+      );
       continue;
     }
     scope[f.key] = v;

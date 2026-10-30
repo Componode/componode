@@ -119,7 +119,9 @@ export function ScopeFields({
               </Field>
             )
           case "enum": {
-            const current = (values[field.key] as string) ?? ""
+            const options = field.options ?? []
+            const current = values[field.key]
+            const currentStr = current === undefined || current === "" ? UNSET : String(current)
             return (
               <Field key={field.key} data-invalid={invalid}>
                 <FieldLabel htmlFor={id}>
@@ -127,17 +129,22 @@ export function ScopeFields({
                   {field.required && <Required />}
                 </FieldLabel>
                 <Select
-                  value={current === "" ? UNSET : current}
-                  onValueChange={(v) => onValue(field.key, v === UNSET ? undefined : v)}
+                  value={currentStr}
+                  onValueChange={(v) =>
+                    onValue(
+                      field.key,
+                      v === UNSET ? undefined : options.find((o) => String(o) === v),
+                    )
+                  }
                 >
                   <SelectTrigger id={id} className="w-full" aria-label={field.label} aria-invalid={invalid}>
                     <SelectValue placeholder="Select…" />
                   </SelectTrigger>
                   <SelectContent>
                     {!field.required && <SelectItem value={UNSET}>Not set</SelectItem>}
-                    {(field.options ?? []).map((opt) => (
-                      <SelectItem key={opt} value={opt}>
-                        {opt}
+                    {options.map((opt) => (
+                      <SelectItem key={String(opt)} value={String(opt)}>
+                        {String(opt)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -178,7 +185,7 @@ export function ScopeFields({
                   <FieldError>{error}</FieldError>
                 ) : (
                   <FieldDescription>
-                    Key/value object — this field has no dedicated editor yet.
+                    This field has no dedicated editor — edited as JSON.
                   </FieldDescription>
                 )}
               </Field>

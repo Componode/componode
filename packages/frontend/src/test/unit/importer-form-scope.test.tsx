@@ -68,7 +68,7 @@ const WEB_URL = {
 
 const manifests = [GITHUB, KUBERNETES, WEB_URL];
 
-const renderForm = (props: Record<string, unknown> = {}, ms = manifests) =>
+const renderForm = (props: Record<string, unknown> = {}, ms: unknown[] = manifests) =>
   render(
     <MemoryRouter>
       <TooltipProvider>
@@ -215,13 +215,15 @@ describe("ImporterForm — schema-driven scope fields (G13)", () => {
     submit();
     expect(createMutate).not.toHaveBeenCalled();
     expect(screen.getByText(/environment mapping.*valid json/i)).toBeTruthy();
-    // non-object JSON (scalar/array) is also rejected — record fields need objects
+    // non-object JSON is accepted — the editor owns syntax only; the
+    // server validates the value's type (contract: per-field JSON fallback)
     fireEvent.change(document.getElementById("i-scope-environmentMapping")!, {
-      target: { value: "5" },
+      target: { value: '["a","b"]' },
     });
+    expect(screen.queryByText(/environment mapping.*valid json/i)).toBeNull();
     submit();
-    expect(createMutate).not.toHaveBeenCalled();
-    expect(screen.getByText(/environment mapping.*valid json object/i)).toBeTruthy();
+    const payload = createMutate.mock.calls[0]![0] as { scope: Record<string, unknown> };
+    expect(payload.scope.environmentMapping).toEqual(["a", "b"]);
   });
 
   it("Edit as JSON round-trips values both directions", () => {
@@ -356,6 +358,55 @@ describe("ImporterForm — schema-driven scope fields (G13)", () => {
     renderForm({ config });
     submit();
     expect(screen.getByText(/server rejected scope keys: legacyKey/i)).toBeTruthy();
+  });
+
+  it("missing configSchema on edit falls back to raw mode showing the stored scope — saving never wipes it", () => {
+    const config = {
+      id: "c1",
+      importerName: "ghost",
+      label: "Ghost",
+      scope: { token: "abc", nested: { a: 1 } },
+      secretRefs: [],
+      credentialIds: [],
+      schedule: null,
+      enabled: true,
+      agentId: null,
+      secretRefsDeprecated: false,
+      agentIncompatible: false,
+    };
+    renderForm({ config });
+    const raw = document.getElementById("i-scope-json") as HTMLTextAreaElement;
+    expect(raw).toBeTruthy();
+    expect(JSON.parse(raw.value)).toEqual({ token: "abc", nested: { a: 1 } });
+    submit();
+    const payload = updateMutate.mock.calls[0]![0] as { scope: Record<string, unknown> };
+    expect(payload.scope).toEqual({ token: "abc", nested: { a: 1 } });
+  });
+
+  it("object schema without properties renders the 'no scope options' state with the JSON toggle", () => {
+    const rec = {
+      name: "rec",
+      label: "Rec",
+      description: "Record-typed",
+      configSchema: { type: "object" },
+    };
+    renderForm({}, [rec]);
+    expect(screen.getByText(/no configurable scope options/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /edit as json/i })).toBeTruthy();
+  });
+
+  it("raw→typed does not resurrect deleted defaults", () => {
+    renderForm();
+    fireEvent.click(screen.getByRole("button", { name: /edit as json/i }));
+    const raw = document.getElementById("i-scope-json") as HTMLTextAreaElement;
+    // user deletes includeForks entirely
+    fireEvent.change(raw, { target: { value: '{"org": "acme"}' } });
+    fireEvent.click(screen.getByRole("button", { name: /edit fields/i }));
+    fillLabel();
+    submit();
+    const payload = createMutate.mock.calls[0]![0] as { scope: Record<string, unknown> };
+    expect(payload.scope.org).toBe("acme");
+    expect("includeForks" in payload.scope).toBe(false);
   });
 
   it("a manifest refetch mid-edit does not wipe entered values", () => {

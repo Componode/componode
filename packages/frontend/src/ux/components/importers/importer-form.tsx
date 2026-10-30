@@ -26,6 +26,8 @@ import {
   scopeFromValues,
   unknownKeys,
   schemaRenderable,
+  isRecord,
+  type ScopeField,
 } from "./scope-schema"
 
 const NONE = "__none__"
@@ -52,8 +54,33 @@ interface Errors {
   scope?: string
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v)
+const UNKNOWN_FIELD = "__unknown"
+
+// Split a stored/parsed scope into schema-known values, unknown keys,
+// rendered JSON text, and the unrecognized-fields buffer — shared by the
+// seeding effect and the raw→typed toggle.
+function seedScope(
+  stored: Record<string, unknown>,
+  fields: ScopeField[],
+  schema: unknown,
+) {
+  const unknown = unknownKeys(stored, schema)
+  const known = Object.fromEntries(
+    Object.entries(stored).filter(([k]) => !(k in unknown)),
+  )
+  return {
+    known,
+    unknown,
+    unknownText: Object.keys(unknown).length
+      ? JSON.stringify(unknown, null, 2)
+      : "",
+    jsonTexts: Object.fromEntries(
+      fields
+        .filter((f) => f.kind === "json" && stored[f.key] !== undefined)
+        .map((f) => [f.key, JSON.stringify(stored[f.key], null, 2)]),
+    ),
+  }
+}
 
 interface ImporterFormProps {
   config?: ImporterConfig
@@ -110,26 +137,24 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
     const m = manifestsRef.current.find((x) => x.name === importerName)
     const s = m?.configSchema
     const key = `${config?.id ?? "new"}:${importerName}`
-    if (!s || seededFor.current === key) return
+    if (seededFor.current === key) return
+    // The raw fallback must always mirror the stored scope — a missing
+    // schema may never surface an empty editor over real data.
+    if (config) {
+      setRawText(
+        JSON.stringify(isRecord(config.scope) ? config.scope : {}, null, 2),
+      )
+    }
+    if (!s) return
     seededFor.current = key
     const fields = fieldsForSchema(s)
     if (config) {
       const stored = isRecord(config.scope) ? config.scope : {}
-      const unknown = unknownKeys(stored, s)
-      const known = Object.fromEntries(
-        Object.entries(stored).filter(([k]) => !(k in unknown)),
-      )
-      setScopeValues({ ...defaultsFor(fields), ...known })
-      setJsonTexts(
-        Object.fromEntries(
-          fields
-            .filter((f) => f.kind === "json" && stored[f.key] !== undefined)
-            .map((f) => [f.key, JSON.stringify(stored[f.key], null, 2)]),
-        ),
-      )
-      setUnknownScope(unknown)
-      setUnknownText(Object.keys(unknown).length ? JSON.stringify(unknown, null, 2) : "")
-      setRawText(JSON.stringify(stored, null, 2))
+      const split = seedScope(stored, fields, s)
+      setScopeValues({ ...defaultsFor(fields), ...split.known })
+      setJsonTexts(split.jsonTexts)
+      setUnknownScope(split.unknown)
+      setUnknownText(split.unknownText)
     } else {
       setScopeValues(defaultsFor(fields))
       setJsonTexts({})
@@ -138,7 +163,7 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
       setRawText("{}")
     }
     setScopeFieldErrors({})
-  }, [config, importerName])
+  }, [config, importerName, manifest])
 
   function typedScope(): Record<string, unknown> {
     return scopeFromValues(scopeFields, scopeValues, unknownScope)
@@ -162,13 +187,13 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
       return
     }
     try {
-      const parsed = JSON.parse(text)
-      if (!isRecord(parsed)) throw new Error("not-object")
-      setScopeValue(key, parsed)
+      // Any valid JSON is accepted — the server validates the value's
+      // type; the editor only owns syntax (contract rule: JSON fallback).
+      setScopeValue(key, JSON.parse(text))
     } catch {
       setScopeFieldErrors((prev) => ({
         ...prev,
-        [key]: `${label} must be a valid JSON object.`,
+        [key]: `${label} must be valid JSON.`,
       }))
     }
   }
@@ -179,7 +204,7 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
       setUnknownScope({})
       setScopeFieldErrors((prev) => {
         const next = { ...prev }
-        delete next.__unknown
+        delete next[UNKNOWN_FIELD]
         return next
       })
       return
@@ -190,19 +215,38 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
       setUnknownScope(parsed)
       setScopeFieldErrors((prev) => {
         const next = { ...prev }
-        delete next.__unknown
+        delete next[UNKNOWN_FIELD]
         return next
       })
     } catch {
       setScopeFieldErrors((prev) => ({
         ...prev,
-        __unknown: "Unrecognized fields must be a valid JSON object.",
+        [UNKNOWN_FIELD]: "Unrecognized fields must be a valid JSON object.",
       }))
     }
   }
 
   function toggleScopeMode() {
     if (!rawMode) {
+      // Invalid per-field JSON can't be represented in scopeValues —
+      // switching would silently drop the edit, so block instead.
+      const badJson = scopeFields.some((f) => {
+        const t = jsonTexts[f.key]
+        if (f.kind !== "json" || !t?.trim()) return false
+        try {
+          JSON.parse(t)
+          return false
+        } catch {
+          return true
+        }
+      })
+      if (badJson) {
+        setErrors((prev) => ({
+          ...prev,
+          scope: "Fix the invalid JSON fields before editing as JSON.",
+        }))
+        return
+      }
       setRawText(JSON.stringify(typedScope(), null, 2))
       setRawMode(true)
       setErrors((prev) => ({ ...prev, scope: undefined }))
@@ -211,20 +255,13 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
     try {
       const parsed = JSON.parse(rawText || "{}")
       if (!isRecord(parsed)) throw new Error("not-object")
-      const unknown = unknownKeys(parsed, schema)
-      const known = Object.fromEntries(
-        Object.entries(parsed).filter(([k]) => !(k in unknown)),
-      )
-      setScopeValues({ ...defaultsFor(scopeFields), ...known })
-      setJsonTexts(
-        Object.fromEntries(
-          scopeFields
-            .filter((f) => f.kind === "json" && known[f.key] !== undefined)
-            .map((f) => [f.key, JSON.stringify(known[f.key], null, 2)]),
-        ),
-      )
-      setUnknownScope(unknown)
-      setUnknownText(Object.keys(unknown).length ? JSON.stringify(unknown, null, 2) : "")
+      const split = seedScope(parsed, scopeFields, schema)
+      // Exactly what raw mode held: absent keys stay absent — deleted
+      // defaults must not resurrect on the way back.
+      setScopeValues(split.known)
+      setJsonTexts(split.jsonTexts)
+      setUnknownScope(split.unknown)
+      setUnknownText(split.unknownText)
       setScopeFieldErrors({})
       setRawMode(false)
       setErrors((prev) => ({ ...prev, scope: undefined }))
@@ -234,18 +271,28 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
   }
 
   function applyServerErrors(err: unknown) {
-    const fe = fieldErrors(err as unknown as ApiError)
+    const fe = fieldErrors(err as ApiError)
     // Scope validation issues arrive either as ["scope", key] paths or as
     // bare scope-key paths ([key]) from validateScopeForImporter — both
-    // attach to the matching field.
+    // attach to the matching field. Paths that resolve to no field fall
+    // back to the section-level error instead of going invisible.
     const known = new Set(scopeFields.map((f) => f.key))
-    const scoped = Object.entries(fe).flatMap(([k, v]) => {
-      if (k.startsWith("scope.")) return [[k.slice("scope.".length), v] as const]
-      if (known.has(k)) return [[k, v] as const]
-      return []
-    })
+    const scoped: [string, string][] = []
+    const unresolvable: string[] = []
+    for (const [k, v] of Object.entries(fe)) {
+      if (k.startsWith("scope.")) {
+        const fieldKey = k.slice("scope.".length)
+        if (known.has(fieldKey)) scoped.push([fieldKey, v])
+        else unresolvable.push(`${fieldKey}: ${v}`)
+      } else if (known.has(k)) {
+        scoped.push([k, v])
+      }
+    }
     if (scoped.length) {
       setScopeFieldErrors((prev) => ({ ...prev, ...Object.fromEntries(scoped) }))
+    }
+    if (unresolvable.length) {
+      setErrors((prev) => ({ ...prev, scope: unresolvable.join("; ") }))
     }
     // Strict-schema unrecognized_keys issues name keys that live in the
     // Unrecognized-fields block — surface them there, not on a toast only.
@@ -257,7 +304,7 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
       if (unknownNames.length) {
         setScopeFieldErrors((prev) => ({
           ...prev,
-          __unknown: `Server rejected scope keys: ${unknownNames.join(", ")}`,
+          [UNKNOWN_FIELD]: `Server rejected scope keys: ${unknownNames.join(", ")}`,
         }))
       }
     }
@@ -525,7 +572,7 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
                 onValue={setScopeValue}
                 onJsonText={setJsonFieldText}
                 unknownText={unknownText}
-                unknownError={scopeFieldErrors.__unknown}
+                unknownError={scopeFieldErrors[UNKNOWN_FIELD]}
                 onUnknownText={setUnknownJson}
               />
               {errors.scope && <FieldError>{errors.scope}</FieldError>}
