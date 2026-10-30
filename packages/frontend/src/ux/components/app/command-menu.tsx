@@ -17,6 +17,7 @@ import {
   CommandShortcut,
 } from "@/ux/components/ui/command"
 import { canAccess, NAV_SECTIONS } from "@/ux/lib/nav"
+import type { Provider } from "@/ux/lib/domain"
 import { ux } from "@/ux/lib/paths"
 
 const CommandMenuContext = React.createContext<{ open: boolean; setOpen: (v: boolean) => void } | null>(null)
@@ -87,7 +88,7 @@ function CommandMenu({ open, setOpen }: { open: boolean; setOpen: (v: boolean) =
               <CommandGroup heading="Components">
                 {hits.components.map((c) => (
                   <CommandItem key={c.id} value={`component ${c.name}`} onSelect={() => go(`/components/${c.slug ?? c.id}`)}>
-                    {(c as { provider?: string }).provider ? <ProviderMark provider={(c as { provider?: string }).provider as never} size="sm" /> : null}
+                    {"provider" in c && c.provider ? <ProviderMark provider={c.provider as Provider} size="sm" /> : null}
                     <span className="truncate font-mono text-xs">{c.name}</span>
                   </CommandItem>
                 ))}

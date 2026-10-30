@@ -51,3 +51,9 @@ recorded as open decisions so they cannot silently drift back in.
 dashboard, stub `products.tsx`); conformance happens per-feature through the
 spec-kit workflow, not a big-bang refactor. `docs/ux.md` §11 lists the open
 decisions; each graduates to its own ADR or spec before implementation.
+
+---
+
+**Amended by ADR-118**: the "no in-app graph canvas" boundary on the product
+Map is relaxed — a read-only relations canvas is ratified. Interactive graph
+authoring remains out of scope (gap G31, needs its own ADR/spec).

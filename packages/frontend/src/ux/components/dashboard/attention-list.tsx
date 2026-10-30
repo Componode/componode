@@ -14,7 +14,7 @@ export function AttentionList({ items }: { items: AttentionEntry[] }) {
     <Card>
       <CardHeader>
         <CardTitle>Needs attention</CardTitle>
-        <CardDescription>Failures, expiring secrets and overdue sunsets.</CardDescription>
+        <CardDescription>{flags.credentialExpiring ? "Failures, expiring secrets and overdue sunsets." : "Failures and overdue sunsets."}</CardDescription>
         <CardAction>
           <Badge variant="secondary" className="tabular">
             {items.length}

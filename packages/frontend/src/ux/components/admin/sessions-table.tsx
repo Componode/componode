@@ -12,7 +12,7 @@ import { useRevokeSession } from "@/api/hooks/sessions"
 import { flags } from "@/ux/lib/flags"
 import type { Session } from "@/ux/lib/view-types"
 
-export function SessionsTable({ data }: { data: Session[] }) {
+export function SessionsTable({ data, showOwner = true }: { data: Session[]; showOwner?: boolean }) {
   const revokeSession = useRevokeSession()
   const revoke = (s: Session) =>
     revokeSession.mutate(s.id, {
@@ -33,7 +33,7 @@ export function SessionsTable({ data }: { data: Session[] }) {
           <TableRow className="bg-muted/40 hover:bg-muted/40">
             {flags.sessionDevice && <TableHead className="pl-4">Device</TableHead>}
             {!flags.sessionDevice && <TableHead className="pl-4">Session</TableHead>}
-            {flags.sessionOwner && <TableHead>User</TableHead>}
+            {flags.sessionOwner && showOwner && <TableHead>User</TableHead>}
             {flags.sessionLocation && <TableHead>Location</TableHead>}
             <TableHead>Last seen</TableHead>
             <TableHead>Expires</TableHead>
@@ -56,7 +56,7 @@ export function SessionsTable({ data }: { data: Session[] }) {
                   {flags.sessionCurrent && s.current && <StatusBadge tone="brand" label="This device" />}
                 </div>
               </TableCell>
-              {flags.sessionOwner && <TableCell className="text-sm">{s.displayName}</TableCell>}
+              {flags.sessionOwner && showOwner && <TableCell className="text-sm">{s.displayName}</TableCell>}
               {flags.sessionLocation && <TableCell className="text-sm text-muted-foreground">{s.location}</TableCell>}
               <TableCell className="text-sm text-muted-foreground">
                 <RelativeTime iso={s.lastSeenAt} />

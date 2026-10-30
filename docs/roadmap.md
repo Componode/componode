@@ -177,9 +177,20 @@ file tracks shipped and upcoming work — update it when a spec completes.
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and
 the gap specs `030`–`034` + `037` (G14, G1, G2, G7/G8/G9/G11, G12, G13)
-are shipped on `release/1.1.0`. The UX-rewrite gap program is complete:
-G20 resolves client-side without a spec; G15–G19 are deferred
-unscheduled (see the registry's spec-queue block):
+are shipped on `release/1.1.0`. The gap program continues past 038 —
+conformance registered G21–G32 and queued two grouped specs after `037`
+(see `researches/ux-rewrite-gaps.md` spec-queue block):
+
+- `0NN` — list enrichment (G21 component instances/lastSeen + importer
+  lastRun; G22 team member counts)
+- `0NN` — dashboard intelligence (G23 stat deltas; G24 attention detail +
+  `CREDENTIAL_EXPIRING`; G25 agent enrolled-by)
+- G29 manual entity creation, G31 edge-authoring UI, G32 suggestions
+  decided-history — feature specs
+- G20 resolves client-side without a spec; G15–G19, G26–G28, G30 are
+  deferred unscheduled
+
+Beyond the gap queue:
 
 - Runtime-loaded importer plugins
 - Invite-based registration
@@ -189,5 +200,6 @@ unscheduled (see the registry's spec-queue block):
 - Remaining providers
 - Range filters (multi-value enum filters shipped in 015)
 
-Deferred UI work includes the product-graph canvas and custom importer-form
-widgets (`docs/ux.md` §11).
+Deferred UI work includes interactive graph authoring (the read-only
+canvas shipped in 038 under ADR-118) and custom importer-form widgets
+(`docs/ux.md` §9).

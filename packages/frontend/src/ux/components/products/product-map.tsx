@@ -2,7 +2,7 @@
 import { Link } from "react-router-dom"
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { ProviderMark } from "@/ux/components/patterns/provider-mark"
-import { CriticalityBadge, ProductTypeBadge } from "@/ux/components/patterns/status-badge"
+import { CriticalityBadge, ProductTypeBadge, TONE_DOT } from "@/ux/components/patterns/status-badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
 import { HEALTH_META, type InstanceStatus } from "@/ux/lib/domain"
 import type { Criticality } from "@/ux/lib/domain"
@@ -16,14 +16,6 @@ type DrawnEdge = Edge & { d: string }
 
 const UNGROUPED = "Ungrouped"
 
-const TONE_DOT: Record<import("@/ux/lib/domain").Tone, string> = {
-  success: "bg-success",
-  warning: "bg-warning",
-  destructive: "bg-destructive",
-  neutral: "bg-muted-foreground",
-  info: "bg-info",
-  brand: "bg-primary",
-}
 const DOT: Record<InstanceStatus, string> = Object.fromEntries(
   (Object.keys(HEALTH_META) as InstanceStatus[]).map((s) => [s, TONE_DOT[HEALTH_META[s].tone]]),
 ) as Record<InstanceStatus, string>

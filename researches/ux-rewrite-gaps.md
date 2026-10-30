@@ -72,7 +72,8 @@ own feature specs, not backend gap specs.
   `updateSelfSchema` (`displayName` + `email` only — privileged keys
   rejected, not stripped), routed through `updateUser` for identical
   audit attribution. The profile page uses the self path for all roles;
-  `profileSelfEdit` is ON and the read-only fallback removed.
+  the `profileSelfEdit` flag was removed in spec 038 (resolved, zero
+  consumers) and the read-only fallback is gone.
 
 ## G15 — Notification delivery & preferences — DEFERRED (unscheduled)
 

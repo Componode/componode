@@ -54,14 +54,13 @@ const router = createBrowserRouter(routes);
 
 interface ErrorBoundaryState {
   hasError: boolean;
-  message: string | null;
 }
 
 class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false, message: null };
+  state: ErrorBoundaryState = { hasError: false };
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, message: error.message };
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
@@ -69,7 +68,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
   }
 
   handleRetry = (): void => {
-    this.setState({ hasError: false, message: null });
+    this.setState({ hasError: false });
     window.location.reload();
   };
 

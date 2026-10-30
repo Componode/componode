@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type {
   ComponentWithInstances,
-  ComponentGroup,
   ComponentListResponse,
   ComponentDependent,
   PlatformCandidate,
@@ -68,13 +67,6 @@ export function useAllComponents(
         if (!res.pagination?.hasNext) return all;
       }
     },
-  });
-}
-
-export function useComponentGroups() {
-  return useQuery({
-    queryKey: ["component-groups"],
-    queryFn: () => api<{ groups: ComponentGroup[] }>("/component-groups"),
   });
 }
 

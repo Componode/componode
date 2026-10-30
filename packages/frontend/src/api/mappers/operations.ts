@@ -86,6 +86,7 @@ export function runDurationSec(
 export function mapImporterConfig(
   c: ApiImporterConfig,
   credentials: Pick<Credential, "id" | "label">[],
+  lastRun?: { status: string | null; completedAt: string | null; assetsProcessed: number } | null,
 ): ImporterConfig {
   const credential = credentials.find((cr) => c.credentialIds.includes(cr.id));
   return {
@@ -99,7 +100,14 @@ export function mapImporterConfig(
     agent: c.agent ? { id: c.agent.id, name: c.agent.name } : null,
     agentIncompatible: c.agentIncompatible,
     secretRefsDeprecated: c.secretRefsDeprecated,
-    lastRun: null,
+    lastRun: lastRun?.status
+      ? {
+          status: narrowOrRaw<RunStatus>(lastRun.status, RUN_STATUSES),
+          at: lastRun.completedAt ?? "",
+          processed: lastRun.assetsProcessed,
+          durationSec: 0,
+        }
+      : null,
     history: [],
   };
 }
@@ -226,7 +234,7 @@ export function mapRunError(e: ImportRunError): RunError {
 }
 
 export function mapCredentialStatus(status: string | null | undefined): CredentialStatus {
-  return status == null ? "ACTIVE" : narrowOrRaw<CredentialStatus>(status, ["ACTIVE", "REVOKED"]);
+  return narrowOrRaw<CredentialStatus>(status, ["ACTIVE", "REVOKED"]);
 }
 
 const ROLES: readonly string[] = ["VIEWER", "EDITOR", "ADMIN"];

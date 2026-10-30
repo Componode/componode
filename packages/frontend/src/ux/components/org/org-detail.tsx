@@ -10,19 +10,20 @@ import { EmptyState } from "@/ux/components/patterns/states";
 import { Button } from "@/ux/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table";
+import { CATEGORY_LABELS } from "@/ux/lib/domain";
+import { flags } from "@/ux/lib/flags";
 import { ux } from "@/ux/lib/paths";
 import type { OrgEntity } from "@/api/types";
 import type { Component, Product } from "@/ux/lib/view-types";
 
 interface OwnedTableProps {
-  rows: { id: string; slug: string; name: string; meta?: ReactNode; right?: ReactNode }[];
+  columns: ReactNode[];
+  rows: ReactNode[][];
   noun: string;
-  hrefBase: string;
   empty: string;
-  metaLabel?: string;
 }
 
-function OwnedTable({ rows, noun, hrefBase, empty, metaLabel = "Lifecycle" }: OwnedTableProps) {
+function OwnedTable({ columns, rows, noun, empty }: OwnedTableProps) {
   if (rows.length === 0) {
     return <EmptyState icon={UsersIcon} title={`No owned ${noun}`} description={empty} />;
   }
@@ -30,21 +31,24 @@ function OwnedTable({ rows, noun, hrefBase, empty, metaLabel = "Lifecycle" }: Ow
     <Table>
       <TableHeader>
         <TableRow className="bg-muted/40 hover:bg-muted/40">
-          <TableHead className="pl-4 capitalize">{noun.slice(0, -1)}</TableHead>
-          <TableHead>{metaLabel}</TableHead>
-          <TableHead className="pr-4 text-right">—</TableHead>
+          {columns.map((c, i) => (
+            <TableHead key={i} className={i === 0 ? "pl-4" : i === columns.length - 1 ? "pr-4 text-right" : undefined}>
+              {c}
+            </TableHead>
+          ))}
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((r) => (
-          <TableRow key={r.id}>
-            <TableCell className="pl-4">
-              <Link to={ux(`${hrefBase}/${r.slug}`)} className="font-medium hover:underline">
-                {r.name}
-              </Link>
-            </TableCell>
-            <TableCell>{r.meta}</TableCell>
-            <TableCell className="tabular pr-4 text-right text-sm text-muted-foreground">{r.right}</TableCell>
+        {rows.map((cells, ri) => (
+          <TableRow key={ri}>
+            {cells.map((cell, ci) => (
+              <TableCell
+                key={ci}
+                className={ci === 0 ? "pl-4" : ci === cells.length - 1 ? "tabular pr-4 text-right text-sm text-muted-foreground" : undefined}
+              >
+                {cell}
+              </TableCell>
+            ))}
           </TableRow>
         ))}
       </TableBody>
@@ -135,15 +139,19 @@ export function OrgDetail({
               </CardHeader>
               <OwnedTable
                 noun="teams"
-                hrefBase="/teams"
                 empty="Assign a team's line of business to see it here."
-                metaLabel="Slug"
-                rows={associatedTeams.map((t) => ({
-                  id: t.id,
-                  slug: t.slug,
-                  name: t.name,
-                  meta: <code className="font-mono text-xs text-muted-foreground">{t.slug}</code>,
-                }))}
+                columns={[
+                  "Team",
+                  ...(flags.teamMemberCounts ? ["Members", "Components"] : []),
+                ]}
+                rows={associatedTeams.map((t) => [
+                  <Link to={ux(`/teams/${t.slug}`)} className="font-medium hover:underline">
+                    {t.name}
+                  </Link>,
+                  ...(flags.teamMemberCounts
+                    ? [(t as { memberCount?: number }).memberCount ?? "—", (t as { componentCount?: number }).componentCount ?? "—"]
+                    : []),
+                ])}
               />
             </Card>
           )}
@@ -155,15 +163,15 @@ export function OrgDetail({
             </CardHeader>
             <OwnedTable
               noun="products"
-              hrefBase="/products"
               empty="Assign this owner on a product to see it here."
-              rows={ownedProducts.map((p) => ({
-                id: p.id,
-                slug: p.slug,
-                name: p.name,
-                meta: <LifecycleBadge value={p.lifecycle} />,
-                right: p.componentCount,
-              }))}
+              columns={["Product", "Owning team", "Lifecycle"]}
+              rows={ownedProducts.map((p) => [
+                <Link to={ux(`/products/${p.slug}`)} className="font-medium hover:underline">
+                  {p.name}
+                </Link>,
+                <span className="text-sm text-muted-foreground">{p.teamOwnerName ?? "—"}</span>,
+                <LifecycleBadge value={p.lifecycle} />,
+              ])}
             />
           </Card>
 
@@ -174,15 +182,15 @@ export function OrgDetail({
             </CardHeader>
             <OwnedTable
               noun="components"
-              hrefBase="/components"
               empty="Components owned here appear once assigned."
-              rows={ownedComponents.map((c) => ({
-                id: c.id,
-                slug: c.slug,
-                name: c.name,
-                meta: <LifecycleBadge value={c.lifecycle} />,
-                right: c.instanceCount,
-              }))}
+              columns={["Component", "Category", "Instances"]}
+              rows={ownedComponents.map((c) => [
+                <Link to={ux(`/components/${c.slug}`)} className="font-medium hover:underline">
+                  {c.name}
+                </Link>,
+                <span className="text-sm text-muted-foreground">{CATEGORY_LABELS[c.category] ?? c.category}</span>,
+                c.instanceCount ?? "—",
+              ])}
             />
           </Card>
         </div>

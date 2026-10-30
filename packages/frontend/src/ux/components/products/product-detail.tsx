@@ -1,5 +1,5 @@
 import { safeUrl } from "@/ux/lib/safe-url";
-import { ExternalLinkIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, SparklesIcon, TrashIcon } from "lucide-react"
+import { ExternalLinkIcon, MoreHorizontalIcon, PencilIcon, SparklesIcon, TrashIcon } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { useAcceptSuggestion } from "@/api/hooks/suggestions"
@@ -14,7 +14,7 @@ import { ProductMap } from "@/ux/components/products/product-map"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Badge } from "@/ux/components/ui/badge"
 import { Button } from "@/ux/components/ui/button"
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -182,11 +182,6 @@ export function ProductDetail({ product, components, consumers, relations, sugge
           <Card>
             <CardHeader>
               <CardTitle>Links</CardTitle>
-              <CardAction>
-                <Button variant="ghost" size="icon-sm" aria-label="Add link">
-                  <PlusIcon />
-                </Button>
-              </CardAction>
             </CardHeader>
             <CardContent>
               {product.links.length ? (

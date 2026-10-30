@@ -129,3 +129,29 @@
 ## Implementation Strategy
 
 MVP = Phase 3 alone (defect batch). Then restorations, canvas+ADR, governance. Commit per task group with `git commit -F <file>` per the Windows rule.
+
+---
+
+## Phase 8: Convergence
+
+- [x] T049 Consume or remove the three orphaned flags `credentialExpiring`, `detailGoneInstances`, `suggestionsHistory` — every flag key needs ≥1 consumption site per SC-006/US4-AC1 (missing)
+- [x] T050 Append `---` + `**Amended by ADR-118**:` back-pointer to `researches/adrs/ADR-103-*.md` per FR-026 and the ADR-fidelity rule (missing)
+- [x] T051 Write regression tests for T008 (users-table "Send password reset" calls `useResetPassword`) and T009 (LOB delete `blockedReason` counts teams + products) per SC-004 (missing)
+- [x] T052 Render `CATEGORY_LABELS[c.category] ?? c.category` in the group members table at `packages/frontend/src/ux/app/component-groups/$slug.tsx:220` per FR-015 (partial)
+
+---
+
+## Phase 9: Review (code-review findings vs `main`)
+
+- [x] T053 Delete the dead "Add link" ghost button in `product-detail.tsx` Links CardAction — fake control, no flag (Standards / FR-020 class)
+- [x] T054 Add a RETIRED opt-in control on `component-groups/index.tsx` consistent with the components-list pattern — `includeRetired` must not be hardcoded `true` (FR-005 partial)
+- [x] T055 Fix `mapCredentialStatus(null)` in `mappers/operations.ts:228` to return a neutral fallback instead of `"ACTIVE"` (FR-013 partial)
+- [x] T056 Delete the dead `useComponentGroups` export in `api/hooks/components.ts:73` (duplicated by `component-groups.ts`; zero callers) (partial)
+- [x] T057 Conform `OrgDetail` owned tables to v0 column sets: LOB teams `Team | Members | Components` (counts flag-gated `teamMemberCounts`), products `Product | Owning team | Lifecycle`, components `Component | Category | Instances` (FR-015 partial)
+- [x] T058 Surface `agentIncompatible` degraded state on the importer-detail Executor `DescriptionList` row, not only the top Alert (FR-019 partial)
+- [x] T059 Hide the redundant "User" column on the self-scoped sessions page (edge case — conform to prototype)
+- [x] T060 Revise `docs/roadmap.md` Next entry — G21–G25 queued specs (list enrichment, dashboard intelligence) are not "the UX-rewrite gap program is complete" (FR-031 partial)
+- [x] T061 Make feed summaries human sentences for known actions, not formatted change-key joins, in `mappers/dashboard.ts:85-101` (FR-009 partial)
+- [x] T062 Fix stale G14 registry text claiming `profileSelfEdit` is ON (flag removed) in `researches/ux-rewrite-gaps.md` (unrequested drift)
+- [x] T063 Clean small smells: dead `ErrorBoundaryState.message` field, `TONE_DOT` duplication in product-map, redundant `as` casts (`agent-detail.tsx:104`, `command-menu.tsx:81,90`, `importers/index.tsx:48`) (partial)
+- [x] T064 Add regression tests for FR-003 (`replaced` badge meta coverage), FR-009 sentence shape, FR-013 null-credential neutral fallback in the frontend suite (SC-004 partial)

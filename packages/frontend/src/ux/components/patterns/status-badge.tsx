@@ -31,7 +31,7 @@ const metaOr = <T extends { label: string; description: string; tone: Tone }>(
   value: string,
 ): T => table[value] ?? ({ label: value, description: "Unrecognized status reported by the API", tone: "neutral" } as T)
 
-const DOT: Record<Tone, string> = {
+export const TONE_DOT: Record<Tone, string> = {
   neutral: "bg-muted-foreground/60",
   success: "bg-success",
   warning: "bg-warning",
@@ -56,8 +56,8 @@ export function StatusBadge({ tone, label, description, pulse, className }: Stat
   const badge = (
     <Badge variant="outline" className={cn("gap-1.5 font-medium text-foreground/90", className)}>
       <span className="relative flex size-1.5" aria-hidden="true">
-        {pulse && <span className={cn("absolute inline-flex size-full animate-ping rounded-full opacity-60", DOT[tone])} />}
-        <span className={cn("relative inline-flex size-1.5 rounded-full", DOT[tone])} />
+        {pulse && <span className={cn("absolute inline-flex size-full animate-ping rounded-full opacity-60", TONE_DOT[tone])} />}
+        <span className={cn("relative inline-flex size-1.5 rounded-full", TONE_DOT[tone])} />
       </span>
       {label}
     </Badge>

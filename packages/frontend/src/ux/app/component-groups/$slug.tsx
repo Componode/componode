@@ -21,6 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table";
 import { errorMessage, isForbidden, isNotFound } from "@/ux/lib/api-state";
+import { CATEGORY_LABELS } from "@/ux/lib/domain";
 import { ux } from "@/ux/lib/paths";
 
 export function UxComponentGroupDetailPage() {
@@ -217,7 +218,7 @@ export function UxComponentGroupDetailPage() {
                         {c.name}
                       </Link>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{c.category}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{CATEGORY_LABELS[c.category] ?? c.category}</TableCell>
                     <TableCell className="tabular pr-4 text-right">{c.instanceCount}</TableCell>
                   </TableRow>
                 ))}

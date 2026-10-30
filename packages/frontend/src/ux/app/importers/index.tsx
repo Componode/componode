@@ -12,7 +12,6 @@ import { Button } from "@/ux/components/ui/button";
 import { Card } from "@/ux/components/ui/card";
 import { errorMessage } from "@/ux/lib/api-state";
 import { ux } from "@/ux/lib/paths";
-import type { RunStatus } from "@/ux/lib/domain";
 
 export function UxImportersPage() {
   const configs = useImporterConfigs();
@@ -40,19 +39,9 @@ export function UxImportersPage() {
   }
 
   const lastRunByConfig = new Map((summary.data?.lastRuns ?? []).map((r) => [r.configId, r]));
-  const items = (configs.data?.configs ?? []).map((c) => {
-    const view = mapImporterConfig(c, credentials.data?.credentials ?? []);
-    const last = lastRunByConfig.get(c.id);
-    if (last?.status) {
-      view.lastRun = {
-        status: last.status as RunStatus,
-        at: last.completedAt ?? "",
-        processed: last.assetsProcessed,
-        durationSec: 0,
-      };
-    }
-    return view;
-  });
+  const items = (configs.data?.configs ?? []).map((c) =>
+    mapImporterConfig(c, credentials.data?.credentials ?? [], lastRunByConfig.get(c.id)),
+  );
 
   return (
     <PageContainer>

@@ -573,10 +573,10 @@ describe("mapCredential", () => {
 });
 
 describe("mapCredentialStatus", () => {
-  it("passes through known statuses, keeps unknowns raw, defaults null to ACTIVE", () => {
+  it("passes through known statuses, keeps unknowns raw, maps null to a neutral fallback", () => {
     expect(mapCredentialStatus("REVOKED")).toBe("REVOKED");
     expect(mapCredentialStatus("WEIRD")).toBe("WEIRD");
-    expect(mapCredentialStatus(null)).toBe("ACTIVE");
+    expect(mapCredentialStatus(null)).toBe("unknown");
   });
 });
 

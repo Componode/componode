@@ -87,8 +87,8 @@ export function mapActivityItem(item: ActivityFeedItem): AuditEvent {
         .map(([k, v]) => {
           const diff = v as { from?: unknown; to?: unknown } | null;
           return diff && typeof diff === "object" && "from" in diff && "to" in diff
-            ? `${k} ${String(diff.from)} → ${String(diff.to)}`
-            : k;
+            ? `${k} changed from ${String(diff.from)} to ${String(diff.to)}`
+            : `${k} changed`;
         })
         .join("; ")
     : null;
