@@ -21,8 +21,9 @@ numbers are sequential at creation and may shift:
 3. `032` — admin session visibility (G2)
 4. `033` — detail reads + feed names (G7, G8, G9, G11) — RESOLVED
 5. `034` — team↔LOB association (G12)
-6. `037` — schema-driven importer forms (G13) — `035`/`036` were taken by
-   `035-bugfix-user-form-validation` and `036-bugfix-ux-findings`
+6. `037` — schema-driven importer forms (G13) — RESOLVED by spec 037 —
+   `035`/`036` were taken by `035-bugfix-user-form-validation` and
+   `036-bugfix-ux-findings`
 
 Deferred past this program — re-triaged after it closes: G15 (merged
 with the email-delivery half of G4), G16, G17, G18, G19. G20 resolves
@@ -192,16 +193,20 @@ client-side without a spec.
   detail shows it (linked); LOB detail lists its teams.
 - **Flag**: none — resolved unflagged.
 
-## G13 — Importer `configSchema` is not renderable
+## G13 — Importer `configSchema` is not renderable — RESOLVED by spec 037
 
 - **UX surface**: importer create/edit form scope section.
 - **Need**: a serializable field descriptor (JSON Schema or field list) so
   scope controls render from the manifest instead of hardcoded per importer.
-- **Current API**: `GET /importers` returns the zod schema object itself,
-  which serializes to `{}` — no usable shape reaches the client. The form
-  uses a validated JSON scope editor until the API exposes descriptors.
-- **Flag**: none — the JSON scope editor IS the shipped state (flag removed;
-  a future schema-driven form would flip a new flag on this entry).
+- **Resolution**: spec 036 shipped `configSchema` as draft-2020-12 JSON
+  Schema (`z.toJSONSchema`) on `GET /importers` and
+  `GET /importers/:name/schema`; spec 037 renders typed scope controls
+  from it — text/URL inputs, enum dropdowns, boolean switches, string-list
+  editors — with required markers, materialized defaults, a per-field
+  JSON fallback for unrenderable shapes (e.g. `environmentMapping`), an
+  "Unrecognized fields" block for stored keys outside the schema, and a
+  lossless Edit-as-JSON toggle.
+- **Flag**: none — resolved unflagged.
 
 ## Conditional gaps — VERIFIED during implementation
 

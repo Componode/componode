@@ -211,7 +211,8 @@ Deferred — each needs its own ADR or spec:
 
 - Graph visualization of the COMPOSES DAG
 - Mobile/tablet support beyond the nav drawer
-- Custom importer-form widgets beyond the generic manifest/JSON editor
+- Custom importer-form widgets beyond the schema-driven scope renderer
+  (nested/complex fields stay on per-field JSON)
 - Per-user display preferences consumed app-wide (gap G20)
 - Notification delivery (gap G15), TOTP (gap G16), session concurrency
   controls (gap G17), workspace profile fields (gap G18), retention/export
