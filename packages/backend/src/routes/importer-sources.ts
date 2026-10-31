@@ -81,7 +81,11 @@ export async function importerSourceRoutes(
   app.post("/importer-sources/:id/retire", {
     preHandler: [app.verifySession, requireRole("importer:source:retire")],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const { id } = req.params as { id: string };
+    const parsed = z.object({ id: z.string().uuid() }).safeParse(req.params);
+    if (!parsed.success) {
+      return validationFailed(reply, parsed.error.issues);
+    }
+    const { id } = parsed.data;
     try {
       const source = await retireSource(id, toActor(req as AuthenticatedRequest));
       return reply.status(200).send({ source });
@@ -93,7 +97,11 @@ export async function importerSourceRoutes(
   app.post("/importer-sources/:id/reactivate", {
     preHandler: [app.verifySession, requireRole("importer:source:reactivate")],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const { id } = req.params as { id: string };
+    const parsed = z.object({ id: z.string().uuid() }).safeParse(req.params);
+    if (!parsed.success) {
+      return validationFailed(reply, parsed.error.issues);
+    }
+    const { id } = parsed.data;
     try {
       const source = await reactivateSource(id, toActor(req as AuthenticatedRequest));
       return reply.status(200).send({ source });

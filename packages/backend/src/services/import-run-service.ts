@@ -141,6 +141,8 @@ async function ensureUniqueInstanceSlug(
 export interface RunSource {
   sourceId: string | null;
   sourceIdentity: string | null;
+  /** The run's config — adoption is provenance-scoped to its runs. */
+  configId: string | null;
 }
 
 function isUrlLike(id: string): boolean {
@@ -153,13 +155,31 @@ function isUrlLike(id: string): boolean {
   }
 }
 
+/**
+ * Whether a stored externalId is the raw spelling of the canonical
+ * `target`: exact canonicalized match, or a URL-ish prefix before any
+ * colon that canonicalizes (walks every colon right-to-left so
+ * port-bearing endpoints like `{rawEp}:{rtype}:0` still match).
+ */
+function matchesCanonicalForm(stored: string, target: string): boolean {
+  if (canonicalizeSourceIdentity(stored) === target) return true;
+  for (let i = stored.lastIndexOf(":"); i !== -1; i = stored.lastIndexOf(":", i - 1)) {
+    const prefix = stored.slice(0, i);
+    const canonPrefix = canonicalizeSourceIdentity(prefix);
+    if (canonPrefix !== prefix && `${canonPrefix}${stored.slice(i)}` === target) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export async function processAsset(
   trx: Kysely<DB>,
   runId: string,
   importerName: string,
   asset: DiscoveredAsset,
   triggeredBy: string | null,
-  source: RunSource = { sourceId: null, sourceIdentity: null },
+  source: RunSource = { sourceId: null, sourceIdentity: null, configId: null },
 ): Promise<{ componentId: string; created: boolean; instancesOrphaned: number }> {
   const { sourceId, sourceIdentity } = source;
   const now = new Date().toISOString();
@@ -184,14 +204,7 @@ export async function processAsset(
     // by runs of THIS config may adopt — a provider-wide match could
     // steal another system's row on an id collision (e.g. GHES repo #42
     // adopting a github.com row). No config provenance → no adoption.
-    const runConfigId =
-      (
-        await trx
-          .selectFrom("import_runs")
-          .select("configId")
-          .where("id", "=", runId)
-          .executeTakeFirst()
-      )?.configId ?? null;
+    const runConfigId = source.configId;
     const configRunIds = trx
       .selectFrom("import_runs")
       .select("id")
@@ -228,18 +241,11 @@ export async function processAsset(
           .where("provider", "=", asset.provider)
           .where("lastSeenInRunId", "in", configRunIds)
           .execute();
-        legacy = candidates.find((c) => {
-          if (typeof c.externalId !== "string") return false;
-          if (canonicalizeSourceIdentity(c.externalId) === target) return true;
-          const i = c.externalId.lastIndexOf(":");
-          if (i === -1) return false;
-          const prefix = c.externalId.slice(0, i);
-          const canonPrefix = canonicalizeSourceIdentity(prefix);
-          return (
-            canonPrefix !== prefix &&
-            `${canonPrefix}${c.externalId.slice(i)}` === target
-          );
-        });
+        legacy = candidates.find(
+          (c) =>
+            typeof c.externalId === "string" &&
+            matchesCanonicalForm(c.externalId, target),
+        );
       }
     }
     if (legacy) {
@@ -397,8 +403,8 @@ export async function processAsset(
         .selectAll()
         .where("componentId", "=", componentId)
         .execute();
-      existingInstance = siblings.find(
-        (s) => canonicalizeSourceIdentity(s.externalId) === instance.externalId,
+      existingInstance = siblings.find((s) =>
+        matchesCanonicalForm(s.externalId, instance.externalId),
       );
       if (existingInstance) {
         await trx
@@ -624,7 +630,7 @@ export async function reconcileRetiredComponents(
   configId: string,
   yieldedComponentIds: Set<string>,
   sourceId: string | null = null,
-): Promise<number> {
+): Promise<{ componentsRetired: number; instancesOrphaned: number }> {
   const now = new Date().toISOString();
   const actor = runActor(importerName);
 
@@ -653,6 +659,9 @@ export async function reconcileRetiredComponents(
         .where("lastSeenInRunId", "!=", runId)
         .returning("componentInstanceId")
         .execute();
+      if (staleComponentMemberships.length === 0 && staleInstanceMemberships.length === 0) {
+        return { componentsRetired: 0, instancesOrphaned: 0 };
+      }
 
       // GONE applies only when no effective-active membership remains.
       const orphaned = await markOrphanedInstancesGone(
@@ -709,13 +718,13 @@ export async function reconcileRetiredComponents(
         );
       }
 
-      return retired;
+      return { componentsRetired: retired, instancesOrphaned: orphaned };
     });
   }
 
   // Legacy path — unchanged for non-adopting importers (FR-013).
   if (yieldedComponentIds.size === 0) {
-    return 0;
+    return { componentsRetired: 0, instancesOrphaned: 0 };
   }
 
   return db.transaction().execute(async (trx) => {
@@ -732,7 +741,7 @@ export async function reconcileRetiredComponents(
       .execute();
 
     if (toRetire.length === 0) {
-      return 0;
+      return { componentsRetired: 0, instancesOrphaned: 0 };
     }
 
     const ids = toRetire.map((c) => c.id);
@@ -763,7 +772,7 @@ export async function reconcileRetiredComponents(
       );
     }
 
-    return toRetire.length;
+    return { componentsRetired: toRetire.length, instancesOrphaned: 0 };
   });
 }
 
@@ -964,7 +973,7 @@ async function worker(runId: string): Promise<void> {
       }
 
       const result = await traceDbQuery("processAsset", () =>
-        db.transaction().execute(async (trx) => processAsset(trx, runId, importerName!, asset, run.triggeredBy, { sourceId: reportedSourceId, sourceIdentity: reportedSourceIdentity })),
+        db.transaction().execute(async (trx) => processAsset(trx, runId, importerName!, asset, run.triggeredBy, { sourceId: reportedSourceId, sourceIdentity: reportedSourceIdentity, configId: run.configId })),
       );
 
       yieldedComponentIds.add(result.componentId);
@@ -1010,7 +1019,9 @@ async function worker(runId: string): Promise<void> {
     }
 
     const now2 = new Date().toISOString();
-    componentsRetired = await reconcileRetiredComponents(runId, importerName!, config.id, yieldedComponentIds, reportedSourceId);
+    const rec = await reconcileRetiredComponents(runId, importerName!, config.id, yieldedComponentIds, reportedSourceId);
+    componentsRetired = rec.componentsRetired;
+    instancesOrphaned += rec.instancesOrphaned;
 
     terminalStatus = "COMPLETED";
     await updateRun(runId, {

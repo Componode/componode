@@ -126,8 +126,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     const attributable = components.filter((c) => {
       const id = c.externalId;
       if (id === null) return true;
-      if (id.startsWith("default:")) return false;
       // Azure embeds the subscription as the `{identity}:{rtype}` prefix —
+      // `default:` placeholders have unknowable provenance (ADR-120 A2 §5).
+      // Scoped to azure: kubernetes namespaces legitimately produce
+      // `default:{rtype}` ids.
+      if (config.importerName === "azure" && id.startsWith("default:")) return false;
       // a different prefix means this config's identity changed systems.
       if (config.importerName === "azure") {
         return id.startsWith(`${identity}:`);

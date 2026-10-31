@@ -304,3 +304,12 @@ backfill; US5 + polish ratify and document.
 - [x] T085 Add the canonical-URL fallback to instance matching in `processAsset` — pre-migration instances stored with a raw URL spelling adopt (externalId rekeyed to canonical) instead of duplicating + going GONE (code-review: spec)
 - [x] T086 Update `docs/openapi.yaml` memberships path: add `truncated` to the response schema and a `400` validation-failure response (code-review: standards)
 - [x] T087 Minor fixes: `source-identity-keys.md` label column should reflect what importers actually send; stale-binding audit uses `action: "unbound"` (not "unmonitored" for RETIRED sources); memberships orderBy gets `id` tie-breaker for determinism (code-review: standards)
+
+## Phase 16: Review
+
+- [x] T088 Add `"unbound"` to `SOURCE_AUDIT_ACTIONS` in `packages/core/src/constants/importer-source.ts` (controlled enum must stay current — ADR-fidelity) (code-review: standards)
+- [x] T089 Zod-validate `:id` on `POST /importer-sources/:id/retire` and `/reactivate` (ADR-095 — missed by the earlier params fix) (code-review: standards)
+- [x] T090 Scope the migration 023 `default:` skip to `azure` only — kubernetes `{namespace}:{rtype}` ids legitimately start with `default:` (namespace default) and were defensible (code-review: spec)
+- [x] T091 Extend instance canonical matching to multi-colon prefix splits — a stored `{rawEp}:{rtype}:0` with a port-bearing raw endpoint can't `new URL`-parse; walk colon positions right-to-left trying `canon(prefix)+rest` (shared helper with the component path) (code-review: spec)
+- [x] T092 Hoist the per-asset `import_runs.configId` lookup out of `processAsset` — carry it on `RunSource` from the caller (`run.configId` / `job.configId`); also wrap remote `recordSourceIdentity` in try/catch → finalize the run `failed` with the real errorType instead of warn-swallow + misleading CONTRACT_VIOLATION (code-review: standards)
+- [x] T093 Fold reconcile-time orphans into the final `instancesOrphaned` count — `reconcileRetiredComponents` increments SQL but the worker's final `updateRun` overwrites it; accumulate `orphaned` from the reconcile return into the local counter (code-review: spec)

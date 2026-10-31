@@ -550,7 +550,22 @@ export class RemoteRunService implements RemoteRunHandler {
       this.log.warn({ runId }, "ignoring duplicate source.identity frame");
       return true;
     }
-    entry.job.sourceId = await this.store.recordSourceIdentity(entry.job, payload);
+    try {
+      entry.job.sourceId = await this.store.recordSourceIdentity(entry.job, payload);
+    } catch (err) {
+      // A registration failure swallowed into the frame-queue warn log
+      // leaves the run to die later under a misleading CONTRACT_VIOLATION
+      // — finalize with the real cause instead.
+      await this.finalize(entry, "failed", {
+        status: "FAILED",
+        completedAt: new Date().toISOString(),
+        currentPhase: "Failed",
+        errorType: (err as { code?: string }).code ?? "RUNTIME_ERROR",
+        errorMessage:
+          err instanceof Error ? err.message : "Source identity registration failed",
+      });
+      return true;
+    }
     entry.job.sourceIdentity = canonicalizeSourceIdentity(payload.externalIdentity);
     return true;
   }
@@ -1056,18 +1071,19 @@ export function createDbRemoteRunStore(): RemoteRunStore {
     async processAsset(job, asset) {
       return traceDbQuery("processAsset", () =>
         db.transaction().execute(async (trx) =>
-          processAsset(trx, job.runId, job.importerName, asset, job.triggeredBy, { sourceId: job.sourceId, sourceIdentity: job.sourceIdentity }),
+          processAsset(trx, job.runId, job.importerName, asset, job.triggeredBy, { sourceId: job.sourceId, sourceIdentity: job.sourceIdentity, configId: job.configId }),
         ),
       );
     },
     async reconcile(job, yieldedComponentIds) {
-      return reconcileRetiredComponents(
+      const rec = await reconcileRetiredComponents(
         job.runId,
         job.importerName,
         job.configId,
         yieldedComponentIds,
         job.sourceId,
       );
+      return rec.componentsRetired;
     },
     async stageSuggestions(componentIds, runId) {
       const report = await runSuggestionPass({ componentIds }, { runId });
