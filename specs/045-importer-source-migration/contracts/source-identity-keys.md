@@ -9,7 +9,7 @@ stripped) before matching or persisting. Sources are never matched by
 
 | Importer | `externalIdentity` | Acquisition | `label` |
 |---|---|---|---|
-| `github` | `{canonicalBaseUrl}#org:{orgId}` | `octokit.rest.orgs.get({org})` at run start | org login |
+| `github` | `{canonicalBaseUrl}org/{orgId}` | `octokit.rest.orgs.get({org})` at run start | `{base}login/{org}` |
 | `aws` | `{sourceKey}` | `scope.sourceKey` — required | operator label |
 | `azure` | `{subscriptionId}` or `{sourceKey}` | `scope.subscriptionId` preferred; `scope.sourceKey` fallback | subscription or operator label |
 | `alibaba-cloud` | `{accountId}` | `client.getCallerIdentity()` (already pre-yield) | account ID |

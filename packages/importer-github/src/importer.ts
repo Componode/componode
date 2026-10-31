@@ -135,11 +135,14 @@ export class GithubImporter implements Importer {
     // Fall back to the org login — mirrors the org asset's own
     // `login:` externalId fallback and keeps degraded (no org-read
     // permission) runs working; the identity is still unique per
-    // instance+org.
+    // instance+org. Path form (not `#` fragment): URL canonicalization
+    // strips fragments, which would collapse every org into one Source
+    // (ADR-120 Amendment 2).
+    const base = canonicalBase.replace(/\/$/, "");
     const sourceIdentity =
       orgId !== undefined && orgId !== null
-        ? `${canonicalBase}#org:${orgId}`
-        : `${canonicalBase}#login:${parsed.org}`;
+        ? `${base}/org/${orgId}`
+        : `${base}/login/${parsed.org}`;
     await context.reportSourceIdentity({
       externalIdentity: sourceIdentity,
       label: parsed.org,

@@ -251,7 +251,7 @@ Per-importer identity keys (spec 045, ADR-120 — full table in
 
 | Importer | Identity | Scope-less fallback |
 |---|---|---|
-| github | `{canonicalApiBaseUrl}#org:{orgId}` | `#login:{org}` when org unreadable |
+| github | `{canonicalApiBaseUrl}org/{orgId}` | `{base}login/{org}` when org unreadable |
 | alibaba-cloud | STS `GetCallerIdentity` accountId | — (run fails) |
 | azure | `subscriptionId` | `scope.sourceKey` |
 | aws | `scope.sourceKey` (required) | — (run fails) |

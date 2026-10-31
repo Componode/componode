@@ -644,7 +644,7 @@ describe("GithubImporter", () => {
       com.push(a);
     }
     expect(ctx1.reportSourceIdentity).toHaveBeenCalledWith(
-      expect.objectContaining({ externalIdentity: "https://api.github.com/#org:42" }),
+      expect.objectContaining({ externalIdentity: "https://api.github.com/org/42" }),
     );
     const comRepo = com.find((a) => a.resourceType === "github:repository");
     expect(comRepo.externalId).toBe("123");
@@ -661,11 +661,11 @@ describe("GithubImporter", () => {
     }
     expect(ctx2.reportSourceIdentity).toHaveBeenCalledWith(
       expect.objectContaining({
-        externalIdentity: "https://ghes.example.com/api/v3#org:42",
+        externalIdentity: "https://ghes.example.com/api/v3/org/42",
       }),
     );
     const ghesRepo = ghes.find((a) => a.resourceType === "github:repository");
-    expect(ghesRepo.externalId).toBe("https://ghes.example.com/api/v3#org:42::123");
+    expect(ghesRepo.externalId).toBe("https://ghes.example.com/api/v3/org/42::123");
   });
 
   it("rejects unsafe baseUrl values at config validation", async () => {

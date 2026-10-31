@@ -73,11 +73,11 @@ endpoint, the smallest authenticated request available.
 
 ## Source identity
 
-Identity is `{canonicalApiBaseUrl}#org:{orgId}` — the org is fetched before any
+Identity is `{canonicalApiBaseUrl}org/{orgId}` — the org is fetched before any
 asset is yielded, so an empty inventory still registers the Source. When org
-details are unreadable the identity falls back to `#login:{org}` (mirroring
+details are unreadable the identity falls back to `{base}login/{org}` (mirroring
 the org asset's own `login:` externalId fallback). github.com `externalId`s
 are unchanged; GHES deployments qualify them with the source identity
-(`{baseUrl}#org:{id}::{externalId}`) on the first adopted run because numeric
+(`{base}org/{id}::{externalId}`) on the first adopted run because numeric
 IDs collide across GHES instances. No migration backfill (the org id needs a
 live API call) — existing orgs adopt on their next run.

@@ -259,3 +259,13 @@ backfill; US5 + polish ratify and document.
 - [x] T055 Extend the auth-param blocklist in `packages/core/src/utils/source-identity.ts` `canonicalizeSourceIdentity` to cover common secret query params (`token`, `key`, `signature`, `sig`, `secret`, `password`, `access_key`, `private_key`, `x-amz-signature`, `x-amz-credential`, `auth`, `code`) (code-review: standards)
 - [x] T056 Move `packages/core/src/utils/source-identity.test.ts` to `packages/core/test/` per repo test-layout convention (code-review: standards)
 - [x] T057 Collapse the `processAsset` `sourceId`+`sourceIdentity` params into a `RunSource` object (Data Clump) and extract the `"https://api.github.com/"` literal in `importer-github/src/importer.ts` to a named constant (code-review: standards)
+
+## Phase 11: Review
+
+- [ ] T058 Fix github source identity surviving canonicalization: `canonicalizeSourceIdentity` strips `#` fragments, collapsing every `{base}#org:{id}` to `{base}` — switch to path form `{base}org/{id}` / `{base}login/{org}` in `importer-github/src/importer.ts`, update tests + `docs/importers/github.md` + identity-key table, and ratify via ADR-120 Amendment 2 (code-review: spec, CRITICAL — destroys per-org Sources)
+- [ ] T059 Extend adopt-on-report in `import-run-service.ts`: when the `::`-prefix unqualify misses and the emitted `externalId` is a canonical URL, also match legacy components by `canonicalizeSourceIdentity(externalId)` equality so raw-URL legacy rows adopt instead of duplicating (code-review: spec)
+- [ ] T060 Use the canonical endpoint (not raw) in the mcp-server `localId` so userinfo never lands in durable externalIds (`packages/importer-mcp-server/src/importer.ts`) (code-review: spec)
+- [ ] T061 Stamp per-entity provenance in migration 023: membership `firstSeenInRunId`/`lastSeenInRunId` come from each component/instance's own `lastSeenInRunId`, not the config's newest run (code-review: standards)
+- [ ] T062 Zod-validate the `:id` route param on `GET /importer-sources/:id/memberships` (ADR-095 boundary validation) (code-review: standards)
+- [ ] T063 Regenerate `docs/api.md` via `pnpm docs:api` for the new memberships route (ADR-104 sync) (code-review: standards)
+- [ ] T064 Fix `docs/importers/mcp-server.md` externalId format to `{identity}::{endpoint}:{method}` (code-review: standards)

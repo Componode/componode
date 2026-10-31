@@ -16,7 +16,7 @@ while making every adopting importer source-aware.
 
    | Importer | `externalIdentity` | Scope-less fallback |
    |---|---|---|
-   | github | `{canonicalApiBaseUrl}#org:{orgId}` | `#login:{org}` when org read is forbidden |
+   | github | `{canonicalApiBaseUrl}org/{orgId}` | `{base}login/{org}` when org read is forbidden |
    | alibaba-cloud | STS `GetCallerIdentity` `accountId` | none — run fails |
    | azure | `subscriptionId` | `scope.sourceKey` |
    | aws | `scope.sourceKey` (required) | none — run fails |
@@ -101,3 +101,18 @@ concrete per-importer keys ratified).
    derived from the qualified component id — membership matching is
    `(componentId, externalId)` scoped and must keep matching pre-migration
    instances.
+
+## Amendment 2 — GitHub identity uses path form, not fragment (spec 045 review)
+
+**Context**: the original table specified `{canonicalApiBaseUrl}org/{orgId}`.
+`canonicalizeSourceIdentity` strips `#` fragments by design (ADR-119 — no
+secret material in durable identity), so every reported `{base}#org:{id}`
+collapsed to `{base}` — all github.com orgs would share one Source and all
+GHES orgs on one host would collapse identically.
+
+**Refinement**: GitHub's identity is the path form
+`{canonicalApiBaseUrl}org/{orgId}` (e.g. `https://api.github.com/org/42`,
+`https://ghes.example.com/api/v3/org/42`), fallback `{base}login/{org}`. GHES
+externalId qualification is unchanged (`{identity}::{localId}` →
+`{base}org/{id}::{localId}`); the `::` prefix still unqualifies to the legacy
+numeric id for adopt-on-report.
