@@ -143,6 +143,15 @@ export interface RunSource {
   sourceIdentity: string | null;
 }
 
+function isUrlLike(id: string): boolean {
+  try {
+    new URL(id);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function processAsset(
   trx: Kysely<DB>,
   runId: string,
@@ -180,29 +189,38 @@ export async function processAsset(
         .where("externalId", "=", legacyId)
         .executeTakeFirst();
     }
-    // Canonical-URL fallback (ADR-120): URL-identity importers emit the
-    // canonicalized URL, but pre-migration rows may hold a raw spelling
-    // (userinfo/auth params). Canonicalize stored ids and compare.
+    // Canonical fallback (ADR-120): pre-migration rows may hold a raw URL
+    // spelling (userinfo/auth params/trailing-slash drift) that canonical
+    // emits no longer equal. Two bounded cases:
+    //  (a) bare-URL emits (legacyId null) → compare canonicalized stored id;
+    //  (b) qualified emits whose localId embeds an endpoint (legacyId
+    //      contains "://") → canonicalize the stored id's URL-ish prefix.
     if (!legacy) {
-      let emitted: string | null = null;
-      try {
-        new URL(asset.externalId);
-        emitted = asset.externalId;
-      } catch {
-        emitted = null;
-      }
-      if (emitted) {
+      const target =
+        legacyId === null && isUrlLike(asset.externalId)
+          ? asset.externalId
+          : legacyId !== null && legacyId.includes("://")
+            ? legacyId
+            : null;
+      if (target) {
         const candidates = await trx
           .selectFrom("components")
           .selectAll()
           .where("category", "=", asset.category)
           .where("provider", "=", asset.provider)
           .execute();
-        legacy = candidates.find(
-          (c) =>
-            typeof c.externalId === "string" &&
-            canonicalizeSourceIdentity(c.externalId) === emitted,
-        );
+        legacy = candidates.find((c) => {
+          if (typeof c.externalId !== "string") return false;
+          if (canonicalizeSourceIdentity(c.externalId) === target) return true;
+          const i = c.externalId.lastIndexOf(":");
+          if (i === -1) return false;
+          const prefix = c.externalId.slice(0, i);
+          const canonPrefix = canonicalizeSourceIdentity(prefix);
+          return (
+            canonPrefix !== prefix &&
+            `${canonPrefix}${c.externalId.slice(i)}` === target
+          );
+        });
       }
     }
     if (legacy) {
@@ -235,7 +253,7 @@ export async function processAsset(
               action: "update",
               changes: {
                 externalId: asset.externalId,
-                previousExternalId: legacyId,
+                previousExternalId: legacy.externalId,
                 reason: "adopt-on-report",
               },
               importRunId: runId,

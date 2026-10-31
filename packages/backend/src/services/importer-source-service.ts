@@ -143,6 +143,45 @@ export async function registerOrMatchSource(
     .where("id", "=", row.id)
     .execute();
 
+  // A config reports exactly one identity — re-pointing it at a
+  // different system must unbind the previously bound Source
+  // (ADR-119 #3): it goes UNMONITORED and loses the binding, or two
+  // Sources would appear bound to one config.
+  if (boundConfigId !== null) {
+    const stale = await trx
+      .selectFrom("importer_sources")
+      .select("id")
+      .where("boundConfigId", "=", boundConfigId)
+      .where("id", "!=", row.id)
+      .where("status", "!=", "RETIRED")
+      .execute();
+    for (const staleSource of stale) {
+      await trx
+        .updateTable("importer_sources")
+        .set({
+          boundConfigId: null,
+          status: "UNMONITORED",
+          updatedAt: now,
+        })
+        .where("id", "=", staleSource.id)
+        .execute();
+      await writeEntityChange(
+        {
+          entityType: "importer_source",
+          entityId: staleSource.id,
+          action: "unmonitored",
+          changes: {
+            configId: boundConfigId,
+            reason: "config rebound to a different source identity",
+          },
+          importRunId: runId,
+          actor,
+        },
+        trx,
+      );
+    }
+  }
+
   if (boundChanged && boundConfigId !== null) {
     await writeEntityChange(
       {

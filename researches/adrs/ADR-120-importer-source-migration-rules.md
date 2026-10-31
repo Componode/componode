@@ -116,3 +116,19 @@ GHES orgs on one host would collapse identically.
 externalId qualification is unchanged (`{identity}::{localId}` →
 `{base}org/{id}::{localId}`); the `::` prefix still unqualifies to the legacy
 numeric id for adopt-on-report.
+
+5. **Azure `default:` externalId rows are intentionally not adopted.**
+   Pre-migration configs lacking `subscriptionId` produced `default:{rtype}`
+   ids. Their true source identity is unknowable — any migrated config could
+   claim them, and guessing would violate the no-auto-merge invariant. They
+   remain `LEGACY_UNATTRIBUTED`; the re-reported `{identity}:{rtype}` row is
+   a distinct component. Same rule for any legacy id whose embedded identity
+   is a placeholder rather than provenance.
+
+6. **Canonical-URL adoption fallback.** When the `{identity}::` unqualify
+   match misses, adopt-on-report also compares stored externalIds after
+   `canonicalizeSourceIdentity` — covering pre-migration rows stored with
+   raw URL spellings (userinfo/auth params/trailing-slash drift). Bounded
+   to (a) bare-URL emits and (b) qualified ids whose localId embeds a
+   URL-ish endpoint prefix (`{rawEp}:{rtype}` stored vs `{canonEp}:{rtype}`
+   emitted), so non-URL qualified ids never trigger a provider scan.

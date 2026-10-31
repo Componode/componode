@@ -110,10 +110,12 @@ export class GithubImporter implements Importer {
 
     const octokit = buildOctokit(parsed, secrets);
 
-    // Source identity (ADR-120): {canonicalBaseUrl}#org:{orgId}, fetched
-    // before the first yield — including empty inventories. GHES numeric
-    // IDs collide across instances, so GHES externalIds are qualified
-    // with the source identity; github.com IDs stay unqualified.
+    // Source identity (ADR-120 A2): {canonicalBaseUrl}org/{orgId} in
+    // path form — URL canonicalization strips `#` fragments, which would
+    // collapse every org into one Source. Fetched before the first
+    // yield — including empty inventories. GHES numeric IDs collide
+    // across instances, so GHES externalIds are qualified with the
+    // source identity; github.com IDs stay unqualified.
     const canonicalBase = canonicalizeSourceIdentity(
       parsed.baseUrl ?? GITHUB_API_BASE,
     );

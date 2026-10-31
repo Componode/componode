@@ -269,3 +269,11 @@ backfill; US5 + polish ratify and document.
 - [x] T062 Zod-validate the `:id` route param on `GET /importer-sources/:id/memberships` (ADR-095 boundary validation) (code-review: standards)
 - [x] T063 Regenerate `docs/api.md` via `pnpm docs:api` for the new memberships route (ADR-104 sync) (code-review: standards)
 - [x] T064 Fix `docs/importers/mcp-server.md` externalId format to `{identity}::{endpoint}:{method}` (code-review: standards)
+
+## Phase 12: Review
+
+- [x] T065 Use `legacy.externalId` (not `legacyId` — null on the canonical-URL fallback path) for `previousExternalId` in the adopt-on-report `entity_changes` row in `import-run-service.ts` (code-review: standards + spec)
+- [x] T066 Gate the canonical-URL adoption fallback to `legacyId === null` (bare-URL emits) so qualified GHES ids don't trigger a full `(category, provider)` scan per miss; extend the match with canonical-prefix derivation `{canon(storedPrefix)}:{rest}` so mcp's raw-endpoint stored ids (`{rawEp}:{rtype}`) adopt against the canonical localId (code-review: standards + spec)
+- [x] T067 Fix stale `{canonicalBaseUrl}#org:{orgId}` comment in `importer-github/src/importer.ts` — identity is path form per ADR-120 Amendment 2 (code-review: standards)
+- [x] T068 Ratify in ADR-120 Amendment 2 that azure `default:` externalId rows are intentionally not adopted — their true source identity is unknowable, so they stay `LEGACY_UNATTRIBUTED` per the no-guess invariant (code-review: spec)
+- [x] T069 When a config's reported identity changes, unmonitor the previously bound Source in `importer-source-service.ts` `registerOrMatchSource` — only the just-matched Source may keep `boundConfigId` (ADR-119 #3, spec edge case: config re-pointed at a different system) (code-review: spec)
