@@ -28,6 +28,7 @@ None.
 | `subscriptionId` | string | unset | Subscription label recorded on the placeholder asset |
 | `resourceTypes` | string[] | `["Microsoft.Compute/virtualMachines"]` | ARM resource type labels; one placeholder component each |
 | `endpoint` | URL | unset | Recorded on the asset's details/url; reserved for a future real connection |
+| `sourceKey` | string | unset | Fallback source identity when `subscriptionId` is absent — one of the two is required (ADR-120) |
 
 ## Source identity
 

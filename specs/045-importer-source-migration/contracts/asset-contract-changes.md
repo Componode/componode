@@ -35,17 +35,21 @@ interface DiscoveredAssetInstance {
 2. else, when sourceId != null AND asset.externalId is qualified:
    components where (category, provider,
                      externalId = legacyExternalId(asset.externalId))
-   AND no membership from this Source
+   AND no effective-active membership held by another Source
    → match → set externalId := qualified form, normal upsert, membership
 3. else → insert new component
 ```
 
-- Step 2's "no membership from this Source" guard prevents a Source from
-  re-adopting its own rows; a row already adopted by *another* Source
-  still matches for this Source only if its stored externalId equals the
-  legacy form — impossible after step-2 rewrite, so cross-Source claim
-  ordering resolves naturally: first reporter wins the merged legacy
-  row; second reporter inserts its own qualified component.
+- Step 2's guard blocks adoption when another Source holds an
+  **effective-active** membership (active row whose Source is `ACTIVE`
+  or `UNMONITORED` — ADR-119 A1). Rewriting a shared legacy row under a
+  live Source would fork a duplicate on that Source's next report, so
+  first reporter wins the merged legacy row; second reporter inserts
+  its own qualified component. A `RETIRED` source's membership does not
+  defend the row. The rewrite records an `entity_changes` audit row.
+- Azure's `{identity}:{rtype}` externalId already embeds the subscription
+  scope and is exempt from the `::` convention — re-qualifying would
+  mass-rekey existing rows with no adoption gain (ADR-120 Amendment 1).
 - Instances: `externalId` matching is scoped under the component
   (`componentId + externalId`) — instance IDs are component-local, no
   qualification needed; membership stamping unchanged.

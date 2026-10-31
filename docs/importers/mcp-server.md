@@ -27,6 +27,7 @@ None.
 |---|---|---|---|
 | `resourceTypes` | string[] | `["tools/list"]` | MCP method labels; one placeholder component each |
 | `endpoint` | URL | unset | Recorded on the asset's details/url; reserved for the server's transport URL |
+| `sourceKey` | string | unset | Fallback source identity when `endpoint` is absent — one of the two is required (ADR-120) |
 
 ## Source identity
 

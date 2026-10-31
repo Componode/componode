@@ -27,6 +27,7 @@ None.
 | `region` | string | `us-east-1` | Region label recorded on the placeholder asset |
 | `resourceTypes` | string[] | `["ec2:instance"]` | Resource type labels; one placeholder component each |
 | `endpoint` | URL | unset | Recorded on the asset's details/url; reserved for a future real connection |
+| `sourceKey` | string | **required** | Stable non-secret key identifying the AWS account — the source identity (ADR-120) |
 
 ## Source identity
 

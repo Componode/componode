@@ -71,3 +71,33 @@ importer's guide.
 [ADR-119](./ADR-119-importer-source-identity-and-lifecycle.md) (item 4's
 "membership details unused until a later wave" deferral resolves here;
 concrete per-importer keys ratified).
+
+## Amendment 1 — post-review refinements (spec 045 review)
+
+1. **Azure keeps `{identity}:{rtype}` (single colon) — `::` exemption.**
+   Azure's pre-migration externalId already embeds the subscription scope;
+   re-qualifying it `{sub}::{rtype}` would mass-rekey every existing row for
+   zero adoption gain — `unqualifyExternalId` can never recover
+   `{sub}:{rtype}` from a `::` form either, since the legacy remainder
+   itself carries the scope. The `::` convention applies to aws, k8s,
+   mcp-server, and GHES github (the strictly source-local IDs); azure's
+   existing format is already identity-embedded and is retained as-is.
+   Only the `default:` scope placeholder is replaced by the resolved
+   identity.
+
+2. **Adoption guard uses the effective-active union.** A foreign source's
+   membership blocks adopt-on-report only while `active = true` AND the
+   owning Source is `ACTIVE` or `UNMONITORED` — a `RETIRED` source's
+   membership no longer defends a legacy row (ADR-119 A1 semantics). The
+   guard stays stricter than a naive read of the contract text: a shared
+   legacy row claimed by another live Source is not rewritten under it,
+   or that Source would fork a duplicate on its next report.
+
+3. **Migration 023 `down()` skips run-referenced Sources.** Sources with
+   any `import_runs.sourceId` reference are live provenance, not migration
+   output — they survive rollback (the FK is RESTRICT anyway).
+
+4. **Instance externalIds stay component-local** (`${localId}:0`), never
+   derived from the qualified component id — membership matching is
+   `(componentId, externalId)` scoped and must keep matching pre-migration
+   instances.
