@@ -19,7 +19,7 @@ describe("KubernetesImporter", () => {
     const assets = [];
 
     for await (const asset of importer.run(
-      { namespace: "default", resourceTypes: ["apps/v1:Deployment"] },
+      { namespace: "default", resourceTypes: ["apps/v1:Deployment"], sourceKey: "cluster-test" },
       {},
       makeContext(),
     )) {
@@ -47,7 +47,7 @@ describe("KubernetesImporter", () => {
       const importer = new KubernetesImporter();
       const assets = [];
       for await (const asset of importer.run(
-        { namespace: "default", resourceTypes: ["apps/v1:Deployment"] },
+        { namespace: "default", resourceTypes: ["apps/v1:Deployment"], sourceKey: "cluster-test" },
         {},
         makeContext(),
       )) {

@@ -502,6 +502,7 @@ describe("GithubImporter", () => {
           ],
         },
       },
+      { path: "/orgs/testorg", body: makeOrg() },
       {
         path: "/orgs/testorg/actions/runners",
         body: {

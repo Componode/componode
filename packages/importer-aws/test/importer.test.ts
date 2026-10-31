@@ -19,7 +19,7 @@ describe("AwsImporter", () => {
     const assets = [];
 
     for await (const asset of importer.run(
-      { region: "us-east-1", resourceTypes: ["ec2:instance"] },
+      { region: "us-east-1", resourceTypes: ["ec2:instance"], sourceKey: "acct-test" },
       {},
       makeContext(),
     )) {
@@ -47,7 +47,7 @@ describe("AwsImporter", () => {
       const importer = new AwsImporter();
       const assets = [];
       for await (const asset of importer.run(
-        { region: "us-east-1", resourceTypes: ["ec2:instance"] },
+        { region: "us-east-1", resourceTypes: ["ec2:instance"], sourceKey: "acct-test" },
         {},
         makeContext(),
       )) {

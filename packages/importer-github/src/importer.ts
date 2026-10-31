@@ -1,5 +1,5 @@
 import type { Octokit } from "octokit";
-import type { DiscoveredAsset, Importer, ImporterContext } from "@componode/core";
+import { canonicalizeSourceIdentity, qualifyExternalId, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
 import { githubConfigSchema, type GithubConfig } from "./config.js";
 import { buildOctokit } from "./client.js";
 import { fetchOrganizationAsset } from "./github-org.js";
@@ -108,6 +108,43 @@ export class GithubImporter implements Importer {
 
     const octokit = buildOctokit(parsed, secrets);
 
+    // Source identity (ADR-120): {canonicalBaseUrl}#org:{orgId}, fetched
+    // before the first yield — including empty inventories. GHES numeric
+    // IDs collide across instances, so GHES externalIds are qualified
+    // with the source identity; github.com IDs stay unqualified.
+    const canonicalBase = canonicalizeSourceIdentity(
+      parsed.baseUrl ?? "https://api.github.com",
+    );
+    let orgId: number | string | undefined;
+    try {
+      const orgResponse = await octokit.rest.orgs.get({
+        org: parsed.org,
+        signal: context.signal,
+      });
+      orgId = (orgResponse.data as { id?: number | string }).id;
+    } catch {
+      orgId = undefined;
+    }
+    // Fall back to the org login — mirrors the org asset's own
+    // `login:` externalId fallback and keeps degraded (no org-read
+    // permission) runs working; the identity is still unique per
+    // instance+org.
+    const sourceIdentity =
+      orgId !== undefined && orgId !== null
+        ? `${canonicalBase}#org:${orgId}`
+        : `${canonicalBase}#login:${parsed.org}`;
+    await context.reportSourceIdentity({
+      externalIdentity: sourceIdentity,
+      label: parsed.org,
+    });
+    const qualifyGhes =
+      canonicalBase !== "https://api.github.com/"
+        ? (a: DiscoveredAsset): DiscoveredAsset => ({
+            ...a,
+            externalId: qualifyExternalId(sourceIdentity, a.externalId),
+          })
+        : (a: DiscoveredAsset): DiscoveredAsset => a;
+
     const logRateLimit = async () => {
       const rateLimit = await withCapability(() =>
         octokit.rest.rateLimit.get({ signal: context.signal }),
@@ -189,11 +226,11 @@ export class GithubImporter implements Importer {
         (orgAsset.details as Record<string, unknown>).billing = billing.billing;
       }
       (orgAsset.details as Record<string, unknown>).capabilities = capabilities;
-      yield orgAsset;
+      yield qualifyGhes(orgAsset);
     }
 
     for (const asset of [...runnerAssets, ...packageAssets]) {
-      yield asset;
+      yield qualifyGhes(asset);
     }
 
     context.reportPhase("Listing repositories");
@@ -210,12 +247,12 @@ export class GithubImporter implements Importer {
 
       const instances = await buildRepoInstances(octokit, repo as RepoLike, parsed, context.signal);
       const repoBilling = billing?.repoBilling.get(repo.full_name);
-      yield buildDiscoveredAsset(repo, instances, repoBilling);
+      yield qualifyGhes(buildDiscoveredAsset(repo, instances, repoBilling));
 
       if (parsed.includeWorkflows) {
         for await (const asset of fetchWorkflowAssets(octokit, repo, context.signal)) {
           if (context.signal.aborted) return;
-          yield asset;
+          yield qualifyGhes(asset);
         }
       }
     }
