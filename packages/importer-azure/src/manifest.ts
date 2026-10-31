@@ -6,6 +6,7 @@ export const manifest = {
   description: "Import Azure cloud assets as components and instances.",
   version: "1.0.0",
   implPath: "@componode/importer-azure/importer",
+  reportsSourceIdentity: true,
   configSchema: azureConfigSchema,
   secrets: [],
 };

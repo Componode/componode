@@ -285,6 +285,7 @@ same fields plus `lifecycle`.
 | GET | `/api/v1/importer-sources` | List importer sources | Authenticated |
 | GET | `/api/v1/importer-sources/:id` | Get an importer source | Authenticated |
 | GET | `/api/v1/importer-sources/:id/runs` | List runs attributed to an importer source | Authenticated |
+| GET | `/api/v1/importer-sources/:id/memberships` | List a source's component and instance memberships with per-source details | Authenticated |
 | POST | `/api/v1/importer-sources/:id/retire` | Explicitly retire an importer source | `importer:source:retire` |
 | POST | `/api/v1/importer-sources/:id/reactivate` | Reverse source retirement | `importer:source:reactivate` |
 | GET | `/api/v1/importer-configs/:configId/runs/:runId/changes` | Import-run consequential changes | Authenticated |

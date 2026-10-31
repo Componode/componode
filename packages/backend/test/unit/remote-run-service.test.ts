@@ -55,6 +55,7 @@ function fakeStore(jobs: Record<string, RemoteJobContext>) {
     stageSuggestions: vi.fn(async () => {}),
     touchCredentials: vi.fn(async () => {}),
     markRunRunning: vi.fn(async () => true),
+    recordSourceIdentity: vi.fn(async () => "src-1"),
   };
 }
 
@@ -269,5 +270,29 @@ describe("RemoteRunService dispatch mechanics", () => {
 
     const done = store.updates.at(-1)!;
     expect(done.patch.status).toBe("CANCELLED");
+  });
+
+  it("ignores a source.identity frame on a non-adopting job (FR-013)", async () => {
+    const job = makeJob("run-1", "agent-1");
+    job.reportsSourceIdentity = false;
+    const store = fakeStore({ "run-1": job });
+    const svc = new RemoteRunService(sessions, { store });
+    sessions.connected.add("agent-1");
+
+    await svc.enqueue("run-1");
+    await svc.onJobAck("agent-1", "run-1", { accepted: true });
+
+    const handled = await svc.onSourceIdentity("agent-1", "run-1", {
+      externalIdentity: "test-src",
+    });
+    expect(handled).toBe(true);
+    expect(store.recordSourceIdentity).not.toHaveBeenCalled();
+    expect(job.sourceId).toBeUndefined();
+
+    // A COMPLETED confirmation still reconciles config-scoped — no
+    // CONTRACT_VIOLATION for the ignored frame.
+    await svc.onRunComplete("agent-1", "run-1", { result: "COMPLETED" });
+    const failed = store.updates.filter((u) => u.patch.status === "FAILED");
+    expect(failed).toHaveLength(0);
   });
 });

@@ -36,6 +36,13 @@ export function buildAccountAsset(
       capabilities,
       coverage,
     },
+    // Per-source facts for the Source membership (ADR-120) — the
+    // canonical fields above stay on the shared component row.
+    sourceDetails: {
+      arn: identity.arn ?? null,
+      identityType: identity.identityType ?? null,
+      principalId: identity.principalId ?? null,
+    },
     instances: [
       {
         environment: config.environment,

@@ -31,6 +31,7 @@ export function buildResourceAsset(
   record: SearchRecord,
   config: AlibabaCloudConfig,
   category: NonNullable<ReturnType<typeof mapResourceType>>,
+  accountId: string,
   extras: {
     billing?: ResourceBilling;
     enrichmentMarker?: CapabilityMarker;
@@ -66,9 +67,15 @@ export function buildResourceAsset(
     provider: "ALIBABA_CLOUD",
     resourceType,
     name,
-    externalId: externalIdFor({ arn: record.arn, resourceType, resourceId }),
+    externalId: externalIdFor({ arn: record.arn, resourceType, resourceId }, accountId),
     slug: componentSlug(name, resourceId),
     details,
+    // Per-source facts for the Source membership (ADR-120).
+    sourceDetails: {
+      arn: record.arn ?? null,
+      resourceGroupId: record.resourceGroupId ?? null,
+      zoneId: record.zoneId ?? null,
+    },
     instances: [
       {
         environment: config.environment,
@@ -87,6 +94,7 @@ export async function* iterResourceAssets(
   context: ImporterContext,
   billing: BillingMap | undefined,
   coverage: SearchCoverage,
+  accountId: string,
 ): AsyncGenerator<DiscoveredAsset> {
   const { filter, resourceGroupId } = buildSearchFilters(config);
   let nextToken: string | undefined;
@@ -173,7 +181,7 @@ export async function* iterResourceAssets(
         else if (result.data.configuration) enrichedConfig = result.data.configuration;
       }
 
-      yield buildResourceAsset(record, config, category, {
+      yield buildResourceAsset(record, config, category, accountId, {
         billing: billing?.get(resourceId),
         enrichmentMarker,
         enrichedConfig,

@@ -2,6 +2,8 @@ import { uuidv7 } from "uuidv7";
 import PQueue from "p-queue";
 import {
   NOOP_TRACER,
+  canonicalizeSourceIdentity,
+  unqualifyExternalId,
   validateDiscoveredAssetDetailed,
   type DiscoveredAsset,
   type ImportRun,
@@ -135,24 +137,181 @@ async function ensureUniqueInstanceSlug(
   });
 }
 
+/** Source attribution for a run — null pair = legacy config-scoped run. */
+export interface RunSource {
+  sourceId: string | null;
+  sourceIdentity: string | null;
+  /** The run's config — adoption is provenance-scoped to its runs. */
+  configId: string | null;
+}
+
+function isUrlLike(id: string): boolean {
+  if (!/^https?:\/\//i.test(id)) return false;
+  try {
+    new URL(id);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether a stored externalId is the raw spelling of the canonical
+ * `target`: exact canonicalized match, or a URL-ish prefix before any
+ * colon that canonicalizes (walks every colon right-to-left so
+ * port-bearing endpoints like `{rawEp}:{rtype}:0` still match).
+ */
+function matchesCanonicalForm(stored: string, target: string): boolean {
+  if (canonicalizeSourceIdentity(stored) === target) return true;
+  for (let i = stored.lastIndexOf(":"); i > 0; i = stored.lastIndexOf(":", i - 1)) {
+    const prefix = stored.slice(0, i);
+    const canonPrefix = canonicalizeSourceIdentity(prefix);
+    if (canonPrefix !== prefix && `${canonPrefix}${stored.slice(i)}` === target) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export async function processAsset(
   trx: Kysely<DB>,
   runId: string,
   importerName: string,
   asset: DiscoveredAsset,
   triggeredBy: string | null,
-  sourceId: string | null = null,
+  source: RunSource = { sourceId: null, sourceIdentity: null, configId: null },
 ): Promise<{ componentId: string; created: boolean; instancesOrphaned: number }> {
+  const { sourceId, sourceIdentity } = source;
   const now = new Date().toISOString();
   const actor = runActor(importerName);
 
-  const component = await trx
+  let component = await trx
     .selectFrom("components")
     .selectAll()
     .where("category", "=", asset.category)
     .where("provider", "=", asset.provider)
     .where("externalId", "=", asset.externalId)
     .executeTakeFirst();
+
+  // Adopt-on-report (ADR-120): an adopting run emitting a source-qualified
+  // externalId that misses falls back to the pre-migration legacy form and
+  // adopts that row — rewriting its externalId to the qualified form —
+  // unless another Source already holds an active membership on it. Rows
+  // never re-reported keep their legacy externalId and provenance.
+  if (!component && sourceId && sourceIdentity) {
+    const legacyId = unqualifyExternalId(asset.externalId, sourceIdentity);
+    // Adoption is provenance-scoped (ADR-120 A2 §6): only rows last seen
+    // by runs of THIS config may adopt — a provider-wide match could
+    // steal another system's row on an id collision (e.g. GHES repo #42
+    // adopting a github.com row). No config provenance → no adoption.
+    const runConfigId = source.configId;
+    // Subquery — only materialized inside the runConfigId-guarded lookups.
+    const configRunIds = trx
+      .selectFrom("import_runs")
+      .select("id")
+      .where("configId", "=", runConfigId);
+    let legacy;
+    if (legacyId !== null && runConfigId !== null) {
+      legacy = await trx
+        .selectFrom("components")
+        .selectAll()
+        .where("category", "=", asset.category)
+        .where("provider", "=", asset.provider)
+        .where("externalId", "=", legacyId)
+        .where("lastSeenInRunId", "in", configRunIds)
+        .executeTakeFirst();
+    }
+    // Canonical fallback (ADR-120): pre-migration rows may hold a raw URL
+    // spelling (userinfo/auth params/trailing-slash drift) that canonical
+    // emits no longer equal. Two bounded cases:
+    //  (a) bare-URL emits (legacyId null) → compare canonicalized stored id;
+    //  (b) qualified emits whose localId embeds an endpoint (legacyId
+    //      contains "://") → canonicalize the stored id's URL-ish prefix.
+    if (!legacy && runConfigId !== null) {
+      const target =
+        legacyId === null && isUrlLike(asset.externalId)
+          ? asset.externalId
+          : legacyId !== null && legacyId.includes("://")
+            ? legacyId
+            : null;
+      if (target) {
+        const candidates = await trx
+          .selectFrom("components")
+          .selectAll()
+          .where("category", "=", asset.category)
+          .where("provider", "=", asset.provider)
+          .where("lastSeenInRunId", "in", configRunIds)
+          .limit(500)
+          .execute();
+        legacy = candidates.find(
+          (c) =>
+            typeof c.externalId === "string" &&
+            matchesCanonicalForm(c.externalId, target),
+        );
+      }
+    }
+    // Identity-transition adoption (ADR-120 A2): a Source whose reported
+    // identity changed mid-life (github login/ → org/ on permission gain)
+    // re-emits qualified ids under the NEW identity — `unqualifyExternalId`
+    // can't strip the old prefix. Match stored ids by their `{*}::localId`
+    // tail instead — provenance still bounds this to the config's runs.
+    if (!legacy && legacyId !== null && runConfigId !== null) {
+      const candidates = await trx
+        .selectFrom("components")
+        .selectAll()
+        .where("category", "=", asset.category)
+        .where("provider", "=", asset.provider)
+        .where("lastSeenInRunId", "in", configRunIds)
+        .where("externalId", "like", `%::${legacyId}`)
+        .execute();
+      legacy = candidates.find(
+        (c) =>
+          typeof c.externalId === "string" &&
+          c.externalId.split("::").pop() === legacyId,
+      );
+    }
+    if (legacy) {
+        // Effective-active union (ADR-119 A1): a foreign membership only
+        // blocks adoption while its Source is ACTIVE or UNMONITORED — a
+        // RETIRED source's membership no longer defends the row.
+        const foreignActive = await trx
+          .selectFrom("source_component_memberships")
+          .leftJoin(
+            "importer_sources",
+            "importer_sources.id",
+            "source_component_memberships.sourceId",
+          )
+          .select("source_component_memberships.id")
+          .where("source_component_memberships.componentId", "=", legacy.id)
+          .where("source_component_memberships.sourceId", "!=", sourceId)
+          .where("source_component_memberships.active", "=", true)
+          .where("importer_sources.status", "in", ["ACTIVE", "UNMONITORED"])
+          .executeTakeFirst();
+        if (!foreignActive) {
+          await trx
+            .updateTable("components")
+            .set({ externalId: asset.externalId, updatedAt: now })
+            .where("id", "=", legacy.id)
+            .execute();
+          await writeEntityChange(
+            {
+              entityType: "component",
+              entityId: legacy.id,
+              action: "update",
+              changes: {
+                externalId: asset.externalId,
+                previousExternalId: legacy.externalId,
+                reason: "adopt-on-report",
+              },
+              importRunId: runId,
+              actor,
+            },
+            trx,
+          );
+          component = legacy;
+        }
+    }
+  }
 
   let componentId: string;
   let componentSlug: string;
@@ -238,21 +397,60 @@ export async function processAsset(
   // Source membership upsert (ADR-119 #4): adopting runs stamp the durable
   // Source→Component membership; legacy runs (sourceId null) skip it.
   if (sourceId) {
-    await upsertComponentMembership(trx, sourceId, componentId, runId, now);
+    await upsertComponentMembership(trx, sourceId, componentId, runId, now, asset.sourceDetails ?? null);
   }
 
   const yieldedInstanceIds = new Set<string>();
+  // Instance id → yielded instance, for per-instance sourceDetails on the
+  // membership upsert below.
+  const yieldedInstanceAssets = new Map<string, DiscoveredAsset["instances"][number]>();
 
   for (const instance of asset.instances) {
     const baseInstanceSlug = generateInstanceSlug(componentSlug, instance.environment, instance.externalId);
     const instanceSlug = await ensureUniqueInstanceSlug(trx, baseInstanceSlug, componentId);
 
-    const existingInstance = await trx
+    let existingInstance = await trx
       .selectFrom("component_instances")
       .selectAll()
       .where("componentId", "=", componentId)
       .where("externalId", "=", instance.externalId)
       .executeTakeFirst();
+
+    // Canonical-URL adoption (ADR-120): pre-migration instances stored a
+    // raw URL spelling; canonical emits miss. Match by canonicalized
+    // stored id within this component and rekey to the canonical form.
+    if (!existingInstance && isUrlLike(instance.externalId)) {
+      const siblings = await trx
+        .selectFrom("component_instances")
+        .selectAll()
+        .where("componentId", "=", componentId)
+        .execute();
+      existingInstance = siblings.find((s) =>
+        matchesCanonicalForm(s.externalId, instance.externalId),
+      );
+      if (existingInstance) {
+        await trx
+          .updateTable("component_instances")
+          .set({ externalId: instance.externalId, updatedAt: now })
+          .where("id", "=", existingInstance.id)
+          .execute();
+        await writeEntityChange(
+          {
+            entityType: "component_instance",
+            entityId: existingInstance.id,
+            action: "update",
+            changes: {
+              externalId: instance.externalId,
+              previousExternalId: existingInstance.externalId,
+              reason: "adopt-on-report",
+            },
+            importRunId: runId,
+            actor,
+          },
+          trx,
+        );
+      }
+    }
 
     const instanceValues = {
       environment: instance.environment,
@@ -270,6 +468,7 @@ export async function processAsset(
 
     if (existingInstance) {
       yieldedInstanceIds.add(existingInstance.id);
+      yieldedInstanceAssets.set(existingInstance.id, instance);
       const statusChanged = existingInstance.status !== (instance.status ?? "RUNNING");
       await trx
         .updateTable("component_instances")
@@ -297,6 +496,7 @@ export async function processAsset(
     } else {
       const instanceId = uuidv7();
       yieldedInstanceIds.add(instanceId);
+      yieldedInstanceAssets.set(instanceId, instance);
       await trx
         .insertInto("component_instances")
         .values({
@@ -336,7 +536,7 @@ export async function processAsset(
     // non-RETIRED source). Manually-created instances carry no
     // memberships and are never touched.
     for (const instanceId of yieldedInstanceIds) {
-      await upsertInstanceMembership(trx, sourceId, instanceId, runId, now);
+      await upsertInstanceMembership(trx, sourceId, instanceId, runId, now, yieldedInstanceAssets.get(instanceId)?.sourceDetails ?? null);
     }
 
     const staleMemberships = await trx
@@ -376,13 +576,17 @@ export async function processAsset(
   return { componentId, created, instancesOrphaned };
 }
 
-/** Upsert the durable Source→Component membership for an adopting run. */
+/** Upsert the durable Source→Component membership for an adopting run.
+ *  `details` carries the asset's per-source facts (ADR-120, spec 045
+ *  FR-005) — refreshed on every report, null when the asset supplies
+ *  none. */
 async function upsertComponentMembership(
   trx: Kysely<DB>,
   sourceId: string,
   componentId: string,
   runId: string,
   now: string,
+  details: Record<string, unknown> | null = null,
 ): Promise<void> {
   await trx
     .insertInto("source_component_memberships")
@@ -391,7 +595,7 @@ async function upsertComponentMembership(
       sourceId,
       componentId,
       active: true,
-      details: null,
+      details,
       firstSeenInRunId: runId,
       lastSeenInRunId: runId,
       createdAt: now,
@@ -400,6 +604,7 @@ async function upsertComponentMembership(
     .onConflict((oc) =>
       oc.columns(["sourceId", "componentId"]).doUpdateSet({
         active: true,
+        details,
         lastSeenInRunId: runId,
         updatedAt: now,
       }),
@@ -414,6 +619,7 @@ async function upsertInstanceMembership(
   componentInstanceId: string,
   runId: string,
   now: string,
+  details: Record<string, unknown> | null = null,
 ): Promise<void> {
   await trx
     .insertInto("source_instance_memberships")
@@ -422,7 +628,7 @@ async function upsertInstanceMembership(
       sourceId,
       componentInstanceId,
       active: true,
-      details: null,
+      details,
       firstSeenInRunId: runId,
       lastSeenInRunId: runId,
       createdAt: now,
@@ -431,6 +637,7 @@ async function upsertInstanceMembership(
     .onConflict((oc) =>
       oc.columns(["sourceId", "componentInstanceId"]).doUpdateSet({
         active: true,
+        details,
         lastSeenInRunId: runId,
         updatedAt: now,
       }),
@@ -445,7 +652,7 @@ export async function reconcileRetiredComponents(
   configId: string,
   yieldedComponentIds: Set<string>,
   sourceId: string | null = null,
-): Promise<number> {
+): Promise<{ componentsRetired: number; instancesOrphaned: number }> {
   const now = new Date().toISOString();
   const actor = runActor(importerName);
 
@@ -474,6 +681,9 @@ export async function reconcileRetiredComponents(
         .where("lastSeenInRunId", "!=", runId)
         .returning("componentInstanceId")
         .execute();
+      if (staleComponentMemberships.length === 0 && staleInstanceMemberships.length === 0) {
+        return { componentsRetired: 0, instancesOrphaned: 0 };
+      }
 
       // GONE applies only when no effective-active membership remains.
       const orphaned = await markOrphanedInstancesGone(
@@ -530,13 +740,13 @@ export async function reconcileRetiredComponents(
         );
       }
 
-      return retired;
+      return { componentsRetired: retired, instancesOrphaned: orphaned };
     });
   }
 
   // Legacy path — unchanged for non-adopting importers (FR-013).
   if (yieldedComponentIds.size === 0) {
-    return 0;
+    return { componentsRetired: 0, instancesOrphaned: 0 };
   }
 
   return db.transaction().execute(async (trx) => {
@@ -553,7 +763,7 @@ export async function reconcileRetiredComponents(
       .execute();
 
     if (toRetire.length === 0) {
-      return 0;
+      return { componentsRetired: 0, instancesOrphaned: 0 };
     }
 
     const ids = toRetire.map((c) => c.id);
@@ -584,7 +794,7 @@ export async function reconcileRetiredComponents(
       );
     }
 
-    return toRetire.length;
+    return { componentsRetired: toRetire.length, instancesOrphaned: 0 };
   });
 }
 
@@ -703,6 +913,9 @@ async function worker(runId: string): Promise<void> {
     };
 
     let reportedSourceId: string | null = null;
+    // Canonical identity as registered — drives adopt-on-report legacy
+    // matching in processAsset (ADR-120).
+    let reportedSourceIdentity: string | null = null;
     // Stored so an importer that forgets to await its report still has the
     // registration complete before the ordering check (unawaited-report race).
     let sourceReportPromise: Promise<void> | null = null;
@@ -716,7 +929,7 @@ async function worker(runId: string): Promise<void> {
       reportSourceIdentity: (identity: { externalIdentity: string; label?: string }) => {
         // Non-adopting manifests stay on the legacy config-scoped path
         // (FR-013) — a stray report must not flip the run's reconciliation.
-        if (manifest.reportsSourceIdentity !== true) {
+        if (!manifest.reportsSourceIdentity) {
           runLogger.warn("source identity report from a non-adopting importer — ignoring");
           return;
         }
@@ -732,6 +945,7 @@ async function worker(runId: string): Promise<void> {
             config.id,
             runActor(importerName!),
           );
+          reportedSourceIdentity = canonicalizeSourceIdentity(identity.externalIdentity);
         })();
         // Keep the rejection observable if the run aborts before the
         // ordering checks get a chance to await it.
@@ -781,7 +995,7 @@ async function worker(runId: string): Promise<void> {
       }
 
       const result = await traceDbQuery("processAsset", () =>
-        db.transaction().execute(async (trx) => processAsset(trx, runId, importerName!, asset, run.triggeredBy, reportedSourceId)),
+        db.transaction().execute(async (trx) => processAsset(trx, runId, importerName!, asset, run.triggeredBy, { sourceId: reportedSourceId, sourceIdentity: reportedSourceIdentity, configId: run.configId })),
       );
 
       yieldedComponentIds.add(result.componentId);
@@ -827,7 +1041,9 @@ async function worker(runId: string): Promise<void> {
     }
 
     const now2 = new Date().toISOString();
-    componentsRetired = await reconcileRetiredComponents(runId, importerName!, config.id, yieldedComponentIds, reportedSourceId);
+    const rec = await reconcileRetiredComponents(runId, importerName!, config.id, yieldedComponentIds, reportedSourceId);
+    componentsRetired = rec.componentsRetired;
+    instancesOrphaned += rec.instancesOrphaned;
 
     terminalStatus = "COMPLETED";
     await updateRun(runId, {

@@ -1,4 +1,4 @@
-import type { ComponentCategory, InstanceStatus } from "@componode/core";
+import { qualifyExternalId, type ComponentCategory, type InstanceStatus } from "@componode/core";
 
 // ACS::<Service>::<Type> → ComponentCategory. Codes are the provider-native
 // resource types returned by Resource Center SearchResources. Anything not
@@ -118,15 +118,20 @@ export function componentSlug(name: string, resourceId: string): string {
 }
 
 // Stable across renames: prefer the provider ARN when present, else
-// type + resourceId (both immutable identifiers). Callers must have
-// already verified resourceType/resourceId are present.
-export function externalIdFor(record: {
-  arn?: string;
-  resourceType: string;
-  resourceId: string;
-}): string {
+// type + resourceId (both immutable identifiers) qualified by the source
+// account id — resourceIds are account-local and collide across accounts
+// (ADR-120). Callers must have already verified resourceType/resourceId
+// are present.
+export function externalIdFor(
+  record: {
+    arn?: string;
+    resourceType: string;
+    resourceId: string;
+  },
+  accountId: string,
+): string {
   if (record.arn) return record.arn;
-  return `${record.resourceType}:${record.resourceId}`;
+  return qualifyExternalId(accountId, `${record.resourceType}:${record.resourceId}`);
 }
 
 // Best-effort provider status → InstanceStatus. Unknown strings map to null
