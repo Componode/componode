@@ -119,3 +119,10 @@ converge → PR). Run one spec at a time; do not interleave waves.
   core-only importer deps, manifest/config schema, `testSecrets`,
   AbortSignal, `validateDiscoveredAsset` tests, backend integration
   tests, OpenAPI sync for any route/contract change.
+
+> **Wave A follow-up (from spec-044 review)**: FR-006's per-source
+> `details` columns exist but are written `null`; `asset.details` still
+> last-writer-wins shared `components.details`. Wave B must split
+> asset-supplied details into canonical vs per-source fields and populate
+> membership `details` — tracked here so the deferral doesn't silently
+> become permanent.

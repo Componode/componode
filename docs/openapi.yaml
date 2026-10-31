@@ -1817,6 +1817,105 @@ paths:
               schema: { $ref: '#/components/schemas/Problem' }
 
   # ----------------------------------------------------------- Organization
+  /importer-sources:
+    get:
+      tags: [Importers]
+      summary: List importer sources
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, UNMONITORED, RETIRED] }
+        - name: importerName
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: All registered importer sources
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sources:
+                    type: array
+                    items: { $ref: '#/components/schemas/ImporterSource' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /importer-sources/{id}:
+    get:
+      tags: [Importers]
+      summary: Get an importer source
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Importer source detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source: { $ref: '#/components/schemas/ImporterSource' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /importer-sources/{id}/runs:
+    get:
+      tags: [Importers]
+      summary: List runs attributed to an importer source
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Run history for the source (survives config deletion)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runs:
+                    type: array
+                    items: { $ref: '#/components/schemas/ImportRun' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /importer-sources/{id}/retire:
+    post:
+      tags: [Importers]
+      summary: Explicitly retire an importer source
+      x-permission: "importer:source:retire"
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The retired source
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source: { $ref: '#/components/schemas/ImporterSource' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /importer-sources/{id}/reactivate:
+    post:
+      tags: [Importers]
+      summary: Reverse source retirement
+      x-permission: "importer:source:reactivate"
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The reactivated source
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source: { $ref: '#/components/schemas/ImporterSource' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /lobs:
     get:
       tags: [Organization]
@@ -2993,6 +3092,8 @@ components:
             - CONFIG_NOT_FOUND
             - RUN_IN_PROGRESS
             - RUN_NOT_ACTIVE
+            - SOURCE_NOT_FOUND
+            - SOURCE_STATE_CONFLICT
             - INTERNAL_ERROR
             - CREDENTIAL_NOT_FOUND
             - CREDENTIAL_IN_USE
@@ -3512,6 +3613,28 @@ components:
           description: Current member components (present on list responses)
         createdBy: { type: string, format: uuid, nullable: true }
         updatedBy: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ImporterSource:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        importerName: { type: string }
+        externalIdentity: { type: string }
+        label: { type: string, nullable: true }
+        status: { type: string, enum: [ACTIVE, UNMONITORED, RETIRED] }
+        boundConfigId: { type: string, format: uuid, nullable: true }
+        boundConfig:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string, format: uuid }
+            label: { type: string }
+        lastCompletedRunAt: { type: string, format: date-time, nullable: true }
+        activeComponentMemberships: { type: integer }
+        activeInstanceMemberships: { type: integer }
+        firstSeenInRunId: { type: string, format: uuid, nullable: true }
+        lastSeenInRunId: { type: string, format: uuid, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     ImporterConfig:

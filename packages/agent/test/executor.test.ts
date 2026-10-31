@@ -261,3 +261,172 @@ describe("JobExecutor", () => {
     expect(exec.currentJobs()).toBe(0);
   });
 });
+
+describe("JobExecutor — ImporterSource core (spec 044)", () => {
+  const runId = "018c5e60-0000-7000-8000-0000000000bb";
+
+  function makeLog() {
+    return {
+      debug: () => {}, info: () => {}, warn: () => {}, error: () => {},
+    } as unknown as AgentLog;
+  }
+
+  function captureSend() {
+    const frames: Array<{ type: string; payload: any; runId?: string }> = [];
+    return {
+      frames,
+      send: (type: string, payload: unknown, runId?: string) =>
+        frames.push({ type, payload, runId }),
+      ofType: (t: string) => frames.filter((f) => f.type === t),
+    };
+  }
+
+  function makeExec(
+    importer: Partial<Importer>,
+    manifest: Record<string, unknown> = {},
+    secretsDir?: string,
+  ) {
+    const tx = captureSend();
+    const registry = {
+      getManifests: vi.fn(async () => []),
+      getManifest: vi.fn(async () => manifest),
+      getConfigSchema: vi.fn(),
+      getImporter: vi.fn(async () => importer as Importer),
+    } as unknown as ImporterRegistry;
+    const exec = new JobExecutor({
+      registry,
+      maxJobs: 1,
+      log: makeLog(),
+      send: tx.send,
+      secretsDir,
+    });
+    return { exec, tx };
+  }
+
+  async function waitFor(pred: () => boolean, timeoutMs = 2000): Promise<void> {
+    const start = Date.now();
+    while (!pred()) {
+      if (Date.now() - start > timeoutMs) throw new Error("waitFor timeout");
+      await new Promise((r) => setTimeout(r, 5));
+    }
+  }
+
+  const baseAsset = {
+    name: "a", category: "SOFTWARE", provider: "test",
+    resourceType: "t", externalId: "e1", instances: [],
+  } as DiscoveredAsset;
+
+  it("emits source.identity before asset.batch when manifest opts in", async () => {
+    const { exec, tx } = makeExec(
+      {
+        name: "web-url",
+        run: async function* (_c, _s, ctx: any) {
+          await ctx.reportSourceIdentity({ externalIdentity: "engine:1" });
+          yield baseAsset;
+        } as unknown as Importer["run"],
+      },
+      { reportsSourceIdentity: true },
+    );
+    await exec.handleJobAssign(runId, { importerName: "web-url", scope: {} });
+    await waitFor(() => tx.ofType("run.complete").length === 1);
+    const idx = tx.frames.findIndex((f) => f.type === "source.identity");
+    const batch = tx.frames.findIndex((f) => f.type === "asset.batch");
+    expect(idx).toBeGreaterThan(-1);
+    expect(batch).toBeGreaterThan(idx);
+    expect(tx.ofType("run.complete")[0].payload.result).toBe("COMPLETED");
+  });
+
+  it("fails CONTRACT_VIOLATION when an adopting importer yields first", async () => {
+    const { exec, tx } = makeExec(
+      {
+        name: "web-url",
+        run: async function* () {
+          yield baseAsset;
+        } as unknown as Importer["run"],
+      },
+      { reportsSourceIdentity: true },
+    );
+    await exec.handleJobAssign(runId, { importerName: "web-url", scope: {} });
+    await waitFor(() => tx.ofType("run.complete").length === 1);
+    expect(tx.ofType("asset.batch")).toHaveLength(0);
+    expect(tx.ofType("run.complete")[0].payload).toMatchObject({
+      result: "FAILED",
+      errorType: "CONTRACT_VIOLATION",
+    });
+  });
+
+  it("unflagged manifests emit no source.identity frame", async () => {
+    const { exec, tx } = makeExec(
+      {
+        name: "web-url",
+        run: async function* () {
+          yield baseAsset;
+        } as unknown as Importer["run"],
+      },
+      {},
+    );
+    await exec.handleJobAssign(runId, { importerName: "web-url", scope: {} });
+    await waitFor(() => tx.ofType("run.complete").length === 1);
+    expect(tx.ofType("source.identity")).toHaveLength(0);
+    expect(tx.ofType("run.complete")[0].payload.result).toBe("COMPLETED");
+  });
+
+  it("NACKs TARGET_RESOLUTION_FAILED when scope lacks the declared key", async () => {
+    const { exec, tx } = makeExec(
+      { name: "docker", run: async function* () {} as never },
+      { targetRefKey: "target" },
+    );
+    await exec.handleJobAssign(runId, { importerName: "docker", scope: {} });
+    const nack = tx.ofType("job.ack")[0];
+    expect(nack.payload.accepted).toBe(false);
+    expect(nack.payload.reason).toMatch(/^TARGET_RESOLUTION_FAILED/);
+  });
+
+  it("NACKs TARGET_RESOLUTION_FAILED when registry file is missing", async () => {
+    const { exec, tx } = makeExec(
+      { name: "docker", run: async function* () {} as never },
+      { targetRefKey: "target" },
+      "/nonexistent-secrets-dir",
+    );
+    await exec.handleJobAssign(runId, {
+      importerName: "docker",
+      scope: { target: "t1" },
+    });
+    const nack = tx.ofType("job.ack")[0];
+    expect(nack.payload.accepted).toBe(false);
+    expect(nack.payload.reason).toMatch(/^TARGET_RESOLUTION_FAILED/);
+  });
+
+  it("resolves the profile and exposes it via resolveTarget", async () => {
+    const fsp = await import("node:fs/promises");
+    const os = await import("node:os");
+    const path = await import("node:path");
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "target-reg-"));
+    await fsp.writeFile(
+        `${dir}/docker-targets.json`,
+        JSON.stringify({
+          version: 1,
+          targets: { t1: { transport: "tcp", host: "h", port: 2376 } },
+        }),
+    );
+    let resolved: unknown;
+    const { exec, tx } = makeExec(
+      {
+        name: "docker",
+        run: async function* (_c, _s, ctx: any) {
+          resolved = ctx.resolveTarget("t1");
+          yield baseAsset;
+        } as unknown as Importer["run"],
+      },
+      { targetRefKey: "target" },
+      dir,
+    );
+    await exec.handleJobAssign(runId, {
+      importerName: "docker",
+      scope: { target: "t1" },
+    });
+    await waitFor(() => tx.ofType("run.complete").length === 1);
+    expect(tx.ofType("job.ack")[0].payload.accepted).toBe(true);
+    expect(resolved).toMatchObject({ transport: "tcp", host: "h" });
+  });
+});

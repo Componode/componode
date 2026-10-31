@@ -133,3 +133,37 @@ credential bundles; they do not redefine them.
   (Amendment 2).
 - **[ADR-116](./ADR-116-remote-import-agents.md)** — Agent-local target
   registry, `targetId` immutability, and allowlist preflight (Amendment 5).
+
+## Amendment 1 — API surface, retirement semantics, and legacy representation (2026-10-31, spec 044)
+
+**Context**: spec 044 (`044-importer-source-core`) implements this ADR.
+Three contract surfaces needed refinement: the operator lifecycle API,
+what `RETIRED` does to memberships, and how unattributed provenance is
+represented.
+
+**Refinement**:
+
+- **Source API**: `GET /importer-sources`, `GET /importer-sources/{id}`,
+  `GET /importer-sources/{id}/runs` (viewer-readable), and
+  `POST /importer-sources/{id}/retire` +
+  `POST /importer-sources/{id}/reactivate` (ADMIN). Error codes:
+  `SOURCE_NOT_FOUND` (404), `SOURCE_STATE_CONFLICT` (409 on invalid
+  transitions). Run history for a Source remains reachable after its
+  config is deleted — orphan runs (`configId NULL`) are read via
+  `/importer-sources/{id}/runs`.
+- **Effective-active union**: a membership counts for sharing purposes
+  while `active = true` AND its Source is `ACTIVE` or `UNMONITORED`.
+  `RETIRED` removes the Source's memberships from the union **without
+  deleting membership rows** — retirement is reversible with zero data
+  loss. The retire transition evaluates entity retirement immediately:
+  entities with zero remaining effective-active memberships retire
+  (`Component RETIRED`, instances `GONE`). Reactivation restores union
+  membership; entities return through the normal report/upsert path.
+- **`LEGACY_UNATTRIBUTED` is `import_runs.sourceId IS NULL`** — explicit
+  absence, not a sentinel Source row.
+- **Binding**: `boundConfigId` on `importer_sources`
+  (`ON DELETE SET NULL`); rebind-on-report — the latest reporting config
+  becomes the bound config, preserving "one active config per Source".
+- **Terminal-run guard refinement**: `import_runs` terminal-state trigger
+  permits exactly the `configId → NULL` write produced by the FK's
+  `ON DELETE SET NULL`; all other terminal mutations still raise.

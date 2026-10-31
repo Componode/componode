@@ -112,7 +112,7 @@ export interface ImporterConfig {
 
 export interface ImportRun {
   id: string;
-  configId?: string;
+  configId?: string | null;
   status: RunStatus;
   triggeredBy: string;
   startedAt: string | null;

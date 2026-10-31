@@ -52,7 +52,8 @@ export type AgentAuditAction = (typeof AGENT_AUDIT_ACTIONS)[number];
 
 // Lockstep parity (ADR-116 #7): hub and agent must agree exactly.
 // v2: heartbeat payload gains the optional `ops` snapshot (spec 028).
-export const AGENT_PROTOCOL_VERSION = 2;
+// v3: `source.identity` job-stream frame (spec 044, ADR-116 Amendment 6).
+export const AGENT_PROTOCOL_VERSION = 3;
 
 // Wire `error` frame codes — shared vocabulary, both directions emit these.
 export const AGENT_ERROR_CODES = {
@@ -83,3 +84,6 @@ export const AGENT_NACK_SECRET_RESOLUTION_PREFIX = "SECRET_RESOLUTION_FAILED";
 // Transient refusals (e.g. capacity) — the run fails AGENT_UNAVAILABLE,
 // not AGENT_INCOMPATIBLE.
 export const AGENT_NACK_UNAVAILABLE_PREFIX = "AGENT_UNAVAILABLE";
+// Target-registry preflight refusals (ADR-116 A6): unknown, malformed, or
+// disallowed targetId — fails before any network access.
+export const AGENT_NACK_TARGET_RESOLUTION_PREFIX = "TARGET_RESOLUTION_FAILED";

@@ -462,3 +462,28 @@ parameters): where it lives, who validates it, and when it fails.
 **Amended by ADR-119**: the Agent gains a versioned, read-only,
 Agent-local target registry with immutable `targetId`s and
 fail-before-network preflight — see Amendment 5.
+
+## Amendment 6 — source.identity frame, protocol v3, and target NACK (2026-10-31, spec 044)
+
+**Context**: spec 044 implements ADR-119 + Amendment 5. Remote runs need
+the reported Source identity to reach the hub (empty inventories carry no
+assets), and the target-preflight refusal needed a named wire reason.
+
+**Refinement**:
+
+- **`AGENT_PROTOCOL_VERSION` 2 → 3** — the frame set is enumerated.
+- **New job-stream frame** `source.identity` (agent → hub,
+  `{runId, externalIdentity, label?}`): emitted by the agent-side
+  `context.reportSourceIdentity` implementation; required before the
+  first `asset.batch` for jobs whose manifest declares
+  `reportsSourceIdentity`. The agent executor fails the job
+  `CONTRACT_VIOLATION` on yield-before-report or completion without a
+  report; the hub fails closed on the same ordering violation.
+- **Registry file convention**: `${SECRETS_DIR}/{importerName}-targets.json`,
+  envelope `{ "version": 1, "targets": { "<targetId>": { "transport": string, ... } } }`,
+  loaded fresh per `job.assign`; missing/corrupt = empty allowlist (fail
+  closed, agent stays up).
+- **New NACK prefix** `AGENT_NACK_TARGET_RESOLUTION_PREFIX =
+  "TARGET_RESOLUTION_FAILED"` — maps to run `FAILED` with that
+  `errorType` (not `AGENT_INCOMPATIBLE`). The hub `jobGate` mirrors the
+  scope-shape check fail-fast before enqueue.

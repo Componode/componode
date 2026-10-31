@@ -18,6 +18,7 @@ import {
   type JobAckPayload,
   type PhasePayload,
   type RunCompletePayload,
+  type SourceIdentityPayload,
   type RunErrorPayload,
 } from "@componode/core";
 import type { Selectable } from "kysely";
@@ -116,6 +117,7 @@ interface PendingTest {
 // them gets UNSUPPORTED_FRAME.
 const JOB_STREAM_TYPES = new Set([
   "job.ack",
+  "source.identity",
   "asset.batch",
   "phase",
   "run.error",
@@ -529,6 +531,8 @@ export class AgentSessionService {
     switch (type) {
       case "job.ack":
         return h.onJobAck(session.agentId, runId, payload as JobAckPayload);
+      case "source.identity":
+        return h.onSourceIdentity(session.agentId, runId, payload as SourceIdentityPayload);
       case "asset.batch":
         return h.onAssetBatch(session.agentId, runId, payload as AssetBatchPayload);
       case "phase":

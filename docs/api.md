@@ -66,6 +66,8 @@ exception is `GET /metrics`, which is served at the root.
 | `CONFIG_NOT_FOUND` | Importer config missing at run time (surfaced via run error fields) |
 | `RUN_IN_PROGRESS` | An import run is already in progress for this config (409) |
 | `RUN_NOT_ACTIVE` | Run is not PENDING/RUNNING and cannot be cancelled (409) |
+| `SOURCE_NOT_FOUND` | Importer source not found (404) |
+| `SOURCE_STATE_CONFLICT` | Invalid source lifecycle transition (409) |
 | `INTERNAL_ERROR` | Unhandled server error |
 | `CREDENTIAL_NOT_FOUND` | Credential not found (404) |
 | `CREDENTIAL_IN_USE` | Credential delete/update blocked by existing references (409) |
@@ -280,6 +282,11 @@ same fields plus `lifecycle`.
 | GET | `/api/v1/importer-configs/:configId/runs/:runId` | Get an import run | Authenticated |
 | GET | `/api/v1/importer-configs/:configId/runs/:runId/errors` | List errors for an import run | Authenticated |
 | POST | `/api/v1/importer-configs/:configId/runs/:runId/cancel` | Cancel a running or pending import run | `importer:run:cancel` |
+| GET | `/api/v1/importer-sources` | List importer sources | Authenticated |
+| GET | `/api/v1/importer-sources/:id` | Get an importer source | Authenticated |
+| GET | `/api/v1/importer-sources/:id/runs` | List runs attributed to an importer source | Authenticated |
+| POST | `/api/v1/importer-sources/:id/retire` | Explicitly retire an importer source | `importer:source:retire` |
+| POST | `/api/v1/importer-sources/:id/reactivate` | Reverse source retirement | `importer:source:reactivate` |
 | GET | `/api/v1/importer-configs/:configId/runs/:runId/changes` | Import-run consequential changes | Authenticated |
 <!-- /GENERATED:table:Importers -->
 

@@ -2,7 +2,11 @@ import type { ImportRunStatus } from "../constants/index.js";
 
 export interface ImportRun {
   id: string;
-  configId: string;
+  // Nullable — deleting a config preserves run history (ADR-047 A1);
+  // orphan runs are read via /importer-sources/:id/runs.
+  configId: string | null;
+  // Durable source attribution (ADR-119); null = LEGACY_UNATTRIBUTED.
+  sourceId: string | null;
   // The executing Import Agent; null = in-process execution (spec 027).
   agentId: string | null;
   // Joined display name; null when the agent row no longer exists.

@@ -141,6 +141,17 @@ export const jobAckPayloadSchema = z
   })
   .strict();
 
+// Source attribution (spec 044, ADR-119/ADR-116 A6): adopting importers
+// report their provider-native source identity before the first
+// asset.batch — including empty inventories, which is what makes
+// "reachable but empty" distinguishable from "unreachable".
+export const sourceIdentityPayloadSchema = z
+  .object({
+    externalIdentity: z.string().min(1).max(512),
+    label: z.string().max(200).optional(),
+  })
+  .strict();
+
 // Assets are wire-validated per-item by the hub's contract validator — the
 // frame schema only bounds the batch shape; an invalid asset becomes a
 // run error row, not a protocol violation.
@@ -204,6 +215,7 @@ export const agentMessageSchemas = {
   "credential.test.result": envelope(credentialTestResultPayloadSchema),
   "job.assign": jobEnvelope(jobAssignPayloadSchema),
   "job.ack": jobEnvelope(jobAckPayloadSchema),
+  "source.identity": jobEnvelope(sourceIdentityPayloadSchema),
   "asset.batch": jobEnvelope(assetBatchPayloadSchema),
   phase: jobEnvelope(phasePayloadSchema),
   "run.error": jobEnvelope(runErrorPayloadSchema),
@@ -227,6 +239,7 @@ export type AgentCredentialTestPayload = z.infer<typeof credentialTestPayloadSch
 export type AgentCredentialTestResultPayload = z.infer<typeof credentialTestResultPayloadSchema>;
 export type JobAssignPayload = z.infer<typeof jobAssignPayloadSchema>;
 export type JobAckPayload = z.infer<typeof jobAckPayloadSchema>;
+export type SourceIdentityPayload = z.infer<typeof sourceIdentityPayloadSchema>;
 export type AssetBatchPayload = z.infer<typeof assetBatchPayloadSchema>;
 export type PhasePayload = z.infer<typeof phasePayloadSchema>;
 export type RunErrorPayload = z.infer<typeof runErrorPayloadSchema>;

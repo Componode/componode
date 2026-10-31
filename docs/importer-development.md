@@ -236,3 +236,18 @@ update it. The guide covers, at minimum:
 - [ ] Unit tests verify `AbortSignal` stops iteration cleanly.
 - [ ] Integration test triggers a run through the backend and verifies DB rows.
 - [ ] `pnpm build` and `pnpm typecheck` pass for the new package.
+
+## Source identity and target references (spec 044)
+
+Importers that adopt durable provenance declare `reportsSourceIdentity: true`
+on their manifest and call `context.reportSourceIdentity({externalIdentity,
+label?})` before the first asset yield — including empty inventories.
+`externalIdentity` is the provider-native canonical, non-secret identity
+(URL identities are canonicalized executor-side). Missing the report on an
+adopting importer fails the run `CONTRACT_VIOLATION`.
+
+Manifests declaring `targetRefKey` name the config-scope key carrying a
+`targetId`; the Agent preflights it against
+`${SECRETS_DIR}/{importerName}-targets.json` and the importer reads the
+resolved non-secret profile via `context.resolveTarget(targetId)` (in-process
+runs get a throwing stub).

@@ -117,7 +117,7 @@ export type { CredentialTestResult } from "@componode/core";
 
 export interface ImportRun {
   id: string;
-  configId: string;
+  configId: string | null;
   agentId: string | null;
   agentName: string | null;
   status: ImportRunStatus;

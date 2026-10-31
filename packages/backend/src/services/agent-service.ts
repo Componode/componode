@@ -370,7 +370,7 @@ export async function listAgentRuns(id: string, limit = 50): Promise<AgentRun[]>
 
   const rows = await db
     .selectFrom("import_runs")
-    .innerJoin("importer_configs", "importer_configs.id", "import_runs.configId")
+    .leftJoin("importer_configs", "importer_configs.id", "import_runs.configId")
     .select([
       "import_runs.id",
       "import_runs.configId",

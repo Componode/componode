@@ -180,6 +180,16 @@ file tracks shipped and upcoming work — update it when a spec completes.
 
 - `042-catalog-authoring` — the three remaining ux-rewrite feature gaps: `POST /components` (`component:create` → EDITOR, ADR-054 Amendment 1) + "Add manually"/"New group" dialogs (G29); product-detail Relations card wiring `useAddEdge`/`useRemoveEdge` with kind-aware targets and surfaced `409 CYCLE` (G31); suggestions Pending/History tabs via a new `DECIDED` status filter spanning all terminal states (G32, ADR-113 amendment). `manualEntityCreate` + `suggestionsHistory` flags removed.
 
+- `044-importer-source-core` — the generic ImporterSource core (ADR-119):
+  durable `importer_sources` with `ACTIVE`/`UNMONITORED`/`RETIRED`
+  lifecycle and one-config binding, `reportSourceIdentity` +
+  `resolveTarget` on the importer context, `targetRefKey` +
+  `reportsSourceIdentity` manifest fields, durable Source→Component/
+  Instance memberships, source-scoped reconciliation (legacy
+  `sourceId NULL` path untouched), `import_runs.sourceId` durable with
+  `configId` nullable `ON DELETE SET NULL`, Source list/detail/runs/
+  retire/reactivate API, agent-local target registry with
+  fail-before-network preflight + `source.identity` frame (protocol v3).
 - `043-importer-source-adrs` — decision-record wave for the Docker
   importer program: ADR-119 (ImporterSource identity/lifecycle,
   source-scoped reconciliation, run-history retention, Agent target

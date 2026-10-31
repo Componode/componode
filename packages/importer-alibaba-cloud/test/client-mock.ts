@@ -12,6 +12,8 @@ export function makeContext(overrides?: Partial<ImporterContext>): ImporterConte
     logger: { ...NOOP_LOGGER, warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn() },
     signal: new AbortController().signal,
     reportPhase: vi.fn(),
+    reportSourceIdentity: vi.fn(),
+    resolveTarget: vi.fn(),
     ...overrides,
   };
 }
