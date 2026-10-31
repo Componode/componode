@@ -17,16 +17,22 @@ describe("McpServerImporter", () => {
   it("yields a DiscoveredAsset with a PRODUCTION instance", async () => {
     const importer = new McpServerImporter();
     const assets = [];
+    const context = makeContext();
 
     for await (const asset of importer.run(
       { resourceTypes: ["tools/list"], endpoint: "https://mcp.example.com/sse" },
       {},
-      makeContext(),
+      context,
     )) {
       assets.push(asset);
     }
 
+    // Canonical endpoint is the source identity; externalId qualified.
+    expect(context.reportSourceIdentity).toHaveBeenCalledTimes(1);
+    const reported = (context.reportSourceIdentity as ReturnType<typeof vi.fn>).mock.calls[0][0].externalIdentity;
+    expect(reported).toContain("mcp.example.com/sse");
     expect(assets).toHaveLength(1);
+    expect(assets[0].externalId).toBe(`${reported}::tools/list`);
     expect(assets[0].provider).toBe("MCP_SERVER");
     expect(assets[0].resourceType).toBe("tools/list");
     expect(assets[0].category).toBe("MCP_SERVER");

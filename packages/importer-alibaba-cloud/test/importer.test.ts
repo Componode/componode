@@ -178,6 +178,10 @@ describe("AlibabaCloudImporter — US1 discovery", () => {
 
     const assets = await collect(new AlibabaCloudImporter(), {}, context);
     expect(assets).toHaveLength(2); // 1 mapped + account
+    // Source identity = STS accountId, reported before any yield (ADR-120).
+    expect(context.reportSourceIdentity).toHaveBeenCalledWith(
+      expect.objectContaining({ externalIdentity: "1234567890123456" }),
+    );
     const account = assets[1].details as Record<string, any>;
     expect(account.coverage.skippedCount).toBe(2);
     expect(account.coverage.skippedTypes).toEqual(["ACS::Foo::Bar"]);

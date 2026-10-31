@@ -17,16 +17,20 @@ describe("AwsImporter", () => {
   it("yields a DiscoveredAsset with a PRODUCTION instance", async () => {
     const importer = new AwsImporter();
     const assets = [];
+    const context = makeContext();
 
     for await (const asset of importer.run(
       { region: "us-east-1", resourceTypes: ["ec2:instance"], sourceKey: "acct-test" },
       {},
-      makeContext(),
+      context,
     )) {
       assets.push(asset);
     }
 
+    // Source identity reported before first yield (ADR-120).
+    expect(context.reportSourceIdentity).toHaveBeenCalledWith({ externalIdentity: "acct-test" });
     expect(assets).toHaveLength(1);
+    expect(assets[0].externalId).toBe("acct-test::us-east-1:ec2:instance");
     expect(assets[0].provider).toBe("AWS");
     expect(assets[0].resourceType).toBe("ec2:instance");
     expect(assets[0].instances).toHaveLength(1);

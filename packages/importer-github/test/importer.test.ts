@@ -634,6 +634,40 @@ describe("GithubImporter", () => {
     expect(hosts.every((h) => h === "ghes.example.com")).toBe(true);
   });
 
+  it("reports org-id source identity; qualifies externalIds only on GHES", async () => {
+    withExtrasRoutes();
+
+    // github.com: unqualified IDs, identity = api.github.com#org:{id}.
+    const ctx1 = makeContext();
+    const com = [];
+    for await (const a of new GithubImporter().run({ org: "testorg" }, { token: "fake" }, ctx1)) {
+      com.push(a);
+    }
+    expect(ctx1.reportSourceIdentity).toHaveBeenCalledWith(
+      expect.objectContaining({ externalIdentity: "https://api.github.com/#org:42" }),
+    );
+    const comRepo = com.find((a) => a.resourceType === "github:repository");
+    expect(comRepo.externalId).toBe("123");
+
+    // GHES: numeric IDs collide across instances — qualified by identity.
+    const ctx2 = makeContext();
+    const ghes = [];
+    for await (const a of new GithubImporter().run(
+      { org: "testorg", baseUrl: "https://ghes.example.com/api/v3" },
+      { token: "fake" },
+      ctx2,
+    )) {
+      ghes.push(a);
+    }
+    expect(ctx2.reportSourceIdentity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        externalIdentity: "https://ghes.example.com/api/v3#org:42",
+      }),
+    );
+    const ghesRepo = ghes.find((a) => a.resourceType === "github:repository");
+    expect(ghesRepo.externalId).toBe("https://ghes.example.com/api/v3#org:42::123");
+  });
+
   it("rejects unsafe baseUrl values at config validation", async () => {
     for (const baseUrl of [
       "https://localhost/api/v3",

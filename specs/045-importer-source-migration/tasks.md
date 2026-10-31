@@ -19,7 +19,7 @@ US4 = defensible backfill; US5 = per-importer documentation.
 
 **Purpose**: baseline verification only — existing monorepo, nothing to scaffold
 
-- [ ] T001 Verify green baseline: `pnpm install`, then `pnpm --filter @componode/core test` and `pnpm --filter @componode/backend test` on the feature branch
+- [x] T001 Verify green baseline: `pnpm install`, then `pnpm --filter @componode/core test` and `pnpm --filter @componode/backend test` on the feature branch
 
 ---
 
@@ -29,10 +29,10 @@ US4 = defensible backfill; US5 = per-importer documentation.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T002 [P] Extend `DiscoveredAsset` and `DiscoveredAssetInstance` with optional `sourceDetails?: Record<string, unknown> | null` in `packages/core/src/contracts/discovered-asset.ts`; update `validateDiscoveredAsset` schema to accept plain-object `sourceDetails` (reject non-objects) and export the contract docs in `packages/core/src/index.ts` if needed
-- [ ] T003 [P] Add `qualifyExternalId(identity, nativeId)` → `"{identity}::{nativeId}"`, `legacyExternalId(qualified)` (strips first `{identity}::` prefix, returns null when unqualified), and `isQualifiedExternalId(id)` helpers with failing-first unit tests in `packages/core/src/utils/source-identity.ts` and `packages/core/src/utils/source-identity.test.ts`; export from `packages/core/src/index.ts`
-- [ ] T004 Adopt-on-report matching in `packages/backend/src/services/import-run-service.ts` `processAsset`: after the qualified `(category, provider, externalId)` lookup misses and `sourceId != null` and `isQualifiedExternalId(asset.externalId)`, fall back to `legacyExternalId(...)` matching only components with **no membership from this Source**; on match update `externalId` to the qualified form, then normal upsert + membership stamp. Write failing integration test in `packages/backend/test/integration/source-adoption.test.ts` first (legacy row adopted, no duplicate; second source inserts its own qualified row)
-- [ ] T005 Update fake `getImporter` mocks to call `context.reportSourceIdentity({externalIdentity: "test-source"})` before yielding in `packages/backend/test/integration/` suites that run under real manifest names: `importers.test.ts`, `import-runs.test.ts`, `import-reconciliation.test.ts`, `alibaba-import.test.ts`, `edge-suggestion-generation.test.ts`, `config-drift.test.ts`, `metadata-importer-safety.test.ts`, plus remote-run/agent test fixtures using `importerName: "github"`/`"alibaba-cloud"`
+- [x] T002 [P] Extend `DiscoveredAsset` and `DiscoveredAssetInstance` with optional `sourceDetails?: Record<string, unknown> | null` in `packages/core/src/contracts/discovered-asset.ts`; update `validateDiscoveredAsset` schema to accept plain-object `sourceDetails` (reject non-objects) and export the contract docs in `packages/core/src/index.ts` if needed
+- [x] T003 [P] Add `qualifyExternalId(identity, nativeId)` → `"{identity}::{nativeId}"`, `legacyExternalId(qualified)` (strips first `{identity}::` prefix, returns null when unqualified), and `isQualifiedExternalId(id)` helpers with failing-first unit tests in `packages/core/src/utils/source-identity.ts` and `packages/core/src/utils/source-identity.test.ts`; export from `packages/core/src/index.ts`
+- [x] T004 Adopt-on-report matching in `packages/backend/src/services/import-run-service.ts` `processAsset`: after the qualified `(category, provider, externalId)` lookup misses and `sourceId != null` and `isQualifiedExternalId(asset.externalId)`, fall back to `legacyExternalId(...)` matching only components with **no membership from this Source**; on match update `externalId` to the qualified form, then normal upsert + membership stamp. Write failing integration test in `packages/backend/test/integration/source-adoption.test.ts` first (legacy row adopted, no duplicate; second source inserts its own qualified row)
+- [x] T005 Update fake `getImporter` mocks to call `context.reportSourceIdentity({externalIdentity: "test-source"})` before yielding in `packages/backend/test/integration/` suites that run under real manifest names: `importers.test.ts`, `import-runs.test.ts`, `import-reconciliation.test.ts`, `alibaba-import.test.ts`, `edge-suggestion-generation.test.ts`, `config-drift.test.ts`, `metadata-importer-safety.test.ts`, plus remote-run/agent test fixtures using `importerName: "github"`/`"alibaba-cloud"`
 
 **Checkpoint**: Foundation ready — contract fields, qualification helpers, adopt-on-report matching, and test-fake reporting all in place
 
@@ -52,23 +52,23 @@ missing identity fails the run before yield.
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T006 [P] [US1] Tests in `packages/importer-alibaba-cloud/test/importer.test.ts`: `reportSourceIdentity` called with `{externalIdentity: accountId}` before first asset; empty inventory still reports
-- [ ] T007 [P] [US1] Tests in `packages/importer-api-url/test/importer.test.ts` and `packages/importer-web-url/test/importer.test.ts`: reports canonical `config.url`; userinfo/auth-params stripped from reported identity
-- [ ] T008 [P] [US1] Tests in `packages/importer-github/test/importer.test.ts`: reports `{canonicalBaseUrl}#org:{orgId}`; `orgs.get` invoked before any yield incl. when `includeOrganization` is false; GHES `baseUrl` reflected in identity
-- [ ] T009 [P] [US1] Tests in `packages/importer-aws/test/importer.test.ts` and `packages/importer-kubernetes/test/importer.test.ts`: reports `sourceKey` (aws) / canonical `endpoint` or `sourceKey` (k8s); run throws/fails when required identity absent — no yield
-- [ ] T010 [P] [US1] Tests in `packages/importer-azure/test/importer.test.ts` and `packages/importer-mcp-server/test/importer.test.ts`: `subscriptionId`/`endpoint` preferred, `sourceKey` fallback, failure when neither
-- [ ] T011 [P] [US1] Agent passthrough test in `packages/agent/test/executor.test.ts`: importer `reportSourceIdentity` on agent produces the `source.identity` frame hub-side (verify existing protocol v3 path — no new protocol)
+- [x] T006 [P] [US1] Tests in `packages/importer-alibaba-cloud/test/importer.test.ts`: `reportSourceIdentity` called with `{externalIdentity: accountId}` before first asset; empty inventory still reports
+- [x] T007 [P] [US1] Tests in `packages/importer-api-url/test/importer.test.ts` and `packages/importer-web-url/test/importer.test.ts`: reports canonical `config.url`; userinfo/auth-params stripped from reported identity
+- [x] T008 [P] [US1] Tests in `packages/importer-github/test/importer.test.ts`: reports `{canonicalBaseUrl}#org:{orgId}`; `orgs.get` invoked before any yield incl. when `includeOrganization` is false; GHES `baseUrl` reflected in identity
+- [x] T009 [P] [US1] Tests in `packages/importer-aws/test/importer.test.ts` and `packages/importer-kubernetes/test/importer.test.ts`: reports `sourceKey` (aws) / canonical `endpoint` or `sourceKey` (k8s); run throws/fails when required identity absent — no yield
+- [x] T010 [P] [US1] Tests in `packages/importer-azure/test/importer.test.ts` and `packages/importer-mcp-server/test/importer.test.ts`: `subscriptionId`/`endpoint` preferred, `sourceKey` fallback, failure when neither
+- [x] T011 [P] [US1] Agent passthrough test in `packages/agent/test/executor.test.ts`: importer `reportSourceIdentity` on agent produces the `source.identity` frame hub-side (verify existing protocol v3 path — no new protocol)
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] `importer-alibaba-cloud`: `manifest.ts` `reportsSourceIdentity: true`; report `identity.accountId` from the existing pre-yield `getCallerIdentity` in `src/importer.ts`
-- [ ] T013 [P] [US1] `importer-api-url` + `importer-web-url`: flag manifests; report `canonicalizeSourceIdentity(config.url)` before yield in each `src/importer.ts`
-- [ ] T014 [US1] `importer-github`: flag manifest; move/call `octokit.rest.orgs.get({org})` at run start (before any fetch that yields); report `{canonicalBaseUrl}#org:{orgId}` with `label` = org login
-- [ ] T015 [US1] `importer-aws`: add optional trimmed `sourceKey` to `src/config.ts` scope; flag manifest; report `sourceKey` or fail before yield when absent
-- [ ] T016 [US1] `importer-kubernetes`: add optional `sourceKey` to `src/config.ts`; flag manifest; report canonical `endpoint` else `sourceKey` else fail
-- [ ] T017 [US1] `importer-azure`: add optional `sourceKey` to `src/config.ts`; flag manifest; report `subscriptionId` else `sourceKey` else fail
-- [ ] T018 [US1] `importer-mcp-server`: add optional `sourceKey` to `src/config.ts`; flag manifest; report canonical `endpoint` else `sourceKey` else fail
-- [ ] T019 [US1] Backend integration: add assertions that a run through a real flagged manifest attributes `run.sourceId` and registers the Source (extend `source-adoption.test.ts` or a new `importer-source-adoption.test.ts` in `packages/backend/test/integration/`)
+- [x] T012 [US1] `importer-alibaba-cloud`: `manifest.ts` `reportsSourceIdentity: true`; report `identity.accountId` from the existing pre-yield `getCallerIdentity` in `src/importer.ts`
+- [x] T013 [P] [US1] `importer-api-url` + `importer-web-url`: flag manifests; report `canonicalizeSourceIdentity(config.url)` before yield in each `src/importer.ts`
+- [x] T014 [US1] `importer-github`: flag manifest; move/call `octokit.rest.orgs.get({org})` at run start (before any fetch that yields); report `{canonicalBaseUrl}#org:{orgId}` with `label` = org login
+- [x] T015 [US1] `importer-aws`: add optional trimmed `sourceKey` to `src/config.ts` scope; flag manifest; report `sourceKey` or fail before yield when absent
+- [x] T016 [US1] `importer-kubernetes`: add optional `sourceKey` to `src/config.ts`; flag manifest; report canonical `endpoint` else `sourceKey` else fail
+- [x] T017 [US1] `importer-azure`: add optional `sourceKey` to `src/config.ts`; flag manifest; report `subscriptionId` else `sourceKey` else fail
+- [x] T018 [US1] `importer-mcp-server`: add optional `sourceKey` to `src/config.ts`; flag manifest; report canonical `endpoint` else `sourceKey` else fail
+- [x] T019 [US1] Backend integration: add assertions that a run through a real flagged manifest attributes `run.sourceId` and registers the Source (extend `source-adoption.test.ts` or a new `importer-source-adoption.test.ts` in `packages/backend/test/integration/`)
 
 **Checkpoint**: 8/8 importers report identity; runs attribute; T005 fakes keep every suite green
 
@@ -86,18 +86,18 @@ first migrated run; stored externalIds of unreported rows unchanged.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T020 [P] [US2] Unit tests asserting qualified `externalId` formats in `packages/importer-aws`, `importer-kubernetes`, `importer-mcp-server` test files (`{identity}::{nativeId}`, incl. endpoint-less mcp `sourceKey` case)
-- [ ] T021 [P] [US2] Unit tests in `packages/importer-github/test/importer.test.ts`: GHES configs emit `externalId` qualified by canonical host; github.com configs emit unqualified (existing assertions keep passing)
-- [ ] T022 [P] [US2] Unit tests in `packages/importer-alibaba-cloud/test/importer.test.ts`: ARN assets unqualified; non-ARN fallback `{type}:{id}` becomes `{accountId}::{type}:{id}`
-- [ ] T023 [US2] Integration tests in `packages/backend/test/integration/source-adoption.test.ts`: same native ID from two distinct Sources → two Components; legacy-row adoption (qualified rewrite + membership + zero duplicates); unreported legacy rows untouched; previously merged legacy row disambiguates across two Sources' runs
+- [x] T020 [P] [US2] Unit tests asserting qualified `externalId` formats in `packages/importer-aws`, `importer-kubernetes`, `importer-mcp-server` test files (`{identity}::{nativeId}`, incl. endpoint-less mcp `sourceKey` case)
+- [x] T021 [P] [US2] Unit tests in `packages/importer-github/test/importer.test.ts`: GHES configs emit `externalId` qualified by canonical host; github.com configs emit unqualified (existing assertions keep passing)
+- [x] T022 [P] [US2] Unit tests in `packages/importer-alibaba-cloud/test/importer.test.ts`: ARN assets unqualified; non-ARN fallback `{type}:{id}` becomes `{accountId}::{type}:{id}`
+- [x] T023 [US2] Integration tests in `packages/backend/test/integration/source-adoption.test.ts`: same native ID from two distinct Sources → two Components; legacy-row adoption (qualified rewrite + membership + zero duplicates); unreported legacy rows untouched; previously merged legacy row disambiguates across two Sources' runs
 
 ### Implementation for User Story 2
 
-- [ ] T024 [P] [US2] Qualify emitted `externalId`s in `packages/importer-aws/src/importer.ts` (`{sourceKey}::{region}:{rtype}`) and `packages/importer-kubernetes/src/importer.ts` (`{identity}::{ns}:{rtype}`) using core `qualifyExternalId`
-- [ ] T025 [P] [US2] Qualify in `packages/importer-mcp-server/src/importer.ts`: `{identity}::{rtype}` for both endpoint and `sourceKey` identities (drop bare `mcp:{rtype}` form)
-- [ ] T026 [US2] Qualify GHES-only externalIds in `packages/importer-github/src/`: org/repo/workflow/runner/package IDs gain canonical-baseUrl prefix only when `baseUrl` differs from `https://api.github.com`
-- [ ] T027 [US2] Qualify Alibaba non-ARN fallback in `packages/importer-alibaba-cloud/src/mapping.ts`: `externalIdFor` returns `{accountId}::{type}:{id}` when no `arn` (thread accountId through from caller)
-- [ ] T028 [US2] Verify azure emits `{subscriptionId-or-sourceKey}:{rtype}` (already qualified shape — adjust `scope` fallback from `"default"` to the resolved identity so the `default:` collision form disappears) in `packages/importer-azure/src/importer.ts`
+- [x] T024 [P] [US2] Qualify emitted `externalId`s in `packages/importer-aws/src/importer.ts` (`{sourceKey}::{region}:{rtype}`) and `packages/importer-kubernetes/src/importer.ts` (`{identity}::{ns}:{rtype}`) using core `qualifyExternalId`
+- [x] T025 [P] [US2] Qualify in `packages/importer-mcp-server/src/importer.ts`: `{identity}::{rtype}` for both endpoint and `sourceKey` identities (drop bare `mcp:{rtype}` form)
+- [x] T026 [US2] Qualify GHES-only externalIds in `packages/importer-github/src/`: org/repo/workflow/runner/package IDs gain canonical-baseUrl prefix only when `baseUrl` differs from `https://api.github.com`
+- [x] T027 [US2] Qualify Alibaba non-ARN fallback in `packages/importer-alibaba-cloud/src/mapping.ts`: `externalIdFor` returns `{accountId}::{type}:{id}` when no `arn` (thread accountId through from caller)
+- [x] T028 [US2] Verify azure emits `{subscriptionId-or-sourceKey}:{rtype}` (already qualified shape — adjust `scope` fallback from `"default"` to the resolved identity so the `default:` collision form disappears) in `packages/importer-azure/src/importer.ts`
 
 **Checkpoint**: distinct systems can never merge; legacy continuity proven by adoption tests
 
@@ -114,13 +114,13 @@ unchanged on the shared row.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T029 [P] [US3] Unit tests in `packages/core/src/` validating `sourceDetails` shape through `validateDiscoveredAsset` (accept object/null/absent; reject non-object)
-- [ ] T030 [US3] Integration tests in `packages/backend/test/integration/source-adoption.test.ts`: `asset.sourceDetails` → `source_component_memberships.details`; `instance.sourceDetails` → `source_instance_memberships.details`; two Sources keep distinct membership details; legacy run ignores `sourceDetails`
+- [x] T029 [P] [US3] Unit tests in `packages/core/src/` validating `sourceDetails` shape through `validateDiscoveredAsset` (accept object/null/absent; reject non-object)
+- [x] T030 [US3] Integration tests in `packages/backend/test/integration/source-adoption.test.ts`: `asset.sourceDetails` → `source_component_memberships.details`; `instance.sourceDetails` → `source_instance_memberships.details`; two Sources keep distinct membership details; legacy run ignores `sourceDetails`
 
 ### Implementation for User Story 3
 
-- [ ] T031 [US3] Wire `asset.sourceDetails` / `instance.sourceDetails` into `upsertComponentMembership` / `upsertInstanceMembership` in `packages/backend/src/services/import-run-service.ts` (upsert sets `details` on both insert and conflict-update)
-- [ ] T032 [US3] Emit `sourceDetails` from one real importer as the reference implementation — `packages/importer-alibaba-cloud/src/` (e.g. `arn`, `identityType`, `resourceGroupId` on the account/resource assets)
+- [x] T031 [US3] Wire `asset.sourceDetails` / `instance.sourceDetails` into `upsertComponentMembership` / `upsertInstanceMembership` in `packages/backend/src/services/import-run-service.ts` (upsert sets `details` on both insert and conflict-update)
+- [x] T032 [US3] Emit `sourceDetails` from one real importer as the reference implementation — `packages/importer-alibaba-cloud/src/` (e.g. `arn`, `identityType`, `resourceGroupId` on the account/resource assets)
 
 **Checkpoint**: membership `details` populated end-to-end; Wave A follow-up closed
 
@@ -138,12 +138,12 @@ empty DB.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T033 [US4] Migration tests in `packages/backend/test/` (new `migration-023.test.ts` or integration suite): derivable config → Source + memberships; underivable/deleted-config/`lastSeenInRunId NULL` → untouched `LEGACY_UNATTRIBUTED`; `import_runs.sourceId` unchanged for history; idempotent re-run; preservation of edges/curated fields/externalIds
+- [x] T033 [US4] Migration tests in `packages/backend/test/` (new `migration-023.test.ts` or integration suite): derivable config → Source + memberships; underivable/deleted-config/`lastSeenInRunId NULL` → untouched `LEGACY_UNATTRIBUTED`; `import_runs.sourceId` unchanged for history; idempotent re-run; preservation of edges/curated fields/externalIds
 
 ### Implementation for User Story 4
 
-- [ ] T034 [US4] Create `packages/backend/src/db/migrations/023_source_backfill.ts` implementing `contracts/migration-rules.md`: scope-only identity derivation (azure `subscriptionId`, k8s `endpoint`, api-url/web-url `url`, mcp-server `endpoint`), `getOrCreate` Source bound to the config, component/instance membership backfill from `lastSeenInRunId → import_runs.configId`, all `ON CONFLICT DO NOTHING`
-- [ ] T035 [US4] Update `packages/backend/src/db/types.ts` if the migration introduces new typed reads (membership tables already typed by 022 — verify only)
+- [x] T034 [US4] Create `packages/backend/src/db/migrations/023_source_backfill.ts` implementing `contracts/migration-rules.md`: scope-only identity derivation (azure `subscriptionId`, k8s `endpoint`, api-url/web-url `url`, mcp-server `endpoint`), `getOrCreate` Source bound to the config, component/instance membership backfill from `lastSeenInRunId → import_runs.configId`, all `ON CONFLICT DO NOTHING`
+- [x] T035 [US4] Update `packages/backend/src/db/types.ts` if the migration introduces new typed reads (membership tables already typed by 022 — verify only)
 
 **Checkpoint**: existing data lands defensibly; unreported legacy rows still retire correctly under source-scoped reconciliation
 
@@ -157,9 +157,9 @@ disposition documented where operators look.
 **Independent Test**: all 8 guides contain a Source identity section
 matching `contracts/source-identity-keys.md`.
 
-- [ ] T036 [P] [US5] Add "Source identity" sections (identity key, `sourceKey` requirement/fallback, migration notes) to `docs/importers/github.md`, `docs/importers/aws.md`, `docs/importers/azure.md`, `docs/importers/alibaba-cloud.md`
-- [ ] T037 [P] [US5] Same for `docs/importers/kubernetes.md`, `docs/importers/api-url.md`, `docs/importers/web-url.md`, `docs/importers/mcp-server.md`
-- [ ] T038 [US5] Add a "Migrating to ImporterSource" section to `docs/importer-development.md` covering `reportSourceIdentity`, `sourceKey`, qualification, and `sourceDetails` for future importer authors
+- [x] T036 [P] [US5] Add "Source identity" sections (identity key, `sourceKey` requirement/fallback, migration notes) to `docs/importers/github.md`, `docs/importers/aws.md`, `docs/importers/azure.md`, `docs/importers/alibaba-cloud.md`
+- [x] T037 [P] [US5] Same for `docs/importers/kubernetes.md`, `docs/importers/api-url.md`, `docs/importers/web-url.md`, `docs/importers/mcp-server.md`
+- [x] T038 [US5] Add a "Migrating to ImporterSource" section to `docs/importer-development.md` covering `reportSourceIdentity`, `sourceKey`, qualification, and `sourceDetails` for future importer authors
 
 **Checkpoint**: documentation matches implemented behavior for all 8 importers
 
@@ -169,9 +169,9 @@ matching `contracts/source-identity-keys.md`.
 
 **Purpose**: ADR fidelity, roadmap/tracking sync, full verification
 
-- [ ] T039 Create `researches/adrs/ADR-120-importer-source-migration.md` ratifying: per-importer identity-key table, `sourceKey` scope field, `{identity}::{nativeId}` format, adopt-on-report semantics, `sourceDetails` fields, backfill defensibility rules; add `**Amended by ADR-120**` back-pointers to `ADR-056` (asset contract gains `sourceDetails`) and `ADR-119` (per-importer keys concretized); update each ADR's amends list in `researches/architecture-decisions.md`
-- [ ] T040 Update `researches/docker-importer-implementation-tracking.md`: check Phase 2 checkboxes, remove/resolve the Wave A `details` follow-up note
-- [ ] T041 Update `docs/roadmap.md`: move `045-importer-source-migration` to Shipped, revise Next (Wave C Docker Engine inventory)
+- [x] T039 Create `researches/adrs/ADR-120-importer-source-migration.md` ratifying: per-importer identity-key table, `sourceKey` scope field, `{identity}::{nativeId}` format, adopt-on-report semantics, `sourceDetails` fields, backfill defensibility rules; add `**Amended by ADR-120**` back-pointers to `ADR-056` (asset contract gains `sourceDetails`) and `ADR-119` (per-importer keys concretized); update each ADR's amends list in `researches/architecture-decisions.md`
+- [x] T040 Update `researches/docker-importer-implementation-tracking.md`: check Phase 2 checkboxes, remove/resolve the Wave A `details` follow-up note
+- [x] T041 Update `docs/roadmap.md`: move `045-importer-source-migration` to Shipped, revise Next (Wave C Docker Engine inventory)
 - [ ] T042 Confirm no REST/agent-protocol surface changed: `pnpm --filter @componode/backend test` contract tests green (openapi.yaml untouched); run `pnpm build` root-wide
 - [ ] T043 Final verification per plan: `pnpm lint && pnpm typecheck && pnpm test && pnpm build` across changed packages (`core`, `backend`, `agent`, all `importer-*`)
 
