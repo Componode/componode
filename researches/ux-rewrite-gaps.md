@@ -29,7 +29,11 @@ numbers are sequential at creation and may shift:
 
 Deferred past this program — re-triaged after it closes: G15 (merged
 with the email-delivery half of G4), G16, G17, G18, G19, G26, G27, G28,
-G30. G29/G31/G32 shipped as spec `042-catalog-authoring`.
+G30. Each keeps its detailed entry below (UX surface, missing backend
+capability, flag, reason) — treat those entries as the standing answer
+for any future question about the corresponding surface, and re-triage
+them into specs when scheduled. G29/G31/G32 shipped as spec
+`042-catalog-authoring`.
 
 ## G1 — Per-day importer run aggregates — RESOLVED by spec 031
 
