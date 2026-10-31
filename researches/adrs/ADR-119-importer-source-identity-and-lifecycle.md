@@ -167,3 +167,8 @@ represented.
 - **Terminal-run guard refinement**: `import_runs` terminal-state trigger
   permits exactly the `configId → NULL` write produced by the FK's
   `ON DELETE SET NULL`; all other terminal mutations still raise.
+
+**Amended by ADR-120**: the per-importer `externalIdentity` keys,
+`externalId` qualification + adopt-on-report rekey rules, `sourceDetails`
+→ membership `details` population (item 4's deferred wave), and the
+derivable-only backfill contract are ratified in ADR-120 (spec 045).

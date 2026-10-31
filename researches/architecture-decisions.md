@@ -68,6 +68,7 @@
 | [ADR-115](./adrs/ADR-115-alibaba-cloud-importer.md) | Alibaba Cloud importer: Resource Center discovery |
 | [ADR-116](./adrs/ADR-116-remote-import-agents.md) | Remote import execution via outbound Import Agents (amends ADR-022, 052, 054, 055, 058, 060, 061, 065, 087, 097, 100, 107); Amendment 2 ratifies spec-027 surfaces — job-frame schemas, dispatch/ack timeouts, NACK→errorType mapping, agent configs/runs endpoints, `OFFLINE_AGENT`; Amendment 3 ratifies spec-028 ops surfaces — `AGENT_OPS_*` listener, heartbeat `ops` + protocol v2, `reportedStatus`, four hub series; Amendment 4 ratifies spec-040 surfaces — `CREDENTIAL_EXPIRING` attention kind, `AttentionItem.detail`, agent `createdBy`/`enrollmentExpiresAt`, dashboard `deltas`; Amendment 5 (ADR-119) — Agent-local target registry, immutable `targetId`, fail-before-network preflight; Amendment 6 (spec 044) — `source.identity` frame, protocol v3, `TARGET_RESOLUTION_FAILED` NACK |
 | [ADR-119](./adrs/ADR-119-importer-source-identity-and-lifecycle.md) | ImporterSource identity + lifecycle: durable provenance, source-scoped reconciliation, run-history retention, Agent target resolution (amends ADR-035, 036, 037, 047, 056, 065, 077, 116); Amendment 1 (spec 044) — Source API surface, effective-active union/retire semantics, `LEGACY_UNATTRIBUTED = sourceId NULL` |
+| [ADR-120](./adrs/ADR-120-importer-source-migration-rules.md) | Importer source migration rules (Wave B, spec 045): per-importer identity keys, `{identity}::{localId}` externalId qualification + adopt-on-report rekey, `sourceDetails` → membership details, derivable-only backfill — `sourceId` never backfilled, no batch rekey (amends ADR-056, 119) |
 
 ### Auth & Security
 
@@ -112,7 +113,7 @@
 | [ADR-053](./adrs/ADR-053-api-authorization-layered-default-deny.md) | API authorization: layered default-deny |
 | [ADR-054](./adrs/ADR-054-rbac-permission-matrix.md) | RBAC permission matrix; Amendment 1 adds `component:create` (EDITOR) for manual component authoring (spec 042); Amendment 2 (spec 044) adds `importer:source:retire`/`importer:source:reactivate` (ADMIN) |
 | [ADR-055](./adrs/ADR-055-importer-secret-resolution.md) | Importer secret resolution |
-| [ADR-056](./adrs/ADR-056-importer-interface-signature.md) | Importer interface signature (supersedes ADR-025); Amendment 1 — `reportSourceIdentity` + `resolveTarget` + `targetRefKey` (ADR-119); Amendment 2 (spec 044) — `reportsSourceIdentity` manifest flag, in-process `resolveTarget` stub |
+| [ADR-056](./adrs/ADR-056-importer-interface-signature.md) | Importer interface signature (supersedes ADR-025); Amendment 1 — `reportSourceIdentity` + `resolveTarget` + `targetRefKey` (ADR-119); Amendment 2 (spec 044) — `reportsSourceIdentity` manifest flag, in-process `resolveTarget` stub; amended by ADR-120 — `sourceDetails` fields on `DiscoveredAsset`/`DiscoveredAssetInstance` |
 | [ADR-057](./adrs/ADR-057-discoveredasset-final-shape.md) | DiscoveredAsset final shape (supersedes ADR-025) |
 | [ADR-058](./adrs/ADR-058-importer-cancellation.md) | Importer cancellation |
 | [ADR-059](./adrs/ADR-059-importer-run-state-machine.md) | Importer run state machine |

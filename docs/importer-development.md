@@ -237,7 +237,7 @@ update it. The guide covers, at minimum:
 - [ ] Integration test triggers a run through the backend and verifies DB rows.
 - [ ] `pnpm build` and `pnpm typecheck` pass for the new package.
 
-## Source identity and target references (spec 044)
+## Source identity and target references (spec 044, spec 045)
 
 Importers that adopt durable provenance declare `reportsSourceIdentity: true`
 on their manifest and call `context.reportSourceIdentity({externalIdentity,
@@ -245,6 +245,31 @@ label?})` before the first asset yield — including empty inventories.
 `externalIdentity` is the provider-native canonical, non-secret identity
 (URL identities are canonicalized executor-side). Missing the report on an
 adopting importer fails the run `CONTRACT_VIOLATION`.
+
+Per-importer identity keys (spec 045, ADR-120 — full table in
+`specs/045-importer-source-migration/contracts/source-identity-keys.md`):
+
+| Importer | Identity | Scope-less fallback |
+|---|---|---|
+| github | `{canonicalApiBaseUrl}#org:{orgId}` | `#login:{org}` when org unreadable |
+| alibaba-cloud | STS `GetCallerIdentity` accountId | — (run fails) |
+| azure | `subscriptionId` | `scope.sourceKey` |
+| aws | `scope.sourceKey` (required) | — (run fails) |
+| kubernetes | canonical `endpoint` | `scope.sourceKey` |
+| mcp-server | canonical `endpoint` | `scope.sourceKey` |
+| api-url / web-url | canonical `url` | — (URL is required) |
+
+Where the existing `externalId` is source-local or collision-prone, qualify
+it with `qualifyExternalId(identity, id)` from `@componode/core` — the
+backend's adopt-on-report pass matches a legacy unqualified component once,
+then the qualified form is stable thereafter. GHES qualifies (numeric IDs
+collide across instances); github.com, Alibaba ARN, and URL identities do
+not need it. Importers may emit `sourceDetails` on assets/instances — those
+persist on the Source membership (`source_component_memberships.details`),
+while canonical `details` remain shared. Migration 023 backfills
+Source+memberships only where identity is derivable from live config scope;
+legacy `import_runs.sourceId` stays `NULL` (`LEGACY_UNATTRIBUTED`) and
+`externalId` is never batch-rewritten.
 
 Manifests declaring `targetRefKey` name the config-scope key carrying a
 `targetId`; the Agent preflights it against
