@@ -255,6 +255,7 @@ describe("agent run/config surfaces", () => {
     const runId = await trigger(configId);
     await onFrame(ws, "job.assign");
     sendFrame(ws, "job.ack", runId, { accepted: true });
+    sendFrame(ws, "source.identity", runId, { externalIdentity: "test-src" });
     sendFrame(ws, "run.complete", runId, { result: "COMPLETED" });
 
     const deadline = Date.now() + 5000;
@@ -284,6 +285,7 @@ describe("agent run/config surfaces", () => {
     const runId = await trigger(configId);
     await onFrame(ws, "job.assign");
     sendFrame(ws, "job.ack", runId, { accepted: true });
+    sendFrame(ws, "source.identity", runId, { externalIdentity: "test-src" });
     sendFrame(ws, "phase", runId, { name: "Fetching" });
     await new Promise((r) => setTimeout(r, 300));
 

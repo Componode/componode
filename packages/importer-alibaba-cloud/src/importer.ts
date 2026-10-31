@@ -42,6 +42,10 @@ export class AlibabaCloudImporter implements Importer {
     if (!identity.accountId) {
       throw new Error("Alibaba Cloud GetCallerIdentity returned no AccountId");
     }
+    await context.reportSourceIdentity({
+      externalIdentity: identity.accountId,
+      label: `Alibaba Cloud account ${identity.accountId}`,
+    });
     if (context.signal.aborted) return;
 
     context.reportPhase("Checking service");

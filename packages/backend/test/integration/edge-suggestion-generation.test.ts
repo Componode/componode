@@ -70,6 +70,7 @@ function makeImporter(
       context: ImporterContext,
     ) {
       let count = 0;
+      await context.reportSourceIdentity({ externalIdentity: "test-source" });
       for (const asset of yields) {
         if (context.signal.aborted) return;
         count++;

@@ -349,6 +349,7 @@ describe("remote run failures", () => {
     const runId = await trigger(configId);
     await onFrame(ws, "job.assign");
     sendFrame(ws, "job.ack", runId, { accepted: true });
+    sendFrame(ws, "source.identity", runId, { externalIdentity: "test-src" });
     await new Promise((r) => setTimeout(r, 200));
 
     sendFrame(ws, "run.error", runId, {
@@ -390,6 +391,7 @@ describe("remote run failures", () => {
     const runId = await trigger(configId);
     await onFrame(ws, "job.assign");
     sendFrame(ws, "job.ack", runId, { accepted: true });
+    sendFrame(ws, "source.identity", runId, { externalIdentity: "test-src" });
     sendFrame(ws, "run.complete", runId, { result: "COMPLETED" });
     await waitForTerminal(runId);
 

@@ -4,6 +4,7 @@ import {
   AGENT_NACK_SECRET_RESOLUTION_PREFIX,
   AGENT_NACK_TARGET_RESOLUTION_PREFIX,
   AGENT_NACK_UNAVAILABLE_PREFIX,
+  canonicalizeSourceIdentity,
   validateDiscoveredAssetDetailed,
   type AgentActiveRun,
   type AssetBatchPayload,
@@ -70,6 +71,9 @@ export interface RemoteJobContext {
   reportsSourceIdentity: boolean;
   /** Durable source attribution once the source.identity frame lands. */
   sourceId: string | null;
+  /** Canonical externalIdentity of the reported Source — drives
+   *  adopt-on-report legacy matching in processAsset (ADR-120). */
+  sourceIdentity: string | null;
   /** Set when a cancel lands between row-commit and enqueue — the run
    *  must finalize CANCELLED without ever dispatching (in-process parity:
    *  the worker honors cancelRequestedAt). */
@@ -547,6 +551,7 @@ export class RemoteRunService implements RemoteRunHandler {
       return true;
     }
     entry.job.sourceId = await this.store.recordSourceIdentity(entry.job, payload);
+    entry.job.sourceIdentity = canonicalizeSourceIdentity(payload.externalIdentity);
     return true;
   }
 
@@ -1021,6 +1026,7 @@ export function createDbRemoteRunStore(): RemoteRunStore {
         missingTarget,
         reportsSourceIdentity: manifest.reportsSourceIdentity === true,
         sourceId: run.sourceId ?? null,
+        sourceIdentity: null,
         cancelRequestedAt: run.cancelRequestedAt,
         runCreatedAt: run.createdAt,
         agent: {
@@ -1050,7 +1056,7 @@ export function createDbRemoteRunStore(): RemoteRunStore {
     async processAsset(job, asset) {
       return traceDbQuery("processAsset", () =>
         db.transaction().execute(async (trx) =>
-          processAsset(trx, job.runId, job.importerName, asset, job.triggeredBy, job.sourceId),
+          processAsset(trx, job.runId, job.importerName, asset, job.triggeredBy, job.sourceId, job.sourceIdentity),
         ),
       );
     },

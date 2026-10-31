@@ -56,6 +56,7 @@ function makeSecretsCapture(): {
         context: ImporterContext,
       ) {
         captured = secrets;
+        await context.reportSourceIdentity({ externalIdentity: "test-source" });
         yield makeRepoAsset("testorg/repo-a");
         await context.reportPhase("Completed");
       },
