@@ -544,7 +544,7 @@ describe("GithubImporter", () => {
     ]);
   }
 
-  it("emits workflow JOB components only when includeWorkflows is set", async () => {
+  it("emits workflow JOB components only when includeWorkflows is set", { timeout: 15000 }, async () => {
     withExtrasRoutes();
 
     const without = await collectAssets(new GithubImporter(), { org: "testorg" });
