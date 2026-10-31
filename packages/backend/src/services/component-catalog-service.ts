@@ -153,6 +153,58 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
         .whereRef("component_instances.componentId", "=", "components.id")
         .$if(!includeGone, (qb) => qb.where("component_instances.status", "!=", "GONE"))
         .as("instanceCount"),
+      // G21: per-row health rollup for the list's Health column —
+      // worst observed instance status (ERROR > GONE > STOPPED > RUNNING).
+      eb
+        .case()
+        .when(
+          eb.exists(
+            eb
+              .selectFrom("component_instances")
+              .select("component_instances.id")
+              .whereRef("component_instances.componentId", "=", "components.id")
+              .where("component_instances.status", "=", "ERROR"),
+          ),
+        )
+        .then("ERROR")
+        .when(
+          eb.exists(
+            eb
+              .selectFrom("component_instances")
+              .select("component_instances.id")
+              .whereRef("component_instances.componentId", "=", "components.id")
+              .where("component_instances.status", "=", "GONE"),
+          ),
+        )
+        .then("GONE")
+        .when(
+          eb.exists(
+            eb
+              .selectFrom("component_instances")
+              .select("component_instances.id")
+              .whereRef("component_instances.componentId", "=", "components.id")
+              .where("component_instances.status", "=", "STOPPED"),
+          ),
+        )
+        .then("STOPPED")
+        .when(
+          eb.exists(
+            eb
+              .selectFrom("component_instances")
+              .select("component_instances.id")
+              .whereRef("component_instances.componentId", "=", "components.id")
+              .where("component_instances.status", "=", "RUNNING"),
+          ),
+        )
+        .then("RUNNING")
+        .else(null)
+        .end()
+        .as("worstStatus"),
+      eb
+        .selectFrom("component_instances")
+        .select((eb2) => eb2.fn.max("component_instances.lastSeenAt").as("m"))
+        .whereRef("component_instances.componentId", "=", "components.id")
+        .as("lastSeenAt"),
     ])
     .limit(pageSize)
     .offset(offset)

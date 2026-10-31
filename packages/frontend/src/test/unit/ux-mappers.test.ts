@@ -657,3 +657,14 @@ describe("mapDepComponent", () => {
     expect(row.componentGroupName).toBe("data");
   });
 });
+
+describe("mapComponent list enrichment (spec 039)", () => {
+  it("passes backend worstStatus + lastSeenAt through; nulls stay null", () => {
+    const view = mapComponent({ ...component, worstStatus: "ERROR", lastSeenAt: "2026-10-20T00:00:00Z" });
+    expect(view.worstStatus).toBe("ERROR");
+    expect(view.lastSeenAt).toBe("2026-10-20T00:00:00Z");
+    const bare = mapComponent(component);
+    expect(bare.worstStatus).toBeNull();
+    expect(bare.lastSeenAt).toBeNull();
+  });
+});

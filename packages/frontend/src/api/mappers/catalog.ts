@@ -145,6 +145,7 @@ export function mapComponent(
     instanceCount: c.instanceCount,
     instances: (detail.instances ?? []).map(mapComponentInstance),
     lastSeenAt: detail.lastSeenAt ?? null,
+    worstStatus: narrowOrNull<InstanceStatus>(detail.worstStatus, INSTANCE_STATUSES),
   };
 }
 
@@ -160,7 +161,7 @@ const depSourceLabel = (s: DepSource): string => {
 };
 
 /** ComponentDepRef joined with the catalog component (when found) for display fields. */
-const RANK: Record<InstanceStatus, number> = { ERROR: 0, STOPPED: 1, RUNNING: 2, GONE: 3 };
+const RANK: Record<InstanceStatus, number> = { ERROR: 0, GONE: 1, STOPPED: 2, RUNNING: 3 };
 
 function worstInstanceStatus(instances: InstanceDepRef[] | undefined, componentId: string): InstanceStatus | null {
   const statuses = (instances ?? [])

@@ -3398,6 +3398,17 @@ components:
           items: { type: string }
         sunsetAt: { type: string, format: date-time, nullable: true }
         lastSeenAt: { type: string, format: date-time, nullable: true }
+        worstStatus:
+          type: string
+          nullable: true
+          description: >-
+            List-enrichment rollup (spec 039): worst observed
+            `component_instances.status` (ERROR > GONE > STOPPED >
+            RUNNING); null when the component has no instances.
+            Present on list responses.
+        instanceCount:
+          type: integer
+          description: Instance count (present on list responses)
         lastSeenInRunId: { type: string, format: uuid, nullable: true }
         createdBy: { type: string, format: uuid, nullable: true }
         updatedBy: { type: string, format: uuid, nullable: true }
@@ -3786,6 +3797,12 @@ components:
             id: { type: string, format: uuid }
             name: { type: string }
             slug: { type: string }
+        memberCount:
+          type: integer
+          description: Persons assigned to the team (spec 039, G22)
+        componentCount:
+          type: integer
+          description: Components owned by the team (spec 039)
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     LineOfBusiness:

@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–038)
+## Shipped (features 001–039)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -172,6 +172,8 @@ file tracks shipped and upcoming work — update it when a spec completes.
 
 - `038-ux-11-conformance` — v1.1.0-vs-v0 conformance corrections: defect fixes (slug-keyed attention links, wired password-reset, `replaced` disconnect META, LOB delete guard, GONE/RETIRED opt-ins, breadcrumbs, ForbiddenState coverage, importer lastRun + convert-secrets, promote slug field error, feed sentences, ErrorState boundary), restorations (auth checklist/shell/footer, credentials alert, radius scale, command-menu adornments, org table columns, session device/location), product-map relations canvas ratified by ADR-118, and gap registry G21–G32 with flag gates — no dead controls or unbacked renders ship.
 
+- `039-list-enrichment` — backend rollups behind the spec-038 flag gates: `worstStatus` + `lastSeenAt` on `GET /components`, `memberCount` + `componentCount` on `GET /teams`; `componentListHealth`, `componentListLastSeen`, `teamMemberCounts` flipped ON; G21 + G22 resolved.
+
 ## Next — post-v1.1
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
@@ -181,10 +183,9 @@ are shipped on `release/1.1.0`. The gap program continues past 038 —
 conformance registered G21–G32 and queued two grouped specs after `037`
 (see `researches/ux-rewrite-gaps.md` spec-queue block):
 
-- `0NN` — list enrichment (G21 component instances/lastSeen + importer
-  lastRun; G22 team member counts)
 - `0NN` — dashboard intelligence (G23 stat deltas; G24 attention detail +
-  `CREDENTIAL_EXPIRING`; G25 agent enrolled-by)
+  `CREDENTIAL_EXPIRING`; G25 agent enrolled-by) — next free number
+  after `039`
 - G29 manual entity creation, G31 edge-authoring UI, G32 suggestions
   decided-history — feature specs
 - G20 resolves client-side without a spec; G15–G19, G26–G28, G30 are

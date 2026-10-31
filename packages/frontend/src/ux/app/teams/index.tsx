@@ -6,7 +6,6 @@ import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Card } from "@/ux/components/ui/card";
 import { useTeams, useCreateTeam, useLobs } from "@/api/hooks/org";
 import { useProducts } from "@/api/hooks/products";
-import { useAllComponents } from "@/api/hooks/components";
 import { errorMessage } from "@/ux/lib/api-state";
 
 export function UxTeamsPage() {
@@ -14,13 +13,13 @@ export function UxTeamsPage() {
   const createTeam = useCreateTeam();
   const lobs = useLobs();
   const products = useProducts({ includeRetired: true });
-  const components = useAllComponents({ includeRetired: true });
 
   const counts = new Map<string, OrgCounts>();
   for (const t of teams.data?.teams ?? []) {
     counts.set(t.id, {
       products: (products.data?.products ?? []).filter((p) => p.teamOwnerId === t.id).length,
-      components: (components.data ?? []).filter((c) => c.teamOwnerId === t.id).length,
+      components: t.componentCount,
+      members: t.memberCount,
     });
   }
 

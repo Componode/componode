@@ -53,10 +53,21 @@ function selectTeams(q: Kysely<DB>) {
       join.onRef("lob.id", "=", "teams.lobId"),
     )
     .selectAll("teams")
-    .select([
+    .select((eb) => [
       "lob.id as lobId_ref",
       "lob.name as lobName",
       "lob.slug as lobSlug",
+      // G22: list-enrichment counts for the Members/Components columns.
+      eb
+        .selectFrom("persons")
+        .select((eb2) => eb2.fn.countAll().as("c"))
+        .whereRef("persons.teamId", "=", "teams.id")
+        .as("memberCount"),
+      eb
+        .selectFrom("components")
+        .select((eb2) => eb2.fn.countAll().as("c"))
+        .whereRef("components.teamOwnerId", "=", "teams.id")
+        .as("componentCount"),
     ]);
 }
 
@@ -65,17 +76,27 @@ export interface TeamLobSummary {
   name: string;
   slug: string;
 }
-export type TeamWithLob = Selectable<TeamRow> & { lob: TeamLobSummary | null };
+export type TeamWithLob = Selectable<TeamRow> & {
+  lob: TeamLobSummary | null;
+  memberCount: number;
+  componentCount: number;
+};
 export type LobRow = Selectable<LineOfBusinessRow>;
 export type OrgEntityRow = TeamWithLob | LobRow;
 
-function withLob<T extends { lobId_ref: string | null; lobName: string | null; lobSlug: string | null }>(
+function withLob<T extends { lobId_ref: string | null; lobName: string | null; lobSlug: string | null; memberCount: number | string | bigint | null; componentCount: number | string | bigint | null }>(
   row: T,
-): Omit<T, "lobId_ref" | "lobName" | "lobSlug"> & { lob: TeamLobSummary | null } {
-  const { lobId_ref, lobName, lobSlug, ...team } = row;
+): Omit<T, "lobId_ref" | "lobName" | "lobSlug" | "memberCount" | "componentCount"> & {
+  lob: TeamLobSummary | null;
+  memberCount: number;
+  componentCount: number;
+} {
+  const { lobId_ref, lobName, lobSlug, memberCount, componentCount, ...team } = row;
   return {
     ...team,
     lob: lobId_ref ? { id: lobId_ref, name: lobName, slug: lobSlug } as TeamLobSummary : null,
+    memberCount: Number(memberCount),
+    componentCount: Number(componentCount),
   };
 }
 

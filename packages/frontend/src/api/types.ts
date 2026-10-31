@@ -171,6 +171,10 @@ export interface Component {
   tags?: string[];
   sunsetAt?: string | null;
   instanceCount: number;
+  /** List-enrichment rollup (spec 039): worst instance status; null = no instances. */
+  worstStatus?: string | null;
+  /** List-enrichment rollup (spec 039): max instance lastSeenAt; null = none observed. */
+  lastSeenAt?: string | null;
 }
 
 export interface ComponentInstance {
@@ -346,6 +350,9 @@ export interface OrgEntity {
 export interface TeamEntity extends OrgEntity {
   lobId: string | null;
   lob: { id: string; name: string; slug: string } | null;
+  /** List-enrichment counts (spec 039, G22). */
+  memberCount: number;
+  componentCount: number;
 }
 
 export interface TeamMember {

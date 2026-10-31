@@ -34,12 +34,12 @@ export const flags = {
   advancedOps: false,
   /** Client display prefs (density/reduced-motion/relative-time) not yet consumed (gap 20). */
   displayPrefs: false,
-  /** Component-list Health column — needs per-row instance rollup on GET /components (gap G21). */
-  componentListHealth: false,
-  /** Component-list Last-seen column — needs lastSeenAt on GET /components (gap G21). */
-  componentListLastSeen: false,
-  /** Team-list Members column — needs member counts on GET /teams (gap G22). */
-  teamMemberCounts: false,
+  /** Component-list Health column — backed by the worstStatus rollup (spec 039, G21 resolved). */
+  componentListHealth: true,
+  /** Component-list Last-seen column — backed by the instance lastSeenAt rollup (spec 039, G21 resolved). */
+  componentListLastSeen: true,
+  /** Team-list Members column — backed by memberCount/componentCount (spec 039, G22 resolved). */
+  teamMemberCounts: true,
   /** Stat-grid "+N this week" deltas — needs dashboard delta fields (gap G23). */
   statDeltas: false,
   /** Attention-row detail sub-line — needs backend detail strings (gap G24). */
