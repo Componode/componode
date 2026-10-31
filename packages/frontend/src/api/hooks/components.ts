@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { CreateComponentInput } from "@componode/core";
 import { api } from "@/api/client";
 import type {
+  Component,
   ComponentWithInstances,
   ComponentListResponse,
   ComponentDependent,
@@ -91,6 +93,24 @@ export function useUpdateComponent() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["components"] });
+    },
+  });
+}
+
+/** Manual component creation (spec 042, G29) — re-exports the core schema type. */
+export type { CreateComponentInput };
+
+export function useCreateComponent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: CreateComponentInput) =>
+      api<{ component: Component }>("/components", {
+        method: "POST",
+        body: JSON.stringify(vars),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["components"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }

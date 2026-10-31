@@ -22,6 +22,15 @@ vi.mock("@/api/hooks/components", () => ({
   useComponents: vi.fn(),
   useAllComponents: vi.fn(),
   useComponentDetail: vi.fn(),
+  useCreateComponent: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
+vi.mock("@/api/hooks/component-groups", () => ({
+  useComponentGroups: vi.fn(() => ({ data: { groups: [] }, isPending: false, error: null })),
+  useCreateComponentGroup: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
+vi.mock("@/api/hooks/org", () => ({
+  useTeams: vi.fn(() => ({ data: { teams: [] }, isPending: false, error: null })),
+  useLobs: vi.fn(() => ({ data: { lobs: [] }, isPending: false, error: null })),
 }));
 vi.mock("@/api/hooks/audit", () => ({
   useEntityHistory: vi.fn(() => ({ data: { items: [] }, isPending: false, error: null })),

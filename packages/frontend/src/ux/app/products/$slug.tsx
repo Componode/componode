@@ -67,11 +67,23 @@ export function UxProductDetailPage() {
     mapDepComponent(ref, catalog.data ?? [], allInstances),
   );
 
+  // G31 edge authoring: only components reached through a DIRECT edge are
+  // removable — group-expanded members are removed via their group edge.
+  const directDepComponents = d.components.declared
+    .filter((c) => c.sources.some((s) => s.kind === "DIRECT"))
+    .map((c) => ({ id: c.id, name: c.name, slug: c.slug }));
+
   return (
     <ProductDetail
       product={mapProduct(d.product, { componentCount: d.counts.components })}
       components={rows}
       consumers={d.consumedBy.map((p) => ({ id: p.id, name: p.name, slug: p.slug, criticality: (p as { criticality?: Criticality | null }).criticality ?? null }))}
+      edges={{
+        composes: d.composes ?? [],
+        consumesFrom: d.consumesFrom ?? [],
+        dependsOnComponents: directDepComponents,
+        dependsOnGroups: d.dependsOnGroups ?? [],
+      }}
       relations={[
         { label: "Composed by", names: (d.composedBy ?? []).map((x) => x.name) },
         { label: "Composes", names: (d.composes ?? []).map((x) => x.name) },

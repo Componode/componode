@@ -32,6 +32,8 @@ const PERMISSIONS: Record<string, Role> = {
   "importer:run:trigger": "EDITOR",
   "importer:run:cancel": "EDITOR",
   "component:update": "EDITOR",
+  // Manual component creation (spec 042, gap G29).
+  "component:create": "EDITOR",
   "componentGroup:create": "EDITOR",
   "componentGroup:update": "EDITOR",
   "componentGroup:delete": "EDITOR",

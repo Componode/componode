@@ -83,3 +83,11 @@ rejected outright (violates constitution V).
 > pairs never resurface. The manual rescan supersedes the original
 > no-manual-regen intent — justified because PENDING rows that stop
 > matching are left untouched, so rescan can never un-decide a human.
+
+> **AMENDMENT (spec `042-catalog-authoring`, shipped)**: the `status` filter on
+> `GET /api/v1/suggestions` gains `DECIDED` — a rolled-up view over every
+> terminal status (`ACCEPTED`/`DISMISSED`/`SUPERSEDED`), ordered by
+> `decidedAt` descending, powering the Suggestions page's History tab (gap
+> G32). Per-status reads stay limited to `PENDING`/`DISMISSED`; terminal
+> states remain final — the new value is read-only and changes no transition
+> semantics.

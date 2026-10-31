@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { COMPONENT_CATEGORIES } from "../constants/component-categories.js";
+import { COMPONENT_PROVIDERS } from "../constants/component-providers.js";
 import { linksSchema, tagSchema, tagsSchema } from "./metadata.js";
 
 const lifecycleEnum = ["ACTIVE", "RETIRED"] as [string, ...string[]];
@@ -54,6 +56,23 @@ export const updateComponentSchema = updateComponentGroupAssignmentSchema
   })
   .strict();
 
+/**
+ * Manual component creation (spec 042, gap G29). Importer-managed columns
+ * (externalId, lastSeen*, details) are never accepted.
+ */
+export const createComponentSchema = z.object({
+  name: z.string().min(1, "Name is required").max(200, "Name must be 200 characters or less"),
+  slug: z.string().min(1, "Slug is required").max(100, "Slug must be 100 characters or less"),
+  category: z.enum(COMPONENT_CATEGORIES as unknown as [string, ...string[]]),
+  provider: z.enum(COMPONENT_PROVIDERS as unknown as [string, ...string[]]),
+  resourceType: z.string().min(1, "Resource type is required").max(100),
+  teamOwnerId: z.string().uuid().optional(),
+  componentGroupId: z.string().uuid().nullable().optional(),
+  links: linksSchema.optional(),
+  tags: tagsSchema.optional(),
+  sunsetAt: z.string().datetime({ offset: true }).nullable().optional(),
+}).strict();
+
 export const createComponentGroupSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name must be 100 characters or less"),
   slug: z.string().min(1, "Slug is required").max(100, "Slug must be 100 characters or less"),
@@ -75,6 +94,7 @@ export const listComponentGroupsQuerySchema = z.object({
 export type ListComponentsQuery = z.infer<typeof listComponentsQuerySchema>;
 export type UpdateComponentGroupAssignmentInput = z.infer<typeof updateComponentGroupAssignmentSchema>;
 export type UpdateComponentInput = z.infer<typeof updateComponentSchema>;
+export type CreateComponentInput = z.infer<typeof createComponentSchema>;
 export type CreateComponentGroupInput = z.infer<typeof createComponentGroupSchema>;
 export type UpdateComponentGroupInput = z.infer<typeof updateComponentGroupSchema>;
 export type ListComponentGroupsQuery = z.infer<typeof listComponentGroupsQuerySchema>;

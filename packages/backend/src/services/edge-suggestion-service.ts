@@ -121,7 +121,13 @@ export async function listSuggestions(
         "edge_suggestions.componentId",
       )
       .leftJoin("persons", "persons.id", "edge_suggestions.decidedBy")
-      .where("edge_suggestions.status", "=", query.status);
+      .where((eb) =>
+        query.status === "DECIDED"
+          ? // Spec 042 / G32: the decided-history view spans every
+            // terminal state.
+            eb("edge_suggestions.status", "!=", "PENDING")
+          : eb("edge_suggestions.status", "=", query.status),
+      );
 
   const filtered = () => {
     let q = base();

@@ -229,6 +229,7 @@ Notes:
 | Method | Path | Description | Access |
 |---|---|---|---|
 | GET | `/api/v1/components` | List components (paginated, filterable) | Authenticated |
+| POST | `/api/v1/components` | Create a component manually (spec 042, gap G29) | `component:create` |
 | GET | `/api/v1/components/:id` | Get a component by ID | Authenticated |
 | PATCH | `/api/v1/components/:id` | Update component assignment and curated metadata | `component:update` |
 | GET | `/api/v1/components/platform-candidates` | List platform candidates (ADR-017 detection) | Authenticated |

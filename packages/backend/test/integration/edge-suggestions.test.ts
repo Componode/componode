@@ -501,6 +501,59 @@ describe("edge suggestions queue", () => {
     expect(ids.indexOf(newer)).toBeLessThan(ids.indexOf(older));
   });
 
+  it("DECIDED view returns every terminal row — accepted, dismissed, superseded — newest first", async () => {
+    const productId = await mkProduct("decided-view");
+    const pendingId = await mkSuggestion(productId, await mkComponent("decided-pend"));
+    const dismissedId = await mkSuggestion(productId, await mkComponent("decided-dism"));
+    const acceptedId = await mkSuggestion(productId, await mkComponent("decided-acc"));
+    const supersededId = await mkSuggestion(productId, await mkComponent("decided-sup"), {
+      status: "SUPERSEDED",
+      decidedAt: "2020-01-01T00:00:00Z",
+      decidedBy: adminId,
+    });
+
+    await app.inject({
+      method: "POST",
+      url: `/api/v1/suggestions/${dismissedId}/dismiss`,
+      ...authed(),
+      payload: {},
+    });
+    await app.inject({
+      method: "POST",
+      url: `/api/v1/suggestions/${acceptedId}/accept`,
+      ...authed(),
+      payload: {},
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/suggestions?status=DECIDED&limit=200",
+      ...authed(),
+    });
+    expect(res.statusCode).toBe(200);
+    const items = res.json().items;
+    const byId = new Map(items.map((i: any) => [i.id, i]));
+
+    // Every terminal status shows up with decider attribution.
+    expect(byId.get(dismissedId)?.status).toBe("DISMISSED");
+    expect(byId.get(acceptedId)?.status).toBe("ACCEPTED");
+    expect(byId.get(supersededId)?.status).toBe("SUPERSEDED");
+    for (const id of [dismissedId, acceptedId, supersededId]) {
+      expect(byId.get(id)?.decidedAt).toBeTruthy();
+      expect(byId.get(id)?.decidedByName).toBeTruthy();
+      expect(byId.get(id)?.product.slug).toBe("decided-view");
+    }
+
+    // PENDING rows are excluded.
+    expect(byId.has(pendingId)).toBe(false);
+
+    // Ordered by decidedAt descending — the seeded 2020 tombstone trails.
+    const ids = items.map((i: any) => i.id).filter((id: string) =>
+      [dismissedId, acceptedId, supersededId].includes(id),
+    );
+    expect(ids.indexOf(supersededId)).toBe(ids.length - 1);
+  });
+
   it("VIEWER can read but cannot accept or dismiss", async () => {
     const productId = await mkProduct("viewer-gate");
     const componentId = await mkComponent("viewer-gate-c");

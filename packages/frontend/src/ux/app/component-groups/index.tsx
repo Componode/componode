@@ -1,22 +1,26 @@
-import { flags } from "@/ux/lib/flags";
-import { LayersIcon, PlusIcon } from "lucide-react";
+import { LayersIcon } from "lucide-react";
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { useComponentGroups } from "@/api/hooks/component-groups";
+import { useSession } from "@/api/hooks/auth";
 import { mapComponentGroup } from "@/api/mappers/catalog";
+import { ComponentGroupCreateDialog } from "@/ux/components/catalog/component-group-create-dialog";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
 import { ErrorState } from "@/ux/components/patterns/states";
 import { LifecycleBadge } from "@/ux/components/patterns/status-badge";
-import { Button } from "@/ux/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select";
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ux/components/ui/card";
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import { errorMessage } from "@/ux/lib/api-state";
+import { canAccess } from "@/ux/lib/nav";
 import { ux } from "@/ux/lib/paths";
 
 export function UxComponentGroupsPage() {
   const [showRetired, setShowRetired] = React.useState(false);
   const { data, isPending, error, refetch } = useComponentGroups({ includeRetired: showRetired });
+  const session = useSession();
+  // componentGroup:create is EDITOR+ — hidden for viewers.
+  const canCreate = canAccess(session.data?.role ?? "VIEWER", "EDITOR");
 
   return (
     <PageContainer>
@@ -34,10 +38,7 @@ export function UxComponentGroupsPage() {
                 <SelectItem value="show">Retired shown</SelectItem>
               </SelectContent>
             </Select>
-            <Button disabled={!flags.manualEntityCreate} title="Group creation isn't available yet">
-              <PlusIcon data-icon="inline-start" />
-              New group
-            </Button>
+            {canCreate && <ComponentGroupCreateDialog />}
           </>
         }
       />

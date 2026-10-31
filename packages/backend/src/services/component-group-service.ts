@@ -3,8 +3,10 @@ import { resolveIdOrSlug } from "../utils/ids.js";
 import {
   createComponentGroupSchema,
   updateComponentGroupSchema,
+  createComponentSchema,
   updateComponentSchema,
   type CreateComponentGroupInput,
+  type CreateComponentInput,
   type UpdateComponentGroupInput,
   type UpdateComponentInput,
   type Link,
@@ -398,6 +400,104 @@ export async function updateComponent(
     await runSuggestionPass({ componentIds: [componentId] }, { componentId });
   }
   return result;
+}
+
+/**
+ * Manual component creation (spec 042, gap G29) — same shape as
+ * createComponentGroup: slug format + uniqueness, FK existence checks,
+ * uuid v7, audit event. Importer-managed columns stay null.
+ */
+export async function createComponent(
+  input: CreateComponentInput,
+  actor: Actor,
+) {
+  const parsed = createComponentSchema.parse(input);
+  if (!isValidSlug(parsed.slug)) {
+    throw Object.assign(new Error("Invalid slug"), {
+      statusCode: 400,
+      code: "VALIDATION_FAILED",
+    });
+  }
+  const slugTaken = await db
+    .selectFrom("components")
+    .select("id")
+    .where("slug", "=", parsed.slug)
+    .executeTakeFirst();
+  if (slugTaken) {
+    throw Object.assign(new Error("Slug already in use; choose another"), {
+      statusCode: 409,
+      code: "SLUG_CONFLICT",
+    });
+  }
+  if (parsed.teamOwnerId) {
+    const team = await db
+      .selectFrom("teams")
+      .select("id")
+      .where("id", "=", parsed.teamOwnerId)
+      .executeTakeFirst();
+    if (!team) {
+      throw Object.assign(new Error("Team not found"), {
+        statusCode: 404,
+        code: "NOT_FOUND",
+      });
+    }
+  }
+  if (parsed.componentGroupId) {
+    const group = await getComponentGroupById(parsed.componentGroupId);
+    if (!group) {
+      throw Object.assign(new Error("Component group not found"), {
+        statusCode: 404,
+        code: "NOT_FOUND",
+      });
+    }
+  }
+
+  const id = uuidv7();
+  const now = new Date().toISOString();
+  return db.transaction().execute(async (trx) => {
+    await trx
+      .insertInto("components")
+      .values({
+        id,
+        name: parsed.name,
+        slug: parsed.slug,
+        category: parsed.category,
+        provider: parsed.provider,
+        resourceType: parsed.resourceType,
+        lifecycle: "ACTIVE",
+        teamOwnerId: parsed.teamOwnerId ?? null,
+        componentGroupId: parsed.componentGroupId ?? null,
+        externalId: null,
+        details: null,
+        links: parsed.links ?? [],
+        tags: parsed.tags ?? [],
+        sunsetAt: parsed.sunsetAt ?? null,
+        lastSeenAt: null,
+        lastSeenInRunId: null,
+        createdBy: actor.id,
+        updatedBy: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+
+    await writeEntityChange(
+      {
+        entityType: "component",
+        entityId: id,
+        action: "created",
+        changes: parsed as Record<string, unknown>,
+        actor,
+      },
+      trx,
+    );
+
+    return trx
+      .selectFrom("components")
+      .selectAll()
+      .where("components.id", "=", id)
+      .executeTakeFirst();
+  });
 }
 
 async function getComponentGroupByComponentIdWithTrx(

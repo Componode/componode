@@ -10,6 +10,7 @@ import { DescriptionList, RelativeTime } from "@/ux/components/patterns/primitiv
 import { ProviderMark } from "@/ux/components/patterns/provider-mark"
 import { CriticalityBadge, HealthBadge, LifecycleBadge, ProductTypeBadge } from "@/ux/components/patterns/status-badge"
 import { ActivityFeed } from "@/ux/components/patterns/activity-feed"
+import { EdgeAuthoring, type EdgeAuthoringProps } from "@/ux/components/products/edge-authoring"
 import { ProductMap } from "@/ux/components/products/product-map"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Badge } from "@/ux/components/ui/badge"
@@ -38,11 +39,13 @@ export interface ProductDetailProps {
   consumers: { id: string; name: string; slug: string; criticality?: Criticality | null }[]
   /** Additional fetched relations rendered on the map so nothing is dropped (038). */
   relations?: { label: string; names: string[] }[]
+  /** G31 edge authoring (spec 042): raw edge refs for the relations card. */
+  edges?: Omit<EdgeAuthoringProps, "product">
   suggestions: Suggestion[]
   activity: AuditEvent[]
 }
 
-export function ProductDetail({ product, components, consumers, relations, suggestions, activity }: ProductDetailProps) {
+export function ProductDetail({ product, components, consumers, relations, edges, suggestions, activity }: ProductDetailProps) {
   const navigate = useNavigate()
   const [tab, setTab] = useValidatedTab(TABS)
   const updateProduct = useUpdateProduct()
@@ -249,6 +252,11 @@ export function ProductDetail({ product, components, consumers, relations, sugge
         </TabsContent>
 
         <TabsContent value="dependencies" className="grid gap-6 lg:grid-cols-2">
+          {edges && (
+            <div className="lg:col-span-2">
+              <EdgeAuthoring product={{ id: product.id, name: product.name, slug: product.slug }} {...edges} />
+            </div>
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Consumed by</CardTitle>

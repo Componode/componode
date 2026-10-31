@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–041)
+## Shipped (features 001–042)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -178,17 +178,18 @@ file tracks shipped and upcoming work — update it when a spec completes.
 
 - `041-display-prefs` — client-side only: `useUxPrefs` seam consumes `ux.prefs` app-wide — compact table density and reduce-motion via `data-*` root attributes + stylesheet rules, `RelativeTime` renders absolute when the pref is off; `displayPrefs` flag removed; G20 resolved.
 
+- `042-catalog-authoring` — the three remaining ux-rewrite feature gaps: `POST /components` (`component:create` → EDITOR, ADR-054 Amendment 1) + "Add manually"/"New group" dialogs (G29); product-detail Relations card wiring `useAddEdge`/`useRemoveEdge` with kind-aware targets and surfaced `409 CYCLE` (G31); suggestions Pending/History tabs via a new `DECIDED` status filter spanning all terminal states (G32, ADR-113 amendment). `manualEntityCreate` + `suggestionsHistory` flags removed.
+
 ## Next — post-v1.1
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and
 the gap specs `030`–`034` + `037` (G14, G1, G2, G7/G8/G9/G11, G12, G13)
 are shipped on `release/1.1.0`. The gap program's grouped backend specs
-closed with `039`/`040` — what remains are the feature specs and deferred
-entries (see `researches/ux-rewrite-gaps.md` spec-queue block):
+closed with `039`/`040`, and the three feature-spec gaps shipped as
+`042-catalog-authoring` — what remains are the deferred entries (see
+`researches/ux-rewrite-gaps.md` spec-queue block):
 
-- G29 manual entity creation, G31 edge-authoring UI, G32 suggestions
-  decided-history — feature specs
 - G15–G19, G26–G28, G30 are deferred unscheduled
 
 Beyond the gap queue:
