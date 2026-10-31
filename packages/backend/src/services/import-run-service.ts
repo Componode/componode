@@ -170,15 +170,42 @@ export async function processAsset(
   // never re-reported keep their legacy externalId and provenance.
   if (!component && sourceId && sourceIdentity) {
     const legacyId = unqualifyExternalId(asset.externalId, sourceIdentity);
+    let legacy;
     if (legacyId !== null) {
-      const legacy = await trx
+      legacy = await trx
         .selectFrom("components")
         .selectAll()
         .where("category", "=", asset.category)
         .where("provider", "=", asset.provider)
         .where("externalId", "=", legacyId)
         .executeTakeFirst();
-      if (legacy) {
+    }
+    // Canonical-URL fallback (ADR-120): URL-identity importers emit the
+    // canonicalized URL, but pre-migration rows may hold a raw spelling
+    // (userinfo/auth params). Canonicalize stored ids and compare.
+    if (!legacy) {
+      let emitted: string | null = null;
+      try {
+        new URL(asset.externalId);
+        emitted = asset.externalId;
+      } catch {
+        emitted = null;
+      }
+      if (emitted) {
+        const candidates = await trx
+          .selectFrom("components")
+          .selectAll()
+          .where("category", "=", asset.category)
+          .where("provider", "=", asset.provider)
+          .execute();
+        legacy = candidates.find(
+          (c) =>
+            typeof c.externalId === "string" &&
+            canonicalizeSourceIdentity(c.externalId) === emitted,
+        );
+      }
+    }
+    if (legacy) {
         // Effective-active union (ADR-119 A1): a foreign membership only
         // blocks adoption while its Source is ACTIVE or UNMONITORED — a
         // RETIRED source's membership no longer defends the row.
@@ -218,7 +245,6 @@ export async function processAsset(
           );
           component = legacy;
         }
-      }
     }
   }
 

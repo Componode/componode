@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { z } from "zod";
 import { importerSourceListQuerySchema } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
@@ -56,7 +57,11 @@ export async function importerSourceRoutes(
   app.get("/importer-sources/:id/memberships", {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const { id } = req.params as { id: string };
+    const parsed = z.object({ id: z.string().uuid() }).safeParse(req.params);
+    if (!parsed.success) {
+      return validationFailed(reply, parsed.error.issues);
+    }
+    const { id } = parsed.data;
     const source = await getSource(id);
     if (!source) {
       return reply.status(404).send({ code: "SOURCE_NOT_FOUND", message: "Importer source not found" });
