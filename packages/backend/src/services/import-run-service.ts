@@ -173,12 +173,21 @@ export async function processAsset(
         .where("externalId", "=", legacyId)
         .executeTakeFirst();
       if (legacy) {
+        // Effective-active union (ADR-119 A1): a foreign membership only
+        // blocks adoption while its Source is ACTIVE or UNMONITORED — a
+        // RETIRED source's membership no longer defends the row.
         const foreignActive = await trx
           .selectFrom("source_component_memberships")
-          .select("id")
-          .where("componentId", "=", legacy.id)
-          .where("sourceId", "!=", sourceId)
-          .where("active", "=", true)
+          .leftJoin(
+            "importer_sources",
+            "importer_sources.id",
+            "source_component_memberships.sourceId",
+          )
+          .select("source_component_memberships.id")
+          .where("source_component_memberships.componentId", "=", legacy.id)
+          .where("source_component_memberships.sourceId", "!=", sourceId)
+          .where("source_component_memberships.active", "=", true)
+          .where("importer_sources.status", "in", ["ACTIVE", "UNMONITORED"])
           .executeTakeFirst();
         if (!foreignActive) {
           await trx
@@ -186,6 +195,21 @@ export async function processAsset(
             .set({ externalId: asset.externalId, updatedAt: now })
             .where("id", "=", legacy.id)
             .execute();
+          await writeEntityChange(
+            {
+              entityType: "component",
+              entityId: legacy.id,
+              action: "update",
+              changes: {
+                externalId: asset.externalId,
+                previousExternalId: legacyId,
+                reason: "adopt-on-report",
+              },
+              importRunId: runId,
+              actor,
+            },
+            trx,
+          );
           component = legacy;
         }
       }
