@@ -1,4 +1,4 @@
-import { validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
+import { canonicalizeSourceIdentity, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
 import { webUrlConfigSchema } from "./config.js";
 
 function slugify(name: string): string {
@@ -23,6 +23,10 @@ export class WebUrlImporter implements Importer {
 
     context.reportPhase("Initializing");
     const parsed = webUrlConfigSchema.parse(config);
+    await context.reportSourceIdentity({
+      externalIdentity: canonicalizeSourceIdentity(parsed.url),
+      label: parsed.url,
+    });
 
     context.reportPhase(`Probing ${parsed.url}`);
     const doFetch = (globalThis as unknown as { fetch: (...args: unknown[]) => Promise<unknown> }).fetch;

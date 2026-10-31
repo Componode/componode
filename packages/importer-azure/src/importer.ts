@@ -8,8 +8,8 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function buildAsset(resourceType: string, subscriptionId: string | undefined, endpoint: string | undefined): DiscoveredAsset {
-  const scope = subscriptionId ?? "default";
+function buildAsset(resourceType: string, subscriptionId: string | undefined, endpoint: string | undefined, identity: string): DiscoveredAsset {
+  const scope = identity;
   const name = `${resourceType}:${scope}`;
   const externalId = `${scope}:${resourceType}`;
 
@@ -50,6 +50,13 @@ export class AzureImporter implements Importer {
 
     context.reportPhase("Initializing");
     const parsed = azureConfigSchema.parse(config);
+    const identity = parsed.subscriptionId ?? parsed.sourceKey;
+    if (!identity) {
+      throw new Error(
+        "azure importer requires scope.subscriptionId or scope.sourceKey — a stable identity for the subscription (ADR-120).",
+      );
+    }
+    await context.reportSourceIdentity({ externalIdentity: identity });
 
     context.reportPhase("Listing resources");
     for (const resourceType of parsed.resourceTypes) {
@@ -58,7 +65,7 @@ export class AzureImporter implements Importer {
       }
 
       context.reportPhase(`Processing ${resourceType}`);
-      const asset = buildAsset(resourceType, parsed.subscriptionId, parsed.endpoint);
+      const asset = buildAsset(resourceType, parsed.subscriptionId, parsed.endpoint, identity);
       if (!validateDiscoveredAsset(asset)) {
         throw new Error(`Invalid discovered asset for resource type ${resourceType}`);
       }

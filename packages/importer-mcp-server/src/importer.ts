@@ -1,4 +1,4 @@
-import { validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
+import { canonicalizeSourceIdentity, qualifyExternalId, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
 import { mcpServerConfigSchema } from "./config.js";
 
 function slugify(name: string): string {
@@ -8,9 +8,9 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function buildAsset(resourceType: string, endpoint: string | undefined): DiscoveredAsset {
+function buildAsset(resourceType: string, endpoint: string | undefined, identity: string): DiscoveredAsset {
   const name = `mcp:${resourceType}`;
-  const externalId = endpoint ? `${endpoint}:${resourceType}` : `mcp:${resourceType}`;
+  const externalId = qualifyExternalId(identity, resourceType);
 
   return {
     category: "MCP_SERVER",
@@ -49,6 +49,15 @@ export class McpServerImporter implements Importer {
 
     context.reportPhase("Initializing");
     const parsed = mcpServerConfigSchema.parse(config);
+    const identity = parsed.endpoint
+      ? canonicalizeSourceIdentity(parsed.endpoint)
+      : parsed.sourceKey;
+    if (!identity) {
+      throw new Error(
+        "mcp-server importer requires scope.endpoint or scope.sourceKey — a stable identity for the server (ADR-120).",
+      );
+    }
+    await context.reportSourceIdentity({ externalIdentity: identity });
 
     context.reportPhase("Listing resources");
     for (const resourceType of parsed.resourceTypes) {
@@ -57,7 +66,7 @@ export class McpServerImporter implements Importer {
       }
 
       context.reportPhase(`Processing ${resourceType}`);
-      const asset = buildAsset(resourceType, parsed.endpoint);
+      const asset = buildAsset(resourceType, parsed.endpoint, identity);
       if (!validateDiscoveredAsset(asset)) {
         throw new Error(`Invalid discovered asset for resource type ${resourceType}`);
       }

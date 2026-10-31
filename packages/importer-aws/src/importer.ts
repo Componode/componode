@@ -1,4 +1,4 @@
-import { validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
+import { qualifyExternalId, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
 import { awsConfigSchema } from "./config.js";
 
 function slugify(name: string): string {
@@ -8,9 +8,9 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function buildAsset(resourceType: string, region: string, endpoint: string | undefined): DiscoveredAsset {
+function buildAsset(resourceType: string, region: string, endpoint: string | undefined, identity: string): DiscoveredAsset {
   const name = `${resourceType}:${region}`;
-  const externalId = `${region}:${resourceType}`;
+  const externalId = qualifyExternalId(identity, `${region}:${resourceType}`);
 
   return {
     category: "COMPUTE",
@@ -49,6 +49,12 @@ export class AwsImporter implements Importer {
 
     context.reportPhase("Initializing");
     const parsed = awsConfigSchema.parse(config);
+    if (!parsed.sourceKey) {
+      throw new Error(
+        "aws importer requires scope.sourceKey — a stable, non-secret key identifying the AWS account (ADR-120).",
+      );
+    }
+    await context.reportSourceIdentity({ externalIdentity: parsed.sourceKey });
 
     context.reportPhase("Listing resources");
     for (const resourceType of parsed.resourceTypes) {
@@ -57,7 +63,7 @@ export class AwsImporter implements Importer {
       }
 
       context.reportPhase(`Processing ${resourceType}`);
-      const asset = buildAsset(resourceType, parsed.region, parsed.endpoint);
+      const asset = buildAsset(resourceType, parsed.region, parsed.endpoint, parsed.sourceKey);
       if (!validateDiscoveredAsset(asset)) {
         throw new Error(`Invalid discovered asset for resource type ${resourceType}`);
       }
