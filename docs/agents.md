@@ -193,7 +193,11 @@ same counters (protocol v2). The hub persists the latest snapshot
 `GET /agents/{id}` as `reportedStatus` — labeled agent-reported, like the
 version fields. `lastHeartbeatAt` is the live session's freshness floor;
 `lastDisconnectReason` shows why the most recent session ended. The
-detail page renders both. Hub `/metrics` gains
+detail page renders both. The agent read also carries `createdBy` (the
+enrolling person's display name — `null` when the actor is unresolvable)
+and `enrollmentExpiresAt` (the live pending enrollment token's expiry —
+`null` once enrolled or when the token is dead, e.g. after revoke). Hub
+`/metrics` gains
 `agent_dispatch_wait_seconds`, `agent_remote_job_duration_seconds`,
 `agent_session_duration_seconds`, and
 `agent_last_contact_timestamp_seconds` for queue-wait, job-duration,
