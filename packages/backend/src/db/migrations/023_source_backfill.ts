@@ -1,6 +1,7 @@
 import type { Kysely } from "kysely";
 import { canonicalizeSourceIdentity } from "@componode/core";
 import { uuidv7 } from "uuidv7";
+import type { DB } from "../types.js";
 
 /**
  * Migration 023 — ImporterSource backfill for migrated importers
@@ -40,16 +41,7 @@ const DERIVABLE: Record<string, DerivationRule> = {
   "mcp-server": { field: "endpoint", url: true },
 };
 
-interface ConfigRow {
-  id: string;
-  importerName: string;
-  scope: unknown;
-}
-
-function deriveIdentity(
-  importerName: string,
-  scope: unknown,
-): string | null {
+function deriveIdentity(importerName: string, scope: unknown): string | null {
   const rule = DERIVABLE[importerName];
   if (!rule || typeof scope !== "object" || scope === null) return null;
   const raw = (scope as Record<string, unknown>)[rule.field];
@@ -58,11 +50,8 @@ function deriveIdentity(
 }
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-  const configs = (await db
-    .selectFrom("importer_configs" as never)
-    .selectAll()
-    .execute()) as ConfigRow[];
-
+  const kdb = db as Kysely<DB>;
+  const configs = await kdb.selectFrom("importer_configs").selectAll().execute();
   const now = new Date().toISOString();
 
   for (const config of configs) {
@@ -70,29 +59,32 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     if (!identity) continue;
 
     // Latest run of this config — the membership's lastSeen anchor.
-    const latestRun = (await db
-      .selectFrom("import_runs" as never)
+    const latestRun = await kdb
+      .selectFrom("import_runs")
       .select("id")
-      .where("configId" as never, "=", config.id)
-      .orderBy("startedAt" as never, "desc")
+      .where("configId", "=", config.id)
+      .orderBy("startedAt", "desc")
       .limit(1)
-      .executeTakeFirst()) as { id: string } | undefined;
+      .executeTakeFirst();
     if (!latestRun) continue;
 
     // getOrCreate the Source (UNIQUE(importerName, externalIdentity)).
-    let source = (await db
-      .selectFrom("importer_sources" as never)
+    let sourceId: string;
+    const existing = await kdb
+      .selectFrom("importer_sources")
       .select("id")
-      .where("importerName" as never, "=", config.importerName)
-      .where("externalIdentity" as never, "=", identity)
-      .executeTakeFirst()) as { id: string } | undefined;
+      .where("importerName", "=", config.importerName)
+      .where("externalIdentity", "=", identity)
+      .executeTakeFirst();
 
-    if (!source) {
-      const id = uuidv7();
-      await db
-        .insertInto("importer_sources" as never)
+    if (existing) {
+      sourceId = existing.id;
+    } else {
+      sourceId = uuidv7();
+      await kdb
+        .insertInto("importer_sources")
         .values({
-          id,
+          id: sourceId,
           importerName: config.importerName,
           externalIdentity: identity,
           label: identity,
@@ -102,31 +94,30 @@ export async function up(db: Kysely<unknown>): Promise<void> {
           lastSeenInRunId: latestRun.id,
           createdAt: now,
           updatedAt: now,
-        } as never)
+        })
         .execute();
-      source = { id };
     }
 
     // Component memberships for rows last seen by this config's runs.
-    const components = (await db
-      .selectFrom("components" as never)
+    const components = await kdb
+      .selectFrom("components")
       .select("id")
       .where(
-        "lastSeenInRunId" as never,
+        "lastSeenInRunId",
         "in",
-        db
-          .selectFrom("import_runs" as never)
+        kdb
+          .selectFrom("import_runs")
           .select("id")
-          .where("configId" as never, "=", config.id),
+          .where("configId", "=", config.id),
       )
-      .execute()) as { id: string }[];
+      .execute();
 
     for (const component of components) {
-      await db
-        .insertInto("source_component_memberships" as never)
+      await kdb
+        .insertInto("source_component_memberships")
         .values({
           id: uuidv7(),
-          sourceId: source.id,
+          sourceId,
           componentId: component.id,
           active: true,
           details: null,
@@ -134,44 +125,43 @@ export async function up(db: Kysely<unknown>): Promise<void> {
           lastSeenInRunId: latestRun.id,
           createdAt: now,
           updatedAt: now,
-        } as never)
+        })
         .onConflict((oc) =>
-          oc.columns(["sourceId", "componentId"] as never).doNothing(),
+          oc.columns(["sourceId", "componentId"]).doNothing(),
         )
         .execute();
     }
 
     // Instance memberships for instances of those components.
-    if (components.length > 0) {
-      const instances = (await db
-        .selectFrom("component_instances" as never)
-        .select("id")
-        .where(
-          "componentId" as never,
-          "in",
-          components.map((c) => c.id),
-        )
-        .execute()) as { id: string }[];
+    if (components.length === 0) continue;
+    const instances = await kdb
+      .selectFrom("component_instances")
+      .select("id")
+      .where(
+        "componentId",
+        "in",
+        components.map((c) => c.id),
+      )
+      .execute();
 
-      for (const instance of instances) {
-        await db
-          .insertInto("source_instance_memberships" as never)
-          .values({
-            id: uuidv7(),
-            sourceId: source.id,
-            componentInstanceId: instance.id,
-            active: true,
-            details: null,
-            firstSeenInRunId: latestRun.id,
-            lastSeenInRunId: latestRun.id,
-            createdAt: now,
-            updatedAt: now,
-          } as never)
-          .onConflict((oc) =>
-            oc.columns(["sourceId", "componentInstanceId"] as never).doNothing(),
-          )
-          .execute();
-      }
+    for (const instance of instances) {
+      await kdb
+        .insertInto("source_instance_memberships")
+        .values({
+          id: uuidv7(),
+          sourceId,
+          componentInstanceId: instance.id,
+          active: true,
+          details: null,
+          firstSeenInRunId: latestRun.id,
+          lastSeenInRunId: latestRun.id,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflict((oc) =>
+          oc.columns(["sourceId", "componentInstanceId"]).doNothing(),
+        )
+        .execute();
     }
   }
 }
@@ -180,33 +170,28 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   // Remove only what this migration could have created: memberships and
   // Sources bound to derivable configs. Never touches runs, components,
   // or externally-created Sources (matched by identity, not provenance).
-  const configs = (await db
-    .selectFrom("importer_configs" as never)
-    .selectAll()
-    .execute()) as ConfigRow[];
+  const kdb = db as Kysely<DB>;
+  const configs = await kdb.selectFrom("importer_configs").selectAll().execute();
 
   for (const config of configs) {
     const identity = deriveIdentity(config.importerName, config.scope);
     if (!identity) continue;
-    const source = (await db
-      .selectFrom("importer_sources" as never)
+    const source = await kdb
+      .selectFrom("importer_sources")
       .select("id")
-      .where("importerName" as never, "=", config.importerName)
-      .where("externalIdentity" as never, "=", identity)
-      .executeTakeFirst()) as { id: string } | undefined;
+      .where("importerName", "=", config.importerName)
+      .where("externalIdentity", "=", identity)
+      .executeTakeFirst();
     if (!source) continue;
 
-    await db
-      .deleteFrom("source_instance_memberships" as never)
-      .where("sourceId" as never, "=", source.id)
+    await kdb
+      .deleteFrom("source_instance_memberships")
+      .where("sourceId", "=", source.id)
       .execute();
-    await db
-      .deleteFrom("source_component_memberships" as never)
-      .where("sourceId" as never, "=", source.id)
+    await kdb
+      .deleteFrom("source_component_memberships")
+      .where("sourceId", "=", source.id)
       .execute();
-    await db
-      .deleteFrom("importer_sources" as never)
-      .where("id" as never, "=", source.id)
-      .execute();
+    await kdb.deleteFrom("importer_sources").where("id", "=", source.id).execute();
   }
 }
