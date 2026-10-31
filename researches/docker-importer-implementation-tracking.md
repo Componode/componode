@@ -63,10 +63,10 @@ converge → PR). Run one spec at a time; do not interleave waves.
 
 ## Phase 2 — Staged migration of existing importers (Wave B)
 
-- [ ] Per-importer provider-native source identity keys documented and
+- [x] Per-importer provider-native source identity keys documented and
       implemented in explicit waves.
-- [ ] `LEGACY_UNATTRIBUTED` preservation; no auto-split/merge/rekey.
-- [ ] Backfill source memberships only where run/config provenance is
+- [x] `LEGACY_UNATTRIBUTED` preservation; no auto-split/merge/rekey.
+- [x] Backfill source memberships only where run/config provenance is
       defensible.
 
 ## Phase 3 — Docker Engine workload inventory (Wave C)
@@ -120,9 +120,12 @@ converge → PR). Run one spec at a time; do not interleave waves.
   AbortSignal, `validateDiscoveredAsset` tests, backend integration
   tests, OpenAPI sync for any route/contract change.
 
-> **Wave A follow-up (from spec-044 review)**: FR-006's per-source
+> **Wave A follow-up (from spec-044 review)**: ~~FR-006's per-source
 > `details` columns exist but are written `null`; `asset.details` still
 > last-writer-wins shared `components.details`. Wave B must split
 > asset-supplied details into canonical vs per-source fields and populate
-> membership `details` — tracked here so the deferral doesn't silently
-> become permanent.
+> membership `details`~~ — **resolved in spec 045**: `sourceDetails` on
+> `DiscoveredAsset`/`DiscoveredAssetInstance` now populate
+> `source_component_memberships.details`/`source_instance_memberships.details`
+> (alibaba-cloud is the reference emitter); canonical `details` stays shared
+> (ADR-120 item 4).

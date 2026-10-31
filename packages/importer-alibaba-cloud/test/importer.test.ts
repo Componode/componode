@@ -54,7 +54,9 @@ describe("AlibabaCloudImporter — US1 discovery", () => {
 
     const [ecs, oss, account] = assets;
     expect(ecs.category).toBe("COMPUTE");
-    expect(ecs.externalId).toBe("ACS::ECS::Instance:i-bp1234567890abcdef");
+    // Non-ARN resource IDs are account-local — qualified by the source
+    // account identity (ADR-120).
+    expect(ecs.externalId).toBe("1234567890123456::ACS::ECS::Instance:i-bp1234567890abcdef");
     expect(ecs.instances[0].region).toBe("cn-hangzhou");
     expect(ecs.instances[0].environment).toBe("PRODUCTION");
 

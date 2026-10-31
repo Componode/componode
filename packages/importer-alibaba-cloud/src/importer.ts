@@ -107,7 +107,7 @@ export class AlibabaCloudImporter implements Importer {
     };
 
     context.reportPhase("Searching resources");
-    for await (const asset of iterResourceAssets(client, parsed, context, billing, coverage)) {
+    for await (const asset of iterResourceAssets(client, parsed, context, billing, coverage, identity.accountId)) {
       if (context.signal.aborted) return;
       const candidate: unknown = asset;
       if (!validateDiscoveredAsset(candidate)) {
