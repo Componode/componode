@@ -2,14 +2,14 @@ import { useParams } from "react-router-dom";
 import { UserDetail } from "@/ux/components/admin/user-detail";
 import { useSession } from "@/ux/components/app/session-context";
 import { PageContainer } from "@/ux/components/patterns/page-header";
-import { ErrorState, NotFoundState } from "@/ux/components/patterns/states";
+import { ErrorState, ForbiddenState, NotFoundState } from "@/ux/components/patterns/states";
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import { useUsers } from "@/api/hooks/users";
 import { useUserSessions } from "@/api/hooks/sessions";
 import { useActivityFeed } from "@/api/hooks/audit";
 import { mapActivityItem } from "@/api/mappers/dashboard";
 import { mapSession, mapUser } from "@/api/mappers/operations";
-import { errorMessage } from "@/ux/lib/api-state";
+import { errorMessage, isForbidden } from "@/ux/lib/api-state";
 import { ux } from "@/ux/lib/paths";
 
 export function UxUserDetailPage() {
@@ -32,7 +32,11 @@ export function UxUserDetailPage() {
   if (users.error) {
     return (
       <PageContainer>
-        <ErrorState description={errorMessage(users.error)} onRetry={() => void users.refetch()} />
+        {isForbidden(users.error) ? (
+          <ForbiddenState />
+        ) : (
+          <ErrorState description={errorMessage(users.error)} onRetry={() => void users.refetch()} />
+        )}
       </PageContainer>
     );
   }

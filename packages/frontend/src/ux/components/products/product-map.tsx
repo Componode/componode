@@ -2,7 +2,7 @@
 import { Link } from "react-router-dom"
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { ProviderMark } from "@/ux/components/patterns/provider-mark"
-import { CriticalityBadge, ProductTypeBadge } from "@/ux/components/patterns/status-badge"
+import { CriticalityBadge, ProductTypeBadge, TONE_DOT } from "@/ux/components/patterns/status-badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
 import { HEALTH_META, type InstanceStatus } from "@/ux/lib/domain"
 import type { Criticality } from "@/ux/lib/domain"
@@ -16,12 +16,9 @@ type DrawnEdge = Edge & { d: string }
 
 const UNGROUPED = "Ungrouped"
 
-const DOT: Record<InstanceStatus, string> = {
-  RUNNING: "bg-success",
-  STOPPED: "bg-warning",
-  ERROR: "bg-destructive",
-  GONE: "bg-muted-foreground",
-}
+const DOT: Record<InstanceStatus, string> = Object.fromEntries(
+  (Object.keys(HEALTH_META) as InstanceStatus[]).map((s) => [s, TONE_DOT[HEALTH_META[s].tone]]),
+) as Record<InstanceStatus, string>
 
 function worstStatus(component: ProductComponentRow): InstanceStatus | null {
   return component.worstStatus
@@ -41,10 +38,13 @@ export function ProductMap({
   product,
   consumers,
   components,
+  relations = [],
 }: {
   product: Product
   consumers: { id: string; name: string; slug: string; criticality?: Criticality | null }[]
   components: ProductComponentRow[]
+  /** Additional fetched relations — labeled so nothing on the wire is dropped (038). */
+  relations?: { label: string; names: string[] }[]
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const [focus, setFocus] = useState<string | null>(null)
@@ -130,6 +130,15 @@ export function ProductMap({
             Path with a failing instance
           </li>
         </ul>
+        {relations.length > 0 && (
+          <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
+            {relations.map((r) => (
+              <li key={r.label}>
+                <span className="font-medium text-foreground/80">{r.label}:</span> {r.names.length ? r.names.join(", ") : "—"}
+              </li>
+            ))}
+          </ul>
+        )}
       </CardHeader>
       <CardContent className="overflow-x-auto">
         <div

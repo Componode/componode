@@ -123,6 +123,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     .select([
       "components.id as componentId",
       "components.name as componentName",
+      "components.slug as componentSlug",
       "component_instances.status",
       "component_instances.lastSeenAt",
     ])
@@ -172,7 +173,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
       .execute(),
     db
       .selectFrom("components")
-      .select(["id", "name", "sunsetAt"])
+      .select(["id", "name", "slug", "sunsetAt"])
       // Spec 023 edge case: gone-only components are invisible to every
       // coverage surface — the shared population predicate covers both the
       // ACTIVE and not-gone-only halves.
@@ -191,7 +192,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     ...sunsetComponents.map((c) => ({
       kind: "SUNSET_OVERDUE_COMPONENT" as const,
       label: c.name,
-      href: `/components/${c.id}`,
+      href: `/components/${c.slug}`,
       at: c.sunsetAt!.toString(),
     })),
   ].sort((a, b) => a.at.localeCompare(b.at));
@@ -212,7 +213,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     ...errorInstances.map((i) => ({
       kind: (i.status === "ERROR" ? "INSTANCE_ERROR" : "INSTANCE_GONE") as AttentionItem["kind"],
       label: i.componentName,
-      href: `/components/${i.componentId}`,
+      href: `/components/${i.componentSlug}`,
       at: i.lastSeenAt?.toString() ?? "",
     })),
     ...offlineAgents

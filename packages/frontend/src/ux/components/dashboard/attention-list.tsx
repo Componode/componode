@@ -1,3 +1,4 @@
+import { flags } from "@/ux/lib/flags";
 import { AlertTriangleIcon, CircleAlertIcon, ChevronRightIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { RelativeTime } from "@/ux/components/patterns/primitives"
@@ -13,7 +14,7 @@ export function AttentionList({ items }: { items: AttentionEntry[] }) {
     <Card>
       <CardHeader>
         <CardTitle>Needs attention</CardTitle>
-        <CardDescription>Failures, expiring secrets and overdue sunsets.</CardDescription>
+        <CardDescription>{flags.credentialExpiring ? "Failures, expiring secrets and overdue sunsets." : "Failures and overdue sunsets."}</CardDescription>
         <CardAction>
           <Badge variant="secondary" className="tabular">
             {items.length}
@@ -45,7 +46,7 @@ export function AttentionList({ items }: { items: AttentionEntry[] }) {
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-sm font-medium">{item.label}</span>
-                      {item.detail ? (
+                      {flags.attentionDetail && item.detail ? (
                         <span className="truncate text-xs text-muted-foreground">{item.detail}</span>
                       ) : null}
                     </span>

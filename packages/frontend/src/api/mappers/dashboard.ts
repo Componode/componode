@@ -82,7 +82,16 @@ export function mapActivityItem(item: ActivityFeedItem): AuditEvent {
   }
   const action = ACTIONS.has(item.action) ? (item.action as AuditEvent["action"]) : "other";
   const entityKind = kindLabel(item.entityType);
-  const changes = item.changes ? Object.keys(item.changes).join(", ") : null;
+  const changes = item.changes
+    ? Object.entries(item.changes)
+        .map(([k, v]) => {
+          const diff = v as { from?: unknown; to?: unknown } | null;
+          return diff && typeof diff === "object" && "from" in diff && "to" in diff
+            ? `${k} changed from ${String(diff.from)} to ${String(diff.to)}`
+            : `${k} changed`;
+        })
+        .join("; ")
+    : null;
   return {
     id: item.id,
     actor: item.createdByName ?? "system",

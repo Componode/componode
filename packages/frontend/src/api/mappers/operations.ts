@@ -6,7 +6,7 @@ import type {
   ImportRunError,
   ImporterConfig as ApiImporterConfig,
 } from "@/api/types";
-import { narrow, narrowOrNull } from "@/api/mappers/catalog";
+import { narrow, narrowOrNull, narrowOrRaw } from "@/api/mappers/catalog";
 import type {
   CredentialStatus,
   DisconnectReason,
@@ -86,6 +86,7 @@ export function runDurationSec(
 export function mapImporterConfig(
   c: ApiImporterConfig,
   credentials: Pick<Credential, "id" | "label">[],
+  lastRun?: { status: string | null; completedAt: string | null; assetsProcessed: number } | null,
 ): ImporterConfig {
   const credential = credentials.find((cr) => c.credentialIds.includes(cr.id));
   return {
@@ -98,7 +99,15 @@ export function mapImporterConfig(
     credentialLabel: credential?.label ?? "None",
     agent: c.agent ? { id: c.agent.id, name: c.agent.name } : null,
     agentIncompatible: c.agentIncompatible,
-    lastRun: null,
+    secretRefsDeprecated: c.secretRefsDeprecated,
+    lastRun: lastRun?.status
+      ? {
+          status: narrowOrRaw<RunStatus>(lastRun.status, RUN_STATUSES),
+          at: lastRun.completedAt ?? "",
+          processed: lastRun.assetsProcessed,
+          durationSec: 0,
+        }
+      : null,
     history: [],
   };
 }
@@ -107,7 +116,7 @@ export function mapImportRun(r: ApiImportRun): ImportRun {
   return {
     id: r.id,
     configId: r.configId,
-    status: narrow<RunStatus>(r.status, RUN_STATUSES, "FAILED"),
+    status: narrowOrRaw<RunStatus>(r.status, RUN_STATUSES),
     triggeredBy: r.triggeredBy ?? "system",
     startedAt: r.startedAt,
     durationSec: runDurationSec(r.startedAt, r.completedAt),
@@ -225,7 +234,7 @@ export function mapRunError(e: ImportRunError): RunError {
 }
 
 export function mapCredentialStatus(status: string | null | undefined): CredentialStatus {
-  return narrow<CredentialStatus>(status, ["ACTIVE", "REVOKED"], "ACTIVE");
+  return narrowOrRaw<CredentialStatus>(status, ["ACTIVE", "REVOKED"]);
 }
 
 const ROLES: readonly string[] = ["VIEWER", "EDITOR", "ADMIN"];

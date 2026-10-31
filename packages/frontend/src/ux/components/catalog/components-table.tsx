@@ -1,4 +1,5 @@
 
+import { flags } from "@/ux/lib/flags";
 import { ux } from "@/ux/lib/paths";
 import { Link } from "react-router-dom"
 import * as React from "react"
@@ -15,7 +16,15 @@ import type { Component } from "@/ux/lib/view-types"
 const PRIORITY: InstanceStatus[] = ["ERROR", "STOPPED", "RUNNING", "GONE"]
 const worstStatus = (c: Component) => PRIORITY.find((s) => c.instances.some((i) => i.status === s)) ?? null
 
-export function ComponentsTable({ data }: { data: Component[] }) {
+export function ComponentsTable({
+  data,
+  includeGone,
+  onIncludeGoneChange,
+}: {
+  data: Component[];
+  includeGone?: boolean;
+  onIncludeGoneChange?: (v: boolean) => void;
+}) {
   const [query, setQuery] = React.useState("")
   const [provider, setProvider] = React.useState("all")
   const [category, setCategory] = React.useState("all")
@@ -41,6 +50,18 @@ export function ComponentsTable({ data }: { data: Component[] }) {
         filters={[
           { id: "provider", label: "Provider", value: provider, onChange: setProvider, options: providers },
           { id: "category", label: "Category", value: category, onChange: setCategory, options: categories },
+          ...(onIncludeGoneChange
+            ? [{
+                id: "gone",
+                label: "Gone instances",
+                value: includeGone ? "show" : "hide",
+                onChange: (v: string) => onIncludeGoneChange(v === "show"),
+                options: [
+                  { value: "hide", label: "Hidden" },
+                  { value: "show", label: "Shown" },
+                ],
+              }]
+            : []),
         ]}
       />
       <Card className="overflow-hidden py-0">
@@ -54,9 +75,9 @@ export function ComponentsTable({ data }: { data: Component[] }) {
                 <TableHead>Category</TableHead>
                 <TableHead>Resource type</TableHead>
                 <TableHead>Owner</TableHead>
-                <TableHead>Health</TableHead>
+                {flags.componentListHealth && <TableHead>Health</TableHead>}
                 <TableHead className="text-right">Instances</TableHead>
-                <TableHead className="pr-4 text-right">Last seen</TableHead>
+                {flags.componentListLastSeen && <TableHead className="pr-4 text-right">Last seen</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -73,11 +94,9 @@ export function ComponentsTable({ data }: { data: Component[] }) {
                     <code className="font-mono text-xs text-muted-foreground">{c.resourceType}</code>
                   </TableCell>
                   <TableCell className="text-sm">{c.teamOwnerName ?? <span className="text-muted-foreground">Unowned</span>}</TableCell>
-                  <TableCell>{c.lifecycle === "RETIRED" ? <LifecycleBadge value="RETIRED" /> : <HealthBadge value={worstStatus(c)} />}</TableCell>
+                  {flags.componentListHealth && <TableCell>{c.lifecycle === "RETIRED" ? <LifecycleBadge value="RETIRED" /> : <HealthBadge value={worstStatus(c)} />}</TableCell>}
                   <TableCell className="tabular text-right">{c.instanceCount}</TableCell>
-                  <TableCell className="pr-4 text-right text-sm text-muted-foreground">
-                    <RelativeTime iso={c.lastSeenAt} />
-                  </TableCell>
+                  {flags.componentListLastSeen && <TableCell className="pr-4 text-right text-sm text-muted-foreground"><RelativeTime iso={c.lastSeenAt} /></TableCell>}
                 </TableRow>
               ))}
             </TableBody>

@@ -1,5 +1,5 @@
 import { safeUrl } from "@/ux/lib/safe-url";
-import { ExternalLinkIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, SparklesIcon, TrashIcon } from "lucide-react"
+import { ExternalLinkIcon, MoreHorizontalIcon, PencilIcon, SparklesIcon, TrashIcon } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { useAcceptSuggestion } from "@/api/hooks/suggestions"
@@ -14,7 +14,7 @@ import { ProductMap } from "@/ux/components/products/product-map"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Badge } from "@/ux/components/ui/badge"
 import { Button } from "@/ux/components/ui/button"
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +25,7 @@ import {
 } from "@/ux/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ux/components/ui/tabs"
-import { CATEGORY_LABELS } from "@/ux/lib/domain"
+import { CATEGORY_LABELS, type Criticality } from "@/ux/lib/domain"
 import { ux } from "@/ux/lib/paths"
 import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import type { AuditEvent, Product, ProductComponentRow, Suggestion } from "@/ux/lib/view-types"
@@ -35,12 +35,14 @@ const TABS = ["overview", "map", "components", "dependencies", "activity"] as co
 export interface ProductDetailProps {
   product: Product
   components: ProductComponentRow[]
-  consumers: { id: string; name: string; slug: string }[]
+  consumers: { id: string; name: string; slug: string; criticality?: Criticality | null }[]
+  /** Additional fetched relations rendered on the map so nothing is dropped (038). */
+  relations?: { label: string; names: string[] }[]
   suggestions: Suggestion[]
   activity: AuditEvent[]
 }
 
-export function ProductDetail({ product, components, consumers, suggestions, activity }: ProductDetailProps) {
+export function ProductDetail({ product, components, consumers, relations, suggestions, activity }: ProductDetailProps) {
   const navigate = useNavigate()
   const [tab, setTab] = useValidatedTab(TABS)
   const updateProduct = useUpdateProduct()
@@ -180,11 +182,6 @@ export function ProductDetail({ product, components, consumers, suggestions, act
           <Card>
             <CardHeader>
               <CardTitle>Links</CardTitle>
-              <CardAction>
-                <Button variant="ghost" size="icon-sm" aria-label="Add link">
-                  <PlusIcon />
-                </Button>
-              </CardAction>
             </CardHeader>
             <CardContent>
               {product.links.length ? (
@@ -214,7 +211,7 @@ export function ProductDetail({ product, components, consumers, suggestions, act
         </TabsContent>
 
         <TabsContent value="map">
-          <ProductMap product={product} consumers={consumers} components={components} />
+          <ProductMap product={product} consumers={consumers} components={components} relations={relations} />
         </TabsContent>
 
         <TabsContent value="components">

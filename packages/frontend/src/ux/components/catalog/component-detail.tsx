@@ -7,9 +7,10 @@ import { EnvironmentBadge, HealthBadge, LifecycleBadge } from "@/ux/components/p
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Badge } from "@/ux/components/ui/badge"
 import { Button } from "@/ux/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { CATEGORY_LABELS, PROVIDER_META } from "@/ux/lib/domain"
+import { flags } from "@/ux/lib/flags"
 import { formatDate } from "@/ux/lib/format"
 import { ComponentEditDialog } from "@/ux/components/catalog/component-edit-dialog"
 import type { Component } from "@/ux/lib/view-types"
@@ -64,7 +65,12 @@ export function ComponentDetail({ component: c }: { component: Component }) {
         <Card className="lg:col-span-2 overflow-hidden pb-0">
           <CardHeader>
             <CardTitle>Instances</CardTitle>
-            <CardDescription>One row per environment the importer observed. Gone instances are kept for 30 days.</CardDescription>
+            <CardDescription>One row per environment the importer observed. Instances reported gone are hidden here.</CardDescription>
+            <CardAction>
+              <Button variant="outline" size="sm" disabled={!flags.detailGoneInstances} title="Showing gone instances here needs detail-level API support (gap G26)">
+                Show gone
+              </Button>
+            </CardAction>
           </CardHeader>
           <Table>
             <TableHeader>

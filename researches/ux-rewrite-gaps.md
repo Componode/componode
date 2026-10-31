@@ -24,10 +24,13 @@ numbers are sequential at creation and may shift:
 6. `037` — schema-driven importer forms (G13) — RESOLVED by spec 037 —
    `035`/`036` were taken by `035-bugfix-user-form-validation` and
    `036-bugfix-ux-findings`
+7. `0NN` — list enrichment (G21, G22) — next free number after `038`
+8. `0NN` — dashboard intelligence (G23, G24, G25)
 
 Deferred past this program — re-triaged after it closes: G15 (merged
-with the email-delivery half of G4), G16, G17, G18, G19. G20 resolves
-client-side without a spec.
+with the email-delivery half of G4), G16, G17, G18, G19, G26, G27, G28,
+G30. G20 resolves client-side without a spec. G29, G31, G32 are their
+own feature specs, not backend gap specs.
 
 ## G1 — Per-day importer run aggregates — RESOLVED by spec 031
 
@@ -69,7 +72,8 @@ client-side without a spec.
   `updateSelfSchema` (`displayName` + `email` only — privileged keys
   rejected, not stripped), routed through `updateUser` for identical
   audit attribution. The profile page uses the self path for all roles;
-  `profileSelfEdit` is ON and the read-only fallback removed.
+  the `profileSelfEdit` flag was removed in spec 038 (resolved, zero
+  consumers) and the read-only fallback is gone.
 
 ## G15 — Notification delivery & preferences — DEFERRED (unscheduled)
 
@@ -207,6 +211,110 @@ client-side without a spec.
   "Unrecognized fields" block for stored keys outside the schema, and a
   lossless Edit-as-JSON toggle.
 - **Flag**: none — resolved unflagged.
+
+## G21 — List enrichment: component instances/lastSeen + importer lastRun — SPEC QUEUED
+
+- **UX surface**: components list `Health` and `Last seen` columns
+  (`componentListHealth`, `componentListLastSeen` flags — hidden until
+  this lands); importer-card last-run summary.
+- **Need**: per-row `worstStatus`/`lastSeenAt` rollup on `GET /components`
+  (list payload currently omits `instances` and `lastSeenAt`). Importer
+  `lastRun` is wired from `DashboardSummary.lastRuns` in spec 038 — this
+  entry covers it only if that join proves insufficient.
+- **Resolution**: list-enrichment spec (next free number after `038`).
+
+## G22 — Team member counts — SPEC QUEUED
+
+- **UX surface**: teams list `Members` column (`teamMemberCounts` flag —
+  renders "—" fallback until this lands); LOB detail teams table.
+- **Need**: `memberCount` on `GET /teams` (and LOB detail reads).
+- **Resolution**: list-enrichment spec, same spec as G21.
+
+## G23 — Stat-grid deltas — SPEC QUEUED
+
+- **UX surface**: dashboard stat-grid `+N this week` detail line
+  (`statDeltas` flag — renders "—" hidden until this lands).
+- **Need**: delta fields on `GET /dashboard` (week-over-week counts per
+  stat card; "All healthy" for importers).
+- **Resolution**: dashboard-intelligence spec.
+
+## G24 — Attention detail lines + CREDENTIAL_EXPIRING — SPEC QUEUED
+
+- **UX surface**: attention-row `detail` sub-line (`attentionDetail` flag)
+  and the `CREDENTIAL_EXPIRING` kind the card description already
+  promises (`credentialExpiring` flag).
+- **Need**: backend `detail` strings per attention row (e.g. "kubeconfig
+  token expired", "Last heartbeat 2h ago · heartbeat_timeout") and a
+  `CREDENTIAL_EXPIRING` kind emitted for `expiresAt`-near credentials.
+- **Resolution**: dashboard-intelligence spec, same spec as G23/G25.
+
+## G25 — Agent "Enrolled by" — SPEC QUEUED
+
+- **UX surface**: agent detail header (`agentEnrolledBy` flag — header
+  shows "Created {date}" until this lands); pending-enrollment alert
+  could regain `enrollmentExpiresAt` if the API exposes it.
+- **Need**: `createdBy` (and optionally `enrollmentExpiresAt`) on
+  `GET /agents/:id`.
+- **Resolution**: dashboard-intelligence spec (audit/actor surface).
+
+## G26 — `includeGone` on component detail — DEFERRED (unscheduled)
+
+- **UX surface**: component detail Instances card (`detailGoneInstances`
+  flag). The detail read hard-filters `status != "GONE"`
+  (`component-catalog-service.ts:216`) — no opt-in exists.
+- **Deferred**: re-triaged after the enrichment specs; also decide the
+  "kept for 30 days" retention copy once the param lands.
+
+## G27 — Authentication hardening — DEFERRED (unscheduled)
+
+- **UX surface**: `/settings/authentication` — "Allowed email domains"
+  and "Password policy" sections (breached-password blocking,
+  require-2FA-for-admins); `/register` work-email field.
+- **Need**: settings storage + enforcement for domain allow-listing and
+  password rules; `email` on `POST /auth/register`.
+- **Deferred**: security batch; 2FA half overlaps G16.
+
+## G28 — LOB owner field — DEFERRED (unscheduled)
+
+- **UX surface**: LOB cards + LOB detail "Owner" row (v0 shows an
+  owner avatar/name). The `LineOfBusiness` entity has no owner field.
+- **Deferred**: org-entity batch; decide whether owner is a `Person`
+  ref or free text.
+
+## G29 — Manual component/group creation — FEATURE SPEC (not a backend gap)
+
+- **UX surface**: "Add manually" on `/components` and "New group" on
+  `/component-groups` (`manualEntityCreate` flag — disabled with
+  tooltip until the spec ships).
+- **Need**: POST endpoints exist (`POST /components`,
+  `POST /component-groups`)? — verify at spec time; the missing piece
+  is the creation forms/flows, and possibly the endpoints.
+- **Resolution**: own feature spec — real authoring capability, not a
+  data gap.
+
+## G30 — "Keep me signed in" session-duration option — DEFERRED (unscheduled)
+
+- **UX surface**: login form checkbox (v0 `login-form.tsx:94-99`).
+- **Need**: per-session duration on `POST /auth/login` (session TTL
+  override honored by the session service).
+- **Deferred**: session-policy batch with G17.
+
+## G31 — Edge-authoring UI — FEATURE SPEC (not a backend gap)
+
+- **UX surface**: product detail — `useAddEdge`/`useRemoveEdge` hooks
+  exist (`api/hooks/products.ts:133-166`) with zero call sites; no UI to
+  add/remove `composes`/`consumesFrom`/`dependsOn` edges and nowhere a
+  `409 CYCLE` can surface.
+- **Resolution**: own feature spec — design the authoring affordance
+  (map vs. relations card) and 409 CYCLE surfacing.
+
+## G32 — Suggestions decided-history — FEATURE SPEC
+
+- **UX surface**: `/suggestions` shows `PENDING` only; ADR-113 terminal
+  states (`ACCEPTED`/`DISMISSED`/`SUPERSEDED`) are unobservable.
+  `useSuggestions` already accepts a `status` param.
+- **Resolution**: own spec — history view/tab on the suggestions page
+  (`suggestionsHistory` flag until then).
 
 ## Conditional gaps — VERIFIED during implementation
 

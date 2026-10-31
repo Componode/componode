@@ -8,7 +8,6 @@ import {
   type UpdateComponentGroupInput,
   type UpdateComponentInput,
   type Link,
-  type ListComponentGroupsQuery,
   listComponentGroupsQuerySchema,
 } from "@componode/core";
 import { db } from "../db/connection.js";
@@ -38,7 +37,7 @@ function actorName(actor: Actor): string | null {
   return actor.name ?? actor.id;
 }
 
-export async function listComponentGroups(rawQuery: ListComponentGroupsQuery) {
+export async function listComponentGroups(rawQuery: unknown) {
   const parsed = listComponentGroupsQuerySchema.parse(rawQuery);
   let query = db
     .selectFrom("component_groups")
@@ -63,7 +62,7 @@ export async function listComponentGroups(rawQuery: ListComponentGroupsQuery) {
 
   if (parsed.lifecycle) {
     query = query.where("component_groups.lifecycle", "=", parsed.lifecycle);
-  } else {
+  } else if (!parsed.includeRetired) {
     query = query.where("component_groups.lifecycle", "!=", "RETIRED");
   }
 

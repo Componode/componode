@@ -167,6 +167,7 @@
 | [ADR-106](./adrs/ADR-106-security-hardening-2026-09-assessment.md) | Security hardening from the 2026-09-10 assessment |
 | [ADR-107](./adrs/ADR-107-credential-store.md) | Application credential store for integration secrets (supersedes ADR-023 no-secrets-at-rest clause) |
 | [ADR-108](./adrs/ADR-108-mobile-nav-drawer.md) | Mobile navigation drawer below `md` (narrows `docs/ux.md` §9) |
+| [ADR-118](./adrs/ADR-118-product-map-canvas.md) | In-app product map graph canvas (read-only; amends ADR-103/`ux.md` §8) |
 | [ADR-117](./adrs/ADR-117-agent-managed-credentials.md) | Agent-managed credentials: reference-only credential flavor (amends ADR-107, 055, 023, 090); Amendment 1 ratifies spec-026 surfaces — 4 error codes, `credential_test_dispatched`, `agent_credential_tests_total`, `testId` correlation, `keyHints` source types |
 
 ### Frontend & SPA

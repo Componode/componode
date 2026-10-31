@@ -1,3 +1,4 @@
+import { flags } from "@/ux/lib/flags";
 import { Building2Icon, UsersIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card";
@@ -35,7 +36,7 @@ export function TeamsTable({
           <TableRow className="bg-muted/40 hover:bg-muted/40">
             <TableHead className="pl-4">Team</TableHead>
             <TableHead>Line of business</TableHead>
-            <TableHead className="text-right">Members</TableHead>
+            {flags.teamMemberCounts && <TableHead className="text-right">Members</TableHead>}
             <TableHead className="text-right">Products</TableHead>
             <TableHead className="pr-4 text-right">Components</TableHead>
           </TableRow>
@@ -62,7 +63,7 @@ export function TeamsTable({
                     <span className="text-muted-foreground">—</span>
                   )}
                 </TableCell>
-                <TableCell className="tabular text-right">{c?.members ?? "—"}</TableCell>
+                {flags.teamMemberCounts && <TableCell className="tabular text-right">{c?.members ?? "—"}</TableCell>}
                 <TableCell className="tabular text-right">{c?.products ?? 0}</TableCell>
                 <TableCell className="tabular pr-4 text-right">{c?.components ?? 0}</TableCell>
               </TableRow>

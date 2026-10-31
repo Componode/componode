@@ -26,6 +26,7 @@ export function UxSessionsPage() {
         <ErrorState description={errorMessage(sessions.error)} onRetry={() => void sessions.refetch()} />
       ) : (
         <SessionsTable
+          showOwner={false}
           data={sessions.data.sessions.map((s) =>
             mapSession(s, { username: user.username, displayName: user.displayName ?? user.username }),
           )}

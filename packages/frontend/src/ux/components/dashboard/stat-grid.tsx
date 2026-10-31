@@ -1,3 +1,4 @@
+import { flags } from "@/ux/lib/flags";
 import { ArrowUpRightIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
@@ -38,7 +39,7 @@ export function StatGrid({ counts, deltas }: { counts: StatGridCounts; deltas?: 
               </CardDescription>
               <CardTitle className="tabular text-3xl font-semibold tracking-tight">{formatNumber(counts[s.key])}</CardTitle>
               <p className="tabular text-xs text-muted-foreground">
-                {s.delta == null ? "—" : <><span className="font-medium text-success">+{s.delta}</span> this week</>}
+                {flags.statDeltas ? (s.delta == null ? "—" : <><span className="font-medium text-success">+{s.delta}</span> this week</>) : null}
               </p>
             </CardHeader>
           </Card>

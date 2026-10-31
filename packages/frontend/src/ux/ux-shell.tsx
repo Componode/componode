@@ -16,7 +16,7 @@ export function UxShell() {
   // Controlled: passing onOpenChange alone would suppress the provider's
   // internal state (stock shadcn sidebar semantics).
   const [sidebarOpen, setSidebarOpen] = useState(
-    () => localStorage.getItem(SIDEBAR_KEY) !== "false",
+    () => sessionStorage.getItem(SIDEBAR_KEY) !== "false",
   );
   return (
     <div className="ux-root min-h-screen bg-background text-foreground">
@@ -26,7 +26,7 @@ export function UxShell() {
             open={sidebarOpen}
             onOpenChange={(open) => {
               setSidebarOpen(open);
-              localStorage.setItem(SIDEBAR_KEY, String(open));
+              sessionStorage.setItem(SIDEBAR_KEY, String(open));
             }}
           >
             <AppSidebar />

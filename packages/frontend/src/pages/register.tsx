@@ -1,10 +1,11 @@
-import { AlertCircleIcon } from "lucide-react";
+import { AlertCircleIcon, CheckIcon, XIcon } from "lucide-react";
 import { PASSWORD_MIN_LENGTH } from "@componode/core";
 import { Link, useNavigate } from "react-router-dom";
 import * as React from "react";
 import { api, type ApiError } from "@/api/client";
 import { Logo } from "@/ux/components/app/logo";
 import { AuthShowcase } from "@/ux/components/auth/auth-showcase";
+import { APP_VERSION } from "@/ux/lib/version";
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert";
 import { Button } from "@/ux/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/ux/components/ui/field";
@@ -25,11 +26,18 @@ function describeError(err: unknown): string {
   }
 }
 
+const PASSWORD_RULES = [
+  { label: `At least ${PASSWORD_MIN_LENGTH} characters`, test: (p: string) => p.length >= PASSWORD_MIN_LENGTH },
+  { label: "One uppercase and one lowercase letter", test: (p: string) => /[a-z]/.test(p) && /[A-Z]/.test(p) },
+  { label: "One digit", test: (p: string) => /\d/.test(p) },
+];
+
 type Errors = Partial<Record<"username" | "password" | "form", string>>;
 
 export function RegisterPage() {
   const navigate = useNavigate();
   const [pending, setPending] = React.useState(false);
+  const [pw, setPw] = React.useState("");
   const [errors, setErrors] = React.useState<Errors>({});
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -70,6 +78,11 @@ export function RegisterPage() {
               <p className="text-sm text-muted-foreground">Register a new Componode account.</p>
             </div>
 
+            <Alert>
+              <AlertCircleIcon />
+              <AlertDescription>New accounts start as Viewer. An admin can grant Editor or Admin access.</AlertDescription>
+            </Alert>
+
             {errors.form && (
               <Alert variant="destructive">
                 <AlertCircleIcon />
@@ -91,11 +104,18 @@ export function RegisterPage() {
                 </Field>
                 <Field data-invalid={!!errors.password || undefined}>
                   <FieldLabel htmlFor="password">Password</FieldLabel>
-                  <Input id="password" name="password" type="password" autoComplete="new-password" aria-invalid={!!errors.password} />
+                  <Input id="password" name="password" type="password" autoComplete="new-password" aria-invalid={!!errors.password} onChange={(e) => setPw(e.target.value)} />
                   {errors.password ? (
                     <FieldError>{errors.password}</FieldError>
                   ) : (
-                    <FieldDescription>{`${PASSWORD_MIN_LENGTH}+ characters.`}</FieldDescription>
+                    <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
+                      {PASSWORD_RULES.map((r) => (
+                        <li key={r.label} className="flex items-center gap-1.5">
+                          {r.test(pw) ? <CheckIcon className="size-3.5 text-success" /> : <XIcon className="size-3.5 text-muted-foreground/60" />}
+                          {r.label}
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </Field>
                 <Field>
@@ -120,6 +140,7 @@ export function RegisterPage() {
         </main>
         <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>Componode DPAM · self-hosted</span>
+          <code className="font-mono">v{APP_VERSION}</code>
         </footer>
       </div>
       <AuthShowcase />

@@ -22,10 +22,13 @@ export interface AssignComponentGroupInput {
   componentGroupId: string | null;
 }
 
-export function useComponentGroups(enabled = true) {
+export function useComponentGroups(opts: { includeRetired?: boolean } | boolean = {}) {
+  const includeRetired = typeof opts === "boolean" ? false : !!opts.includeRetired;
+  const enabled = typeof opts === "boolean" ? opts : true;
   return useQuery({
-    queryKey: ["component-groups"],
-    queryFn: () => api<{ groups: ComponentGroup[] }>("/component-groups"),
+    queryKey: ["component-groups", { includeRetired }],
+    queryFn: () =>
+      api<{ groups: ComponentGroup[] }>(`/component-groups${includeRetired ? "?includeRetired=true" : ""}`),
     enabled,
   });
 }

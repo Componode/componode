@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–036)
+## Shipped (features 001–038)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -170,14 +170,27 @@ file tracks shipped and upcoming work — update it when a spec completes.
   "Unrecognized fields" block for stored keys outside the schema, and a
   lossless Edit-as-JSON mode. Frontend-only.
 
+- `038-ux-11-conformance` — v1.1.0-vs-v0 conformance corrections: defect fixes (slug-keyed attention links, wired password-reset, `replaced` disconnect META, LOB delete guard, GONE/RETIRED opt-ins, breadcrumbs, ForbiddenState coverage, importer lastRun + convert-secrets, promote slug field error, feed sentences, ErrorState boundary), restorations (auth checklist/shell/footer, credentials alert, radius scale, command-menu adornments, org table columns, session device/location), product-map relations canvas ratified by ADR-118, and gap registry G21–G32 with flag gates — no dead controls or unbacked renders ship.
+
 ## Next — post-v1.1
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and
 the gap specs `030`–`034` + `037` (G14, G1, G2, G7/G8/G9/G11, G12, G13)
-are shipped on `release/1.1.0`. The UX-rewrite gap program is complete:
-G20 resolves client-side without a spec; G15–G19 are deferred
-unscheduled (see the registry's spec-queue block):
+are shipped on `release/1.1.0`. The gap program continues past 038 —
+conformance registered G21–G32 and queued two grouped specs after `037`
+(see `researches/ux-rewrite-gaps.md` spec-queue block):
+
+- `0NN` — list enrichment (G21 component instances/lastSeen + importer
+  lastRun; G22 team member counts)
+- `0NN` — dashboard intelligence (G23 stat deltas; G24 attention detail +
+  `CREDENTIAL_EXPIRING`; G25 agent enrolled-by)
+- G29 manual entity creation, G31 edge-authoring UI, G32 suggestions
+  decided-history — feature specs
+- G20 resolves client-side without a spec; G15–G19, G26–G28, G30 are
+  deferred unscheduled
+
+Beyond the gap queue:
 
 - Runtime-loaded importer plugins
 - Invite-based registration
@@ -187,5 +200,6 @@ unscheduled (see the registry's spec-queue block):
 - Remaining providers
 - Range filters (multi-value enum filters shipped in 015)
 
-Deferred UI work includes the product-graph canvas and custom importer-form
-widgets (`docs/ux.md` §11).
+Deferred UI work includes interactive graph authoring (the read-only
+canvas shipped in 038 under ADR-118) and custom importer-form widgets
+(`docs/ux.md` §9).

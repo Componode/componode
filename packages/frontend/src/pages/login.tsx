@@ -6,6 +6,7 @@ import { useOidcStatus } from "@/api/hooks/settings";
 import type { ApiError } from "@/api/client";
 import { Logo } from "@/ux/components/app/logo";
 import { AuthShowcase } from "@/ux/components/auth/auth-showcase";
+import { APP_VERSION } from "@/ux/lib/version";
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert";
 import { Button } from "@/ux/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel, FieldSeparator } from "@/ux/components/ui/field";
@@ -144,6 +145,7 @@ export function LoginPage() {
         </main>
         <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>Componode DPAM · self-hosted</span>
+          <code className="font-mono">v{APP_VERSION}</code>
         </footer>
       </div>
       <AuthShowcase />

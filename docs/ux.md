@@ -45,6 +45,9 @@ hex or palette utilities (`bg-amber-500`, `text-red-600`) in components.
 
 - **Dark mode** ships via `next-themes`; tokens carry dark values. Default
   follows `prefers-color-scheme`; a picker lives in Settings → Appearance.
+- **Typeface** is the system stack (no bundled font payload) — ratified
+  over the prototype's Geist; `font-mono` resolves to the platform mono
+  stack.
 - **Status tone mapping is centralized** in `src/ux/lib/domain.ts`
   (`*_META` tables: label + tone per enum). New enums get a META entry;
   components render `StatusBadge`/`*Badge` wrappers, never ad-hoc colors.
@@ -200,8 +203,8 @@ detailed entry in **`researches/ux-rewrite-gaps.md`**:
 ## 8. Scope boundaries
 
 - ≥1280px optimized, ~768px usable; sub-`md` = nav drawer only (ADR-108).
-- No in-app graph canvas — the product "Map" is the textual relations view;
-  a node-edge canvas still requires its own ADR (deferred).
+- The product "Map" is a **read-only** relations canvas (ADR-118). An
+  interactive/authoring graph still requires its own ADR.
 - No dashboard widget customization, no notification backend, no TOTP —
   all flagged gaps, not hidden bugs.
 
@@ -209,7 +212,12 @@ detailed entry in **`researches/ux-rewrite-gaps.md`**:
 
 Deferred — each needs its own ADR or spec:
 
-- Graph visualization of the COMPOSES DAG
+- Interactive graph authoring of the COMPOSES DAG (read-only canvas
+  ratified by ADR-118; authoring is gap G31)
+- In-app `/standards` + `/design-system` surfaces — `docs/ux.md` is the
+  written baseline; a live catalog page needs its own spec
+- Credential-form provider scaffolds — free-form key/value is the model
+- Suggestions decided-history view (gap G32)
 - Mobile/tablet support beyond the nav drawer
 - Custom importer-form widgets beyond the schema-driven scope renderer
   (nested/complex fields stay on per-field JSON)

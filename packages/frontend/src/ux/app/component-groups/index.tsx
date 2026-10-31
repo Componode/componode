@@ -1,4 +1,6 @@
+import { flags } from "@/ux/lib/flags";
 import { LayersIcon, PlusIcon } from "lucide-react";
+import * as React from "react";
 import { Link } from "react-router-dom";
 import { useComponentGroups } from "@/api/hooks/component-groups";
 import { mapComponentGroup } from "@/api/mappers/catalog";
@@ -6,13 +8,15 @@ import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { ErrorState } from "@/ux/components/patterns/states";
 import { LifecycleBadge } from "@/ux/components/patterns/status-badge";
 import { Button } from "@/ux/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select";
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ux/components/ui/card";
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import { errorMessage } from "@/ux/lib/api-state";
 import { ux } from "@/ux/lib/paths";
 
 export function UxComponentGroupsPage() {
-  const { data, isPending, error, refetch } = useComponentGroups();
+  const [showRetired, setShowRetired] = React.useState(false);
+  const { data, isPending, error, refetch } = useComponentGroups({ includeRetired: showRetired });
 
   return (
     <PageContainer>
@@ -20,10 +24,21 @@ export function UxComponentGroupsPage() {
         title="Component groups"
         description="Logical bundles of components that ship and retire together — useful when a product composes dozens of services."
         actions={
-          <Button disabled title="Group creation isn't available yet">
-            <PlusIcon data-icon="inline-start" />
-            New group
-          </Button>
+          <>
+            <Select value={showRetired ? "show" : "hide"} onValueChange={(v) => setShowRetired(v === "show")}>
+              <SelectTrigger className="w-36" aria-label="Retired groups">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hide">Retired hidden</SelectItem>
+                <SelectItem value="show">Retired shown</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button disabled={!flags.manualEntityCreate} title="Group creation isn't available yet">
+              <PlusIcon data-icon="inline-start" />
+              New group
+            </Button>
+          </>
         }
       />
       {isPending ? (

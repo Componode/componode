@@ -2,8 +2,10 @@ import { CircleAlertIcon, Loader2Icon } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import * as React from "react";
 import { Logo } from "@/ux/components/app/logo";
+import { AuthShowcase } from "@/ux/components/auth/auth-showcase";
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert";
 import { Button } from "@/ux/components/ui/button";
+import { APP_VERSION } from "@/ux/lib/version";
 
 const ERROR_COPY: Record<string, string> = {
   access_denied: "Your identity provider denied the sign-in request.",
@@ -27,9 +29,11 @@ export function OidcCallbackPage() {
   }, [error, navigate]);
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background p-6">
-      <div className="flex w-full max-w-sm flex-col gap-6">
+    <div className="grid min-h-svh bg-background lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <div className="flex flex-col gap-10 px-6 py-8 md:px-12">
         <Logo />
+        <main id="main" className="flex flex-1 items-center justify-center">
+          <div className="flex w-full max-w-sm flex-col gap-6">
         {error ? (
           <>
             <div className="flex flex-col gap-1.5">
@@ -53,7 +57,14 @@ export function OidcCallbackPage() {
             <p className="text-sm text-muted-foreground">Completing login…</p>
           </div>
         )}
+          </div>
+        </main>
+        <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>Componode DPAM · self-hosted</span>
+          <code className="font-mono">v{APP_VERSION}</code>
+        </footer>
       </div>
+      <AuthShowcase />
     </div>
   );
 }

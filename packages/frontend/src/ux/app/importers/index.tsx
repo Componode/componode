@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { PlusIcon } from "lucide-react";
 import { useCredentials } from "@/api/hooks/credentials";
 import { useImporterConfigs } from "@/api/hooks/importers";
+import { useDashboardSummary } from "@/api/hooks/dashboard";
 import { mapImporterConfig } from "@/api/mappers/operations";
 import { ImporterCard } from "@/ux/components/importers/importer-card";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
@@ -15,6 +16,7 @@ import { ux } from "@/ux/lib/paths";
 export function UxImportersPage() {
   const configs = useImporterConfigs();
   const credentials = useCredentials();
+  const summary = useDashboardSummary();
 
   if (configs.isPending || credentials.isPending) {
     return (
@@ -36,8 +38,9 @@ export function UxImportersPage() {
     );
   }
 
+  const lastRunByConfig = new Map((summary.data?.lastRuns ?? []).map((r) => [r.configId, r]));
   const items = (configs.data?.configs ?? []).map((c) =>
-    mapImporterConfig(c, credentials.data?.credentials ?? []),
+    mapImporterConfig(c, credentials.data?.credentials ?? [], lastRunByConfig.get(c.id)),
   );
 
   return (

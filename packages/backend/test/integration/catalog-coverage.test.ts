@@ -531,7 +531,8 @@ describe("catalog coverage & hygiene (spec 023)", () => {
       expect(prod?.href).toBe("/products/p-wired");
       expect(prod?.at).toBeTruthy();
       const comp = attention.find((a) => a.kind === "SUNSET_OVERDUE_COMPONENT");
-      expect(comp?.href).toBe(`/components/${C.unwired}`);
+      // Attention hrefs are slug-keyed — the frontend route resolves slugs (spec 038).
+      expect(comp?.href).toBe("/components/comp-unwired");
       // RETIRED entities and future sunsets produce no items.
       const hrefs = attention.map((a) => a.href);
       expect(hrefs).not.toContain("/products/p-retired");

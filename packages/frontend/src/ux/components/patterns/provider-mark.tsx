@@ -14,7 +14,7 @@ export function ProviderMark({
   size?: "sm" | "md" | "lg"
   className?: string
 }) {
-  const meta = PROVIDER_META[provider]
+  const meta = PROVIDER_META[provider] ?? PROVIDER_META.OTHER
   return (
     <span
       title={meta.label}

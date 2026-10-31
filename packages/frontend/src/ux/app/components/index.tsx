@@ -1,4 +1,6 @@
+import { flags } from "@/ux/lib/flags";
 import { PlusIcon } from "lucide-react";
+import * as React from "react";
 import { useAllComponents } from "@/api/hooks/components";
 import { mapComponent } from "@/api/mappers/catalog";
 import { ComponentsTable } from "@/ux/components/catalog/components-table";
@@ -9,9 +11,11 @@ import { Card } from "@/ux/components/ui/card";
 import { errorMessage } from "@/ux/lib/api-state";
 
 export function UxComponentsPage() {
-  // includeRetired: the table owns the lifecycle facet; retired rows stay
-  // reachable through it instead of disappearing server-side.
-  const { data, isPending, error, refetch } = useAllComponents({ includeRetired: true });
+  // includeRetired: retired rows stay reachable through the lifecycle badge
+  // instead of disappearing server-side. includeGone is an opt-in — spec 023
+  // hides gone-only components from coverage surfaces by default.
+  const [includeGone, setIncludeGone] = React.useState(false);
+  const { data, isPending, error, refetch } = useAllComponents({ includeRetired: true, includeGone });
 
   return (
     <PageContainer>
@@ -19,7 +23,7 @@ export function UxComponentsPage() {
         title="Components"
         description="Every deployable unit discovered by importers or added by hand. Each component has one or more instances across environments."
         actions={
-          <Button variant="outline" disabled title="Manual component creation isn't available yet">
+          <Button variant="outline" disabled={!flags.manualEntityCreate} title="Manual component creation isn't available yet">
             <PlusIcon data-icon="inline-start" />
             Add manually
           </Button>
@@ -36,7 +40,7 @@ export function UxComponentsPage() {
           onRetry={() => void refetch()}
         />
       ) : (
-        <ComponentsTable data={(data ?? []).map(mapComponent)} />
+        <ComponentsTable data={(data ?? []).map(mapComponent)} includeGone={includeGone} onIncludeGoneChange={setIncludeGone} />
       )}
     </PageContainer>
   );

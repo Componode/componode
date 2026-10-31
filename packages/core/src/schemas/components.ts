@@ -69,6 +69,7 @@ export const updateComponentGroupSchema = createComponentGroupSchema
 
 export const listComponentGroupsQuerySchema = z.object({
   lifecycle: z.string().optional(),
+  includeRetired: z.preprocess(toBoolean, z.boolean().default(false)),
 });
 
 export type ListComponentsQuery = z.infer<typeof listComponentsQuerySchema>;

@@ -25,12 +25,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ROLE_META, type Role } from "@/ux/lib/domain"
 import { initials } from "@/ux/lib/format"
 import { useUpdateUser } from "@/api/hooks/users"
+import { useResetPassword } from "@/api/hooks/password"
 import { flags } from "@/ux/lib/flags"
 import { ux } from "@/ux/lib/paths"
 import type { User } from "@/ux/lib/view-types"
 
 export function UsersTable({ data, selfId }: { data: User[]; selfId: string | null }) {
   const updateUser = useUpdateUser()
+  const resetPassword = useResetPassword()
   const [query, setQuery] = React.useState("")
   const [role, setRole] = React.useState("all")
 
@@ -135,7 +137,26 @@ export function UsersTable({ data, selfId }: { data: User[]; selfId: string | nu
                         </DropdownMenuRadioGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
-                          {flags.passwordReset && <DropdownMenuItem>Send password reset</DropdownMenuItem>}
+                          {flags.passwordReset && (
+                            <DropdownMenuItem
+                              disabled={!u.isActive || resetPassword.isPending}
+                              onSelect={() =>
+                                resetPassword.mutate(
+                                  { userId: u.id },
+                                  {
+                                    onSuccess: (r) =>
+                                      toast.success("Reset link generated", {
+                                        description: `Deliver this link to the user: /reset-password?token=${r.resetToken}`,
+                                        duration: 30_000,
+                                      }),
+                                    onError: (e) => toast.error(e.message),
+                                  },
+                                )
+                              }
+                            >
+                              Send password reset
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             variant="destructive"
                             disabled={isSelf}

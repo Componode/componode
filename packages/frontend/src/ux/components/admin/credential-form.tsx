@@ -12,18 +12,7 @@ import { useCreateCredential, useUpdateCredential } from "@/api/hooks/credential
 import { ux } from "@/ux/lib/paths"
 import type { SecretRefMap } from "@/api/types"
 
-type Kind = "STORED" | "AGENT_MANAGED"
-
-const KIND_META: Record<Kind, { label: string; description: string }> = {
-  STORED: {
-    label: "Stored in Componode",
-    description: "Secret values are encrypted at rest and resolved on the hub. Values cannot be read back after saving.",
-  },
-  AGENT_MANAGED: {
-    label: "Resolved on an Import Agent",
-    description: "Holds references only. Values live on the agent host as environment variables or files.",
-  },
-}
+import { KIND_META, type CredentialKind as Kind } from "@/ux/lib/domain"
 
 const REF_NAME = /^[A-Z][A-Z0-9_]*$|^[a-zA-Z0-9._/-]+$/
 const KEY_NAME = /^[a-zA-Z][a-zA-Z0-9._-]*$/

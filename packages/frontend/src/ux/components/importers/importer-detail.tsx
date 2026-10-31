@@ -5,19 +5,20 @@ import { toast } from "sonner"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { DescriptionList, RelativeTime } from "@/ux/components/patterns/primitives"
 import { ProviderMark } from "@/ux/components/patterns/provider-mark"
-import { RunStatusBadge } from "@/ux/components/patterns/status-badge"
+import { RunStatusBadge, StatusBadge } from "@/ux/components/patterns/status-badge"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Button } from "@/ux/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { PROVIDER_META } from "@/ux/lib/domain"
 import { formatDuration, formatNumber } from "@/ux/lib/format"
-import { useTriggerImportRun } from "@/api/hooks/importers"
+import { useConvertSecrets, useTriggerImportRun } from "@/api/hooks/importers"
 import { ux } from "@/ux/lib/paths"
 import type { ImporterConfig, ImportRun } from "@/ux/lib/view-types"
 
 export function ImporterDetail({ importer: i, runs }: { importer: ImporterConfig; runs: ImportRun[] }) {
   const trigger = useTriggerImportRun()
+  const convert = useConvertSecrets()
   const failed = runs[0]?.status === "FAILED"
   const lastError = runs.find((r) => r.errorMessage)?.errorMessage
   return (
@@ -50,6 +51,37 @@ export function ImporterDetail({ importer: i, runs }: { importer: ImporterConfig
         }
       />
 
+      {i.agentIncompatible && (
+        <Alert variant="destructive">
+          <CircleAlertIcon />
+          <AlertTitle>Bound agent cannot serve this importer</AlertTitle>
+          <AlertDescription>
+            The agent is revoked or its allowed-importers policy excludes {i.importerName}. Rebind or adjust the agent policy — the next scheduled run will fail.
+          </AlertDescription>
+        </Alert>
+      )}
+      {i.secretRefsDeprecated && (
+        <Alert>
+          <CircleAlertIcon />
+          <AlertTitle>Legacy secret references</AlertTitle>
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span>This config still uses env/file secret references.</span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={convert.isPending}
+              onClick={() =>
+                convert.mutate(i.id, {
+                  onSuccess: (r) => toast.success(`Secrets converted — linked credential “${r.credential.label}”`),
+                  onError: (e) => toast.error(e.message),
+                })
+              }
+            >
+              Convert secrets
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {failed && (
         <Alert variant="destructive">
           <CircleAlertIcon />
@@ -118,9 +150,14 @@ export function ImporterDetail({ importer: i, runs }: { importer: ImporterConfig
                 {
                   label: "Executor",
                   value: i.agent ? (
-                    <Link to={ux(`/agents/${i.agent.id}`)} className="text-primary hover:underline">
-                      {i.agent.name}
-                    </Link>
+                    <span className="flex items-center gap-2">
+                      <Link to={ux(`/agents/${i.agent.id}`)} className="text-primary hover:underline">
+                        {i.agent.name}
+                      </Link>
+                      {i.agentIncompatible && (
+                        <StatusBadge tone="warning" label="Cannot serve this importer" />
+                      )}
+                    </span>
                   ) : (
                     "Hub (in-process)"
                   ),
