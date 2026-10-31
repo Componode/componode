@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–042)
+## Shipped (features 001–043)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -180,6 +180,13 @@ file tracks shipped and upcoming work — update it when a spec completes.
 
 - `042-catalog-authoring` — the three remaining ux-rewrite feature gaps: `POST /components` (`component:create` → EDITOR, ADR-054 Amendment 1) + "Add manually"/"New group" dialogs (G29); product-detail Relations card wiring `useAddEdge`/`useRemoveEdge` with kind-aware targets and surfaced `409 CYCLE` (G31); suggestions Pending/History tabs via a new `DECIDED` status filter spanning all terminal states (G32, ADR-113 amendment). `manualEntityCreate` + `suggestionsHistory` flags removed.
 
+- `043-importer-source-adrs` — decision-record wave for the Docker
+  importer program: ADR-119 (ImporterSource identity/lifecycle,
+  source-scoped reconciliation, run-history retention, Agent target
+  resolution) plus amendments to ADR-035/036/037/047/056/065/077/116;
+  contract-first admission of `@componode/importer-docker` to the
+  lockstep set. Docs-only — no runtime code.
+
 ## Next — post-v1.1
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
@@ -204,7 +211,12 @@ planning/discussion can surface them directly (full entries in
   ops, G28 LOB owner field
 - **Standalone** — G26 `includeGone` opt-in on component detail
 
-Beyond the gap queue:
+Beyond the gap queue, the ratified importer-source program (ADR-119,
+spec 043) is queued in staged waves per
+`researches/docker-importer-implementation-tracking.md`: the generic
+ImporterSource core, staged migration of existing importers, Docker
+Engine workload inventory, Docker observations + Source UI, then Swarm
+inventory. Alongside:
 
 - Runtime-loaded importer plugins
 - Invite-based registration

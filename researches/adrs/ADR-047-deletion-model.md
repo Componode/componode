@@ -17,6 +17,7 @@ graph entities — adding a separate `deletedAt` creates a redundant field with
 unclear semantics. Hard-delete for non-graph entities is correct (a deleted
 user's session shouldn't linger). GDPR "delete my account" = hard-delete
 `Person` after reassigning ownerships.
+
 ## Amendment 1 — Importer config deletion preserves Source and run history (2026-10-31, via ADR-119)
 
 **Context**: `importer_configs` and `import_runs` were listed as

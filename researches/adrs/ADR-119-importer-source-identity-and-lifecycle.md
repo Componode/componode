@@ -119,7 +119,7 @@ credential bundles; they do not redefine them.
   active membership (Amendment 1).
 - **[ADR-037](./ADR-037-importer-run-commit-strategy.md)** — the phase-2 it
   gates on `COMPLETED` is now membership-scoped; commit strategy unchanged
-  (back-pointer).
+  (Amendment 1).
 - **[ADR-047](./ADR-047-deletion-model.md)** — config deletion carries a
   cascade contract preserving Source + run history (Amendment 1).
 - **[ADR-056](./ADR-056-importer-interface-signature.md)** — `context`

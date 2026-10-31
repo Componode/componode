@@ -46,6 +46,7 @@ have no human actor). **Nullable `triggeredBy`** for scheduled runs.
 in the Session 2 review of Principle IV — a first-class entity for human-
 declared equivalence across distinct source assets, NOT a graph node (no
 `DEPENDS_ON` to a group; products depend on member components individually).
+
 ## Amendment 1 — `teams.lobId` (2026-10-26, spec 034)
 
 **Context**: The spec's enumerated FK list was presented as closed, but the
@@ -75,9 +76,11 @@ provider-native canonical `externalIdentity`, display metadata,
 `ACTIVE`/`UNMONITORED`/`RETIRED` lifecycle) and two membership tables —
 Source→Component and Source→ComponentInstance — keyed by
 `importer_sources.id`, independent of `lastSeenInRunId` and `import_runs`
-retention. `import_runs` gains a durable `sourceId` FK and its `configId`
-becomes nullable with `ON DELETE SET NULL` (run history survives config
-deletion — see ADR-047 Amendment 1).
+retention. `importer_configs` gains a nullable Source-binding column
+(one active config per Source — see ADR-119 item 3). `import_runs` gains
+a durable `sourceId` FK and its `configId` becomes nullable with
+`ON DELETE SET NULL` (run history survives config deletion — see ADR-047
+Amendment 1).
 
 ---
 

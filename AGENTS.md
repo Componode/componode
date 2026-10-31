@@ -108,7 +108,8 @@ constitution.
   `context.reportSourceIdentity()` before the first yield — including empty
   inventories — and resolve remote access routes only through
   `context.resolveTarget()` when their manifest declares `targetRefKey`.
-  See `ADR-056` (Amendment 1), `ADR-057`, `ADR-119`.
+  (Ratified in `ADR-119`; implementation lands with the ImporterSource
+  core spec.) See `ADR-056` (Amendment 1), `ADR-057`, `ADR-119`.
 - Importer packages depend only on `packages/core`. They MUST NOT import from
   `packages/backend` or from other importers. See `ADR-065`.
 - The core owns upsert, dedup, reconciliation, and run history.

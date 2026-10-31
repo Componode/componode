@@ -22,7 +22,7 @@ test runs.
    ```
 
    Expected: ADR-119 exists; every listed ADR contains an Amendment (or
-   back-pointer, for ADR-037) dated 2026-10-31 referencing ADR-119.
+   for ADR-037, also an Amendment) dated 2026-10-31 referencing ADR-119.
 
 2. **Back-pointer completeness** — for each amended ADR, confirm the
    `---` + `**Amended by ADR-119**:` block at file end, and that ADR-119's

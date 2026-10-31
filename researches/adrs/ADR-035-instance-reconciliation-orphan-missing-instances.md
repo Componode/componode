@@ -13,6 +13,7 @@ row, add `lastSeenAt`/`lastSeenInRunId`.** Re-appearance next run flips
 retired records with status flip, not hard-delete). Resilient to transient API
 failures. Preserves blast-radius/audit value. `ComponentInstance.status` gains
 `GONE` ([ADR-014](./ADR-014-environment-separate-componentinstance-entity.md)'s `...` was always meant to grow).
+
 ## Amendment 1 — Orphaning scoped to source memberships (2026-10-31, via ADR-119)
 
 **Context**: The original decision orphans any instance row absent from

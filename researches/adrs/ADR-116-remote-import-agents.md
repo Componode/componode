@@ -452,7 +452,10 @@ parameters): where it lives, who validates it, and when it fails.
 - The contract is provider-agnostic. Docker is the first adopter
   (socket/named-pipe, mutual-TLS TCP, pinned-host-key SSH, allowlisted
   named Context); transport-specific fields live in the typed profile
-  schema, not in this contract.
+  schema, not in this contract. Where a transport admits a secondary
+  selection (e.g. named Docker Contexts), the permitted set is enumerated
+  in the same registry file — the registry is the allowlist for every
+  layer of the choice.
 
 ---
 

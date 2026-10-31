@@ -29,7 +29,8 @@ converge → PR). Run one spec at a time; do not interleave waves.
       explicit reversible retirement) — **ADR-119**.
 - [x] Amend **ADR-036**: source-scoped Component/Instance reconciliation,
       durable source memberships, retirement transaction — Amendment 1;
-      **ADR-037** carries a back-pointer (commit strategy unchanged).
+      **ADR-037** gained a matching Amendment 1 (commit strategy
+      unchanged).
 - [x] Amend **ADR-056**: source identity reporting before asset yield
       (including empty inventories), target resolver, `targetRefKey` on
       `ImporterManifest` — Amendment 1.
@@ -110,7 +111,7 @@ converge → PR). Run one spec at a time; do not interleave waves.
   empty `specs/038-docker-importer/` directory is left intentionally
   and may be removed separately.
 - `.specify/feature.json` currently points at
-  `specs/042-catalog-authoring`; `speckit-specify` will repoint it per
+  `specs/043-importer-source-adrs`; `speckit-specify` repoints it per
   feature — keep it on the in-flight spec.
 - On each spec's completion, update `docs/roadmap.md` (**Shipped** +
   revised **Next**) per AGENTS.md roadmap sync.

@@ -64,7 +64,7 @@ loss of one. The config→source scope change amends the closed surface.
 memberships; phase-2 retirement gated on `COMPLETED` AND scoped to the
 reporting Source's memberships; the "no active membership ⇒ retire" rule.
 
-## Decision 3 — ADR-037/038: review outcome is a back-pointer only on 037
+## Decision 3 — ADR-037/038: review outcome is an Amendment on 037
 
 **Decision**: ADR-037 gets `**Amended by ADR-119**` noting that the
 phase-2 it gates is now source-membership-scoped (no behavioral change to
