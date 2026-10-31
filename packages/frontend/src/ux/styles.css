@@ -135,3 +135,22 @@
   background-size: 32px 32px;
   mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
 }
+
+/* Spec 041 / G20: client display prefs — compact table density, scoped
+   to the UX shell like the rest of this file. */
+[data-density="compact"] .ux-root th,
+[data-density="compact"] .ux-root td {
+  padding: 0.25rem 0.5rem;
+}
+[data-density="compact"] .ux-root th {
+  height: 1.75rem;
+}
+
+/* Reduce-motion pref: suppress decorative transitions/animations. */
+[data-reduce-motion] .ux-root *,
+[data-reduce-motion] .ux-root *::before,
+[data-reduce-motion] .ux-root *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}

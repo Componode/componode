@@ -4,7 +4,7 @@ import * as React from "react";
 import { SettingsSection, SettingRow } from "@/ux/components/settings/settings-section";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select";
 import { Switch } from "@/ux/components/ui/switch";
-import { flags } from "@/ux/lib/flags";
+import { useUxPrefs, savePref, type UxPrefs } from "@/ux/lib/prefs";
 import { cn } from "@/ux/lib/utils";
 
 const THEMES = [
@@ -13,34 +13,15 @@ const THEMES = [
   { value: "system", label: "System", icon: MonitorIcon },
 ];
 
-const PREFS_KEY = "ux.prefs";
-
-function loadPrefs(): Record<string, string | boolean> {
-  try {
-    return JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}");
-  } catch {
-    return {};
-  }
-}
-
-function savePref(key: string, value: string | boolean) {
-  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...loadPrefs(), [key]: value }));
-}
-
 export function UxSettingsAppearancePage() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
-  const [prefs, setPrefs] = React.useState<Record<string, string | boolean>>({});
+  const prefs = useUxPrefs();
   React.useEffect(() => {
     setMounted(true);
-    setPrefs(loadPrefs());
   }, []);
 
-  const setPref = (key: string, value: string | boolean) => {
-    setPrefs((prev) => ({ ...prev, [key]: value }));
-    savePref(key, value);
-  };
-
+  
   return (
     <>
       <SettingsSection title="Theme" description="Applies instantly on this device.">
@@ -68,11 +49,7 @@ export function UxSettingsAppearancePage() {
       </SettingsSection>
       <SettingsSection
         title="Display"
-        description={
-          flags.displayPrefs
-            ? "Tune information density for large catalogs."
-            : "Display preferences are stored on this browser but not yet applied across the app (gap G20)."
-        }
+        description="Tune information density for large catalogs."
       >
         <SettingRow
           id="density"
@@ -80,10 +57,9 @@ export function UxSettingsAppearancePage() {
           description="Compact shows ~40% more rows per screen."
           control={
             <Select
-              value={String(prefs.density ?? "comfortable")}
-              onValueChange={(v) => setPref("density", v)}
-              disabled={!flags.displayPrefs}
-            >
+              value={prefs.density}
+              onValueChange={(v) => savePref("density", v as UxPrefs["density"])}
+                          >
               <SelectTrigger id="density" className="w-36">
                 <SelectValue />
               </SelectTrigger>
@@ -103,10 +79,9 @@ export function UxSettingsAppearancePage() {
           control={
             <Switch
               id="reduce-motion"
-              checked={Boolean(prefs.reduceMotion)}
-              onCheckedChange={(v) => setPref("reduceMotion", v)}
-              disabled={!flags.displayPrefs}
-            />
+              checked={prefs.reduceMotion}
+              onCheckedChange={(v) => savePref("reduceMotion", v)}
+                          />
           }
         />
         <SettingRow
@@ -116,10 +91,9 @@ export function UxSettingsAppearancePage() {
           control={
             <Switch
               id="relative-time"
-              checked={prefs.relativeTime !== false}
-              onCheckedChange={(v) => setPref("relativeTime", v)}
-              disabled={!flags.displayPrefs}
-            />
+              checked={prefs.relativeTime}
+              onCheckedChange={(v) => savePref("relativeTime", v)}
+                          />
           }
         />
       </SettingsSection>

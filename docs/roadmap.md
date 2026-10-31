@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–040)
+## Shipped (features 001–041)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -176,6 +176,8 @@ file tracks shipped and upcoming work — update it when a spec completes.
 
 - `040-dashboard-intelligence` — backend fields behind the spec-038 flag gates: `deltas` (trailing-7-day created counts) on `GET /dashboard/summary`, `AttentionItem.detail` + the `CREDENTIAL_EXPIRING` kind (30-day window, ranked above sunsets — ADR-116 Amendment 4), `createdBy` + `enrollmentExpiresAt` on the agent read; `statDeltas`, `attentionDetail`, `credentialExpiring`, `agentEnrolledBy` flipped ON; G23–G25 resolved.
 
+- `041-display-prefs` — client-side only: `useUxPrefs` seam consumes `ux.prefs` app-wide — compact table density and reduce-motion via `data-*` root attributes + stylesheet rules, `RelativeTime` renders absolute when the pref is off; `displayPrefs` flag removed; G20 resolved.
+
 ## Next — post-v1.1
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
@@ -187,8 +189,7 @@ entries (see `researches/ux-rewrite-gaps.md` spec-queue block):
 
 - G29 manual entity creation, G31 edge-authoring UI, G32 suggestions
   decided-history — feature specs
-- G20 resolves client-side without a spec; G15–G19, G26–G28, G30 are
-  deferred unscheduled
+- G15–G19, G26–G28, G30 are deferred unscheduled
 
 Beyond the gap queue:
 

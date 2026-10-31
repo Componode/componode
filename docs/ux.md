@@ -52,7 +52,8 @@ hex or palette utilities (`bg-amber-500`, `text-red-600`) in components.
   (`*_META` tables: label + tone per enum). New enums get a META entry;
   components render `StatusBadge`/`*Badge` wrappers, never ad-hoc colors.
 - **Density**: compact by default (`text-sm` tables, tight rows). A
-  user-facing density preference is a recorded gap, not shipped (§10).
+  user-facing density preference ships via `ux.prefs` — comfortable is
+  the default, compact tightens table rows (§10).
 
 ## 3. Component inventory
 
@@ -221,7 +222,6 @@ Deferred — each needs its own ADR or spec:
 - Mobile/tablet support beyond the nav drawer
 - Custom importer-form widgets beyond the schema-driven scope renderer
   (nested/complex fields stay on per-field JSON)
-- Per-user display preferences consumed app-wide (gap G20)
 - Notification delivery (gap G15), TOTP (gap G16), session concurrency
   controls (gap G17), workspace profile fields (gap G18), retention/export
   operations (gap G19)
