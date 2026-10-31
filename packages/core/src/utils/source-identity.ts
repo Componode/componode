@@ -1,16 +1,28 @@
 const AUTH_QUERY_PARAMS = new Set([
+  "access_key",
   "access_token",
   "api_key",
   "apikey",
   "auth",
   "authorization",
   "client_secret",
+  "code",
   "credential",
+  "id_token",
+  "jwt",
   "key",
+  "oauth_token",
   "password",
+  "private_key",
+  "refresh_token",
+  "secret",
+  "session_token",
   "sig",
   "signature",
   "token",
+  "x-amz-credential",
+  "x-amz-security-token",
+  "x-amz-signature",
 ]);
 
 /**

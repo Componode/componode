@@ -4,7 +4,7 @@ import {
   qualifyExternalId,
   isQualifiedExternalId,
   unqualifyExternalId,
-} from "./source-identity.js";
+} from "../../src/utils/source-identity.js";
 
 describe("canonicalizeSourceIdentity", () => {
   it("strips userinfo from URL identities", () => {

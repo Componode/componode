@@ -137,15 +137,21 @@ async function ensureUniqueInstanceSlug(
   });
 }
 
+/** Source attribution for a run — null pair = legacy config-scoped run. */
+export interface RunSource {
+  sourceId: string | null;
+  sourceIdentity: string | null;
+}
+
 export async function processAsset(
   trx: Kysely<DB>,
   runId: string,
   importerName: string,
   asset: DiscoveredAsset,
   triggeredBy: string | null,
-  sourceId: string | null = null,
-  sourceIdentity: string | null = null,
+  source: RunSource = { sourceId: null, sourceIdentity: null },
 ): Promise<{ componentId: string; created: boolean; instancesOrphaned: number }> {
+  const { sourceId, sourceIdentity } = source;
   const now = new Date().toISOString();
   const actor = runActor(importerName);
 
@@ -859,7 +865,7 @@ async function worker(runId: string): Promise<void> {
       }
 
       const result = await traceDbQuery("processAsset", () =>
-        db.transaction().execute(async (trx) => processAsset(trx, runId, importerName!, asset, run.triggeredBy, reportedSourceId, reportedSourceIdentity)),
+        db.transaction().execute(async (trx) => processAsset(trx, runId, importerName!, asset, run.triggeredBy, { sourceId: reportedSourceId, sourceIdentity: reportedSourceIdentity })),
       );
 
       yieldedComponentIds.add(result.componentId);

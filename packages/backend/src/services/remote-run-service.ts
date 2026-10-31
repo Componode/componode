@@ -1056,7 +1056,7 @@ export function createDbRemoteRunStore(): RemoteRunStore {
     async processAsset(job, asset) {
       return traceDbQuery("processAsset", () =>
         db.transaction().execute(async (trx) =>
-          processAsset(trx, job.runId, job.importerName, asset, job.triggeredBy, job.sourceId, job.sourceIdentity),
+          processAsset(trx, job.runId, job.importerName, asset, job.triggeredBy, { sourceId: job.sourceId, sourceIdentity: job.sourceIdentity }),
         ),
       );
     },

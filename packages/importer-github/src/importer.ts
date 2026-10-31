@@ -94,6 +94,8 @@ function buildDiscoveredAsset(
   };
 }
 
+const GITHUB_API_BASE = "https://api.github.com";
+
 export class GithubImporter implements Importer {
   readonly name = "github";
   readonly version = "1.1.0";
@@ -113,7 +115,7 @@ export class GithubImporter implements Importer {
     // IDs collide across instances, so GHES externalIds are qualified
     // with the source identity; github.com IDs stay unqualified.
     const canonicalBase = canonicalizeSourceIdentity(
-      parsed.baseUrl ?? "https://api.github.com",
+      parsed.baseUrl ?? GITHUB_API_BASE,
     );
     let orgId: number | string | undefined;
     try {
@@ -143,7 +145,7 @@ export class GithubImporter implements Importer {
       label: parsed.org,
     });
     const qualifyGhes =
-      canonicalBase !== "https://api.github.com/"
+      canonicalBase !== canonicalizeSourceIdentity(GITHUB_API_BASE)
         ? (a: DiscoveredAsset): DiscoveredAsset => ({
             ...a,
             externalId: qualifyExternalId(sourceIdentity, a.externalId),
