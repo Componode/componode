@@ -172,8 +172,8 @@ matching `contracts/source-identity-keys.md`.
 - [x] T039 Create `researches/adrs/ADR-120-importer-source-migration.md` ratifying: per-importer identity-key table, `sourceKey` scope field, `{identity}::{nativeId}` format, adopt-on-report semantics, `sourceDetails` fields, backfill defensibility rules; add `**Amended by ADR-120**` back-pointers to `ADR-056` (asset contract gains `sourceDetails`) and `ADR-119` (per-importer keys concretized); update each ADR's amends list in `researches/architecture-decisions.md`
 - [x] T040 Update `researches/docker-importer-implementation-tracking.md`: check Phase 2 checkboxes, remove/resolve the Wave A `details` follow-up note
 - [x] T041 Update `docs/roadmap.md`: move `045-importer-source-migration` to Shipped, revise Next (Wave C Docker Engine inventory)
-- [ ] T042 Confirm no REST/agent-protocol surface changed: `pnpm --filter @componode/backend test` contract tests green (openapi.yaml untouched); run `pnpm build` root-wide
-- [ ] T043 Final verification per plan: `pnpm lint && pnpm typecheck && pnpm test && pnpm build` across changed packages (`core`, `backend`, `agent`, all `importer-*`)
+- [x] T042 Confirm no REST/agent-protocol surface changed: `pnpm --filter @componode/backend test` contract tests green (openapi.yaml untouched); run `pnpm build` root-wide
+- [x] T043 Final verification per plan: `pnpm lint && pnpm typecheck && pnpm test && pnpm build` across changed packages (`core`, `backend`, `agent`, all `importer-*`)
 
 ---
 

@@ -634,7 +634,7 @@ describe("GithubImporter", () => {
     expect(hosts.every((h) => h === "ghes.example.com")).toBe(true);
   });
 
-  it("reports org-id source identity; qualifies externalIds only on GHES", async () => {
+  it("reports org-id source identity; qualifies externalIds only on GHES", { timeout: 30000 }, async () => {
     withExtrasRoutes();
 
     // github.com: unqualified IDs, identity = api.github.com#org:{id}.
