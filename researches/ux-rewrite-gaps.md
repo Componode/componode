@@ -29,8 +29,7 @@ numbers are sequential at creation and may shift:
 
 Deferred past this program — re-triaged after it closes: G15 (merged
 with the email-delivery half of G4), G16, G17, G18, G19, G26, G27, G28,
-G30. G20 resolves client-side without a spec. G29, G31, G32 are their
-own feature specs, not backend gap specs.
+G30. G29, G31, G32 are their own feature specs, not backend gap specs.
 
 ## G1 — Per-day importer run aggregates — RESOLVED by spec 031
 
@@ -117,14 +116,15 @@ own feature specs, not backend gap specs.
 - **Deferred**: no spec scheduled; re-triaged after the v1.1.x gap
   program. Destructive reset may split into its own spec.
 
-## G20 — Client display preferences
+## G20 — Client display preferences — RESOLVED by spec 041
 
-- **UX surface**: `/ux/settings/appearance` — density, reduce-motion,
-  relative-time toggles. Persisted to `localStorage` (`ux.prefs`) but no
-  component consumes them yet; flagged `displayPrefs`.
-- **Resolution**: client-side only — consume the persisted prefs
-  app-wide, flip the flag, mark resolved. No backend, no spec; ships as
-  a small standalone change.
+- `/ux/settings/appearance` prefs (`density`, `reduceMotion`,
+  `relativeTime` in `localStorage["ux.prefs"]`) are consumed app-wide via
+  the shared `useUxPrefs` seam (`ux/lib/prefs.ts`): `UxPrefsSync` applies
+  `data-density`/`data-reduce-motion` on `<html>` (stylesheet rules in
+  `ux/styles.css` cascade compact table density and motion suppression),
+  and `RelativeTime` renders `formatDateTime` when `relativeTime` is off.
+  Controls enabled on the settings page; `displayPrefs` flag removed.
 
 ## G5 — Expired-credential state rule — RESOLVED (derived, T036)
 

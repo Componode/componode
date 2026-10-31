@@ -32,8 +32,6 @@ export const flags = {
   workspaceProfile: false,
   /** Retention policy + catalog export actions — no backend (gap 19). */
   advancedOps: false,
-  /** Client display prefs (density/reduced-motion/relative-time) not yet consumed (gap 20). */
-  displayPrefs: false,
   /** Component-list Health column — backed by the worstStatus rollup (spec 039, G21 resolved). */
   componentListHealth: true,
   /** Component-list Last-seen column — backed by the instance lastSeenAt rollup (spec 039, G21 resolved). */

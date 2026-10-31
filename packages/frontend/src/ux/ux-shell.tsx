@@ -4,6 +4,7 @@ import { AppHeader } from "@/ux/components/app/app-header";
 import { AppSidebar } from "@/ux/components/app/app-sidebar";
 import { CommandMenuProvider } from "@/ux/components/app/command-menu";
 import { SessionProvider } from "@/ux/components/app/session-context";
+import { UxPrefsSync } from "@/ux/lib/prefs";
 import { SidebarInset, SidebarProvider } from "@/ux/components/ui/sidebar";
 import "./styles.css";
 
@@ -20,6 +21,7 @@ export function UxShell() {
   );
   return (
     <div className="ux-root min-h-screen bg-background text-foreground">
+      <UxPrefsSync />
       <SessionProvider>
         <CommandMenuProvider>
           <SidebarProvider

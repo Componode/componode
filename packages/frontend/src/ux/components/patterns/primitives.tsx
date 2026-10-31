@@ -5,10 +5,12 @@ import { toast } from "sonner"
 import { Button } from "@/ux/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ux/components/ui/tooltip"
 import { formatDateTime, relativeTime } from "@/ux/lib/format"
+import { useUxPrefs } from "@/ux/lib/prefs"
 import { cn } from "@/ux/lib/utils"
 
 /** Relative by default, absolute on hover. Always render machine time in `dateTime`. Null renders an em dash — never happened. */
 export function RelativeTime({ iso, className }: { iso: string | null; className?: string }) {
+  const { relativeTime: relPref } = useUxPrefs()
   if (iso == null) {
     return <span className={cn("text-muted-foreground", className)}>—</span>
   }
@@ -16,7 +18,7 @@ export function RelativeTime({ iso, className }: { iso: string | null; className
     <Tooltip>
       <TooltipTrigger asChild>
         <time dateTime={iso} className={cn("tabular whitespace-nowrap", className)}>
-          {relativeTime(iso)}
+          {relPref ? relativeTime(iso) : formatDateTime(iso)}
         </time>
       </TooltipTrigger>
       <TooltipContent>{formatDateTime(iso)}</TooltipContent>
