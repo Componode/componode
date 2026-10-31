@@ -159,8 +159,8 @@ export function mapImportAgent(a: ApiImportAgent): ImportAgent {
     allowedImporters: a.allowedImporters,
     boundConfigs: a.boundConfigCount,
     lastSeenAt: a.lastSeenAt,
-    enrollmentExpiresAt: null,
-    createdBy: "",
+    enrollmentExpiresAt: a.enrollmentExpiresAt ?? null,
+    createdBy: a.createdBy ?? null,
     createdAt: a.createdAt,
     reportedStatus: a.reportedStatus
       ? {

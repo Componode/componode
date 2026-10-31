@@ -3,7 +3,7 @@
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–039)
+## Shipped (features 001–040)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -174,18 +174,17 @@ file tracks shipped and upcoming work — update it when a spec completes.
 
 - `039-list-enrichment` — backend rollups behind the spec-038 flag gates: `worstStatus` + `lastSeenAt` on `GET /components`, `memberCount` + `componentCount` on `GET /teams`; `componentListHealth`, `componentListLastSeen`, `teamMemberCounts` flipped ON; G21 + G22 resolved.
 
+- `040-dashboard-intelligence` — backend fields behind the spec-038 flag gates: `deltas` (trailing-7-day created counts) on `GET /dashboard/summary`, `AttentionItem.detail` + the `CREDENTIAL_EXPIRING` kind (30-day window, ranked above sunsets — ADR-116 Amendment 4), `createdBy` + `enrollmentExpiresAt` on the agent read; `statDeltas`, `attentionDetail`, `credentialExpiring`, `agentEnrolledBy` flipped ON; G23–G25 resolved.
+
 ## Next — post-v1.1
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and
 the gap specs `030`–`034` + `037` (G14, G1, G2, G7/G8/G9/G11, G12, G13)
-are shipped on `release/1.1.0`. The gap program continues past 038 —
-conformance registered G21–G32 and queued two grouped specs after `037`
-(see `researches/ux-rewrite-gaps.md` spec-queue block):
+are shipped on `release/1.1.0`. The gap program's grouped backend specs
+closed with `039`/`040` — what remains are the feature specs and deferred
+entries (see `researches/ux-rewrite-gaps.md` spec-queue block):
 
-- `0NN` — dashboard intelligence (G23 stat deltas; G24 attention detail +
-  `CREDENTIAL_EXPIRING`; G25 agent enrolled-by) — next free number
-  after `039`
 - G29 manual entity creation, G31 edge-authoring UI, G32 suggestions
   decided-history — feature specs
 - G20 resolves client-side without a spec; G15–G19, G26–G28, G30 are

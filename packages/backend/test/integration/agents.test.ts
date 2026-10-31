@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { uuidv7 } from "uuidv7";
 import { startTestDb, type TestDb } from "../helpers/testcontainers.js";
 import {
   csrfCookie,
@@ -110,6 +111,62 @@ describe("agents", () => {
     const detail = JSON.parse(detailRes.payload);
     expect(detail.agent.name).toBe("edge-agent");
     expect(JSON.stringify(detail)).not.toContain("enrollmentToken");
+  });
+
+  it("detail returns createdBy display name and live enrollment expiry (spec 040)", async () => {
+    const createRes = await createAgent();
+    const { agent, enrollment } = JSON.parse(createRes.payload);
+
+    const detailRes = await app.inject(
+      authed({ method: "GET", url: `/api/v1/agents/${agent.id}` }),
+    );
+    expect(detailRes.statusCode).toBe(200);
+    const detail = JSON.parse(detailRes.payload);
+    // Bootstrap admin's displayName is its username.
+    expect(detail.agent.createdBy).toBe("admin");
+    expect(detail.agent.enrollmentExpiresAt).toBe(enrollment.expiresAt);
+    // Still never leaks token material.
+    expect(JSON.stringify(detail)).not.toContain("enrollmentTokenHash");
+    expect(JSON.stringify(detail)).not.toContain(enrollment.token);
+
+    // Token consumed → no live pending enrollment → null expiry.
+    await testDb!.db
+      .updateTable("import_agents")
+      .set({ enrollmentTokenUsedAt: new Date().toISOString() })
+      .where("id", "=", agent.id)
+      .execute();
+    const afterUse = await app.inject(
+      authed({ method: "GET", url: `/api/v1/agents/${agent.id}` }),
+    );
+    expect(JSON.parse(afterUse.payload).agent.enrollmentExpiresAt).toBeNull();
+  });
+
+  it("detail returns enrollmentExpiresAt null for a revoked agent's dead token (spec 040)", async () => {
+    const createRes = await createAgent();
+    const { agent } = JSON.parse(createRes.payload);
+    // Revoke without exchanging: the unused token is dead — no live expiry.
+    await testDb!.db
+      .updateTable("import_agents")
+      .set({ revokedAt: new Date().toISOString() })
+      .where("id", "=", agent.id)
+      .execute();
+    const res = await app.inject(
+      authed({ method: "GET", url: `/api/v1/agents/${agent.id}` }),
+    );
+    expect(JSON.parse(res.payload).agent.enrollmentExpiresAt).toBeNull();
+  });
+
+  it("detail returns createdBy null when the actor column is unset (spec 040)", async () => {
+    const id = uuidv7();
+    await testDb!.db
+      .insertInto("import_agents")
+      .values({ id, name: "legacy-agent", createdBy: null } as any)
+      .execute();
+    const res = await app.inject(
+      authed({ method: "GET", url: `/api/v1/agents/${id}` }),
+    );
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.payload).agent.createdBy).toBeNull();
   });
 
   it("rejects a duplicate name with AGENT_NAME_TAKEN", async () => {

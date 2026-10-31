@@ -55,6 +55,7 @@ function toApi(
     lastHeartbeatAt: string | null;
     lastDisconnectReason: AgentDisconnectReason | null;
   } = { lastHeartbeatAt: null, lastDisconnectReason: null },
+  creatorName: string | null = null,
 ): ImportAgent {
   const enrollmentPending =
     row.enrollmentTokenHash !== null &&
@@ -80,6 +81,15 @@ function toApi(
     pendingEnrollment: enrollmentPending,
     boundConfigCount,
     runningJobs,
+    // Spec 040 / G25: enrolling person's display name (resolved read-side;
+    // null when unset or unresolvable) and the live pending-token expiry.
+    // A revoked agent's token is dead (exchange requires revokedAt NULL),
+    // so its expiry must not surface.
+    createdBy: creatorName,
+    enrollmentExpiresAt:
+      enrollmentPending && row.revokedAt === null
+        ? row.enrollmentTokenExpiresAt
+        : null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -87,9 +97,35 @@ function toApi(
 
 type DbOrTrx = Kysely<DB> | Transaction<DB>;
 
+// Display names for agent creators — COALESCE(displayName, username), one
+// grouped read (spec 040 / G25). Unresolvable ids map to null on the API
+// surface; a raw person id never ships as the name.
+async function creatorNames(
+  personIds: (string | null)[],
+  dbOrTrx: DbOrTrx = db,
+): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  const ids = [...new Set(personIds.filter((x): x is string => !!x))];
+  if (ids.length === 0) return names;
+  const rows = await dbOrTrx
+    .selectFrom("persons")
+    .select(["id", "displayName", "username"])
+    .where("id", "in", ids)
+    .execute();
+  for (const row of rows) names.set(row.id, row.displayName ?? row.username);
+  return names;
+}
+
+const creatorNameFor = async (
+  row: { createdBy: string | null },
+  dbOrTrx: DbOrTrx = db,
+): Promise<string | null> =>
+  (await creatorNames([row.createdBy], dbOrTrx)).get(row.createdBy ?? "") ??
+  null;
+
 // Most recent CLOSED session's disconnect reason per agent — one grouped
 // query (DISTINCT ON), not N+1; live sessions have no reason yet.
-async function lastDisconnectReasons(
+export async function lastDisconnectReasons(
   ids: string[],
   dbOrTrx: DbOrTrx = db,
 ): Promise<Map<string, AgentDisconnectReason | null>> {
@@ -238,7 +274,7 @@ export async function createAgent(
       .where("id", "=", id)
       .executeTakeFirstOrThrow();
     return {
-      agent: toApi(row, 0),
+      agent: toApi(row, 0, 0, undefined, actor.name),
       enrollment: { token, expiresAt: expiresAt.toISOString() },
     };
   });
@@ -256,12 +292,13 @@ export async function listAgents(
   const ids = rows.map((r) => r.id);
   const counts = await boundConfigCounts(ids);
   const disconnects = await lastDisconnectReasons(ids);
+  const creators = await creatorNames(rows.map((r) => r.createdBy));
   const jobCounts = runs?.runningJobCounts();
   return rows.map((r) =>
     toApi(r, counts.get(r.id) ?? 0, jobCounts?.get(r.id) ?? 0, {
       lastHeartbeatAt: liveContact(sessions, r.id),
       lastDisconnectReason: disconnects.get(r.id) ?? null,
-    }),
+    }, creators.get(r.createdBy ?? "") ?? null),
   );
 }
 
@@ -288,7 +325,7 @@ export async function getAgent(
     ...toApi(row, counts.get(row.id) ?? 0, activeRuns.length, {
       lastHeartbeatAt: liveContact(sessions, row.id),
       lastDisconnectReason: disconnects.get(row.id) ?? null,
-    }),
+    }, await creatorNameFor(row)),
     activeRuns,
   };
 }
@@ -410,7 +447,16 @@ export async function exchangeEnrollmentToken(
     );
 
     const counts = await boundConfigCounts([updated.id], trx);
-    return { row: updated, agent: toApi(updated, counts.get(updated.id) ?? 0) };
+    return {
+      row: updated,
+      agent: toApi(
+        updated,
+        counts.get(updated.id) ?? 0,
+        0,
+        undefined,
+        await creatorNameFor(updated, trx),
+      ),
+    };
   });
 
   if (!exchanged) return null;
@@ -489,7 +535,13 @@ export async function rotateAgentCredential(
       .executeTakeFirstOrThrow();
     const counts = await boundConfigCounts([id], trx);
     return {
-      agent: toApi(row, counts.get(id) ?? 0),
+      agent: toApi(
+        row,
+        counts.get(id) ?? 0,
+        0,
+        undefined,
+        await creatorNameFor(row, trx),
+      ),
       enrollment: { token, expiresAt: expiresAt.toISOString() },
     };
   });
@@ -531,7 +583,13 @@ export async function revokeAgent(
       .where("id", "=", id)
       .executeTakeFirstOrThrow();
     const counts = await boundConfigCounts([id], trx);
-    return toApi(row, counts.get(id) ?? 0);
+    return toApi(
+      row,
+      counts.get(id) ?? 0,
+      0,
+      undefined,
+      await creatorNameFor(row, trx),
+    );
   });
 
   if (sessions) await sessions.dropAgent(id, "revoked");
@@ -673,6 +731,12 @@ export async function updateAgent(
       .where("id", "=", id)
       .executeTakeFirstOrThrow();
     const counts = await boundConfigCounts([id], trx);
-    return toApi(row, counts.get(id) ?? 0);
+    return toApi(
+      row,
+      counts.get(id) ?? 0,
+      0,
+      undefined,
+      await creatorNameFor(row, trx),
+    );
   });
 }

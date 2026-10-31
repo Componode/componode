@@ -1,4 +1,3 @@
-import { flags } from "@/ux/lib/flags";
 import { AlertTriangleIcon, CircleAlertIcon, ChevronRightIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { RelativeTime } from "@/ux/components/patterns/primitives"
@@ -14,7 +13,7 @@ export function AttentionList({ items }: { items: AttentionEntry[] }) {
     <Card>
       <CardHeader>
         <CardTitle>Needs attention</CardTitle>
-        <CardDescription>{flags.credentialExpiring ? "Failures, expiring secrets and overdue sunsets." : "Failures and overdue sunsets."}</CardDescription>
+        <CardDescription>Failures, expiring secrets and overdue sunsets.</CardDescription>
         <CardAction>
           <Badge variant="secondary" className="tabular">
             {items.length}
@@ -28,10 +27,10 @@ export function AttentionList({ items }: { items: AttentionEntry[] }) {
           </p>
         ) : (
           <ul className="flex flex-col divide-y border-t">
-            {items.map((item) => {
+            {items.map((item, idx) => {
               const Icon = item.tone === "destructive" ? CircleAlertIcon : AlertTriangleIcon
               return (
-                <li key={item.label}>
+                <li key={`${item.kind}-${item.href}-${idx}`}>
                   <Link
                     to={ux(item.href)}
                     className="flex items-center gap-3 px-6 py-3 outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
@@ -46,7 +45,7 @@ export function AttentionList({ items }: { items: AttentionEntry[] }) {
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-sm font-medium">{item.label}</span>
-                      {flags.attentionDetail && item.detail ? (
+                      {item.detail ? (
                         <span className="truncate text-xs text-muted-foreground">{item.detail}</span>
                       ) : null}
                     </span>

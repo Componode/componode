@@ -1,4 +1,3 @@
-import { flags } from "@/ux/lib/flags";
 import { ArrowUpRightIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
@@ -19,7 +18,16 @@ export interface StatGridDeltas {
 }
 
 /** Every stat is a link to the list it counts — numbers are navigation, not decoration. */
-export function StatGrid({ counts, deltas }: { counts: StatGridCounts; deltas?: StatGridDeltas }) {
+export function StatGrid({
+  counts,
+  deltas,
+  importerIssues,
+}: {
+  counts: StatGridCounts;
+  deltas?: StatGridDeltas;
+  /** Importer-related attention items (failed runs, offline agents). */
+  importerIssues?: number;
+}) {
   const stats = [
     { key: "products", label: "Products", href: ux("/products"), delta: deltas?.products },
     { key: "components", label: "Components", href: ux("/components"), delta: deltas?.components },
@@ -39,7 +47,19 @@ export function StatGrid({ counts, deltas }: { counts: StatGridCounts; deltas?: 
               </CardDescription>
               <CardTitle className="tabular text-3xl font-semibold tracking-tight">{formatNumber(counts[s.key])}</CardTitle>
               <p className="tabular text-xs text-muted-foreground">
-                {flags.statDeltas ? (s.delta == null ? "—" : <><span className="font-medium text-success">+{s.delta}</span> this week</>) : null}
+                {s.key === "importers" ? (
+                  importerIssues == null ? (
+                    "—"
+                  ) : importerIssues > 0 ? (
+                    <><span className="font-medium text-warning">{importerIssues}</span> need attention</>
+                  ) : (
+                    "All healthy"
+                  )
+                ) : s.delta == null ? (
+                  "—"
+                ) : (
+                  <><span className="font-medium text-success">+{s.delta}</span> this week</>
+                )}
               </p>
             </CardHeader>
           </Card>

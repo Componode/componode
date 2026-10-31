@@ -25,7 +25,7 @@ numbers are sequential at creation and may shift:
    `035`/`036` were taken by `035-bugfix-user-form-validation` and
    `036-bugfix-ux-findings`
 7. ~~`0NN` — list enrichment (G21, G22)~~ — SHIPPED as spec `039`
-8. `0NN` — dashboard intelligence (G23, G24, G25)
+8. ~~`0NN` — dashboard intelligence (G23, G24, G25)~~ — SHIPPED as spec `040`
 
 Deferred past this program — re-triaged after it closes: G15 (merged
 with the email-delivery half of G4), G16, G17, G18, G19, G26, G27, G28,
@@ -230,15 +230,20 @@ own feature specs, not backend gap specs.
 - **Need**: `memberCount` on `GET /teams` (and LOB detail reads).
 - **Resolution**: RESOLVED by spec 039 — `memberCount` + `componentCount` on `GET /teams`; flag flipped ON.
 
-## G23 — Stat-grid deltas — SPEC QUEUED
+## G23 — Stat-grid deltas — RESOLVED by spec 040
 
 - **UX surface**: dashboard stat-grid `+N this week` detail line
   (`statDeltas` flag — renders "—" hidden until this lands).
 - **Need**: delta fields on `GET /dashboard` (week-over-week counts per
   stat card; "All healthy" for importers).
-- **Resolution**: dashboard-intelligence spec.
+- **Resolution**: RESOLVED by spec 040 — `deltas.{products,components,
+  instances}` on `GET /dashboard/summary` (trailing-7-day created counts
+  scoped to each headline population); the importers card derives
+  "All healthy"/"N need attention" from `importerIssues`, a
+  pre-truncation count the summary emits (the attention array itself is
+  capped at 20). Flag removed.
 
-## G24 — Attention detail lines + CREDENTIAL_EXPIRING — SPEC QUEUED
+## G24 — Attention detail lines + CREDENTIAL_EXPIRING — RESOLVED by spec 040
 
 - **UX surface**: attention-row `detail` sub-line (`attentionDetail` flag)
   and the `CREDENTIAL_EXPIRING` kind the card description already
@@ -246,16 +251,24 @@ own feature specs, not backend gap specs.
 - **Need**: backend `detail` strings per attention row (e.g. "kubeconfig
   token expired", "Last heartbeat 2h ago · heartbeat_timeout") and a
   `CREDENTIAL_EXPIRING` kind emitted for `expiresAt`-near credentials.
-- **Resolution**: dashboard-intelligence spec, same spec as G23/G25.
+- **Resolution**: RESOLVED by spec 040 — `AttentionItem.detail` composed
+  server-side per kind; `CREDENTIAL_EXPIRING` emitted for ACTIVE
+  credentials with `expiresAt` past or inside the 30-day window, ranked
+  below OFFLINE_AGENT and above the sunset kinds (ADR-116 Amendment 4).
+  Flags removed (fully wired).
 
-## G25 — Agent "Enrolled by" — SPEC QUEUED
+## G25 — Agent "Enrolled by" — RESOLVED by spec 040
 
 - **UX surface**: agent detail header (`agentEnrolledBy` flag — header
   shows "Created {date}" until this lands); pending-enrollment alert
   could regain `enrollmentExpiresAt` if the API exposes it.
 - **Need**: `createdBy` (and optionally `enrollmentExpiresAt`) on
   `GET /agents/:id`.
-- **Resolution**: dashboard-intelligence spec (audit/actor surface).
+- **Resolution**: RESOLVED by spec 040 — `createdBy` resolves
+  `import_agents.createdBy` to `COALESCE(displayName, username)` at read
+  time (null when unresolvable — never a raw id); `enrollmentExpiresAt`
+  exposes the live pending token's expiry (gated on
+  `revokedAt IS NULL` — a dead token shows no expiry). Flag removed.
 
 ## G26 — `includeGone` on component detail — DEFERRED (unscheduled)
 

@@ -40,14 +40,6 @@ export const flags = {
   componentListLastSeen: true,
   /** Team-list Members column — backed by memberCount/componentCount (spec 039, G22 resolved). */
   teamMemberCounts: true,
-  /** Stat-grid "+N this week" deltas — needs dashboard delta fields (gap G23). */
-  statDeltas: false,
-  /** Attention-row detail sub-line — needs backend detail strings (gap G24). */
-  attentionDetail: false,
-  /** CREDENTIAL_EXPIRING attention kind — needs backend kind emission (gap G24). */
-  credentialExpiring: false,
-  /** Agent "Enrolled by" header — needs createdBy on GET /agents/:id (gap G25). */
-  agentEnrolledBy: false,
   /** GONE instances on component detail — needs includeGone on the detail read (gap G26). */
   detailGoneInstances: false,
   /** Manual component/group creation — needs POST endpoints + forms (gap G29). */

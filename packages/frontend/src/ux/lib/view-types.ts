@@ -217,7 +217,8 @@ export interface ImportAgent {
   boundConfigs: number;
   lastSeenAt: string | null;
   enrollmentExpiresAt: string | null;
-  createdBy: string;
+  /** Display name of the enrolling user; null when unresolvable. */
+  createdBy: string | null;
   createdAt: string;
   /** Null = never reported (older build). Drives the "not reported" empty state. */
   reportedStatus: AgentReportedStatus | null;

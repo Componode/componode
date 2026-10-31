@@ -36,6 +36,12 @@ export interface ImportAgent {
   boundConfigCount: number;
   // Jobs the hub believes the agent currently holds (spec 027).
   runningJobs: number;
+  // Display name of the person who enrolled the agent (spec 040 / G25);
+  // null when the actor column is unset or no longer resolves.
+  createdBy: string | null;
+  // Expiry of the live pending-enrollment token (spec 040 / G25); null
+  // when no unused, unexpired token exists.
+  enrollmentExpiresAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
