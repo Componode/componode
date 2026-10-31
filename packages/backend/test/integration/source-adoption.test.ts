@@ -242,3 +242,143 @@ describe("adopt-on-report and source-qualified externalIds", () => {
     ]);
   });
 });
+
+describe("migration 023 — defensible ImporterSource backfill", () => {
+  let testDb: TestDb | null = null;
+  let app: any;
+  let adminSession: string | undefined;
+  let originalDbUrl: string | undefined;
+
+  beforeEach(async () => {
+    originalDbUrl = process.env.DATABASE_URL;
+    testDb = await startTestDb();
+    process.env.DATABASE_URL = testDb.container.getConnectionUri();
+    process.env.NODE_ENV = "test";
+    process.env.BOOTSTRAP_ADMIN_USERNAME = ADMIN_USERNAME;
+    process.env.BOOTSTRAP_ADMIN_PASSWORD = ADMIN_PASSWORD;
+    vi.resetModules();
+    vi.clearAllMocks();
+    const { bootstrapAdmin } = await import("../../src/services/bootstrap-service.js");
+    await bootstrapAdmin();
+    const { buildApp } = await import("../../src/app.js");
+    app = await buildApp();
+    await app.ready();
+    adminSession = await loginAs(app, ADMIN_USERNAME, ADMIN_PASSWORD);
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+    if (testDb) await testDb.cleanup();
+    if (originalDbUrl !== undefined) process.env.DATABASE_URL = originalDbUrl;
+    vi.resetModules();
+  });
+
+  async function createConfig(importerName: string, scope: Record<string, unknown>): Promise<{ id: string }> {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/importer-configs",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
+      headers: csrfHeader,
+      payload: { importerName, label: importerName, scope },
+    });
+    return JSON.parse(res.payload).config;
+  }
+
+  async function legacyRun(configId: string) {
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/v1/importer-configs/${configId}/trigger`,
+      cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
+      headers: csrfHeader,
+    });
+    const { runId } = JSON.parse(res.payload);
+    for (let i = 0; i < 100; i++) {
+      const r = await app.inject({
+        method: "GET",
+        url: `/api/v1/importer-configs/${configId}/runs/${runId}`,
+        cookies: { [SESSION_COOKIE_NAME]: adminSession },
+      });
+      const body = JSON.parse(r.payload);
+      if (["COMPLETED", "FAILED", "CANCELLED", "INTERRUPTED"].includes(body.run.status)) return body.run;
+      await new Promise((r2) => setTimeout(r2, 100));
+    }
+    throw new Error("run did not terminate");
+  }
+
+  it("backfills only derivable configs; everything else stays LEGACY_UNATTRIBUTED", async () => {
+    const { db } = await import("../../src/db/connection.js");
+
+    // Legacy (non-adopting) runs against a derivable api-url config and
+    // an underivable github config.
+    (getManifest as any).mockImplementation(async (name: string) => ({
+      name,
+      label: name,
+      description: "test",
+      version: "1.0.0",
+      implPath: "x",
+    }));
+    const apiConfig = await createConfig("api-url", { url: "https://api.example.com/status?token=abc" });
+    (getImporter as any).mockResolvedValueOnce(importerOf([asset("https://api.example.com/status")], undefined));
+    const apiRun = await legacyRun(apiConfig.id);
+    expect(apiRun.status).toBe("COMPLETED");
+
+    const ghConfig = await createConfig("github", { org: "acme" });
+    (getImporter as any).mockResolvedValueOnce(importerOf([asset("42")], undefined));
+    const ghRun = await legacyRun(ghConfig.id);
+    expect(ghRun.status).toBe("COMPLETED");
+
+    // Re-run the migration — it must only touch the derivable config.
+    const { up } = await import("../../src/db/migrations/023_source_backfill.js");
+    await up(db as never);
+
+    // api-url: Source registered with canonical URL identity + membership.
+    const sources = await db.selectFrom("importer_sources").selectAll().execute();
+    expect(sources).toHaveLength(1);
+    expect(sources[0]!.importerName).toBe("api-url");
+    // userinfo/auth params stripped — no secret material in identity.
+    expect(sources[0]!.externalIdentity).toBe("https://api.example.com/status");
+    expect(sources[0]!.boundConfigId).toBe(apiConfig.id);
+
+    const apiComp = await db
+      .selectFrom("components")
+      .selectAll()
+      .where("externalId", "=", "https://api.example.com/status")
+      .executeTakeFirstOrThrow();
+    const memberships = await db
+      .selectFrom("source_component_memberships")
+      .selectAll()
+      .where("componentId", "=", apiComp.id)
+      .execute();
+    expect(memberships).toHaveLength(1);
+    expect(memberships[0]!.sourceId).toBe(sources[0]!.id);
+    expect(memberships[0]!.active).toBe(true);
+
+    // github (org id needs an API call): nothing created.
+    const ghComp = await db
+      .selectFrom("components")
+      .selectAll()
+      .where("externalId", "=", "42")
+      .executeTakeFirstOrThrow();
+    const ghMemberships = await db
+      .selectFrom("source_component_memberships")
+      .selectAll()
+      .where("componentId", "=", ghComp.id)
+      .execute();
+    expect(ghMemberships).toHaveLength(0);
+
+    // Preservation: historical run.sourceId stays NULL; externalId intact.
+    const runs = await db.selectFrom("import_runs").selectAll().execute();
+    expect(runs.every((r) => r.sourceId === null)).toBe(true);
+    expect(apiComp.externalId).toBe("https://api.example.com/status");
+
+    // Idempotent: a second up() creates nothing new.
+    await up(db as never);
+    const sourcesAfter = await db.selectFrom("importer_sources").selectAll().execute();
+    expect(sourcesAfter).toHaveLength(1);
+    const membershipsAfter = await db
+      .selectFrom("source_component_memberships")
+      .selectAll()
+      .execute();
+    expect(membershipsAfter).toHaveLength(1);
+  });
+});
