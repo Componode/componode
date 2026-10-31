@@ -1,5 +1,4 @@
 
-import { flags } from "@/ux/lib/flags";
 import { AlertTriangleIcon, HistoryIcon, RadioTowerIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useNavigate } from "react-router-dom"
@@ -101,7 +100,7 @@ export function AgentDetail({ agent, sessions, events }: AgentDetailProps) {
           </div>
         }
         title={<span className="font-mono">{agent.name}</span>}
-        description={flags.agentEnrolledBy && agent.createdBy ? `Enrolled by ${agent.createdBy} on ${formatDateTime(agent.createdAt)}` : `Created ${formatDateTime(agent.createdAt)}`}
+        description={agent.createdBy ? `Enrolled by ${agent.createdBy} on ${formatDateTime(agent.createdAt)}` : `Created ${formatDateTime(agent.createdAt)}`}
         meta={
           <>
             <AgentStatusCell agent={agent} />

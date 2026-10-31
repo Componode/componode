@@ -342,6 +342,20 @@ describe("mapImportAgent", () => {
     } as never);
     expect(view.credentialState).toBe("REVOKED");
   });
+
+  it("wires createdBy and enrollmentExpiresAt from the API (spec 040)", () => {
+    const view = mapImportAgent({
+      ...apiAgent,
+      createdBy: "Ada Admin",
+      enrollmentExpiresAt: "2026-02-03T00:00:00Z",
+    } as never);
+    expect(view.createdBy).toBe("Ada Admin");
+    expect(view.enrollmentExpiresAt).toBe("2026-02-03T00:00:00Z");
+    // Absent fields map to null — never "" or a fabricated name.
+    const bare = mapImportAgent(apiAgent as never);
+    expect(bare.createdBy).toBeNull();
+    expect(bare.enrollmentExpiresAt).toBeNull();
+  });
 });
 
 describe("mapRunChange / mapRunError", () => {
@@ -632,6 +646,18 @@ describe("mapAttentionItem", () => {
   it("marks FAILED_RUN destructive, others warning", () => {
     expect(mapAttentionItem({ kind: "FAILED_RUN", label: "x", href: "/a", at: null } as never).tone).toBe("destructive");
     expect(mapAttentionItem({ kind: "UNWIRED", label: "x", href: "/a", at: null } as never).tone).toBe("warning");
+  });
+
+  it("passes the server detail line through (spec 040)", () => {
+    const row = mapAttentionItem({
+      kind: "OFFLINE_AGENT",
+      label: "edge-1",
+      detail: "Last heartbeat 2h ago · heartbeat_timeout",
+      href: "/a",
+      at: null,
+    } as never);
+    expect(row.detail).toBe("Last heartbeat 2h ago · heartbeat_timeout");
+    expect(mapAttentionItem({ kind: "PRODUCT_ERROR", label: "x", detail: null, href: "/a", at: null } as never).detail).toBeNull();
   });
 });
 

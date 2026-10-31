@@ -208,8 +208,11 @@ export interface AttentionItem {
     | "PRODUCT_ERROR"
     | "SUNSET_OVERDUE_PRODUCT"
     | "SUNSET_OVERDUE_COMPONENT"
+    | "CREDENTIAL_EXPIRING"
     | "OFFLINE_AGENT";
   label: string;
+  /** Server-composed context line; null when the kind has nothing to add. */
+  detail: string | null;
   href: string;
   at: string;
 }
@@ -232,6 +235,14 @@ export interface DashboardSummary {
     components: { total: number; byLifecycle: Record<string, number> };
     instances: { total: number; byStatus: Record<string, number> };
   };
+  /** Trailing-7-day created counts, scoped to each headline population. */
+  deltas: {
+    products: number;
+    components: number;
+    instances: number;
+  };
+  /** Importer-related attention items in the full (pre-truncation) queue. */
+  importerIssues: number;
   lastImportAt: string | null;
   attention: AttentionItem[];
   lastRuns: ImporterRunStatus[];

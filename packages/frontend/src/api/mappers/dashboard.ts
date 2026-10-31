@@ -9,7 +9,7 @@ export function mapAttentionItem(item: AttentionItem): AttentionEntry {
   return {
     kind: item.kind,
     label: item.label,
-    detail: null,
+    detail: item.detail ?? null,
     href: item.href,
     at: item.at,
     tone: DESTRUCTIVE_KINDS.has(item.kind) ? "destructive" : "warning",

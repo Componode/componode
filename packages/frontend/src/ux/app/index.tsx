@@ -76,6 +76,8 @@ export function UxIndexPage() {
               instances: summary.data.counts.instances.total,
               importers: configs.data.configs.filter((c) => c.enabled).length,
             }}
+            deltas={summary.data.deltas}
+            importerIssues={summary.data.importerIssues}
           />
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="flex flex-col gap-6 lg:col-span-2">

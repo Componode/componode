@@ -376,3 +376,40 @@ secret values, credential fields, or reference contents.
 - **No new audit events.** Operational telemetry is not a lifecycle
   transition (ADR-052 asymmetry) — `agent_sessions` already holds the
   operational side.
+
+## Amendment 4 — Dashboard attention detail + agent read-surface fields (spec 040)
+
+Ratifies the dashboard-intelligence surfaces spec 040 adds to the
+attention queue and the agent read model. Nothing here changes the
+outbound-only architecture or the secret-material boundary — the new
+fields are read-only compositions over data already stored.
+
+- **`CREDENTIAL_EXPIRING` dashboard attention kind** — an `ACTIVE`
+  credential whose `expiresAt` is already past or inside the 30-day
+  warning window (the G5 credentials-table convention) surfaces as an
+  attention item: `href` `/credentials/{id}`, `at` = `expiresAt`,
+  warning tone. It ranks **below** the operational failure kinds
+  (`FAILED_RUN` / `PRODUCT_ERROR` / `INSTANCE_*` / `OFFLINE_AGENT`) and
+  **above** the display-only sunset kinds — the same "actionable kinds
+  outrank sunsets" rule Amendment 2 applied to `OFFLINE_AGENT`.
+- **`AttentionItem.detail: string | null`** — a server-composed one-line
+  context per row (run `errorType`/`errorMessage` for `FAILED_RUN`,
+  last-contact + `disconnectReason` for `OFFLINE_AGENT`, status +
+  last-seen for `INSTANCE_*`, expiry distance for `CREDENTIAL_EXPIRING`,
+  `null` when the kind has nothing to add). Composed from data already
+  fetched for the row — no per-row N+1; never carries secret material.
+- **`GET /agents` read-surface gains** (item 11's surface, extended):
+  `createdBy` — the enrolling person's display name resolved read-side
+  (`COALESCE(displayName, username)` on `import_agents.createdBy`;
+  `null` when unset or unresolvable — a raw person id never ships as
+  the name) — and `enrollmentExpiresAt`, the live pending-enrollment
+  token's expiry (`null` when `pendingEnrollment` is false). Token
+  material stays hash-only per item 6.
+- **`GET /dashboard/summary` gains `deltas`** — trailing-7-day created
+  counts per stat card (`products`, `components`, `instances`), each
+  scoped to the same population as its headline total — plus
+  `importerIssues`, the number of importer-related attention items
+  (`FAILED_RUN` + `OFFLINE_AGENT`) in the FULL queue, computed before the
+  `ATTENTION_LIMIT` truncation so clients cannot derive it from the
+  capped array. Read-only aggregates; the GET stays side-effect-free
+  (ADR-094).

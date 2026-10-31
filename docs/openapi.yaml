@@ -1985,6 +1985,23 @@ paths:
                 type: object
                 properties:
                   counts: { type: object }
+                  deltas:
+                    type: object
+                    description: >-
+                      Spec 040: rows created in the trailing 7 days, scoped
+                      to each headline total's population (products: all;
+                      components: ACTIVE; instances: non-GONE).
+                    properties:
+                      products: { type: integer }
+                      components: { type: integer }
+                      instances: { type: integer }
+                  importerIssues:
+                    type: integer
+                    description: >-
+                      Spec 040: number of importer-related attention items
+                      (FAILED_RUN, OFFLINE_AGENT) in the full queue — the
+                      `attention` array is capped, so this count is computed
+                      before truncation.
                   lastImportAt: { type: string, format: date-time, nullable: true }
                   attention:
                     type: array
@@ -3150,14 +3167,25 @@ components:
             - INSTANCE_GONE
             - PRODUCT_ERROR
             - OFFLINE_AGENT
+            - CREDENTIAL_EXPIRING
             - SUNSET_OVERDUE_PRODUCT
             - SUNSET_OVERDUE_COMPONENT
           description: >-
             `OFFLINE_AGENT` (spec 027) surfaces an offline Import Agent that
-            still owns bound configs. Sunset kinds (spec 023) surface
-            overdue `sunsetAt` on non-RETIRED entities; they rank below
-            operational attention.
+            still owns bound configs. `CREDENTIAL_EXPIRING` (spec 040,
+            ADR-116 Amendment 4) surfaces an ACTIVE credential whose
+            `expiresAt` is past or inside the 30-day warning window —
+            ranked below the operational failure kinds and above the
+            sunset kinds. Sunset kinds (spec 023) surface overdue
+            `sunsetAt` on non-RETIRED entities; they rank last.
         label: { type: string }
+        detail:
+          type: string
+          nullable: true
+          description: >-
+            Spec 040: server-composed one-line context (e.g. last-heartbeat
+            + disconnect reason, run error summary, expiry distance);
+            null when the kind has nothing to add beyond the label
         href: { type: string }
         at: { type: string, format: date-time }
     CatalogCoverage:
@@ -3540,6 +3568,20 @@ components:
           description: >-
             Jobs the hub believes this agent currently holds (live dispatch
             map, spec 027 — not persisted)
+        createdBy:
+          type: string
+          nullable: true
+          description: >-
+            Spec 040: display name of the person who enrolled the agent
+            (`COALESCE(displayName, username)`); null when the actor column
+            is unset or the person no longer resolves — never a raw id
+        enrollmentExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Spec 040: expiry of the live pending-enrollment token; null
+            when no unused, unexpired token exists
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     AgentReportedStatus:
