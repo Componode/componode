@@ -53,11 +53,6 @@ export class KubernetesImporter implements Importer {
     const identity = parsed.endpoint
       ? canonicalizeSourceIdentity(parsed.endpoint)
       : parsed.sourceKey;
-    if (!identity) {
-      throw new Error(
-        "kubernetes importer requires scope.endpoint or scope.sourceKey — a stable identity for the cluster (ADR-120).",
-      );
-    }
     await context.reportSourceIdentity({ externalIdentity: identity });
 
     context.reportPhase("Listing resources");

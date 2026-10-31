@@ -1,28 +1,31 @@
+// Normalized names — query-param keys are lowercased and stripped of
+// non-alphanumerics before comparison so `accessToken`, `access-key`,
+// and `access_token` all match `accesstoken`.
 const AUTH_QUERY_PARAMS = new Set([
-  "access_key",
-  "access_token",
-  "api_key",
+  "accesskey",
+  "accesstoken",
   "apikey",
   "auth",
   "authorization",
-  "client_secret",
+  "authtoken",
+  "clientsecret",
   "code",
   "credential",
-  "id_token",
+  "idtoken",
   "jwt",
   "key",
-  "oauth_token",
+  "oauthtoken",
   "password",
-  "private_key",
-  "refresh_token",
+  "privatekey",
+  "refreshtoken",
   "secret",
-  "session_token",
+  "sessiontoken",
   "sig",
   "signature",
   "token",
-  "x-amz-credential",
-  "x-amz-security-token",
-  "x-amz-signature",
+  "xamzcredential",
+  "xamzsecuritytoken",
+  "xamzsignature",
 ]);
 
 /**
@@ -39,7 +42,8 @@ export function canonicalizeSourceIdentity(identity: string): string {
     url.password = "";
     url.hash = "";
     for (const key of [...url.searchParams.keys()]) {
-      if (AUTH_QUERY_PARAMS.has(key.toLowerCase())) {
+      const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (AUTH_QUERY_PARAMS.has(normalized)) {
         url.searchParams.delete(key);
       }
     }

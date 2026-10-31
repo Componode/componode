@@ -144,6 +144,7 @@ export interface RunSource {
 }
 
 function isUrlLike(id: string): boolean {
+  if (!/^https?:\/\//i.test(id)) return false;
   try {
     new URL(id);
     return true;
@@ -179,14 +180,31 @@ export async function processAsset(
   // never re-reported keep their legacy externalId and provenance.
   if (!component && sourceId && sourceIdentity) {
     const legacyId = unqualifyExternalId(asset.externalId, sourceIdentity);
+    // Adoption is provenance-scoped (ADR-120 A2 §6): only rows last seen
+    // by runs of THIS config may adopt — a provider-wide match could
+    // steal another system's row on an id collision (e.g. GHES repo #42
+    // adopting a github.com row). No config provenance → no adoption.
+    const runConfigId =
+      (
+        await trx
+          .selectFrom("import_runs")
+          .select("configId")
+          .where("id", "=", runId)
+          .executeTakeFirst()
+      )?.configId ?? null;
+    const configRunIds = trx
+      .selectFrom("import_runs")
+      .select("id")
+      .where("configId", "=", runConfigId);
     let legacy;
-    if (legacyId !== null) {
+    if (legacyId !== null && runConfigId !== null) {
       legacy = await trx
         .selectFrom("components")
         .selectAll()
         .where("category", "=", asset.category)
         .where("provider", "=", asset.provider)
         .where("externalId", "=", legacyId)
+        .where("lastSeenInRunId", "in", configRunIds)
         .executeTakeFirst();
     }
     // Canonical fallback (ADR-120): pre-migration rows may hold a raw URL
@@ -195,7 +213,7 @@ export async function processAsset(
     //  (a) bare-URL emits (legacyId null) → compare canonicalized stored id;
     //  (b) qualified emits whose localId embeds an endpoint (legacyId
     //      contains "://") → canonicalize the stored id's URL-ish prefix.
-    if (!legacy) {
+    if (!legacy && runConfigId !== null) {
       const target =
         legacyId === null && isUrlLike(asset.externalId)
           ? asset.externalId
@@ -208,6 +226,7 @@ export async function processAsset(
           .selectAll()
           .where("category", "=", asset.category)
           .where("provider", "=", asset.provider)
+          .where("lastSeenInRunId", "in", configRunIds)
           .execute();
         legacy = candidates.find((c) => {
           if (typeof c.externalId !== "string") return false;

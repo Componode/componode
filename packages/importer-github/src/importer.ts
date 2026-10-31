@@ -144,7 +144,7 @@ export class GithubImporter implements Importer {
     const sourceIdentity =
       orgId !== undefined && orgId !== null
         ? `${base}/org/${orgId}`
-        : `${base}/login/${parsed.org}`;
+        : `${base}/login/${encodeURIComponent(parsed.org)}`;
     await context.reportSourceIdentity({
       externalIdentity: sourceIdentity,
       label: parsed.org,

@@ -51,11 +51,6 @@ export class AzureImporter implements Importer {
     context.reportPhase("Initializing");
     const parsed = azureConfigSchema.parse(config);
     const identity = parsed.subscriptionId ?? parsed.sourceKey;
-    if (!identity) {
-      throw new Error(
-        "azure importer requires scope.subscriptionId or scope.sourceKey — a stable identity for the subscription (ADR-120).",
-      );
-    }
     await context.reportSourceIdentity({ externalIdentity: identity });
 
     context.reportPhase("Listing resources");

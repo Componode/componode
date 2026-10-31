@@ -111,6 +111,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     const components = await kdb
       .selectFrom("components")
       .select(["id", "lastSeenInRunId", "externalId"])
+      .where("lifecycle", "=", "ACTIVE")
       .where(
         "lastSeenInRunId",
         "in",

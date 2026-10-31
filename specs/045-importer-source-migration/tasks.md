@@ -286,3 +286,13 @@ backfill; US5 + polish ratify and document.
 - [x] T073 Add a defensible-attribution filter to migration 023 component backfill: skip `default:`-prefixed externalIds (placeholder provenance, ADR-120 A2 §5) and URL-embedded-prefix ids whose canonicalized prefix != derived identity (endpoint-drifted rows) (code-review: spec)
 - [x] T074 Qualify emitted externalIds with the canonicalized source identity in `importer-{aws,kubernetes,mcp-server,azure}` — a URL-parseable `sourceKey` is canonicalized by the backend, so raw-key qualification can never unqualify for adoption (code-review: spec)
 - [x] T075 Minor cleanup: correct the 023 header comment (source insert has no ON CONFLICT), rename `existingId` → clearer name in importer-source-service.ts, rename azure's `scope` local → `identityPrefix`, cap `listSourceMemberships` queries at 200 rows each like `listSourceRuns` (code-review: standards)
+
+## Phase 14: Review
+
+- [x] T076 Filter migration 023 component backfill to `lifecycle = 'ACTIVE'` — an active membership on a RETIRED row blocks adopt-on-report indefinitely (code-review: standards)
+- [x] T077 Scope adopt-on-report matching (both `::` unqualify and canonical fallback) to rows last-seen by runs of the reporting run's config — provider-wide matching lets e.g. a GHES run adopt a github.com row on a numeric-id collision; no defensible provenance → insert new (code-review: spec)
+- [x] T078 Normalize auth-param keys in `canonicalizeSourceIdentity` (lowercase + strip non-alphanumeric) so camelCase/hyphen variants (`accessToken`, `access-key`, `authToken`) are stripped like snake_case (code-review: spec)
+- [x] T079 Validate source-identity payload bounds agent-side in `packages/agent/src/executor.ts` before `send` — an over-limit identity must fail the run with CONTRACT_VIOLATION, not kill the whole session via BAD_FRAME/1008 (code-review: standards)
+- [x] T080 Tighten `isUrlLike` to http(s) schemes only; `encodeURIComponent` the github `#login`-fallback org; drop the now-unreachable `if (!identity)`/`if (!sourceKey)` guards in aws/azure/k8s/mcp importers (schema enforces at config level) (code-review: standards)
+- [x] T081 Clear `boundConfigId` on stale-bound Sources regardless of status in `importer-source-service.ts` — a RETIRED Source must not keep pointing at a config reporting a different identity (only non-RETIRED get status UNMONITORED) (code-review: standards)
+- [x] T082 Memberships endpoint hardening: deterministic `orderBy` + `truncated` flag on `listSourceMemberships`; zod `:id` validation on `/:id` and `/:id/runs` too; fix `docs/importers/github.md` `{base}/org/{id}` missing-slash typo (code-review: standards + spec)

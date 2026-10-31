@@ -149,17 +149,19 @@ export async function registerOrMatchSource(
   if (boundConfigId !== null) {
     const stale = await trx
       .selectFrom("importer_sources")
-      .select("id")
+      .select(["id", "status"])
       .where("boundConfigId", "=", boundConfigId)
       .where("id", "!=", row.id)
-      .where("status", "!=", "RETIRED")
       .execute();
     for (const staleSource of stale) {
+      // Always clear the binding — a config reports exactly one identity,
+      // so a stale bound pointer is wrong regardless of status. Only a
+      // non-RETIRED Source flips to UNMONITORED; a retired one stays.
       await trx
         .updateTable("importer_sources")
         .set({
           boundConfigId: null,
-          status: "UNMONITORED",
+          ...(staleSource.status === "RETIRED" ? {} : { status: "UNMONITORED" }),
           updatedAt: now,
         })
         .where("id", "=", staleSource.id)
@@ -428,7 +430,8 @@ export async function listSourceMemberships(sourceId: string) {
       "components.externalId as componentExternalId",
     ])
     .where("sourceId", "=", sourceId)
-    .limit(200)
+    .orderBy("source_component_memberships.createdAt", "asc")
+    .limit(201)
     .execute();
 
   const instances = await db
@@ -444,10 +447,15 @@ export async function listSourceMemberships(sourceId: string) {
       "component_instances.componentId as componentId",
     ])
     .where("sourceId", "=", sourceId)
-    .limit(200)
+    .orderBy("source_instance_memberships.createdAt", "asc")
+    .limit(201)
     .execute();
 
-  return { components, instances };
+  return {
+    components: components.slice(0, 200),
+    instances: instances.slice(0, 200),
+    truncated: components.length > 200 || instances.length > 200,
+  };
 }
 
 /** Run history for the Source — survives config deletion (configId null). */

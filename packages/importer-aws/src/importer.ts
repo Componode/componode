@@ -50,11 +50,6 @@ export class AwsImporter implements Importer {
 
     context.reportPhase("Initializing");
     const parsed = awsConfigSchema.parse(config);
-    if (!parsed.sourceKey) {
-      throw new Error(
-        "aws importer requires scope.sourceKey — a stable, non-secret key identifying the AWS account (ADR-120).",
-      );
-    }
     await context.reportSourceIdentity({ externalIdentity: parsed.sourceKey });
 
     context.reportPhase("Listing resources");

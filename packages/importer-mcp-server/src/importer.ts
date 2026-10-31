@@ -58,11 +58,6 @@ export class McpServerImporter implements Importer {
     const identity = parsed.endpoint
       ? canonicalizeSourceIdentity(parsed.endpoint)
       : parsed.sourceKey;
-    if (!identity) {
-      throw new Error(
-        "mcp-server importer requires scope.endpoint or scope.sourceKey — a stable identity for the server (ADR-120).",
-      );
-    }
     await context.reportSourceIdentity({ externalIdentity: identity });
 
     context.reportPhase("Listing resources");
