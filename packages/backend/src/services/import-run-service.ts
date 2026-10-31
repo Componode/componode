@@ -163,7 +163,7 @@ function isUrlLike(id: string): boolean {
  */
 function matchesCanonicalForm(stored: string, target: string): boolean {
   if (canonicalizeSourceIdentity(stored) === target) return true;
-  for (let i = stored.lastIndexOf(":"); i !== -1; i = stored.lastIndexOf(":", i - 1)) {
+  for (let i = stored.lastIndexOf(":"); i > 0; i = stored.lastIndexOf(":", i - 1)) {
     const prefix = stored.slice(0, i);
     const canonPrefix = canonicalizeSourceIdentity(prefix);
     if (canonPrefix !== prefix && `${canonPrefix}${stored.slice(i)}` === target) {
@@ -205,6 +205,7 @@ export async function processAsset(
     // steal another system's row on an id collision (e.g. GHES repo #42
     // adopting a github.com row). No config provenance → no adoption.
     const runConfigId = source.configId;
+    // Subquery — only materialized inside the runConfigId-guarded lookups.
     const configRunIds = trx
       .selectFrom("import_runs")
       .select("id")
@@ -240,6 +241,7 @@ export async function processAsset(
           .where("category", "=", asset.category)
           .where("provider", "=", asset.provider)
           .where("lastSeenInRunId", "in", configRunIds)
+          .limit(500)
           .execute();
         legacy = candidates.find(
           (c) =>
@@ -247,6 +249,26 @@ export async function processAsset(
             matchesCanonicalForm(c.externalId, target),
         );
       }
+    }
+    // Identity-transition adoption (ADR-120 A2): a Source whose reported
+    // identity changed mid-life (github login/ → org/ on permission gain)
+    // re-emits qualified ids under the NEW identity — `unqualifyExternalId`
+    // can't strip the old prefix. Match stored ids by their `{*}::localId`
+    // tail instead — provenance still bounds this to the config's runs.
+    if (!legacy && legacyId !== null && runConfigId !== null) {
+      const candidates = await trx
+        .selectFrom("components")
+        .selectAll()
+        .where("category", "=", asset.category)
+        .where("provider", "=", asset.provider)
+        .where("lastSeenInRunId", "in", configRunIds)
+        .where("externalId", "like", `%::${legacyId}`)
+        .execute();
+      legacy = candidates.find(
+        (c) =>
+          typeof c.externalId === "string" &&
+          c.externalId.split("::").pop() === legacyId,
+      );
     }
     if (legacy) {
         // Effective-active union (ADR-119 A1): a foreign membership only
@@ -907,7 +929,7 @@ async function worker(runId: string): Promise<void> {
       reportSourceIdentity: (identity: { externalIdentity: string; label?: string }) => {
         // Non-adopting manifests stay on the legacy config-scoped path
         // (FR-013) — a stray report must not flip the run's reconciliation.
-        if (manifest.reportsSourceIdentity !== true) {
+        if (!manifest.reportsSourceIdentity) {
           runLogger.warn("source identity report from a non-adopting importer — ignoring");
           return;
         }

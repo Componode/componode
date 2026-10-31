@@ -14,6 +14,8 @@ import {
 import { toActor } from "../services/actor.js";
 import { sendServiceError, validationFailed } from "./route-helpers.js";
 
+const idParamsSchema = z.object({ id: z.string().uuid() });
+
 
 
 // ImporterSource lifecycle surface (spec 044, contracts/source-api.md).
@@ -34,7 +36,7 @@ export async function importerSourceRoutes(
   app.get("/importer-sources/:id", {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const parsed = z.object({ id: z.string().uuid() }).safeParse(req.params);
+    const parsed = idParamsSchema.safeParse(req.params);
     if (!parsed.success) {
       return validationFailed(reply, parsed.error.issues);
     }
@@ -49,7 +51,7 @@ export async function importerSourceRoutes(
   app.get("/importer-sources/:id/runs", {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const parsed = z.object({ id: z.string().uuid() }).safeParse(req.params);
+    const parsed = idParamsSchema.safeParse(req.params);
     if (!parsed.success) {
       return validationFailed(reply, parsed.error.issues);
     }
@@ -65,7 +67,7 @@ export async function importerSourceRoutes(
   app.get("/importer-sources/:id/memberships", {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const parsed = z.object({ id: z.string().uuid() }).safeParse(req.params);
+    const parsed = idParamsSchema.safeParse(req.params);
     if (!parsed.success) {
       return validationFailed(reply, parsed.error.issues);
     }
@@ -81,7 +83,7 @@ export async function importerSourceRoutes(
   app.post("/importer-sources/:id/retire", {
     preHandler: [app.verifySession, requireRole("importer:source:retire")],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const parsed = z.object({ id: z.string().uuid() }).safeParse(req.params);
+    const parsed = idParamsSchema.safeParse(req.params);
     if (!parsed.success) {
       return validationFailed(reply, parsed.error.issues);
     }
@@ -97,7 +99,7 @@ export async function importerSourceRoutes(
   app.post("/importer-sources/:id/reactivate", {
     preHandler: [app.verifySession, requireRole("importer:source:reactivate")],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const parsed = z.object({ id: z.string().uuid() }).safeParse(req.params);
+    const parsed = idParamsSchema.safeParse(req.params);
     if (!parsed.success) {
       return validationFailed(reply, parsed.error.issues);
     }

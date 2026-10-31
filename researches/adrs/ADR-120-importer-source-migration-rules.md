@@ -132,3 +132,13 @@ numeric id for adopt-on-report.
    to (a) bare-URL emits and (b) qualified ids whose localId embeds a
    URL-ish endpoint prefix (`{rawEp}:{rtype}` stored vs `{canonEp}:{rtype}`
    emitted), so non-URL qualified ids never trigger a provider scan.
+
+7. **Identity-transition adoption.** When a Source's reported identity
+   changes mid-life (e.g. github `login/` → `org/` after permission is
+   granted), re-emitted qualified ids embed the NEW identity and the
+   `::`-prefix unqualify can't strip the old one. Adopt-on-report then
+   matches stored ids by their `{anything}::{localId}` tail — still
+   provenance-scoped to the reporting config's runs — so the earlier
+   qualified rows re-adopt instead of duplicating. The legacy Source's
+   UNMONITORED memberships do not block this (they are the same Source
+   family by config, not a foreign claimant).

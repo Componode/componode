@@ -136,9 +136,20 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         return id.startsWith(`${identity}:`);
       }
       if (!id.includes("://")) return true;
-      if (canonicalizeSourceIdentity(id) === identity) return true;
-      const i = id.lastIndexOf(":");
-      return i !== -1 && canonicalizeSourceIdentity(id.slice(0, i)) === identity;
+      // Multi-colon walk (parity with runtime `matchesCanonicalForm`):
+      // a stored `{rawEp}:{rtype}`/`{rawEp}:{rtype}:0` whose URL prefix
+      // canonicalizes to the emitted target still attributes — port-
+      // bearing raw endpoints can't `new URL`-parse as a whole.
+      for (let i = id.lastIndexOf(":"); i > 0; i = id.lastIndexOf(":", i - 1)) {
+        const prefix = id.slice(0, i);
+        if (
+          canonicalizeSourceIdentity(prefix) !== prefix &&
+          canonicalizeSourceIdentity(prefix) === identity
+        ) {
+          return true;
+        }
+      }
+      return canonicalizeSourceIdentity(id) === identity;
     });
 
     for (const component of attributable) {

@@ -111,7 +111,7 @@ export interface RemoteRunStore {
   reconcile(
     job: RemoteJobContext,
     yieldedComponentIds: Set<string>,
-  ): Promise<number>;
+  ): Promise<{ componentsRetired: number; instancesOrphaned: number }>;
   stageSuggestions(componentIds: string[], runId: string): Promise<void>;
   touchCredentials(credentialIds: string[]): Promise<void>;
   /** Conditional PENDING→RUNNING transition; false = the run left PENDING
@@ -699,10 +699,11 @@ export class RemoteRunService implements RemoteRunHandler {
         }, true);
         return true;
       }
-      const componentsRetired = await this.store.reconcile(
+      const { componentsRetired, instancesOrphaned } = await this.store.reconcile(
         entry.job,
         entry.yieldedComponentIds,
       );
+      entry.counters.orphaned += instancesOrphaned;
       // Reconcile yields — a cancel/session-loss may have finalized
       // meanwhile; writing now would hit the terminal-state trigger. A
       // cancel request landing during reconcile still wins below.
@@ -1076,14 +1077,13 @@ export function createDbRemoteRunStore(): RemoteRunStore {
       );
     },
     async reconcile(job, yieldedComponentIds) {
-      const rec = await reconcileRetiredComponents(
+      return reconcileRetiredComponents(
         job.runId,
         job.importerName,
         job.configId,
         yieldedComponentIds,
         job.sourceId,
       );
-      return rec.componentsRetired;
     },
     async stageSuggestions(componentIds, runId) {
       const report = await runSuggestionPass({ componentIds }, { runId });
