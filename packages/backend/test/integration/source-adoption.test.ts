@@ -241,6 +241,54 @@ describe("adopt-on-report and source-qualified externalIds", () => {
       "acct-B::region:type",
     ]);
   });
+
+  it("persists asset/instance sourceDetails on the membership, distinct per Source", async () => {
+    const { db } = await import("../../src/db/connection.js");
+    const configId = (await createConfig()).id;
+    // Unqualified shared externalId reported by two distinct Sources —
+    // one shared component, two memberships with their own details.
+    const shared: DiscoveredAsset = {
+      ...asset("123", { owner: "A" }),
+      instances: [
+        {
+          externalId: "123-inst",
+          environment: "PRODUCTION",
+          status: "RUNNING",
+          sourceDetails: { seenBy: "A" },
+        },
+      ],
+    };
+    (getImporter as any).mockResolvedValueOnce(importerOf([shared], "src-A"));
+    (getImporter as any).mockResolvedValueOnce(
+      importerOf([{ ...shared, sourceDetails: { owner: "B" }, instances: [
+        { externalId: "123-inst", environment: "PRODUCTION", status: "RUNNING", sourceDetails: { seenBy: "B" } },
+      ] }], "src-B"),
+    );
+    expect((await runOnce(configId)).status).toBe("COMPLETED");
+    expect((await runOnce(configId)).status).toBe("COMPLETED");
+
+    const comp = await componentByExternalId("123");
+    const ms = await membershipsFor(comp!.id);
+    expect(ms).toHaveLength(2);
+    const details = ms.map((m) => m.details);
+    expect(details).toContainEqual({ owner: "A" });
+    expect(details).toContainEqual({ owner: "B" });
+
+    // Instance membership details likewise per-Source.
+    const inst = await db
+      .selectFrom("component_instances")
+      .selectAll()
+      .where("externalId", "=", "123-inst")
+      .executeTakeFirstOrThrow();
+    const instMs = await db
+      .selectFrom("source_instance_memberships")
+      .selectAll()
+      .where("componentInstanceId", "=", inst.id)
+      .execute();
+    expect(instMs).toHaveLength(2);
+    expect(instMs.map((m) => m.details)).toContainEqual({ seenBy: "A" });
+    expect(instMs.map((m) => m.details)).toContainEqual({ seenBy: "B" });
+  });
 });
 
 describe("migration 023 — defensible ImporterSource backfill", () => {
