@@ -190,7 +190,19 @@ closed with `039`/`040`, and the three feature-spec gaps shipped as
 `042-catalog-authoring` — what remains are the deferred entries (see
 `researches/ux-rewrite-gaps.md` spec-queue block):
 
-- G15–G19, G26–G28, G30 are deferred unscheduled
+Deferred unscheduled — kept here as the standing reference so future
+planning/discussion can surface them directly (full entries in
+`researches/ux-rewrite-gaps.md`):
+
+- **Security/auth batch** — G16 TOTP (settings/security toggle, no
+  backend; needs ADR), G17 session-concurrency + IP-binding controls,
+  G27 auth hardening (allowed email domains, password policy,
+  register work-email), G30 "keep me signed in" per-session TTL on login
+- **Org/settings batch** — G15 notification delivery + prefs matrix
+  (needs SMTP + per-user prefs endpoint), G18 workspace profile fields
+  (AppSettings lacks org-level config), G19 retention/export/destructive
+  ops, G28 LOB owner field
+- **Standalone** — G26 `includeGone` opt-in on component detail
 
 Beyond the gap queue:
 
