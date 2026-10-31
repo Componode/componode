@@ -27,3 +27,12 @@ None.
 | `region` | string | `us-east-1` | Region label recorded on the placeholder asset |
 | `resourceTypes` | string[] | `["ec2:instance"]` | Resource type labels; one placeholder component each |
 | `endpoint` | URL | unset | Recorded on the asset's details/url; reserved for a future real connection |
+
+## Source identity
+
+The importer reports `scope.sourceKey` as its source identity — a stable,
+non-secret admin-supplied key for the AWS account being inventoried
+(e.g. `prod-account-1`). The run **fails** if `sourceKey` is unset. The
+placeholder `externalId`s are qualified with the key (`{sourceKey}::{region}:{type}`),
+so the first adopted run rekeys them once. No migration backfill: `sourceKey`
+is new in this spec, so prior runs stay `LEGACY_UNATTRIBUTED`.

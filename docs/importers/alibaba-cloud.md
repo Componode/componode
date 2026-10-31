@@ -84,3 +84,13 @@ smallest authenticated call.
 | `capabilities.costs` = `FORBIDDEN` | RAM user lacks `bss:DescribeInstanceBill` |
 | `capabilities.enrichment` markers on every component | RAM user lacks `resourcecenter:GetResourceConfiguration` |
 | Credential test fails | Wrong key pair, or missing `sts:GetCallerIdentity` |
+
+## Source identity
+
+Identity is the `AccountId` returned by STS `GetCallerIdentity` — fetched
+before any asset is yielded, so an empty inventory still registers the Source.
+`externalId`s are ARN-based and already globally unique; they are unchanged.
+No migration backfill (the identity needs a live STS call) — existing accounts
+adopt on their next run. Resource and account assets carry `sourceDetails`
+(ARN, identity type, resource group, zone) that persist on the Source
+membership rather than the shared component row.

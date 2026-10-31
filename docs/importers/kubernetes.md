@@ -28,3 +28,12 @@ None.
 | `namespace` | string | `default` | Namespace label recorded on the placeholder asset |
 | `resourceTypes` | string[] | `["apps/v1:Deployment"]` | `apiVersion:Kind` labels; one placeholder component each |
 | `endpoint` | URL | unset | Recorded on the asset's details/url; reserved for the API server address |
+
+## Source identity
+
+Identity is the canonicalized `endpoint` URL when set (scheme-normalized,
+credentials and auth params stripped — never stored), else `scope.sourceKey`;
+one of the two is **required** or the run fails. `externalId`s are qualified
+(`{identity}::{namespace}:{type}`). Migration 023 backfills a Source +
+memberships for configs that have an `endpoint`; endpoint-less configs adopt
+on their next run once `sourceKey` is set.

@@ -28,3 +28,12 @@ None.
 | `subscriptionId` | string | unset | Subscription label recorded on the placeholder asset |
 | `resourceTypes` | string[] | `["Microsoft.Compute/virtualMachines"]` | ARM resource type labels; one placeholder component each |
 | `endpoint` | URL | unset | Recorded on the asset's details/url; reserved for a future real connection |
+
+## Source identity
+
+Identity is `subscriptionId`, falling back to `scope.sourceKey` when no
+subscription is configured — one of the two is **required** or the run fails.
+The placeholder `externalId`s are scoped by that identity (`{identity}:{type}`;
+previously `default` when no subscription was set). Migration 023 backfills a
+Source + memberships for configs that already carry a `subscriptionId`; others
+adopt on their next run once `sourceKey` is set.
