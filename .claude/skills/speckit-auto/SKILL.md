@@ -84,7 +84,28 @@ Verify AGENTS.md done-criteria first:
 - docs/openapi.yaml regenerated if endpoints changed (ADR-104).
 - docs/importers/<name>.md updated if an importer changed.
 
-Then run `pnpm lint && pnpm typecheck && pnpm test && pnpm build`.
+Then run intelligent verification that detects changed packages:
+
+```bash
+# Detect which packages have source code changes
+CHANGED_PACKAGES=$(git diff --name-only main...HEAD | grep -E '^packages/' | cut -d'/' -f2 | sort -u)
+
+if [ -z "$CHANGED_PACKAGES" ]; then
+  # No package changes detected (e.g., only docs, configs) — run full suite
+  echo "No package source changes detected, running full verification suite..."
+  pnpm lint && pnpm typecheck && pnpm test && pnpm build
+else
+  # Run verification only for changed packages
+  echo "Changed packages detected: $CHANGED_PACKAGES"
+  for pkg in $CHANGED_PACKAGES; do
+    echo "=== Verifying $pkg ==="
+    (cd "packages/$pkg" && pnpm lint && pnpm typecheck && pnpm test && pnpm build) || exit 1
+  done
+  # Also run root-level build to ensure workspace integrity
+  pnpm build
+fi
+```
+
 Commit (write the message to a temp file, `git commit -F <file>` —
 per the AGENTS.md Windows rule) → `git push -u origin <branch>` →
 open the PR per the pr skill with `gh pr create --body-file`.

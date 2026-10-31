@@ -413,3 +413,52 @@ fields are read-only compositions over data already stored.
   `ATTENTION_LIMIT` truncation so clients cannot derive it from the
   capped array. Read-only aggregates; the GET stays side-effect-free
   (ADR-094).
+
+## Amendment 5 — Agent-local target registry and preflight (2026-10-31, via ADR-119)
+
+**Context**: Remote importers need to reach provider endpoints inside the
+restricted network — a Docker daemon, later other remote APIs — without
+the hub ever holding or transmitting the access route. ADR-117 already
+moves *secret values* agent-side; the remaining surface is the
+**non-secret route descriptor** (endpoint, transport, TLS pinning
+parameters): where it lives, who validates it, and when it fails.
+
+**Refinement**:
+
+- **Target profiles live on the Agent**, in a versioned, read-only JSON
+  registry under `SECRETS_DIR` (convention `<name>-targets.json`, e.g.
+  `docker-targets.json` for the first adopter). The hub never stores
+  target profiles; the file is provisioned with the Agent like other
+  `SECRETS_DIR` material. **The registry is the allowlist**: the set of
+  profiles present in the file is the complete set of permitted targets —
+  a `targetId` absent from the registry is rejected. Allowlisting is
+  therefore an Agent-provisioning decision, not a hub input.
+- **`targetId` is an immutable access-route identifier.** Changing an
+  endpoint, transport, or pinning parameter means creating a new profile
+  ID — never editing in place. A `targetId` is distinct from
+  `ImporterSource` identity and from catalog `Component` identity.
+- **Importer configs reference targets indirectly**: the config scope
+  carries a plain `targetId`; `ImporterManifest.targetRefKey` (ADR-056
+  Amendment 1) declares which scope key holds it. The Agent validates the
+  reference and resolves the typed profile through
+  `context.resolveTarget(targetId)` **before** invoking the importer.
+- **Preflight fails before network access**: an unknown, malformed, or
+  disallowed profile rejects the job with a non-secret reason; the Agent
+  stays ready for other importers. Egress allowlists remain
+  defense-in-depth, not the primary gate.
+- **Credentials compose, not redefine**: a profile may reference
+  `AGENT_MANAGED` credential bundles (ADR-117) for keys/certs; the
+  credential mechanism itself is unchanged.
+- The contract is provider-agnostic. Docker is the first adopter
+  (socket/named-pipe, mutual-TLS TCP, pinned-host-key SSH, allowlisted
+  named Context); transport-specific fields live in the typed profile
+  schema, not in this contract. Where a transport admits a secondary
+  selection (e.g. named Docker Contexts), the permitted set is enumerated
+  in the same registry file — the registry is the allowlist for every
+  layer of the choice.
+
+---
+
+**Amended by ADR-119**: the Agent gains a versioned, read-only,
+Agent-local target registry with immutable `targetId`s and
+fail-before-network preflight — see Amendment 5.

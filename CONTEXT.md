@@ -71,6 +71,32 @@ _Avoid_: department, org unit
 A pull-only integration that discovers Components from an external source.
 _Avoid_: connector, sync
 
+**ImporterSource** (Source):
+A durable provenance entity — "which external system reported this data"
+(ADR-119). Keyed by the provider-native canonical identity (engine ID,
+org ID, account/subscription ID, canonicalized URL), never by display
+name. Lifecycle `ACTIVE`/`UNMONITORED`/`RETIRED`; outlives the
+`ImporterConfig` that feeds it. Internal provenance — never a catalog
+Component.
+_Avoid_: connection, endpoint, "source" alone when ambiguity with the
+external system matters (say "the Source" or "ImporterSource")
+
+**Source membership**:
+The durable record that an ImporterSource reported a given Component or
+ComponentInstance — the unit of source-scoped reconciliation (ADR-119,
+ADR-036 Amendment 1). Survives run/config deletion; a shared Component
+stays `ACTIVE` while any Source reports it.
+_Avoid_: last-seen, ownership tag
+
+**Target profile** (`targetId`):
+An Agent-local, versioned, read-only access-route descriptor (endpoint +
+transport + pinning parameters) resolved by the Import Agent before a
+remote run (ADR-116 Amendment 5). Referenced indirectly: config scope
+carries a plain `targetId` named by the manifest's `targetRefKey`.
+Immutable — a changed endpoint is a new `targetId`. Distinct from
+ImporterSource identity and Component identity.
+_Avoid_: connection string, remote config
+
 **Import Agent**:
 A remotely deployed executor that runs importers inside a restricted network
 and streams discovered assets to the hub over an agent-initiated outbound
