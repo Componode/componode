@@ -1896,6 +1896,10 @@ paths:
                   instances:
                     type: array
                     items: { $ref: '#/components/schemas/SourceInstanceMembership' }
+                  truncated:
+                    type: boolean
+                    description: True when either list hit the 200-row cap
+        '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
   /importer-sources/{id}/retire:

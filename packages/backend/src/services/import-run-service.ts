@@ -381,12 +381,48 @@ export async function processAsset(
     const baseInstanceSlug = generateInstanceSlug(componentSlug, instance.environment, instance.externalId);
     const instanceSlug = await ensureUniqueInstanceSlug(trx, baseInstanceSlug, componentId);
 
-    const existingInstance = await trx
+    let existingInstance = await trx
       .selectFrom("component_instances")
       .selectAll()
       .where("componentId", "=", componentId)
       .where("externalId", "=", instance.externalId)
       .executeTakeFirst();
+
+    // Canonical-URL adoption (ADR-120): pre-migration instances stored a
+    // raw URL spelling; canonical emits miss. Match by canonicalized
+    // stored id within this component and rekey to the canonical form.
+    if (!existingInstance && isUrlLike(instance.externalId)) {
+      const siblings = await trx
+        .selectFrom("component_instances")
+        .selectAll()
+        .where("componentId", "=", componentId)
+        .execute();
+      existingInstance = siblings.find(
+        (s) => canonicalizeSourceIdentity(s.externalId) === instance.externalId,
+      );
+      if (existingInstance) {
+        await trx
+          .updateTable("component_instances")
+          .set({ externalId: instance.externalId, updatedAt: now })
+          .where("id", "=", existingInstance.id)
+          .execute();
+        await writeEntityChange(
+          {
+            entityType: "component_instance",
+            entityId: existingInstance.id,
+            action: "update",
+            changes: {
+              externalId: instance.externalId,
+              previousExternalId: existingInstance.externalId,
+              reason: "adopt-on-report",
+            },
+            importRunId: runId,
+            actor,
+          },
+          trx,
+        );
+      }
+    }
 
     const instanceValues = {
       environment: instance.environment,

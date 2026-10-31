@@ -7,16 +7,16 @@ stripped) before matching or persisting. Sources are never matched by
 
 ## Key table
 
-| Importer | `externalIdentity` | Acquisition | `label` |
+| Importer | `externalIdentity` | Acquisition | `label` (as sent) |
 |---|---|---|---|
-| `github` | `{canonicalBaseUrl}org/{orgId}` | `octokit.rest.orgs.get({org})` at run start | `{base}login/{org}` |
-| `aws` | `{sourceKey}` | `scope.sourceKey` — required | operator label |
-| `azure` | `{subscriptionId}` or `{sourceKey}` | `scope.subscriptionId` preferred; `scope.sourceKey` fallback | subscription or operator label |
-| `alibaba-cloud` | `{accountId}` | `client.getCallerIdentity()` (already pre-yield) | account ID |
-| `kubernetes` | `{canonicalEndpoint}` or `{sourceKey}` | `scope.endpoint` preferred; `scope.sourceKey` fallback | endpoint or operator label |
-| `api-url` | `{canonicalUrl}` | `scope.url` (required) | url |
-| `web-url` | `{canonicalUrl}` | `scope.url` (required) | url |
-| `mcp-server` | `{canonicalEndpoint}` or `{sourceKey}` | `scope.endpoint` preferred; `scope.sourceKey` fallback | endpoint or operator label |
+| `github` | `{canonicalBaseUrl}org/{orgId}` | `octokit.rest.orgs.get({org})` at run start | `parsed.org` |
+| `aws` | `{sourceKey}` | `scope.sourceKey` — required | none |
+| `azure` | `{subscriptionId}` or `{sourceKey}` | `scope.subscriptionId` preferred; `scope.sourceKey` fallback | none |
+| `alibaba-cloud` | `{accountId}` | `client.getCallerIdentity()` (already pre-yield) | `Alibaba Cloud account {accountId}` |
+| `kubernetes` | `{canonicalEndpoint}` or `{sourceKey}` | `scope.endpoint` preferred; `scope.sourceKey` fallback | none |
+| `api-url` | `{canonicalUrl}` | `scope.url` (required) | canonical url |
+| `web-url` | `{canonicalUrl}` | `scope.url` (required) | canonical url |
+| `mcp-server` | `{canonicalEndpoint}` or `{sourceKey}` | `scope.endpoint` preferred; `scope.sourceKey` fallback | none |
 
 ## `sourceKey` scope field
 

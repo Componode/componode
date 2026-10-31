@@ -57,7 +57,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   for (const config of configs) {
     const identity = deriveIdentity(config.importerName, config.scope);
-    if (!identity) continue;
+    // An over-bound identity can never pass the runtime contract — skip
+    // rather than mint a Source whose every report fails.
+    if (!identity || identity.length > 512) continue;
 
     // Latest STARTED run of this config — Postgres DESC is NULLS FIRST,
     // so without the filter a PENDING run would win the anchor.
@@ -125,6 +127,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       const id = c.externalId;
       if (id === null) return true;
       if (id.startsWith("default:")) return false;
+      // Azure embeds the subscription as the `{identity}:{rtype}` prefix —
+      // a different prefix means this config's identity changed systems.
+      if (config.importerName === "azure") {
+        return id.startsWith(`${identity}:`);
+      }
       if (!id.includes("://")) return true;
       if (canonicalizeSourceIdentity(id) === identity) return true;
       const i = id.lastIndexOf(":");
@@ -153,13 +160,16 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
     // Instance memberships for instances of those components — same
     // provenance rule as components: only rows an importer run actually
-    // saw (lastSeenInRunId ∈ config's runs). Manually created instances
-    // carry no memberships and are never touched by source reconciliation.
+    // saw (lastSeenInRunId ∈ config's runs) and that aren't GONE — a GONE
+    // instance is not source-reported and must not enter the
+    // effective-active union. Manually created instances carry no
+    // memberships and are never touched by source reconciliation.
     if (attributable.length === 0) continue;
     const instances = await kdb
       .selectFrom("component_instances")
       .select(["id", "lastSeenInRunId"])
       .where("componentId", "in", attributable.map((c) => c.id))
+      .where("status", "!=", "GONE")
       .where(
         "lastSeenInRunId",
         "in",

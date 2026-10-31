@@ -170,7 +170,7 @@ export async function registerOrMatchSource(
         {
           entityType: "importer_source",
           entityId: staleSource.id,
-          action: "unmonitored",
+          action: "unbound",
           changes: {
             configId: boundConfigId,
             reason: "config rebound to a different source identity",
@@ -431,6 +431,7 @@ export async function listSourceMemberships(sourceId: string) {
     ])
     .where("sourceId", "=", sourceId)
     .orderBy("source_component_memberships.createdAt", "asc")
+    .orderBy("source_component_memberships.id", "asc")
     .limit(201)
     .execute();
 
@@ -448,6 +449,7 @@ export async function listSourceMemberships(sourceId: string) {
     ])
     .where("sourceId", "=", sourceId)
     .orderBy("source_instance_memberships.createdAt", "asc")
+    .orderBy("source_instance_memberships.id", "asc")
     .limit(201)
     .execute();
 

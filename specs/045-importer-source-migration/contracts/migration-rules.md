@@ -44,3 +44,17 @@ idempotent (`ON CONFLICT DO NOTHING` on membership/source unique keys).
 Migrations run before the worker accepts runs, so live-run races are
 structurally excluded; `ON CONFLICT` guards make a partially-repeated
 migration safe.
+
+## Amendment — lifecycle bounds (post-review)
+
+Memberships are created only for `ACTIVE` components and non-`GONE`
+instances: a RETIRED component's effective-active membership would block
+adopt-on-report indefinitely, and a GONE instance is not source-reported —
+it must not enter the effective-active union. Both classes are skipped by
+the backfill, not marked LEGACY — their membership state is simply absent.
+
+Additionally, configs whose derived identity exceeds the 512-char runtime
+contract bound are skipped entirely, and azure configs require stored
+externalIds to carry the `{identity}:` prefix — a mismatched prefix means
+the config's identity changed systems pre-upgrade and attribution is
+indefensible.

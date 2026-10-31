@@ -53,6 +53,11 @@ export class KubernetesImporter implements Importer {
     const identity = parsed.endpoint
       ? canonicalizeSourceIdentity(parsed.endpoint)
       : parsed.sourceKey;
+    if (!identity) {
+      // Unreachable — schema refine enforces endpoint|sourceKey — but
+      // narrows `string | undefined` and fails closed if that drifts.
+      throw new Error("kubernetes importer requires endpoint or sourceKey (ADR-120).");
+    }
     await context.reportSourceIdentity({ externalIdentity: identity });
 
     context.reportPhase("Listing resources");

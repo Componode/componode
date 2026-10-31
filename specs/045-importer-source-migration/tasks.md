@@ -296,3 +296,11 @@ backfill; US5 + polish ratify and document.
 - [x] T080 Tighten `isUrlLike` to http(s) schemes only; `encodeURIComponent` the github `#login`-fallback org; drop the now-unreachable `if (!identity)`/`if (!sourceKey)` guards in aws/azure/k8s/mcp importers (schema enforces at config level) (code-review: standards)
 - [x] T081 Clear `boundConfigId` on stale-bound Sources regardless of status in `importer-source-service.ts` — a RETIRED Source must not keep pointing at a config reporting a different identity (only non-RETIRED get status UNMONITORED) (code-review: standards)
 - [x] T082 Memberships endpoint hardening: deterministic `orderBy` + `truncated` flag on `listSourceMemberships`; zod `:id` validation on `/:id` and `/:id/runs` too; fix `docs/importers/github.md` `{base}/org/{id}` missing-slash typo (code-review: standards + spec)
+
+## Phase 15: Review
+
+- [x] T083 Filter migration 023 instance backfill to non-`GONE` instances (a GONE instance is not source-reported and must not enter the effective-active union); document the ACTIVE-component/non-GONE-instance exclusion in `contracts/migration-rules.md` (code-review: standards + spec)
+- [x] T084 Extend the 023 attribution filter: for `azure` configs require stored externalIds to start with `{identity}:` (prefix IS the subscription); skip configs whose derived identity exceeds 512 chars (runtime contract bound) (code-review: standards)
+- [x] T085 Add the canonical-URL fallback to instance matching in `processAsset` — pre-migration instances stored with a raw URL spelling adopt (externalId rekeyed to canonical) instead of duplicating + going GONE (code-review: spec)
+- [x] T086 Update `docs/openapi.yaml` memberships path: add `truncated` to the response schema and a `400` validation-failure response (code-review: standards)
+- [x] T087 Minor fixes: `source-identity-keys.md` label column should reflect what importers actually send; stale-binding audit uses `action: "unbound"` (not "unmonitored" for RETIRED sources); memberships orderBy gets `id` tie-breaker for determinism (code-review: standards)
