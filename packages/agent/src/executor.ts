@@ -1,4 +1,5 @@
 import {
+  AGENT_NACK_TARGET_RESOLUTION_PREFIX,
   AGENT_NACK_UNAVAILABLE_PREFIX,
   NOOP_TRACER,
   type ImporterRegistry,
@@ -11,6 +12,7 @@ import {
   SecretResolutionError,
 } from "@componode/core/secrets";
 import { createAgentResolver, resolveRefMap, type AgentLog } from "./secrets.js";
+import { loadTargetProfile } from "./target-registry.js";
 import type { AgentOpsMetrics } from "./metrics.js";
 
 // Remote job executor (spec 027, ADR-116): the agent-side half of remote
@@ -38,6 +40,16 @@ export interface JobExecutorDeps {
 
 interface ActiveJob {
   controller: AbortController;
+  /** Manifest-declared scope key carrying the targetId (ADR-116 A6). */
+  targetRefKey?: string | null;
+  /** Preflight-resolved non-secret profile for `resolveTarget`. */
+  resolvedTarget?: unknown;
+  /** The scope-supplied targetId that resolved. */
+  targetId?: string;
+  /** Manifest `reportsSourceIdentity` — adopting importer contract. */
+  reportsSourceIdentity?: boolean;
+  /** Set once `source.identity` has been emitted for this job. */
+  sourceIdentityReported?: boolean;
 }
 
 export class JobExecutor {
@@ -110,6 +122,42 @@ export class JobExecutor {
         `AGENT_INCOMPATIBLE: importer "${payload.importerName}" is not compiled into this agent`,
       );
       return;
+    }
+
+    // Target preflight (ADR-116 A5/A6): a manifest declaring targetRefKey
+    // gets its scope targetId resolved against the agent-local registry —
+    // fail-before-network, before secret resolution and before job.ack.
+    let manifest;
+    try {
+      manifest = await registry.getManifest(payload.importerName);
+    } catch {
+      manifest = null;
+    }
+    job.targetRefKey = manifest?.targetRefKey ?? null;
+    job.reportsSourceIdentity = manifest?.reportsSourceIdentity === true;
+    if (job.targetRefKey) {
+      const targetId = payload.scope?.[job.targetRefKey];
+      if (typeof targetId !== "string" || targetId.trim() === "") {
+        this.nack(
+          runId,
+          `${AGENT_NACK_TARGET_RESOLUTION_PREFIX}: scope key "${job.targetRefKey}" must carry a targetId`,
+        );
+        return;
+      }
+      try {
+        job.resolvedTarget = await loadTargetProfile(
+          this.deps.secretsDir,
+          payload.importerName,
+          targetId,
+        );
+        job.targetId = targetId;
+      } catch (err) {
+        this.nack(
+          runId,
+          `${AGENT_NACK_TARGET_RESOLUTION_PREFIX}: ${err instanceof Error ? err.message : "target resolution failed"}`,
+        );
+        return;
+      }
     }
 
     // Resolve the reference map BEFORE acknowledging — a missing env var or
@@ -194,6 +242,20 @@ export class JobExecutor {
           }
         },
         tracer: NOOP_TRACER,
+        reportSourceIdentity: (identity: { externalIdentity: string; label?: string }) => {
+          if (job.sourceIdentityReported) {
+            log.warn({ runId }, "duplicate source identity report ignored");
+            return;
+          }
+          job.sourceIdentityReported = true;
+          send("source.identity", identity, runId);
+        },
+        resolveTarget: (targetId: string) => {
+          if (!job.targetRefKey || !job.resolvedTarget || targetId !== job.targetId) {
+            throw new Error(`resolveTarget: no resolved profile for target "${targetId}"`);
+          }
+          return job.resolvedTarget;
+        },
       };
 
       let batch: unknown[] = [];
@@ -211,6 +273,12 @@ export class JobExecutor {
         secrets,
         context,
       )) {
+        if (job.reportsSourceIdentity && !job.sourceIdentityReported) {
+          throw Object.assign(
+            new Error("Importer yielded an asset before reporting its source identity"),
+            { code: "CONTRACT_VIOLATION" },
+          );
+        }
         if (job.controller.signal.aborted) break;
         const serialized = JSON.stringify(asset);
         const size = Buffer.byteLength(serialized);
@@ -240,6 +308,12 @@ export class JobExecutor {
         send("run.complete", { result: "CANCELLED" }, runId);
         this.deps.ops?.jobCompleted("CANCELLED");
         return;
+      }
+      if (job.reportsSourceIdentity && !job.sourceIdentityReported) {
+        throw Object.assign(
+          new Error("Importer completed without reporting its source identity"),
+          { code: "CONTRACT_VIOLATION" },
+        );
       }
       send("run.complete", { result: "COMPLETED" }, runId);
       this.deps.ops?.jobCompleted("COMPLETED");

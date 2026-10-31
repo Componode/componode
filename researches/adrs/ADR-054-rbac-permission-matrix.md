@@ -47,3 +47,8 @@ already exists for groups).
 audit event with `toActor` attribution, enforces unique kebab-case slugs
 (`409 SLUG_CONFLICT`), and never accepts importer-managed columns
 (`externalId`, `details`, `lastSeen*`).
+## Amendment 2 — ImporterSource lifecycle permissions (2026-10-31, spec 044)
+
+**Refinement**: `importer:source:retire` and `importer:source:reactivate`
+map to ADMIN. Source reads (`GET /importer-sources*`) are
+authenticated-any, consistent with `GET /importer-configs`.

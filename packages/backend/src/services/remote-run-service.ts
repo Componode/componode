@@ -2,6 +2,7 @@ import {
   AGENT_DISPATCH_TIMEOUT_MS,
   AGENT_JOB_ACK_TIMEOUT_MS,
   AGENT_NACK_SECRET_RESOLUTION_PREFIX,
+  AGENT_NACK_TARGET_RESOLUTION_PREFIX,
   AGENT_NACK_UNAVAILABLE_PREFIX,
   validateDiscoveredAssetDetailed,
   type AgentActiveRun,
@@ -13,6 +14,7 @@ import {
   type RunCompletePayload,
   type RunErrorPayload,
   type SecretRefMap,
+  type SourceIdentityPayload,
 } from "@componode/core";
 import { db } from "../db/connection.js";
 import { toJsonb } from "../db/json.js";
@@ -28,6 +30,8 @@ import {
   updateRun,
 } from "./import-run-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
+import { recordRunSourceIdentity } from "./importer-source-service.js";
+import { runActor } from "./import-run-service.js";
 
 // Remote run dispatch (spec 027, ADR-116): the hub-side owner of remote job
 // state. In-process execution never touches this module — bound configs take
@@ -56,6 +60,16 @@ export interface RemoteJobContext {
   revokedCredentialLabel: string | null;
   /** Manifest-required secret keys the merged refs don't cover. */
   missingSecretKeys: string[];
+  /** Manifest `targetRefKey` — names the scope key carrying a targetId
+   *  (ADR-116 A6). null when the importer takes no remote target. */
+  targetRefKey: string | null;
+  /** targetRefKey declared but scope[key] missing/non-string — fails the
+   *  run at the gate before dispatch (agent preflight stays authoritative). */
+  missingTarget: boolean;
+  /** Manifest `reportsSourceIdentity` — adopting importer contract. */
+  reportsSourceIdentity: boolean;
+  /** Durable source attribution once the source.identity frame lands. */
+  sourceId: string | null;
   /** Set when a cancel lands between row-commit and enqueue — the run
    *  must finalize CANCELLED without ever dispatching (in-process parity:
    *  the worker honors cancelRequestedAt). */
@@ -84,6 +98,12 @@ export interface RemoteRunStore {
     job: RemoteJobContext,
     asset: DiscoveredAsset,
   ): Promise<{ componentId: string; created: boolean; instancesOrphaned: number }>;
+  /** Register-or-match the reported Source, bind the config, stamp
+   *  `import_runs.sourceId`. Returns the source id. */
+  recordSourceIdentity(
+    job: RemoteJobContext,
+    identity: SourceIdentityPayload,
+  ): Promise<string>;
   reconcile(
     job: RemoteJobContext,
     yieldedComponentIds: Set<string>,
@@ -113,6 +133,7 @@ export interface AgentSessionAdapter {
 // (ignorable) frame for job.ack.
 export interface RemoteRunHandler {
   onJobAck(agentId: string, runId: string, payload: JobAckPayload): Promise<boolean>;
+  onSourceIdentity(agentId: string, runId: string, payload: SourceIdentityPayload): Promise<boolean>;
   onAssetBatch(agentId: string, runId: string, payload: AssetBatchPayload): Promise<boolean>;
   onPhase(agentId: string, runId: string, payload: PhasePayload): Promise<boolean>;
   onRunError(agentId: string, runId: string, payload: RunErrorPayload): Promise<boolean>;
@@ -342,6 +363,13 @@ export class RemoteRunService implements RemoteRunHandler {
         message: `Missing required secret(s) for importer "${job.importerName}": ${job.missingSecretKeys.join(", ")} — link an agent-managed credential covering them`,
       };
     }
+    if (job.missingTarget) {
+      return {
+        result: "failed",
+        errorType: "TARGET_RESOLUTION_FAILED",
+        message: `Importer "${job.importerName}" requires a target reference in scope key "${job.targetRefKey}"`,
+      };
+    }
     return null;
   }
 
@@ -458,18 +486,21 @@ export class RemoteRunService implements RemoteRunHandler {
       // (AGENT_UNAVAILABLE), everything else is AGENT_INCOMPATIBLE.
       const secretFailure = reason.startsWith(AGENT_NACK_SECRET_RESOLUTION_PREFIX);
       const capacityRefusal = reason.startsWith(AGENT_NACK_UNAVAILABLE_PREFIX);
+      const targetFailure = reason.startsWith(AGENT_NACK_TARGET_RESOLUTION_PREFIX);
       await this.finalize(
         entry,
-        secretFailure ? "failed" : capacityRefusal ? "unavailable" : "incompatible",
+        secretFailure || targetFailure ? "failed" : capacityRefusal ? "unavailable" : "incompatible",
         {
           status: "FAILED",
           completedAt: new Date().toISOString(),
           currentPhase: "Failed",
           errorType: secretFailure
             ? "SECRET_RESOLUTION_FAILED"
-            : capacityRefusal
-              ? "AGENT_UNAVAILABLE"
-              : "AGENT_INCOMPATIBLE",
+            : targetFailure
+              ? "TARGET_RESOLUTION_FAILED"
+              : capacityRefusal
+                ? "AGENT_UNAVAILABLE"
+                : "AGENT_INCOMPATIBLE",
           errorMessage: reason,
         },
       );
@@ -500,10 +531,42 @@ export class RemoteRunService implements RemoteRunHandler {
     return true;
   }
 
+  async onSourceIdentity(agentId: string, runId: string, payload: SourceIdentityPayload): Promise<boolean> {
+    const entry = this.inFlight.get(runId);
+    if (!entry || entry.job.agent.id !== agentId || entry.state !== "RUNNING") {
+      return false;
+    }
+    // A source.identity frame on a non-adopting manifest must not flip the
+    // run to source-scoped reconciliation (FR-013).
+    if (!entry.job.reportsSourceIdentity) {
+      this.log.warn({ runId }, "ignoring source.identity from a non-adopting importer");
+      return true;
+    }
+    if (entry.job.sourceId) {
+      this.log.warn({ runId }, "ignoring duplicate source.identity frame");
+      return true;
+    }
+    entry.job.sourceId = await this.store.recordSourceIdentity(entry.job, payload);
+    return true;
+  }
+
   async onAssetBatch(agentId: string, runId: string, payload: AssetBatchPayload): Promise<boolean> {
     const entry = this.inFlight.get(runId);
     if (!entry || entry.job.agent.id !== agentId || entry.state !== "RUNNING") {
       return false;
+    }
+    // An adopting importer must report source identity before its first
+    // batch (ADR-056 A1/A2) — the agent enforces ordering, and the hub
+    // fails closed if a non-compliant agent streams anyway.
+    if (entry.job.reportsSourceIdentity && !entry.job.sourceId) {
+      await this.finalize(entry, "failed", {
+        status: "FAILED",
+        completedAt: new Date().toISOString(),
+        currentPhase: "Failed",
+        errorType: "CONTRACT_VIOLATION",
+        errorMessage: "Importer streamed assets before reporting its source identity",
+      });
+      return true;
     }
     for (const raw of payload.assets) {
       // The run can finalize mid-batch (session lost / cancel) — stop
@@ -603,6 +666,19 @@ export class RemoteRunService implements RemoteRunHandler {
       instancesOrphaned: entry.counters.orphaned,
     };
     if (payload.result === "COMPLETED" && !entry.cancelRequested) {
+      // An adopting importer that completes without reporting identity
+      // fails as a contract violation — it must not fall through to
+      // legacy config-scoped reconciliation (FR-002).
+      if (entry.job.reportsSourceIdentity && !entry.job.sourceId) {
+        await this.finalize(entry, "failed", {
+          ...base,
+          status: "FAILED",
+          currentPhase: "Failed",
+          errorType: "CONTRACT_VIOLATION",
+          errorMessage: "Importer completed without reporting its source identity",
+        }, true);
+        return true;
+      }
       const componentsRetired = await this.store.reconcile(
         entry.job,
         entry.yieldedComponentIds,
@@ -864,7 +940,24 @@ export function createDbRemoteRunStore(): RemoteRunStore {
         .selectAll()
         .where("id", "=", run.agentId)
         .executeTakeFirst();
-      if (!config || !agent) return null;
+      if (!config || !agent) {
+        // The run's config (or agent) was deleted while it queued —
+        // finalize it rather than leaving it PENDING forever (ADR-047 A1).
+        if (run.status === "PENDING") {
+          try {
+            await updateRun(runId, {
+              status: "FAILED",
+              completedAt: new Date().toISOString(),
+              currentPhase: "Failed",
+              errorType: config ? "AGENT_UNAVAILABLE" : "CONFIG_DELETED",
+              errorMessage: config
+                ? "Assigned agent no longer exists"
+                : "Importer config was deleted before dispatch",
+            });
+          } catch { /* raced finalization — terminal rows are immutable */ }
+        }
+        return null;
+      }
 
       // Merge every linked AGENT_MANAGED credential's reference map. Key
       // collisions are impossible — the config write path rejects them.
@@ -906,6 +999,11 @@ export function createDbRemoteRunStore(): RemoteRunStore {
       const missingSecretKeys = (manifest.secrets ?? [])
         .filter((d) => d.required && !(secretRefMap && d.key in secretRefMap))
         .map((d) => d.key);
+      const targetRefKey = manifest.targetRefKey ?? null;
+      const missingTarget =
+        targetRefKey !== null &&
+        (typeof config.scope[targetRefKey] !== "string" ||
+          (config.scope[targetRefKey] as string).trim() === "");
 
       return {
         runId: run.id,
@@ -919,6 +1017,10 @@ export function createDbRemoteRunStore(): RemoteRunStore {
         credentialIds,
         revokedCredentialLabel,
         missingSecretKeys,
+        targetRefKey,
+        missingTarget,
+        reportsSourceIdentity: manifest.reportsSourceIdentity === true,
+        sourceId: run.sourceId ?? null,
         cancelRequestedAt: run.cancelRequestedAt,
         runCreatedAt: run.createdAt,
         agent: {
@@ -936,10 +1038,19 @@ export function createDbRemoteRunStore(): RemoteRunStore {
     async insertRunError(runId, assetExternalId, errorType, errorMessage) {
       await insertRunError(runId, assetExternalId, errorType, errorMessage);
     },
+    async recordSourceIdentity(job, identity) {
+      return recordRunSourceIdentity(
+        job.importerName,
+        identity,
+        job.runId,
+        job.configId,
+        runActor(job.importerName),
+      );
+    },
     async processAsset(job, asset) {
       return traceDbQuery("processAsset", () =>
         db.transaction().execute(async (trx) =>
-          processAsset(trx, job.runId, job.importerName, asset, job.triggeredBy),
+          processAsset(trx, job.runId, job.importerName, asset, job.triggeredBy, job.sourceId),
         ),
       );
     },
@@ -949,6 +1060,7 @@ export function createDbRemoteRunStore(): RemoteRunStore {
         job.importerName,
         job.configId,
         yieldedComponentIds,
+        job.sourceId,
       );
     },
     async stageSuggestions(componentIds, runId) {

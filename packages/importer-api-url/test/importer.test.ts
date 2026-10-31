@@ -8,6 +8,8 @@ function makeContext(): ImporterContext {
     logger: NOOP_LOGGER,
     signal: new AbortController().signal,
     reportPhase: vi.fn(),
+    reportSourceIdentity: vi.fn(),
+    resolveTarget: vi.fn(),
   };
 }
 

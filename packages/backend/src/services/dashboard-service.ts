@@ -143,7 +143,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   // Attention: failed runs first, then ERROR instances, then GONE instances.
   const failedRuns = await db
     .selectFrom("import_runs")
-    .innerJoin("importer_configs", "import_runs.configId", "importer_configs.id")
+    .leftJoin("importer_configs", "import_runs.configId", "importer_configs.id")
     .select([
       "import_runs.id as runId",
       "import_runs.configId",

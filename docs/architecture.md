@@ -261,7 +261,7 @@ flowchart LR
   a durable credential the agent persists in `AGENT_STATE_DIR`; rotate and
   revoke are hub-side operations that drop live sessions.
 - **Lockstep handshake**: `hello` must report the hub's exact importer set
-  and `AGENT_PROTOCOL_VERSION` (currently `2`); a mismatch closes the stream
+  and `AGENT_PROTOCOL_VERSION` (currently `3`); a mismatch closes the stream
   and the agent image must be rebuilt from the same commit as the hub.
 - **Remote runs**: a config bound to an agent dispatches `job.assign` over
   the stream (`MAX_JOBS` caps concurrency; overflow queues hub-side). Agent

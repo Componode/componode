@@ -208,9 +208,49 @@ export interface AgentSessionRow {
   importerVersions: Generated<Array<{ name: string; version: string }>>;
 }
 
+export interface ImporterSourceRow {
+  id: string;
+  importerName: string;
+  externalIdentity: string;
+  label: string | null;
+  status: string;
+  boundConfigId: string | null;
+  firstSeenInRunId: string | null;
+  lastSeenInRunId: string | null;
+  createdAt: Generated<string>;
+  updatedAt: Generated<string>;
+}
+
+export interface SourceComponentMembershipRow {
+  id: string;
+  sourceId: string;
+  componentId: string;
+  active: boolean;
+  details: Record<string, unknown> | null;
+  firstSeenInRunId: string | null;
+  lastSeenInRunId: string | null;
+  createdAt: Generated<string>;
+  updatedAt: Generated<string>;
+}
+
+export interface SourceInstanceMembershipRow {
+  id: string;
+  sourceId: string;
+  componentInstanceId: string;
+  active: boolean;
+  details: Record<string, unknown> | null;
+  firstSeenInRunId: string | null;
+  lastSeenInRunId: string | null;
+  createdAt: Generated<string>;
+  updatedAt: Generated<string>;
+}
+
 export interface ImportRunRow {
   id: string;
-  configId: string;
+  // Nullable — deleting a config preserves run history (ADR-047 A1).
+  configId: string | null;
+  // Durable source attribution; NULL = LEGACY_UNATTRIBUTED (ADR-119).
+  sourceId: string | null;
   // The executing Import Agent for remote runs; NULL = in-process (spec 027).
   // No FK — run rows are history and must survive agent deletion.
   agentId: string | null;
@@ -353,6 +393,9 @@ export interface DB {
   agent_sessions: AgentSessionRow;
   import_runs: ImportRunRow;
   import_run_errors: ImportRunErrorRow;
+  importer_sources: ImporterSourceRow;
+  source_component_memberships: SourceComponentMembershipRow;
+  source_instance_memberships: SourceInstanceMembershipRow;
   entity_changes: EntityChangeRow;
   edge_changes: EdgeChangeRow;
   edge_suggestions: EdgeSuggestionRow;

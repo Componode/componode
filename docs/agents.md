@@ -247,3 +247,14 @@ session-duration, and staleness questions.
 | `credential rejected (401)` on stream | Agent revoked or deleted — rotate to re-enable, or recreate                  |
 | `importer_mismatch` close             | Agent image built from a different commit than the hub — rebuild in lockstep |
 | `refuses insecure` config error       | `HUB_URL` is `http://`/`ws://` to a non-loopback host — use TLS              |
+
+## Agent target registry (spec 044)
+
+Importers whose manifest declares `targetRefKey` resolve their access
+route agent-side from `${SECRETS_DIR}/{importerName}-targets.json` — a
+versioned, read-only registry provisioned with the agent. The file is the
+allowlist: a `targetId` absent from it is rejected before network access
+(`TARGET_RESOLUTION_FAILED` NACK), and `targetId`s are immutable — a new
+endpoint or transport means a new profile ID. Profiles may reference
+`AGENT_MANAGED` credential bundles; the credential mechanism is
+unchanged.

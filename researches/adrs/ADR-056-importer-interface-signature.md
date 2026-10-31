@@ -51,3 +51,16 @@ database.
 **Amended by ADR-119**: `context` gains `reportSourceIdentity` +
 `resolveTarget`, and `ImporterManifest` gains `targetRefKey` — see
 Amendment 1.
+
+## Amendment 2 — manifest adoption flags and in-process resolveTarget (2026-10-31, spec 044)
+
+**Refinement**: `ImporterManifest` gains `targetRefKey?: string` (names the
+config-scope key carrying the `targetId`) and
+`reportsSourceIdentity?: boolean` (declares the importer reports source
+identity before first yield). The flag distinguishes adopting importers
+(contract violation when a run yields without reporting —
+`errorType = CONTRACT_VIOLATION`) from not-yet-migrated ones (legacy
+unattributed path until their named wave). `ImporterContext`'s new
+members are required; the in-process `resolveTarget` is a stub that
+always throws — target profiles resolve only on Import Agents
+(ADR-116 Amendment 5/6).

@@ -96,6 +96,12 @@ export type { LineOfBusiness } from "./contracts/line-of-business.js";
 export type { Team } from "./contracts/team.js";
 export type { ImporterConfig } from "./contracts/importer-config.js";
 export type { ImportRun, ImportRunError } from "./contracts/import-run.js";
+export type {
+  ImporterSource,
+  ImporterSourceListItem,
+  SourceIdentityInput,
+  BoundConfigSummary,
+} from "./contracts/importer-source.js";
 export type { OidcConfig } from "./contracts/oidc-config.js";
 export type { AppSettings } from "./contracts/app-settings.js";
 export type { PasswordResetToken } from "./contracts/password-reset-token.js";
@@ -115,6 +121,29 @@ export type {
   SecretResolver,
   ImporterSecretDeclaration,
 } from "./contracts/importer.js";
+export { canonicalizeSourceIdentity } from "./utils/source-identity.js";
+export {
+  importerSourceListQuerySchema,
+  type ImporterSourceListQuery,
+} from "./schemas/importer-source.js";
+export {
+  parseTargetRegistry,
+  TargetRegistryError,
+  targetProfileSchema,
+  targetRegistrySchema,
+} from "./utils/target-registry.js";
+export type {
+  TargetProfile,
+  TargetRegistry,
+} from "./utils/target-registry.js";
+export {
+  IMPORTER_SOURCE_STATUSES,
+  SOURCE_AUDIT_ACTIONS,
+} from "./constants/importer-source.js";
+export type {
+  ImporterSourceStatus,
+  SourceAuditAction,
+} from "./constants/importer-source.js";
 export type {
   Credential,
   CredentialDependents,
@@ -290,6 +319,7 @@ export {
   AGENT_DISPATCH_TIMEOUT_MS,
   AGENT_JOB_ACK_TIMEOUT_MS,
   AGENT_NACK_SECRET_RESOLUTION_PREFIX,
+  AGENT_NACK_TARGET_RESOLUTION_PREFIX,
   AGENT_NACK_UNAVAILABLE_PREFIX,
   AGENT_ERROR_CODES,
 } from "./constants/import-agent.js";

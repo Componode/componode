@@ -50,6 +50,8 @@ const CODE_MEANINGS: Record<string, string> = {
     "Importer config missing at run time (surfaced via run error fields)",
   RUN_IN_PROGRESS: "An import run is already in progress for this config (409)",
   RUN_NOT_ACTIVE: "Run is not PENDING/RUNNING and cannot be cancelled (409)",
+  SOURCE_NOT_FOUND: "Importer source not found (404)",
+  SOURCE_STATE_CONFLICT: "Invalid source lifecycle transition (409)",
   INTERNAL_ERROR: "Unhandled server error",
   CREDENTIAL_NOT_FOUND: "Credential not found (404)",
   CREDENTIAL_IN_USE:

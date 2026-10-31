@@ -29,6 +29,8 @@ const PERMISSIONS: Record<string, Role> = {
   "agent:create": "ADMIN",
   "agent:update": "ADMIN",
   "agent:delete": "ADMIN",
+  "importer:source:retire": "ADMIN",
+  "importer:source:reactivate": "ADMIN",
   "importer:run:trigger": "EDITOR",
   "importer:run:cancel": "EDITOR",
   "component:update": "EDITOR",

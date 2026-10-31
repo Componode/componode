@@ -18,6 +18,14 @@ export interface ImporterManifest {
   // record; drives save-time coverage validation. Declare only keys the
   // importer actually reads (contracts/credentials-api.md).
   secrets?: ImporterSecretDeclaration[];
+  // Names the config-scope key carrying the agent-local `targetId`
+  // (ADR-056 A1, ADR-116 A5). Presence means remote execution with
+  // agent-registry preflight; absent = no target resolution.
+  targetRefKey?: string;
+  // Declares this importer calls `context.reportSourceIdentity` before
+  // its first asset yield (ADR-056 A2). Absent/false = legacy
+  // unattributed provenance until the importer's migration wave.
+  reportsSourceIdentity?: boolean;
 }
 
 export interface ImporterRegistry {

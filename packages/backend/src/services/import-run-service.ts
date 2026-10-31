@@ -23,6 +23,11 @@ import { sql, type Kysely } from "kysely";
 import type { DB } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
+import {
+  hasEffectiveActiveComponentMembership,
+  markOrphanedInstancesGone,
+  recordRunSourceIdentity,
+} from "./importer-source-service.js";
 
 const maxConcurrency = parseInt(process.env.IMPORTER_MAX_CONCURRENCY ?? "3", 10);
 if (isNaN(maxConcurrency) || maxConcurrency < 1) {
@@ -136,6 +141,7 @@ export async function processAsset(
   importerName: string,
   asset: DiscoveredAsset,
   triggeredBy: string | null,
+  sourceId: string | null = null,
 ): Promise<{ componentId: string; created: boolean; instancesOrphaned: number }> {
   const now = new Date().toISOString();
   const actor = runActor(importerName);
@@ -229,6 +235,14 @@ export async function processAsset(
     );
   }
 
+  // Source membership upsert (ADR-119 #4): adopting runs stamp the durable
+  // Source→Component membership; legacy runs (sourceId null) skip it.
+  if (sourceId) {
+    await upsertComponentMembership(trx, sourceId, componentId, runId, now);
+  }
+
+  const yieldedInstanceIds = new Set<string>();
+
   for (const instance of asset.instances) {
     const baseInstanceSlug = generateInstanceSlug(componentSlug, instance.environment, instance.externalId);
     const instanceSlug = await ensureUniqueInstanceSlug(trx, baseInstanceSlug, componentId);
@@ -255,6 +269,7 @@ export async function processAsset(
     };
 
     if (existingInstance) {
+      yieldedInstanceIds.add(existingInstance.id);
       const statusChanged = existingInstance.status !== (instance.status ?? "RUNNING");
       await trx
         .updateTable("component_instances")
@@ -281,6 +296,7 @@ export async function processAsset(
       }
     } else {
       const instanceId = uuidv7();
+      yieldedInstanceIds.add(instanceId);
       await trx
         .insertInto("component_instances")
         .values({
@@ -311,31 +327,217 @@ export async function processAsset(
     }
   }
 
-  // Phase 1 reconciliation: orphan instances for this component not seen this run
-  const orphanResult = await trx
-    .updateTable("component_instances")
-    .set({ status: "GONE", updatedAt: now })
-    .where("componentId", "=", componentId)
-    .where("lastSeenInRunId", "!=", runId)
-    .executeTakeFirst();
+  // Phase 1 reconciliation.
+  let instancesOrphaned: number;
+  if (sourceId) {
+    // Source-scoped (ADR-036 A1): deactivate this Source's instance
+    // memberships it did not refresh on this component, then recompute
+    // GONE over the effective-active union (active membership on a
+    // non-RETIRED source). Manually-created instances carry no
+    // memberships and are never touched.
+    for (const instanceId of yieldedInstanceIds) {
+      await upsertInstanceMembership(trx, sourceId, instanceId, runId, now);
+    }
 
-  const instancesOrphaned = Number(orphanResult.numUpdatedRows ?? 0);
+    const staleMemberships = await trx
+      .updateTable("source_instance_memberships")
+      .set({ active: false, updatedAt: now })
+      .where("sourceId", "=", sourceId)
+      .where("active", "=", true)
+      .where("lastSeenInRunId", "!=", runId)
+      .where(
+        "componentInstanceId",
+        "in",
+        trx
+          .selectFrom("component_instances")
+          .select("id")
+          .where("componentId", "=", componentId),
+      )
+      .returning("componentInstanceId")
+      .execute();
+
+    instancesOrphaned = await markOrphanedInstancesGone(
+      trx,
+      staleMemberships.map((m) => m.componentInstanceId),
+      now,
+    );
+  } else {
+    // Legacy path (non-adopting importers — byte-identical behavior):
+    // orphan instances for this component not seen this run.
+    const orphanResult = await trx
+      .updateTable("component_instances")
+      .set({ status: "GONE", updatedAt: now })
+      .where("componentId", "=", componentId)
+      .where("lastSeenInRunId", "!=", runId)
+      .executeTakeFirst();
+    instancesOrphaned = Number(orphanResult.numUpdatedRows ?? 0);
+  }
 
   return { componentId, created, instancesOrphaned };
 }
+
+/** Upsert the durable Source→Component membership for an adopting run. */
+async function upsertComponentMembership(
+  trx: Kysely<DB>,
+  sourceId: string,
+  componentId: string,
+  runId: string,
+  now: string,
+): Promise<void> {
+  await trx
+    .insertInto("source_component_memberships")
+    .values({
+      id: uuidv7(),
+      sourceId,
+      componentId,
+      active: true,
+      details: null,
+      firstSeenInRunId: runId,
+      lastSeenInRunId: runId,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflict((oc) =>
+      oc.columns(["sourceId", "componentId"]).doUpdateSet({
+        active: true,
+        lastSeenInRunId: runId,
+        updatedAt: now,
+      }),
+    )
+    .execute();
+}
+
+/** Upsert the durable Source→ComponentInstance membership. */
+async function upsertInstanceMembership(
+  trx: Kysely<DB>,
+  sourceId: string,
+  componentInstanceId: string,
+  runId: string,
+  now: string,
+): Promise<void> {
+  await trx
+    .insertInto("source_instance_memberships")
+    .values({
+      id: uuidv7(),
+      sourceId,
+      componentInstanceId,
+      active: true,
+      details: null,
+      firstSeenInRunId: runId,
+      lastSeenInRunId: runId,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflict((oc) =>
+      oc.columns(["sourceId", "componentInstanceId"]).doUpdateSet({
+        active: true,
+        lastSeenInRunId: runId,
+        updatedAt: now,
+      }),
+    )
+    .execute();
+}
+
 
 export async function reconcileRetiredComponents(
   runId: string,
   importerName: string,
   configId: string,
   yieldedComponentIds: Set<string>,
+  sourceId: string | null = null,
 ): Promise<number> {
+  const now = new Date().toISOString();
+  const actor = runActor(importerName);
+
+  // Source-scoped reconciliation (ADR-036 A1, spec 044): the reporting
+  // Source's durable memberships are the reconciliation unit. Runs still
+  // carry LEGACY_UNATTRIBUTED provenance (sourceId null) keep the
+  // config-scoped path byte-identical.
+  if (sourceId) {
+    return db.transaction().execute(async (trx) => {
+      // Deactivate this Source's memberships it did not refresh this run —
+      // including an empty inventory, which deactivates all of them.
+      const staleComponentMemberships = await trx
+        .updateTable("source_component_memberships")
+        .set({ active: false, updatedAt: now })
+        .where("sourceId", "=", sourceId)
+        .where("active", "=", true)
+        .where("lastSeenInRunId", "!=", runId)
+        .returning("componentId")
+        .execute();
+
+      const staleInstanceMemberships = await trx
+        .updateTable("source_instance_memberships")
+        .set({ active: false, updatedAt: now })
+        .where("sourceId", "=", sourceId)
+        .where("active", "=", true)
+        .where("lastSeenInRunId", "!=", runId)
+        .returning("componentInstanceId")
+        .execute();
+
+      // GONE applies only when no effective-active membership remains.
+      const orphaned = await markOrphanedInstancesGone(
+        trx,
+        staleInstanceMemberships.map((m) => m.componentInstanceId),
+        now,
+      );
+      if (orphaned > 0) {
+        await trx
+          .updateTable("import_runs")
+          .set((eb) => ({ instancesOrphaned: eb("instancesOrphaned", "+", orphaned) }))
+          .where("id", "=", runId)
+          .execute();
+      }
+
+      // RETIRED applies only when no effective-active membership remains —
+      // entities nobody ever reported have no memberships and are never
+      // reconciled by a source run.
+      let retired = 0;
+      for (const stale of staleComponentMemberships) {
+        const stillReported = await hasEffectiveActiveComponentMembership(
+          trx,
+          stale.componentId,
+        );
+        if (stillReported) continue;
+
+        const updated = await trx
+          .updateTable("components")
+          .set({ lifecycle: "RETIRED", updatedAt: now })
+          .where("id", "=", stale.componentId)
+          .where("lifecycle", "=", "ACTIVE")
+          .returning(["id", "name", "slug"])
+          .executeTakeFirst();
+        if (!updated) continue;
+        retired++;
+
+        await trx
+          .updateTable("component_instances")
+          .set({ status: "GONE", updatedAt: now })
+          .where("componentId", "=", updated.id)
+          .where("status", "!=", "GONE")
+          .execute();
+
+        await writeEntityChange(
+          {
+            entityType: "component",
+            entityId: updated.id,
+            action: "retired",
+            changes: { lifecycle: "RETIRED", name: updated.name, slug: updated.slug },
+            importRunId: runId,
+            actor,
+          },
+          trx,
+        );
+      }
+
+      return retired;
+    });
+  }
+
+  // Legacy path — unchanged for non-adopting importers (FR-013).
   if (yieldedComponentIds.size === 0) {
     return 0;
   }
-
-  const now = new Date().toISOString();
-  const actor = runActor(importerName);
 
   return db.transaction().execute(async (trx) => {
     const toRetire = await trx
@@ -500,12 +702,49 @@ async function worker(runId: string): Promise<void> {
       await updateRun(runId, { currentPhase: name });
     };
 
+    let reportedSourceId: string | null = null;
+    // Stored so an importer that forgets to await its report still has the
+    // registration complete before the ordering check (unawaited-report race).
+    let sourceReportPromise: Promise<void> | null = null;
+
     const context = {
       runId,
       logger: runLogger,
       signal: controller.signal,
       reportPhase,
       tracer: NOOP_TRACER,
+      reportSourceIdentity: (identity: { externalIdentity: string; label?: string }) => {
+        // Non-adopting manifests stay on the legacy config-scoped path
+        // (FR-013) — a stray report must not flip the run's reconciliation.
+        if (manifest.reportsSourceIdentity !== true) {
+          runLogger.warn("source identity report from a non-adopting importer — ignoring");
+          return;
+        }
+        if (reportedSourceId || sourceReportPromise) {
+          runLogger.warn("source identity already reported for this run — ignoring subsequent report");
+          return sourceReportPromise ?? undefined;
+        }
+        sourceReportPromise = (async () => {
+          reportedSourceId = await recordRunSourceIdentity(
+            importerName!,
+            identity,
+            runId,
+            config.id,
+            runActor(importerName!),
+          );
+        })();
+        // Keep the rejection observable if the run aborts before the
+        // ordering checks get a chance to await it.
+        sourceReportPromise.catch((err) =>
+          runLogger.warn(`source identity registration failed: ${err}`),
+        );
+        return sourceReportPromise;
+      },
+      // Target profiles resolve only on Import Agents (ADR-116 A5) —
+      // in-process runs get the failing stub.
+      resolveTarget: (): unknown => {
+        throw new Error("resolveTarget is only available on Import Agents");
+      },
     };
 
     const yieldedComponentIds = new Set<string>();
@@ -520,6 +759,18 @@ async function worker(runId: string): Promise<void> {
         throw Object.assign(new Error("AbortError"), { name: "AbortError" });
       }
 
+      // Adopting importers must report source identity before the first
+      // yield (ADR-056 A1/A2) — an asset arriving first is a contract
+      // violation, not a partial import. Await an in-flight report so an
+      // importer that forgot `await` isn't falsely flagged.
+      if (sourceReportPromise) await sourceReportPromise;
+      if (manifest.reportsSourceIdentity && !reportedSourceId) {
+        throw Object.assign(
+          new Error("Importer yielded an asset before reporting its source identity"),
+          { code: "CONTRACT_VIOLATION" },
+        );
+      }
+
       const validation = validateDiscoveredAssetDetailed(asset);
       if (!validation.valid) {
         await insertRunError(runId, asset.externalId, "VALIDATION_FAILED", validation.errors?.join("; ") ?? "Validation failed");
@@ -530,7 +781,7 @@ async function worker(runId: string): Promise<void> {
       }
 
       const result = await traceDbQuery("processAsset", () =>
-        db.transaction().execute(async (trx) => processAsset(trx, runId, importerName!, asset, run.triggeredBy)),
+        db.transaction().execute(async (trx) => processAsset(trx, runId, importerName!, asset, run.triggeredBy, reportedSourceId)),
       );
 
       yieldedComponentIds.add(result.componentId);
@@ -565,8 +816,18 @@ async function worker(runId: string): Promise<void> {
       return;
     }
 
+    // An adopting importer that finished without ever reporting identity
+    // fails the run — "reachable but empty" must still register the Source.
+    if (sourceReportPromise) await sourceReportPromise;
+    if (manifest.reportsSourceIdentity && !reportedSourceId) {
+      throw Object.assign(
+        new Error("Importer completed without reporting its source identity"),
+        { code: "CONTRACT_VIOLATION" },
+      );
+    }
+
     const now2 = new Date().toISOString();
-    componentsRetired = await reconcileRetiredComponents(runId, importerName!, config.id, yieldedComponentIds);
+    componentsRetired = await reconcileRetiredComponents(runId, importerName!, config.id, yieldedComponentIds, reportedSourceId);
 
     terminalStatus = "COMPLETED";
     await updateRun(runId, {
@@ -686,6 +947,15 @@ export async function startRun(
   // (AGENT_MANAGED refs can't resolve hub-side).
   if (agentId) {
     if (!remoteDispatcher) {
+      // Finalize the committed row — a PENDING orphan would block every
+      // future run for the config and can never resolve on its own.
+      await updateRun(runId, {
+        status: "FAILED",
+        completedAt: new Date().toISOString(),
+        currentPhase: "Failed",
+        errorType: "AGENT_UNAVAILABLE",
+        errorMessage: "Remote run dispatcher is not available",
+      });
       throw Object.assign(new Error("Remote run dispatcher is not available"), {
         statusCode: 503,
         code: "AGENT_UNAVAILABLE",

@@ -118,6 +118,9 @@ export async function createPersonInDb(
 export async function truncateImportTables(db: import("kysely").Kysely<unknown>): Promise<void> {
   await sql`
     TRUNCATE TABLE
+      source_instance_memberships,
+      source_component_memberships,
+      importer_sources,
       entity_changes,
       edge_changes,
       import_run_errors,

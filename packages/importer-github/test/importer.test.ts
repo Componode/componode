@@ -13,6 +13,8 @@ function makeContext(): ImporterContext {
     logger: NOOP_LOGGER,
     signal: new AbortController().signal,
     reportPhase: vi.fn(),
+    reportSourceIdentity: vi.fn(),
+    resolveTarget: vi.fn(),
   };
 }
 
@@ -136,6 +138,8 @@ describe("GithubImporter", () => {
       logger: NOOP_LOGGER,
       signal: controller.signal,
       reportPhase: vi.fn(),
+      reportSourceIdentity: vi.fn(),
+      resolveTarget: vi.fn(),
     };
 
     const assets = [];
@@ -660,6 +664,8 @@ describe("GithubImporter", () => {
       logger,
       signal: new AbortController().signal,
       reportPhase: vi.fn(),
+      reportSourceIdentity: vi.fn(),
+      resolveTarget: vi.fn(),
     };
 
     const assets = [];

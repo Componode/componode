@@ -12,6 +12,7 @@ import { createCredential } from "./credential-service.js";
 import * as cron from "node-cron";
 import { scheduleConfig, rescheduleConfig, unscheduleConfig } from "./scheduler-service.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
+import { unmonitorSourcesForConfig } from "./importer-source-service.js";
 
 function assertValidSchedule(schedule: string | null | undefined): void {
   if (!schedule) return;
@@ -486,6 +487,10 @@ export async function deleteImporterConfig(id: string, actor: Actor) {
   }
 
   return db.transaction().execute(async (trx) => {
+    // Bound Sources go UNMONITORED before the row is removed — the FK
+    // clears boundConfigId and run history keeps its sourceId
+    // attribution (ADR-119, ADR-047 A1).
+    await unmonitorSourcesForConfig(id, actor, trx);
     await trx.deleteFrom("importer_configs").where("id", "=", id).execute();
 
     await writeEntityChange(

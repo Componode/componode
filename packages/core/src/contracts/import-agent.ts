@@ -50,8 +50,9 @@ export interface ImportAgent {
 // map, not persisted).
 export interface AgentActiveRun {
   runId: string;
-  configId: string;
-  configLabel: string;
+  // Nullable — run history survives config deletion (ADR-047 A1).
+  configId: string | null;
+  configLabel: string | null;
   state: "ASSIGNED" | "RUNNING";
   phase: string | null;
   startedAt: string | null;
@@ -76,8 +77,9 @@ export interface AgentBoundConfig {
 // Import run executed by an agent — the agent detail "runs" tab.
 export interface AgentRun {
   id: string;
-  configId: string;
-  configLabel: string;
+  // Nullable — run history survives config deletion (ADR-047 A1).
+  configId: string | null;
+  configLabel: string | null;
   status: string;
   errorType: string | null;
   currentPhase: string | null;

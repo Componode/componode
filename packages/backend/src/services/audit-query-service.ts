@@ -52,6 +52,14 @@ async function namesFor(
       return fetchNames("line_of_businesses", ids);
     case "import_agent":
       return fetchNames("import_agents", ids);
+    case "importer_source": {
+      const rows = await db
+        .selectFrom("importer_sources")
+        .select(["id", "externalIdentity"])
+        .where("id", "in", ids)
+        .execute();
+      return new Map(rows.map((r) => [r.id, r.externalIdentity]));
+    }
     case "importer_config":
       return fetchNames("importer_configs", ids, "label");
     case "credential":

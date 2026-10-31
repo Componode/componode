@@ -26,7 +26,7 @@ flow and semantics.
    {
      type: "hello",
      payload: {
-       protocolVersion: 2,                                  // AGENT_PROTOCOL_VERSION
+       protocolVersion: 3,                                  // AGENT_PROTOCOL_VERSION
        agentVersion: "<semver>",
        importers: [{ name: "github", version: "1.0.0" }, …], // compiled manifest set
        capabilities: { maxConcurrentJobs: 1 },
@@ -47,7 +47,7 @@ flow and semantics.
    {
      type: "hello.ok",
      payload: {
-       protocolVersion: 2,
+       protocolVersion: 3,
        agentId: "<uuidv7>",
        name: "<agent-name>",
        allowedImporters: ["github", …],   // hub-managed policy (ADR-116)
@@ -309,3 +309,20 @@ last accepted frame).
 
 The agent process also exposes its own Prometheus surface — see
 `docs/agents.md` § Operations observability.
+
+## Protocol v3 — source.identity (spec 044)
+
+`AGENT_PROTOCOL_VERSION` is 3. Adopting importers (`manifest.reportsSourceIdentity`)
+report their provider-native Source identity before the first `asset.batch`
+via the job-stream frame `source.identity` (`{runId, externalIdentity,
+label?}`) — required even for empty inventories. The agent fails the job
+`CONTRACT_VIOLATION` on yield-before-report; the hub fails closed likewise
+and registers-or-matches the `ImporterSource`, binds the config, and stamps
+`import_runs.sourceId`.
+
+Manifests declaring `targetRefKey` get agent-local target preflight:
+`${SECRETS_DIR}/{importerName}-targets.json` (envelope `{version: 1,
+targets: {<targetId>: {transport, ...}}}`) is the allowlist, loaded fresh
+per `job.assign`; failures NACK `TARGET_RESOLUTION_FAILED` before any
+network access. `context.resolveTarget(targetId)` returns the resolved
+non-secret profile on the agent.
