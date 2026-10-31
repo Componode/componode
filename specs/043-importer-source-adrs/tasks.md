@@ -128,3 +128,14 @@
 ### Incremental Delivery
 
 ADR-119 → US1 (lifecycle core) → US2 (contract/Agent) → US3 (navigation/vocab) → polish. Each phase leaves the corpus internally consistent.
+
+---
+
+## Phase 7: Review
+
+- [x] T020 Add the missing ADR-035 back-pointer (`code-review: standards`, HIGH): append `---` + `**Amended by ADR-119**:` to `researches/adrs/ADR-035-instance-reconciliation-orphan-missing-instances.md` noting its orphan→GONE rule is now source-membership-scoped per ADR-036 Amendment 1; add ADR-035 to ADR-119's `**Amendments to earlier ADRs**:` list; annotate the ADR-035 row in `researches/architecture-decisions.md`
+- [x] T021 Define the allowlist mechanism in ADR-116 Amendment 5 (`code-review: spec`, HIGH — FR-006 partial): edit `researches/adrs/ADR-116-remote-import-agents.md` Amendment 5 so the target registry file itself is stated as the allowlist (a `targetId` absent from the versioned read-only registry is rejected), with named-Context mode additionally requiring an explicit allowed-context list on the Agent
+- [x] T022 Fix ADR-065 back-pointer format (`code-review: standards`, MEDIUM — FR-010): restructure the file end so `## Amendment 1` precedes a single `---` followed by both back-pointers (`**Amended by ADR-116**` then `**Amended by ADR-119**`), matching the trailing back-pointer convention in `researches/adrs/ADR-065-package-dependency-graph.md`
+- [x] T023 Give ADR-037 a real Amendment section (`code-review: spec`, MEDIUM — FR-010): replace the bare `**Amended by ADR-119**` block in `researches/adrs/ADR-037-importer-run-commit-strategy.md` with `## Amendment 1 — Phase-2 scope becomes membership-scoped (2026-10-31, via ADR-119)` (Context: ADR-036 Amendment 1 changed what phase-2 reconciles; Refinement: commit strategy and COMPLETED gate unchanged, scope pointer updated) followed by the back-pointer
+- [x] T024 Fix the stale count claim in ADR-065 Amendment 1 (`code-review: spec`, MEDIUM): reword the amendment so it no longer claims to correct the decision text in place — instead state plainly that "all 7 importer packages" in the original decision is stale (8 in-tree today with alibaba-cloud/ADR-115) and the ratified set becomes 9 when `@componode/importer-docker` ships
+- [x] T025 Update stale numbering note in `researches/docker-importer-implementation-tracking.md` (`code-review: standards`, LOW): the tracking file says "highest used is `042` … expected to be `043`" — Phase 0 shipped as 043, so the next free number is now 044

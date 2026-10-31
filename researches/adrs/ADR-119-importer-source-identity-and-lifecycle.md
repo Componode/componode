@@ -109,6 +109,10 @@ credential bundles; they do not redefine them.
 
 **Amendments to earlier ADRs**:
 
+- **[ADR-035](./ADR-035-instance-reconciliation-orphan-missing-instances.md)** —
+  "orphan the missing instances" is scoped to the reporting Source's
+  memberships; `GONE` requires no remaining active membership
+  (Amendment 1).
 - **[ADR-036](./ADR-036-two-phase-reconciliation-scope.md)** — phase-2 scope
   moves from "components previously touched by this importer config" to
   the reporting Source's memberships; retirement requires no remaining

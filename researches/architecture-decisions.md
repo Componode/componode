@@ -67,7 +67,7 @@
 | [ADR-026](./adrs/ADR-026-v1-importer-scope-7-importers.md) | v1 importer scope: 7 importers |
 | [ADR-115](./adrs/ADR-115-alibaba-cloud-importer.md) | Alibaba Cloud importer: Resource Center discovery |
 | [ADR-116](./adrs/ADR-116-remote-import-agents.md) | Remote import execution via outbound Import Agents (amends ADR-022, 052, 054, 055, 058, 060, 061, 065, 087, 097, 100, 107); Amendment 2 ratifies spec-027 surfaces — job-frame schemas, dispatch/ack timeouts, NACK→errorType mapping, agent configs/runs endpoints, `OFFLINE_AGENT`; Amendment 3 ratifies spec-028 ops surfaces — `AGENT_OPS_*` listener, heartbeat `ops` + protocol v2, `reportedStatus`, four hub series; Amendment 4 ratifies spec-040 surfaces — `CREDENTIAL_EXPIRING` attention kind, `AttentionItem.detail`, agent `createdBy`/`enrollmentExpiresAt`, dashboard `deltas`; Amendment 5 (ADR-119) — Agent-local target registry, immutable `targetId`, fail-before-network preflight |
-| [ADR-119](./adrs/ADR-119-importer-source-identity-and-lifecycle.md) | ImporterSource identity + lifecycle: durable provenance, source-scoped reconciliation, run-history retention, Agent target resolution (amends ADR-036, 037, 047, 056, 065, 077, 116) |
+| [ADR-119](./adrs/ADR-119-importer-source-identity-and-lifecycle.md) | ImporterSource identity + lifecycle: durable provenance, source-scoped reconciliation, run-history retention, Agent target resolution (amends ADR-035, 036, 037, 047, 056, 065, 077, 116) |
 
 ### Auth & Security
 
@@ -91,9 +91,9 @@
 |---|---|
 | [ADR-033](./adrs/ADR-033-person-useraccount-unification.md) | Person/UserAccount unification |
 | [ADR-034](./adrs/ADR-034-componentinstance-upsert-key.md) | ComponentInstance upsert key |
-| [ADR-035](./adrs/ADR-035-instance-reconciliation-orphan-missing-instances.md) | Instance reconciliation: orphan missing instances |
+| [ADR-035](./adrs/ADR-035-instance-reconciliation-orphan-missing-instances.md) | Instance reconciliation: orphan missing instances; Amendment 1 — orphaning scoped to source memberships (ADR-119) |
 | [ADR-036](./adrs/ADR-036-two-phase-reconciliation-scope.md) | Two-phase reconciliation scope; Amendment 1 — source-membership-scoped reconciliation (ADR-119) |
-| [ADR-037](./adrs/ADR-037-importer-run-commit-strategy.md) | Importer run commit strategy; gated phase-2 now membership-scoped (ADR-119 back-pointer) |
+| [ADR-037](./adrs/ADR-037-importer-run-commit-strategy.md) | Importer run commit strategy; Amendment 1 — gated phase-2 membership-scoped (ADR-119) |
 | [ADR-038](./adrs/ADR-038-importer-run-resume-strategy.md) | Importer run resume strategy |
 | [ADR-039](./adrs/ADR-039-importer-trigger-auth-boundary.md) | Importer trigger auth boundary |
 | [ADR-040](./adrs/ADR-040-importer-config-storage.md) | Importer config storage |

@@ -103,8 +103,8 @@ converge → PR). Run one spec at a time; do not interleave waves.
 ## Numbering and housekeeping
 
 - Spec numbers are sequential (`.specify/init-options.json`); highest
-  used is `042-catalog-authoring`, so the next spec is expected to be
-  `043` — but always confirm the next free number from `specs/` and
+  used is `043-importer-source-adrs`, so the next spec is expected to be
+  `044` — but always confirm the next free number from `specs/` and
   `.specify/feature.json` at spec time.
 - **Never reuse `038`.** `038-ux-11-conformance` owns that number; the
   empty `specs/038-docker-importer/` directory is left intentionally

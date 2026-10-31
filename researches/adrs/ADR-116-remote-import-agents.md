@@ -429,7 +429,10 @@ parameters): where it lives, who validates it, and when it fails.
   registry under `SECRETS_DIR` (convention `<name>-targets.json`, e.g.
   `docker-targets.json` for the first adopter). The hub never stores
   target profiles; the file is provisioned with the Agent like other
-  `SECRETS_DIR` material.
+  `SECRETS_DIR` material. **The registry is the allowlist**: the set of
+  profiles present in the file is the complete set of permitted targets —
+  a `targetId` absent from the registry is rejected. Allowlisting is
+  therefore an Agent-provisioning decision, not a hub input.
 - **`targetId` is an immutable access-route identifier.** Changing an
   endpoint, transport, or pinning parameter means creating a new profile
   ID — never editing in place. A `targetId` is distinct from
