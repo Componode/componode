@@ -69,6 +69,12 @@ export function buildResourceAsset(
     externalId: externalIdFor({ arn: record.arn, resourceType, resourceId }),
     slug: componentSlug(name, resourceId),
     details,
+    // Per-source facts for the Source membership (ADR-120).
+    sourceDetails: {
+      arn: record.arn ?? null,
+      resourceGroupId: record.resourceGroupId ?? null,
+      zoneId: record.zoneId ?? null,
+    },
     instances: [
       {
         environment: config.environment,
