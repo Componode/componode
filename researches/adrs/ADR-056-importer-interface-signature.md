@@ -23,3 +23,31 @@ signature.**
 one; the importer needs a logger to participate; `AbortSignal` is essential
 for "admin cancels a runaway run"; `runId` enables log correlation;
 `reportPhase` enables progress reporting without contract pollution.
+
+## Amendment 1 — Source identity reporting and target resolution (2026-10-31, via ADR-119)
+
+**Context**: [ADR-119](./ADR-119-importer-source-identity-and-lifecycle.md)
+makes the `ImporterSource` the durable provenance boundary, and remote
+importers need a vetted way to reference Agent-local access routes. Both
+extend the enumerated `context` surface this ADR presents as closed.
+
+**Refinement**: `context` gains two members.
+`context.reportSourceIdentity(identity)` — the importer reports its
+provider-native canonical source identity **before** the first asset
+yield, on every run, including empty inventories; the core registers or
+matches the `ImporterSource` and stamps `import_runs.sourceId` from it.
+`context.resolveTarget(targetId)` — resolves the typed, non-secret target
+profile validated by the executor (hub or Agent); calling it is valid
+only when the importer's manifest declares `targetRefKey`.
+`ImporterManifest` gains optional **`targetRefKey`**: the name of the
+config-scope key that carries the `targetId` referencing an entry in the
+Agent-local target registry (ADR-116 Amendment 5). The generator contract
+(`AsyncGenerator<DiscoveredAsset>`, pull-only, never touches the DB) is
+unchanged — both additions report to or read from the executor, never the
+database.
+
+---
+
+**Amended by ADR-119**: `context` gains `reportSourceIdentity` +
+`resolveTarget`, and `ImporterManifest` gains `targetRefKey` — see
+Amendment 1.

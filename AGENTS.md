@@ -104,11 +104,22 @@ constitution.
 ### Importer contract
 
 - Importers are **pull-only** `AsyncGenerator<DiscoveredAsset>` and never touch
-  the database. See `ADR-056`, `ADR-057`.
+  the database. They report their provider-native source identity via
+  `context.reportSourceIdentity()` before the first yield — including empty
+  inventories — and resolve remote access routes only through
+  `context.resolveTarget()` when their manifest declares `targetRefKey`.
+  See `ADR-056` (Amendment 1), `ADR-057`, `ADR-119`.
 - Importer packages depend only on `packages/core`. They MUST NOT import from
   `packages/backend` or from other importers. See `ADR-065`.
-- The core owns upsert, dedup, reconciliation, and run history. See
-  `ADR-035`, `ADR-036`, `ADR-037`, `ADR-038`.
+- The core owns upsert, dedup, reconciliation, and run history.
+  Reconciliation is **source-scoped**: durable `ImporterSource`→Component/
+  ComponentInstance memberships are the unit — a completed run retires only
+  its own Source's absent memberships, and a shared Component stays
+  `ACTIVE` while any Source reports it. Deleting an `ImporterConfig`
+  leaves its Source `UNMONITORED` and preserves run history
+  (`import_runs.sourceId` durable, `configId` → `NULL`). See `ADR-035`,
+  `ADR-036` (Amendment 1), `ADR-037`, `ADR-038`, `ADR-047` (Amendment 1),
+  `ADR-119`.
 - Every importer MUST have a user-facing setup guide at
   `docs/importers/<name>.md` covering: what it imports, what to set up in
   the **external tool** (accounts, services to enable, permissions/scopes),

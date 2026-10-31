@@ -61,3 +61,26 @@ a LOB clears the link on its teams (set-null) rather than blocking, and the
 API does not enforce consistency between a product's `lobOwnerId` and its
 `teamOwnerId`'s LOB. Team read payloads carry the resolved `lob` summary so
 clients never render a raw identifier.
+
+## Amendment 2 — ImporterSource tables and run attribution (2026-10-31, via ADR-119)
+
+**Context**: [ADR-119](./ADR-119-importer-source-identity-and-lifecycle.md)
+ratifies `ImporterSource` as the durable provenance boundary for imported
+data. This consolidated schema needs the corresponding tables recorded so
+it remains the complete entity inventory — the DDL itself ships in the
+ImporterSource core spec's migration.
+
+**Refinement**: The schema gains `importer_sources` (UUID v7 PK,
+provider-native canonical `externalIdentity`, display metadata,
+`ACTIVE`/`UNMONITORED`/`RETIRED` lifecycle) and two membership tables —
+Source→Component and Source→ComponentInstance — keyed by
+`importer_sources.id`, independent of `lastSeenInRunId` and `import_runs`
+retention. `import_runs` gains a durable `sourceId` FK and its `configId`
+becomes nullable with `ON DELETE SET NULL` (run history survives config
+deletion — see ADR-047 Amendment 1).
+
+---
+
+**Amended by ADR-119**: `importer_sources` + Source→Component/
+ComponentInstance membership tables join the schema inventory, and
+`import_runs` gains `sourceId` + nullable `configId` — see Amendment 2.

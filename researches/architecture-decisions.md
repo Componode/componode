@@ -6,6 +6,7 @@
 > DPAM review grilling (2026-10-18): ADR-113–114,
 > Alibaba Cloud importer grilling (2026-10-21): ADR-115
 > Remote import agents grilling (2026-10-21): ADR-116–117
+> ImporterSource lifecycle ratification (2026-10-31): ADR-119
 > **Status**: Ratified — these decisions are the foundation for Componode v1.
 > **How to use**: Each ADR is in its own file under `researches/adrs/`.
 > Read the relevant ADRs before starting implementation work. Changes to any
@@ -65,7 +66,8 @@
 | [ADR-025](./adrs/ADR-025-importer-interface-pull-only-asyncgenerator.md) | Importer interface: pull-only AsyncGenerator (superseded by ADR-056/057) |
 | [ADR-026](./adrs/ADR-026-v1-importer-scope-7-importers.md) | v1 importer scope: 7 importers |
 | [ADR-115](./adrs/ADR-115-alibaba-cloud-importer.md) | Alibaba Cloud importer: Resource Center discovery |
-| [ADR-116](./adrs/ADR-116-remote-import-agents.md) | Remote import execution via outbound Import Agents (amends ADR-022, 052, 054, 055, 058, 060, 061, 065, 087, 097, 100, 107); Amendment 2 ratifies spec-027 surfaces — job-frame schemas, dispatch/ack timeouts, NACK→errorType mapping, agent configs/runs endpoints, `OFFLINE_AGENT`; Amendment 3 ratifies spec-028 ops surfaces — `AGENT_OPS_*` listener, heartbeat `ops` + protocol v2, `reportedStatus`, four hub series; Amendment 4 ratifies spec-040 surfaces — `CREDENTIAL_EXPIRING` attention kind, `AttentionItem.detail`, agent `createdBy`/`enrollmentExpiresAt`, dashboard `deltas`|
+| [ADR-116](./adrs/ADR-116-remote-import-agents.md) | Remote import execution via outbound Import Agents (amends ADR-022, 052, 054, 055, 058, 060, 061, 065, 087, 097, 100, 107); Amendment 2 ratifies spec-027 surfaces — job-frame schemas, dispatch/ack timeouts, NACK→errorType mapping, agent configs/runs endpoints, `OFFLINE_AGENT`; Amendment 3 ratifies spec-028 ops surfaces — `AGENT_OPS_*` listener, heartbeat `ops` + protocol v2, `reportedStatus`, four hub series; Amendment 4 ratifies spec-040 surfaces — `CREDENTIAL_EXPIRING` attention kind, `AttentionItem.detail`, agent `createdBy`/`enrollmentExpiresAt`, dashboard `deltas`; Amendment 5 (ADR-119) — Agent-local target registry, immutable `targetId`, fail-before-network preflight |
+| [ADR-119](./adrs/ADR-119-importer-source-identity-and-lifecycle.md) | ImporterSource identity + lifecycle: durable provenance, source-scoped reconciliation, run-history retention, Agent target resolution (amends ADR-036, 037, 047, 056, 065, 077, 116) |
 
 ### Auth & Security
 
@@ -90,8 +92,8 @@
 | [ADR-033](./adrs/ADR-033-person-useraccount-unification.md) | Person/UserAccount unification |
 | [ADR-034](./adrs/ADR-034-componentinstance-upsert-key.md) | ComponentInstance upsert key |
 | [ADR-035](./adrs/ADR-035-instance-reconciliation-orphan-missing-instances.md) | Instance reconciliation: orphan missing instances |
-| [ADR-036](./adrs/ADR-036-two-phase-reconciliation-scope.md) | Two-phase reconciliation scope |
-| [ADR-037](./adrs/ADR-037-importer-run-commit-strategy.md) | Importer run commit strategy |
+| [ADR-036](./adrs/ADR-036-two-phase-reconciliation-scope.md) | Two-phase reconciliation scope; Amendment 1 — source-membership-scoped reconciliation (ADR-119) |
+| [ADR-037](./adrs/ADR-037-importer-run-commit-strategy.md) | Importer run commit strategy; gated phase-2 now membership-scoped (ADR-119 back-pointer) |
 | [ADR-038](./adrs/ADR-038-importer-run-resume-strategy.md) | Importer run resume strategy |
 | [ADR-039](./adrs/ADR-039-importer-trigger-auth-boundary.md) | Importer trigger auth boundary |
 | [ADR-040](./adrs/ADR-040-importer-config-storage.md) | Importer config storage |
@@ -101,7 +103,7 @@
 | [ADR-044](./adrs/ADR-044-password-hashing.md) | Password hashing |
 | [ADR-045](./adrs/ADR-045-entity-identifier-format.md) | Entity identifier format |
 | [ADR-046](./adrs/ADR-046-slug-generation-and-uniqueness.md) | Slug generation and uniqueness |
-| [ADR-047](./adrs/ADR-047-deletion-model.md) | Deletion model |
+| [ADR-047](./adrs/ADR-047-deletion-model.md) | Deletion model; Amendment 1 — config deletion preserves ImporterSource + run history (ADR-119) |
 | [ADR-048](./adrs/ADR-048-graph-relationship-persistence.md) | Graph relationship persistence |
 | [ADR-049](./adrs/ADR-049-composes-hierarchy-dag-with-unlimited-depth.md) | COMPOSES hierarchy: DAG with unlimited depth |
 | [ADR-050](./adrs/ADR-050-composes-cycle-detection-implementation.md) | COMPOSES cycle detection implementation |
@@ -110,7 +112,7 @@
 | [ADR-053](./adrs/ADR-053-api-authorization-layered-default-deny.md) | API authorization: layered default-deny |
 | [ADR-054](./adrs/ADR-054-rbac-permission-matrix.md) | RBAC permission matrix; Amendment 1 adds `component:create` (EDITOR) for manual component authoring (spec 042) |
 | [ADR-055](./adrs/ADR-055-importer-secret-resolution.md) | Importer secret resolution |
-| [ADR-056](./adrs/ADR-056-importer-interface-signature.md) | Importer interface signature (supersedes ADR-025) |
+| [ADR-056](./adrs/ADR-056-importer-interface-signature.md) | Importer interface signature (supersedes ADR-025); Amendment 1 — `reportSourceIdentity` + `resolveTarget` + `targetRefKey` (ADR-119) |
 | [ADR-057](./adrs/ADR-057-discoveredasset-final-shape.md) | DiscoveredAsset final shape (supersedes ADR-025) |
 | [ADR-058](./adrs/ADR-058-importer-cancellation.md) | Importer cancellation |
 | [ADR-059](./adrs/ADR-059-importer-run-state-machine.md) | Importer run state machine |
@@ -119,7 +121,7 @@
 | [ADR-062](./adrs/ADR-062-importer-run-progress-reporting.md) | Importer run progress reporting |
 | [ADR-063](./adrs/ADR-063-importer-error-surfacing.md) | Importer error surfacing |
 | [ADR-064](./adrs/ADR-064-importer-validation-harness.md) | Importer validation harness |
-| [ADR-065](./adrs/ADR-065-package-dependency-graph.md) | Package dependency graph |
+| [ADR-065](./adrs/ADR-065-package-dependency-graph.md) | Package dependency graph; Amendment 1 — `@componode/importer-docker` admitted to the lockstep importer set (ADR-119) |
 | [ADR-066](./adrs/ADR-066-bootstrap-admin.md) | Bootstrap admin |
 | [ADR-067](./adrs/ADR-067-logger-abstraction.md) | Logger abstraction |
 | [ADR-068](./adrs/ADR-068-opentelemetry-tracing-integration.md) | OpenTelemetry tracing integration |
@@ -131,7 +133,7 @@
 | [ADR-074](./adrs/ADR-074-oidc-claim-to-role-mapping.md) | OIDC claim-to-role mapping |
 | [ADR-075](./adrs/ADR-075-self-registration.md) | Self-registration |
 | [ADR-076](./adrs/ADR-076-app-settings-storage.md) | App settings storage |
-| [ADR-077](./adrs/ADR-077-v1-entity-schema.md) | v1 entity schema (consolidated); Amendment 1 adds `teams.lobId` (spec 034 — advisory team→LOB link, `ON DELETE SET NULL`) |
+| [ADR-077](./adrs/ADR-077-v1-entity-schema.md) | v1 entity schema (consolidated); Amendment 1 adds `teams.lobId` (spec 034 — advisory team→LOB link, `ON DELETE SET NULL`); Amendment 2 adds `importer_sources` + Source-membership tables + `import_runs.sourceId` (ADR-119) |
 | [ADR-078](./adrs/ADR-078-database-migrations.md) | Database migrations |
 | [ADR-079](./adrs/ADR-079-enum-constant-structure.md) | Enum constant structure |
 | [ADR-080](./adrs/ADR-080-pagination-strategy.md) | Pagination strategy |
