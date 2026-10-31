@@ -18,7 +18,7 @@ test runs.
 
    ```powershell
    ls researches/adrs/ADR-119-*.md
-   rg -l "Amendment" researches/adrs/ADR-036-*.md researches/adrs/ADR-047-*.md researches/adrs/ADR-056-*.md researches/adrs/ADR-065-*.md researches/adrs/ADR-077-*.md researches/adrs/ADR-116-*.md
+   rg -l "Amendment" researches/adrs/ADR-035-*.md researches/adrs/ADR-036-*.md researches/adrs/ADR-037-*.md researches/adrs/ADR-047-*.md researches/adrs/ADR-056-*.md researches/adrs/ADR-065-*.md researches/adrs/ADR-077-*.md researches/adrs/ADR-116-*.md
    ```
 
    Expected: ADR-119 exists; every listed ADR contains an Amendment (or

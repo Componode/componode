@@ -9,7 +9,7 @@
 Ratify the architecture decisions required before any ImporterSource or
 Docker importer implementation. Deliverable is decision-record text only:
 one new ADR (ADR-119, ImporterSource identity + lifecycle), Amendment
-sections on ADR-036/037/047/056/065/077/116, back-pointers on every
+sections on ADR-035/036/037/047/056/065/077/116, back-pointers on every
 touched ADR, an updated decision index, and vocabulary sync in
 `CONTEXT.md`/`AGENTS.md`. No runtime code ships — contract text only.
 
@@ -81,7 +81,8 @@ researches/
 ├── adrs/
 │   ├── ADR-119-importer-source-identity-and-lifecycle.md   # NEW
 │   ├── ADR-036-two-phase-reconciliation-scope.md           # +Amendment
-│   ├── ADR-037-importer-run-commit-strategy.md             # +back-pointer
+│   ├── ADR-035-instance-reconciliation-orphan-missing-instances.md  # +Amendment
+│   ├── ADR-037-importer-run-commit-strategy.md             # +Amendment
 │   ├── ADR-047-deletion-model.md                           # +Amendment
 │   ├── ADR-056-importer-interface-signature.md             # +Amendment
 │   ├── ADR-065-package-dependency-graph.md                 # +Amendment
