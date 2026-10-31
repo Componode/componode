@@ -58,11 +58,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     const identity = deriveIdentity(config.importerName, config.scope);
     if (!identity) continue;
 
-    // Latest run of this config — the membership's lastSeen anchor.
+    // Latest STARTED run of this config — Postgres DESC is NULLS FIRST,
+    // so without the filter a PENDING run would win the anchor.
     const latestRun = await kdb
       .selectFrom("import_runs")
       .select("id")
       .where("configId", "=", config.id)
+      .where("startedAt", "is not", null)
       .orderBy("startedAt", "desc")
       .limit(1)
       .executeTakeFirst();
@@ -101,9 +103,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     // Component memberships for rows last seen by this config's runs.
     // Provenance is per-entity: each row's own lastSeenInRunId is the run
     // that actually saw it, not the config's latest run (migration-rules).
+    // Defensible attribution (ADR-120 A2): skip ids that can't belong to
+    // the derived identity — `default:` placeholders (unknowable owner)
+    // and URL-embedded ids whose canonicalized endpoint isn't this Source
+    // (pre-upgrade config repointing).
     const components = await kdb
       .selectFrom("components")
-      .select(["id", "lastSeenInRunId"])
+      .select(["id", "lastSeenInRunId", "externalId"])
       .where(
         "lastSeenInRunId",
         "in",
@@ -113,8 +119,17 @@ export async function up(db: Kysely<unknown>): Promise<void> {
           .where("configId", "=", config.id),
       )
       .execute();
+    const attributable = components.filter((c) => {
+      const id = c.externalId;
+      if (id === null) return true;
+      if (id.startsWith("default:")) return false;
+      if (!id.includes("://")) return true;
+      if (canonicalizeSourceIdentity(id) === identity) return true;
+      const i = id.lastIndexOf(":");
+      return i !== -1 && canonicalizeSourceIdentity(id.slice(0, i)) === identity;
+    });
 
-    for (const component of components) {
+    for (const component of attributable) {
       await kdb
         .insertInto("source_component_memberships")
         .values({
@@ -134,15 +149,22 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .execute();
     }
 
-    // Instance memberships for instances of those components.
-    if (components.length === 0) continue;
+    // Instance memberships for instances of those components — same
+    // provenance rule as components: only rows an importer run actually
+    // saw (lastSeenInRunId ∈ config's runs). Manually created instances
+    // carry no memberships and are never touched by source reconciliation.
+    if (attributable.length === 0) continue;
     const instances = await kdb
       .selectFrom("component_instances")
       .select(["id", "lastSeenInRunId"])
+      .where("componentId", "in", attributable.map((c) => c.id))
       .where(
-        "componentId",
+        "lastSeenInRunId",
         "in",
-        components.map((c) => c.id),
+        kdb
+          .selectFrom("import_runs")
+          .select("id")
+          .where("configId", "=", config.id),
       )
       .execute();
 
