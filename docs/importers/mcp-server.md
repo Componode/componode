@@ -34,7 +34,9 @@ None.
 Identity is the canonicalized `endpoint` URL when set (scheme-normalized,
 credentials and auth params stripped — never stored), else `scope.sourceKey`;
 one of the two is **required** or the run fails. `externalId`s are qualified
-(`{identity}::{method}` — previously `{endpoint}:{method}` or `mcp:{method}`).
+(`{identity}::{endpoint}:{method}` — previously `{endpoint}:{method}` or
+`mcp:{method}`; the embedded endpoint is canonicalized so no credentials
+persist in the id).
 Migration 023 backfills a Source + memberships for configs that have an
 `endpoint`; endpoint-less configs adopt on their next run once `sourceKey` is
 set.

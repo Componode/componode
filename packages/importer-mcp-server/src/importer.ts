@@ -12,7 +12,10 @@ function buildAsset(resourceType: string, endpoint: string | undefined, identity
   const name = `mcp:${resourceType}`;
   // The pre-migration local id — `unqualifyExternalId` strips the
   // `{identity}::` prefix back to exactly this form for adoption matching.
-  const localId = endpoint ? `${endpoint}:${resourceType}` : `mcp:${resourceType}`;
+  // Canonicalized so credential material never lands in durable ids.
+  const localId = endpoint
+    ? `${canonicalizeSourceIdentity(endpoint)}:${resourceType}`
+    : `mcp:${resourceType}`;
   const externalId = qualifyExternalId(identity, localId);
 
   return {

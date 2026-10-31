@@ -99,9 +99,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     }
 
     // Component memberships for rows last seen by this config's runs.
+    // Provenance is per-entity: each row's own lastSeenInRunId is the run
+    // that actually saw it, not the config's latest run (migration-rules).
     const components = await kdb
       .selectFrom("components")
-      .select("id")
+      .select(["id", "lastSeenInRunId"])
       .where(
         "lastSeenInRunId",
         "in",
@@ -121,8 +123,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
           componentId: component.id,
           active: true,
           details: null,
-          firstSeenInRunId: latestRun.id,
-          lastSeenInRunId: latestRun.id,
+          firstSeenInRunId: component.lastSeenInRunId,
+          lastSeenInRunId: component.lastSeenInRunId,
           createdAt: now,
           updatedAt: now,
         })
@@ -136,7 +138,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     if (components.length === 0) continue;
     const instances = await kdb
       .selectFrom("component_instances")
-      .select("id")
+      .select(["id", "lastSeenInRunId"])
       .where(
         "componentId",
         "in",
@@ -153,8 +155,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
           componentInstanceId: instance.id,
           active: true,
           details: null,
-          firstSeenInRunId: latestRun.id,
-          lastSeenInRunId: latestRun.id,
+          firstSeenInRunId: instance.lastSeenInRunId,
+          lastSeenInRunId: instance.lastSeenInRunId,
           createdAt: now,
           updatedAt: now,
         })
