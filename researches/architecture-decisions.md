@@ -52,7 +52,7 @@
 | [ADR-110](./adrs/ADR-110-product-dependency-on-component-group.md) | Product dependency may target a ComponentGroup (amends ADR-015) |
 | [ADR-111](./adrs/ADR-111-practical-catalog-metadata.md) | Practical catalog metadata: links, tags, criticality, sunset date |
 | [ADR-112](./adrs/ADR-112-product-health-rollup.md) | Derived product health from component instance status |
-| [ADR-113](./adrs/ADR-113-staged-edge-suggestions.md) | Staged edge suggestions: server-generated DEPENDS_ON candidates (amends ADR-019) |
+| [ADR-113](./adrs/ADR-113-staged-edge-suggestions.md) | Staged edge suggestions: server-generated DEPENDS_ON candidates (amends ADR-019); spec-042 amendment makes `DECIDED` queryable on `GET /suggestions` for the decided-history view |
 | [ADR-114](./adrs/ADR-114-catalog-bootstrap-import.md) | Catalog bootstrap import: declarative product + dependency file |
 
 ### Importer Framework
@@ -108,7 +108,7 @@
 | [ADR-051](./adrs/ADR-051-hierarchy-traversal-merged-cte-with-edge-types.md) | Hierarchy traversal: merged CTE with edge types |
 | [ADR-052](./adrs/ADR-052-audit-model-three-tier.md) | Audit model: three-tier |
 | [ADR-053](./adrs/ADR-053-api-authorization-layered-default-deny.md) | API authorization: layered default-deny |
-| [ADR-054](./adrs/ADR-054-rbac-permission-matrix.md) | RBAC permission matrix |
+| [ADR-054](./adrs/ADR-054-rbac-permission-matrix.md) | RBAC permission matrix; Amendment 1 adds `component:create` (EDITOR) for manual component authoring (spec 042) |
 | [ADR-055](./adrs/ADR-055-importer-secret-resolution.md) | Importer secret resolution |
 | [ADR-056](./adrs/ADR-056-importer-interface-signature.md) | Importer interface signature (supersedes ADR-025) |
 | [ADR-057](./adrs/ADR-057-discoveredasset-final-shape.md) | DiscoveredAsset final shape (supersedes ADR-025) |

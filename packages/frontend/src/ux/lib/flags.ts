@@ -40,10 +40,6 @@ export const flags = {
   teamMemberCounts: true,
   /** GONE instances on component detail — needs includeGone on the detail read (gap G26). */
   detailGoneInstances: false,
-  /** Manual component/group creation — needs POST endpoints + forms (gap G29). */
-  manualEntityCreate: false,
-  /** Suggestions decided-history view — ACCEPTED/DISMISSED/SUPERSEDED reads (gap G32). */
-  suggestionsHistory: false,
 } as const;
 
 export type GapFlag = keyof typeof flags;

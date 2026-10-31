@@ -33,3 +33,17 @@ revocation is self-service for Viewer/Editor; Admin can revoke anyone's.
 
 **Amended by ADR-116**: the matrix gains `agent:read|create|update|delete`
 (admin default) governing `/api/v1/agents[...]` management routes.
+
+## Amendment 1 — `component:create` for manual component authoring (spec 042, gap G29)
+
+**Context**: spec `042-catalog-authoring` ships `POST /api/v1/components` —
+manual creation of components no importer discovers. The matrix's "Manually
+edit `Component` attributes" row covers updates but the enumerated
+`PERMISSIONS` map had no create permission for components (`componentGroup:create`
+already exists for groups).
+
+**Decision**: `component:create` → **EDITOR** — same tier as "Manually edit
+`Component` attributes". Creation writes a `component` `created` entity
+audit event with `toActor` attribution, enforces unique kebab-case slugs
+(`409 SLUG_CONFLICT`), and never accepts importer-managed columns
+(`externalId`, `details`, `lastSeen*`).

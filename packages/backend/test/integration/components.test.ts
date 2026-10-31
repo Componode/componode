@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { startTestDb, type TestDb } from "../helpers/testcontainers.js";
-import { loginAs, SESSION_COOKIE_NAME, truncateImportTables } from "../helpers/api.js";
+import { loginAs, createPersonInDb, createSessionInDb, SESSION_COOKIE_NAME, csrfCookie, csrfHeader, truncateImportTables } from "../helpers/api.js";
 
 const ADMIN_USERNAME = "admin";
 const ADMIN_PASSWORD = "AdminPassword123!";
@@ -53,6 +53,7 @@ describe("components catalog", () => {
   let testDb: TestDb;
   let app: any;
   let adminSession: string;
+  let viewerSession: string;
   let originalDbUrl: string | undefined;
   let originalNodeEnv: string | undefined;
   let originalBootstrapUsername: string | undefined;
@@ -78,6 +79,13 @@ describe("components catalog", () => {
     await app.ready();
 
     adminSession = await loginAs(app, ADMIN_USERNAME, ADMIN_PASSWORD);
+
+    const viewerId = await createPersonInDb(testDb.db as any, {
+      username: "viewer",
+      passwordHash: null,
+      role: "VIEWER",
+    });
+    viewerSession = (await createSessionInDb(testDb.db as any, viewerId)).token;
   });
 
   beforeEach(async () => {
@@ -390,6 +398,112 @@ describe("list enrichment — worstStatus + lastSeenAt (spec 039, G21)", () => {
     expect(new Date(m.lastSeenAt).toISOString()).toBe("2026-10-20T00:00:00.000Z");
     expect(e.worstStatus).toBeNull();
     expect(e.lastSeenAt).toBeNull();
+  });
+});
+
+// Spec 042 / G29: manual component creation mirrors the component-groups
+// precedent — uuid v7, unique slug, audit event, EDITOR-only.
+describe("POST /components — manual creation (spec 042, G29)", () => {
+  const create = (session: string = adminSession, payload: unknown = {
+    name: "Manual Service",
+    slug: "manual-service",
+    category: "API",
+    provider: "OTHER",
+    resourceType: "service",
+  }) =>
+    app.inject({
+      method: "POST",
+      url: "/api/v1/components",
+      cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
+      headers: csrfHeader,
+      payload,
+    });
+
+  it("creates a component with a uuid v7 id and an audit event", async () => {
+    const res = await create();
+    expect(res.statusCode).toBe(201);
+    const { component } = JSON.parse(res.payload);
+    expect(component.name).toBe("Manual Service");
+    expect(component.slug).toBe("manual-service");
+    expect(component.lifecycle).toBe("ACTIVE");
+    // uuid v7: version nibble 7, variant 8/9/a/b.
+    expect(component.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+
+    const audit = await testDb.db
+      .selectFrom("entity_changes")
+      .selectAll()
+      .where("entityType", "=", "component")
+      .where("entityId", "=", component.id)
+      .where("action", "=", "created")
+      .execute();
+    expect(audit).toHaveLength(1);
+  });
+
+  it("rejects a duplicate slug with 409 SLUG_CONFLICT", async () => {
+    const first = await create();
+    expect(first.statusCode).toBe(201);
+
+    const dup = await create(adminSession, {
+      name: "Another Service",
+      slug: "manual-service",
+      category: "API",
+      provider: "OTHER",
+      resourceType: "service",
+    });
+    expect(dup.statusCode).toBe(409);
+    expect(JSON.parse(dup.payload).code).toBe("SLUG_CONFLICT");
+  });
+
+  it("rejects invalid bodies with 400 VALIDATION_FAILED", async () => {
+    const missing = await create(adminSession, { name: "No fields" });
+    expect(missing.statusCode).toBe(400);
+    expect(JSON.parse(missing.payload).code).toBe("VALIDATION_FAILED");
+
+    const badEnum = await create(adminSession, {
+      name: "Bad Category",
+      slug: "bad-category",
+      category: "NOT_A_CATEGORY",
+      provider: "OTHER",
+      resourceType: "service",
+    });
+    expect(badEnum.statusCode).toBe(400);
+    expect(JSON.parse(badEnum.payload).code).toBe("VALIDATION_FAILED");
+
+    const unknownKey = await create(adminSession, {
+      name: "Extra",
+      slug: "extra",
+      category: "API",
+      provider: "OTHER",
+      resourceType: "service",
+      externalId: "hacker",
+    });
+    expect(unknownKey.statusCode).toBe(400);
+  });
+
+  it("404s on unknown teamOwnerId/componentGroupId references", async () => {
+    const res = await create(adminSession, {
+      name: "Bad Ref",
+      slug: "bad-ref",
+      category: "API",
+      provider: "OTHER",
+      resourceType: "service",
+      teamOwnerId: "018f0000-0000-7e10-a000-000000000099",
+    });
+    expect(res.statusCode).toBe(404);
+    expect(JSON.parse(res.payload).code).toBe("NOT_FOUND");
+  });
+
+  it("forbids VIEWER sessions", async () => {
+    const res = await create(viewerSession, {
+      name: "Viewer Component",
+      slug: "viewer-component",
+      category: "API",
+      provider: "OTHER",
+      resourceType: "service",
+    });
+    expect(res.statusCode).toBe(403);
   });
 });
 });

@@ -29,7 +29,7 @@ numbers are sequential at creation and may shift:
 
 Deferred past this program — re-triaged after it closes: G15 (merged
 with the email-delivery half of G4), G16, G17, G18, G19, G26, G27, G28,
-G30. G29, G31, G32 are their own feature specs, not backend gap specs.
+G30. G29/G31/G32 shipped as spec `042-catalog-authoring`.
 
 ## G1 — Per-day importer run aggregates — RESOLVED by spec 031
 
@@ -294,16 +294,20 @@ G30. G29, G31, G32 are their own feature specs, not backend gap specs.
 - **Deferred**: org-entity batch; decide whether owner is a `Person`
   ref or free text.
 
-## G29 — Manual component/group creation — FEATURE SPEC (not a backend gap)
+## G29 — Manual component/group creation — RESOLVED by spec 042
 
-- **UX surface**: "Add manually" on `/components` and "New group" on
-  `/component-groups` (`manualEntityCreate` flag — disabled with
-  tooltip until the spec ships).
-- **Need**: POST endpoints exist (`POST /components`,
-  `POST /component-groups`)? — verify at spec time; the missing piece
-  is the creation forms/flows, and possibly the endpoints.
-- **Resolution**: own feature spec — real authoring capability, not a
-  data gap.
+- `POST /components` ships (spec 042): `createComponentSchema` in core
+  (name, slug, category, provider, resourceType + optional
+  teamOwnerId/componentGroupId/links/tags/sunsetAt — importer-managed
+  columns rejected), `component:create` → EDITOR (ADR-054 Amendment 1),
+  uuid v7, `409 SLUG_CONFLICT`, `component` `created` audit event.
+- "Add manually" on `/components` opens `ComponentCreateDialog` (slug
+  auto-derived, category/provider selects from `@componode/core` META,
+  team/group selects, inline server errors) — lands on the new
+  component's detail. "New group" on `/component-groups` opens
+  `ComponentGroupCreateDialog` against the existing
+  `POST /component-groups`. Both controls hidden below EDITOR;
+  `manualEntityCreate` flag removed.
 
 ## G30 — "Keep me signed in" session-duration option — DEFERRED (unscheduled)
 
@@ -312,22 +316,26 @@ G30. G29, G31, G32 are their own feature specs, not backend gap specs.
   override honored by the session service).
 - **Deferred**: session-policy batch with G17.
 
-## G31 — Edge-authoring UI — FEATURE SPEC (not a backend gap)
+## G31 — Edge-authoring UI — RESOLVED by spec 042
 
-- **UX surface**: product detail — `useAddEdge`/`useRemoveEdge` hooks
-  exist (`api/hooks/products.ts:133-166`) with zero call sites; no UI to
-  add/remove `composes`/`consumesFrom`/`dependsOn` edges and nowhere a
-  `409 CYCLE` can surface.
-- **Resolution**: own feature spec — design the authoring affordance
-  (map vs. relations card) and 409 CYCLE surfacing.
+- Product detail's Dependencies tab gains a Relations card
+  (`ux/components/products/edge-authoring.tsx`) driving the existing
+  `useAddEdge`/`useRemoveEdge` hooks: kind select → target select
+  (non-RETIRED products for composes, PLATFORM-only for consumes-from,
+  components + component groups for depends-on), remove affordances per
+  edge, `409 CYCLE` and other controlled errors surfaced with the server
+  message via toast/inline error. Authoring controls hidden below
+  EDITOR; the map canvas stays read-only (ADR-118).
 
-## G32 — Suggestions decided-history — FEATURE SPEC
+## G32 — Suggestions decided-history — RESOLVED by spec 042
 
-- **UX surface**: `/suggestions` shows `PENDING` only; ADR-113 terminal
-  states (`ACCEPTED`/`DISMISSED`/`SUPERSEDED`) are unobservable.
-  `useSuggestions` already accepts a `status` param.
-- **Resolution**: own spec — history view/tab on the suggestions page
-  (`suggestionsHistory` flag until then).
+- `/suggestions` gains a Pending/History tab pair: History calls
+  `useSuggestions("DECIDED")` — a new rolled-up status filter over every
+  terminal state (`ACCEPTED`/`DISMISSED`/`SUPERSEDED`) ordered by
+  `decidedAt` desc (ADR-113 spec-042 amendment). Rows show
+  product/component links, a status badge, decided timestamp, and
+  decider name; no accept/dismiss actions; empty state when none.
+  `suggestionsHistory` flag removed.
 
 ## Conditional gaps — VERIFIED during implementation
 

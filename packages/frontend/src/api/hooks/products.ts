@@ -19,7 +19,7 @@ export interface ProductListParams {
   includeRetired?: boolean;
 }
 
-export function useProducts(params: ProductListParams = {}) {
+export function useProducts(params: ProductListParams = {}, enabled = true) {
   const search = new URLSearchParams();
   if (params.q) search.set("q", params.q);
   if (params.type) search.set("type", params.type);
@@ -31,6 +31,7 @@ export function useProducts(params: ProductListParams = {}) {
   const qs = search.toString();
   return useQuery({
     queryKey: ["products", qs],
+    enabled,
     queryFn: () => api<ProductListResponse>(`/products${qs ? `?${qs}` : ""}`),
     placeholderData: (prev) => prev, // preserve data during refetch (docs/ux.md §6)
   });
@@ -161,6 +162,13 @@ export function useRemoveEdge() {
         `/products/${vars.id}/${vars.kind}/${vars.otherId}${vars.targetKind ? `?kind=${vars.targetKind}` : ""}`,
         { method: "DELETE" },
       ),
-    onSuccess: () => invalidateProducts(qc),
+    onSuccess: () => {
+      // Same invalidation set as useAddEdge — removing a depends-on edge
+      // also changes component dependents and dashboard counts.
+      invalidateProducts(qc);
+      qc.invalidateQueries({ queryKey: ["components"] });
+      qc.invalidateQueries({ queryKey: ["component-groups"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
 }

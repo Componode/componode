@@ -213,12 +213,12 @@ detailed entry in **`researches/ux-rewrite-gaps.md`**:
 
 Deferred — each needs its own ADR or spec:
 
-- Interactive graph authoring of the COMPOSES DAG (read-only canvas
-  ratified by ADR-118; authoring is gap G31)
+- Interactive **graph** authoring of the COMPOSES DAG (read-only canvas
+  ratified by ADR-118; list-form edge authoring shipped in spec 042 —
+  canvas authoring is the remaining piece)
 - In-app `/standards` + `/design-system` surfaces — `docs/ux.md` is the
   written baseline; a live catalog page needs its own spec
 - Credential-form provider scaffolds — free-form key/value is the model
-- Suggestions decided-history view (gap G32)
 - Mobile/tablet support beyond the nav drawer
 - Custom importer-form widgets beyond the schema-driven scope renderer
   (nested/complex fields stay on per-field JSON)

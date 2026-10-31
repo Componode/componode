@@ -6,7 +6,12 @@ import type {
   SuggestionRescanReport,
 } from "@/api/types";
 
-export type SuggestionView = "PENDING" | "DISMISSED";
+/**
+ * Spec 042 / G32: `DECIDED` spans every terminal status
+ * (ACCEPTED/DISMISSED/SUPERSEDED) for the decided-history view; `DISMISSED`
+ * remains the per-status filter.
+ */
+export type SuggestionView = "PENDING" | "DISMISSED" | "DECIDED";
 
 /** Read queue — any authenticated role (ADR-113). `offset`/`limit` page the list. */
 export function useSuggestions(

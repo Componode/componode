@@ -1078,6 +1078,60 @@ paths:
               schema: { type: object }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Components]
+      summary: Create a component manually (spec 042, gap G29)
+      x-permission: "component:create"
+      description: >-
+        Requires the `component:create` role (Editor+). For assets no
+        importer discovers — importer-managed columns (`externalId`,
+        `details`, `lastSeen*`) are never accepted and stay null. Lifecycle
+        starts `ACTIVE`. `slug` must be lowercase kebab-case and unique
+        across components (`409 SLUG_CONFLICT`). `404` when
+        `teamOwnerId`/`componentGroupId` reference unknown entities.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, slug, category, provider, resourceType]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                slug: { type: string, minLength: 1, maxLength: 100, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+                category: { type: string }
+                provider: { type: string }
+                resourceType: { type: string, minLength: 1, maxLength: 100 }
+                teamOwnerId: { type: string, format: uuid }
+                componentGroupId: { type: string, format: uuid, nullable: true }
+                links:
+                  type: array
+                  maxItems: 20
+                  items: { $ref: '#/components/schemas/Link' }
+                tags:
+                  type: array
+                  maxItems: 20
+                  items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
+                sunsetAt: { type: string, format: date-time, nullable: true }
+      responses:
+        '201':
+          description: Component created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  component: { $ref: '#/components/schemas/Component' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Slug already in use (`SLUG_CONFLICT`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
   /components/{id}:
     get:
       tags: [Components]
@@ -2434,11 +2488,13 @@ paths:
         Any authenticated role may read. `PENDING` rows are sorted by score
         descending and exclude rows whose product or component is `RETIRED`;
         `DISMISSED` returns the permanent decision history ordered by
-        `decidedAt` descending.
+        `decidedAt` descending. `DECIDED` (spec 042, gap G32) spans every
+        terminal status — `ACCEPTED`, `DISMISSED`, and `SUPERSEDED` — ordered
+        by `decidedAt` descending, for the decided-history view.
       parameters:
         - in: query
           name: status
-          schema: { type: string, enum: [PENDING, DISMISSED], default: PENDING }
+          schema: { type: string, enum: [PENDING, DISMISSED, DECIDED], default: PENDING }
         - in: query
           name: limit
           schema: { type: integer, minimum: 1, maximum: 200, default: 50 }

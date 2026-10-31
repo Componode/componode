@@ -1,9 +1,9 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { listComponentsQuerySchema, updateComponentSchema } from "@componode/core";
+import { listComponentsQuerySchema, updateComponentSchema, createComponentSchema } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
 import { listComponents, getComponentById } from "../services/component-catalog-service.js";
-import { updateComponent } from "../services/component-group-service.js";
+import { updateComponent, createComponent } from "../services/component-group-service.js";
 import { toActor } from "../services/actor.js";
 import {
   listPlatformCandidates,
@@ -30,6 +30,27 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(404).send({ code: "NOT_FOUND", message: "Component not found" });
     }
     return reply.status(200).send({ dependents: await listComponentDependents(id) });
+  });
+
+  // Manual component creation (spec 042, gap G29).
+  app.post("/components", {
+    preHandler: [app.verifySession, requireRole("component:create")],
+  }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
+    const parsed = createComponentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid input",
+        details: parsed.error.issues,
+      });
+    }
+
+    try {
+      const component = await createComponent(parsed.data, toActor(req));
+      return reply.status(201).send({ component });
+    } catch (err) {
+      return sendServiceError(reply, err);
+    }
   });
 
   app.post("/components/:id/promote-to-platform", {
