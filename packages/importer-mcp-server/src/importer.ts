@@ -16,7 +16,7 @@ function buildAsset(resourceType: string, endpoint: string | undefined, identity
   const localId = endpoint
     ? `${canonicalizeSourceIdentity(endpoint)}:${resourceType}`
     : `mcp:${resourceType}`;
-  const externalId = qualifyExternalId(identity, localId);
+  const externalId = qualifyExternalId(canonicalizeSourceIdentity(identity), localId);
 
   return {
     category: "MCP_SERVER",

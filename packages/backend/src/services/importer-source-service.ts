@@ -51,11 +51,11 @@ export async function registerOrMatchSource(
 
   // T044: insert-or-select under the UNIQUE(importerName, externalIdentity)
   // key — a concurrent report must merge onto the same row, not collide.
-  const existingId = uuidv7();
+  const candidateId = uuidv7();
   await trx
     .insertInto("importer_sources")
     .values({
-      id: existingId,
+      id: candidateId,
       importerName,
       externalIdentity,
       label: identity.label ?? null,
@@ -78,7 +78,7 @@ export async function registerOrMatchSource(
     .where("externalIdentity", "=", externalIdentity)
     .executeTakeFirstOrThrow();
 
-  if (row.id === existingId) {
+  if (row.id === candidateId) {
     // Fresh registration — audit `created`.
     await writeEntityChange(
       {
@@ -96,7 +96,6 @@ export async function registerOrMatchSource(
       },
       trx,
     );
-    return row;
   }
 
   // Re-match (ADR-119): refresh identity + bind + reactivate. Status
@@ -429,6 +428,7 @@ export async function listSourceMemberships(sourceId: string) {
       "components.externalId as componentExternalId",
     ])
     .where("sourceId", "=", sourceId)
+    .limit(200)
     .execute();
 
   const instances = await db
@@ -444,6 +444,7 @@ export async function listSourceMemberships(sourceId: string) {
       "component_instances.componentId as componentId",
     ])
     .where("sourceId", "=", sourceId)
+    .limit(200)
     .execute();
 
   return { components, instances };

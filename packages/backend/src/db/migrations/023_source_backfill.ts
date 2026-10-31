@@ -22,7 +22,8 @@ import type { DB } from "../types.js";
  *   only on live report.
  * - No lifecycle/status changes; nothing is split, merged, or rekeyed.
  *
- * Idempotent: source and membership inserts use ON CONFLICT DO NOTHING,
+ * Idempotent: membership inserts use ON CONFLICT DO NOTHING; the Source
+ * lookup uses select-then-insert under UNIQUE(importerName, externalIdentity),
  * so a partially-repeated migration is safe.
  */
 

@@ -280,9 +280,9 @@ backfill; US5 + polish ratify and document.
 
 ## Phase 13: Review
 
-- [ ] T070 Filter migration 023 instance backfill by provenance — only instances with `lastSeenInRunId` in the config's runs gain memberships (NULL/never-reported rows stay membership-less; `import-run-service.ts` invariant: manual instances never touched) (code-review: standards)
-- [ ] T071 Fix migration 023 `latestRun` ordering — Postgres `DESC` is NULLS FIRST so a PENDING run wins; filter `startedAt is not null` (code-review: standards)
-- [ ] T072 Apply the stale-binding unbind on the fresh-registration path too — `registerOrMatchSource`'s early return for a NEW identity must also clear other Sources bound to the same `boundConfigId` (ADR-119 #3) (code-review: spec)
-- [ ] T073 Add a defensible-attribution filter to migration 023 component backfill: skip `default:`-prefixed externalIds (placeholder provenance, ADR-120 A2 §5) and URL-embedded-prefix ids whose canonicalized prefix != derived identity (endpoint-drifted rows) (code-review: spec)
-- [ ] T074 Qualify emitted externalIds with the canonicalized source identity in `importer-{aws,kubernetes,mcp-server,azure}` — a URL-parseable `sourceKey` is canonicalized by the backend, so raw-key qualification can never unqualify for adoption (code-review: spec)
-- [ ] T075 Minor cleanup: correct the 023 header comment (source insert has no ON CONFLICT), rename `existingId` → clearer name in importer-source-service.ts, rename azure's `scope` local → `identityPrefix`, cap `listSourceMemberships` queries at 200 rows each like `listSourceRuns` (code-review: standards)
+- [x] T070 Filter migration 023 instance backfill by provenance — only instances with `lastSeenInRunId` in the config's runs gain memberships (NULL/never-reported rows stay membership-less; `import-run-service.ts` invariant: manual instances never touched) (code-review: standards)
+- [x] T071 Fix migration 023 `latestRun` ordering — Postgres `DESC` is NULLS FIRST so a PENDING run wins; filter `startedAt is not null` (code-review: standards)
+- [x] T072 Apply the stale-binding unbind on the fresh-registration path too — `registerOrMatchSource`'s early return for a NEW identity must also clear other Sources bound to the same `boundConfigId` (ADR-119 #3) (code-review: spec)
+- [x] T073 Add a defensible-attribution filter to migration 023 component backfill: skip `default:`-prefixed externalIds (placeholder provenance, ADR-120 A2 §5) and URL-embedded-prefix ids whose canonicalized prefix != derived identity (endpoint-drifted rows) (code-review: spec)
+- [x] T074 Qualify emitted externalIds with the canonicalized source identity in `importer-{aws,kubernetes,mcp-server,azure}` — a URL-parseable `sourceKey` is canonicalized by the backend, so raw-key qualification can never unqualify for adoption (code-review: spec)
+- [x] T075 Minor cleanup: correct the 023 header comment (source insert has no ON CONFLICT), rename `existingId` → clearer name in importer-source-service.ts, rename azure's `scope` local → `identityPrefix`, cap `listSourceMemberships` queries at 200 rows each like `listSourceRuns` (code-review: standards)

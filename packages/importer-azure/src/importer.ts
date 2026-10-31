@@ -1,4 +1,4 @@
-import { validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
+import { canonicalizeSourceIdentity, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
 import { azureConfigSchema } from "./config.js";
 
 function slugify(name: string): string {
@@ -9,9 +9,9 @@ function slugify(name: string): string {
 }
 
 function buildAsset(resourceType: string, subscriptionId: string | undefined, endpoint: string | undefined, identity: string): DiscoveredAsset {
-  const scope = identity;
-  const name = `${resourceType}:${scope}`;
-  const externalId = `${scope}:${resourceType}`;
+  const identityPrefix = canonicalizeSourceIdentity(identity);
+  const name = `${resourceType}:${identityPrefix}`;
+  const externalId = `${identityPrefix}:${resourceType}`;
 
   return {
     category: "COMPUTE",

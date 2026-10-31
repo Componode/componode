@@ -1,4 +1,4 @@
-import { qualifyExternalId, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
+import { canonicalizeSourceIdentity, qualifyExternalId, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
 import { awsConfigSchema } from "./config.js";
 
 function slugify(name: string): string {
@@ -11,7 +11,7 @@ function slugify(name: string): string {
 function buildAsset(resourceType: string, region: string, endpoint: string | undefined, identity: string): DiscoveredAsset {
   const name = `${resourceType}:${region}`;
   const localId = `${region}:${resourceType}`;
-  const externalId = qualifyExternalId(identity, localId);
+  const externalId = qualifyExternalId(canonicalizeSourceIdentity(identity), localId);
 
   return {
     category: "COMPUTE",

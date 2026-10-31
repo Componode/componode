@@ -11,7 +11,7 @@ function slugify(name: string): string {
 function buildAsset(resourceType: string, namespace: string, endpoint: string | undefined, identity: string): DiscoveredAsset {
   const name = `${resourceType}:${namespace}`;
   const localId = `${namespace}:${resourceType}`;
-  const externalId = qualifyExternalId(identity, localId);
+  const externalId = qualifyExternalId(canonicalizeSourceIdentity(identity), localId);
 
   return {
     category: "CONTAINER_ORCHESTRATION",
