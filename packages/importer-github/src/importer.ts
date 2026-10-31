@@ -122,7 +122,12 @@ export class GithubImporter implements Importer {
         signal: context.signal,
       });
       orgId = (orgResponse.data as { id?: number | string }).id;
-    } catch {
+    } catch (err) {
+      // Only permission-style failures fall back to the login identity —
+      // network/5xx errors must still fail the run rather than invent a
+      // renamable source key (ADR-120).
+      const status = (err as { status?: number }).status;
+      if (status !== 403 && status !== 404) throw err;
       orgId = undefined;
     }
     // Fall back to the org login — mirrors the org asset's own

@@ -372,6 +372,44 @@ export async function getSource(id: string) {
   };
 }
 
+/**
+ * Source→Component and Source→ComponentInstance memberships with their
+ * per-source `details` (spec 045 US3 — what each source reported).
+ */
+export async function listSourceMemberships(sourceId: string) {
+  const components = await db
+    .selectFrom("source_component_memberships")
+    .leftJoin(
+      "components",
+      "components.id",
+      "source_component_memberships.componentId",
+    )
+    .selectAll("source_component_memberships")
+    .select([
+      "components.name as componentName",
+      "components.externalId as componentExternalId",
+    ])
+    .where("sourceId", "=", sourceId)
+    .execute();
+
+  const instances = await db
+    .selectFrom("source_instance_memberships")
+    .leftJoin(
+      "component_instances",
+      "component_instances.id",
+      "source_instance_memberships.componentInstanceId",
+    )
+    .selectAll("source_instance_memberships")
+    .select([
+      "component_instances.externalId as instanceExternalId",
+      "component_instances.componentId as componentId",
+    ])
+    .where("sourceId", "=", sourceId)
+    .execute();
+
+  return { components, instances };
+}
+
 /** Run history for the Source — survives config deletion (configId null). */
 export async function listSourceRuns(sourceId: string) {
   return db

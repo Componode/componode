@@ -6,6 +6,7 @@ import {
   listSources,
   getSource,
   listSourceRuns,
+  listSourceMemberships,
   retireSource,
   reactivateSource,
 } from "../services/importer-source-service.js";
@@ -50,6 +51,18 @@ export async function importerSourceRoutes(
     }
     const runs = await listSourceRuns(id);
     return reply.status(200).send({ runs });
+  });
+
+  app.get("/importer-sources/:id/memberships", {
+    preHandler: [app.verifySession],
+  }, async (req: FastifyRequest, reply: FastifyReply) => {
+    const { id } = req.params as { id: string };
+    const source = await getSource(id);
+    if (!source) {
+      return reply.status(404).send({ code: "SOURCE_NOT_FOUND", message: "Importer source not found" });
+    }
+    const memberships = await listSourceMemberships(id);
+    return reply.status(200).send(memberships);
   });
 
   app.post("/importer-sources/:id/retire", {

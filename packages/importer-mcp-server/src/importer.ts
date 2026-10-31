@@ -10,7 +10,10 @@ function slugify(name: string): string {
 
 function buildAsset(resourceType: string, endpoint: string | undefined, identity: string): DiscoveredAsset {
   const name = `mcp:${resourceType}`;
-  const externalId = qualifyExternalId(identity, resourceType);
+  // The pre-migration local id — `unqualifyExternalId` strips the
+  // `{identity}::` prefix back to exactly this form for adoption matching.
+  const localId = endpoint ? `${endpoint}:${resourceType}` : `mcp:${resourceType}`;
+  const externalId = qualifyExternalId(identity, localId);
 
   return {
     category: "MCP_SERVER",
@@ -23,7 +26,7 @@ function buildAsset(resourceType: string, endpoint: string | undefined, identity
     instances: [
       {
         environment: "PRODUCTION",
-        externalId: `${externalId}:0`,
+        externalId: `${localId}:0`,
         url: endpoint ?? null,
         status: "RUNNING",
         version: "1.0.0",

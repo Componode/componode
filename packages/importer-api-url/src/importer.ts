@@ -23,9 +23,10 @@ export class ApiUrlImporter implements Importer {
 
     context.reportPhase("Initializing");
     const parsed = apiUrlConfigSchema.parse(config);
+    const identity = canonicalizeSourceIdentity(parsed.url);
     await context.reportSourceIdentity({
-      externalIdentity: canonicalizeSourceIdentity(parsed.url),
-      label: parsed.url,
+      externalIdentity: identity,
+      label: identity,
     });
 
     context.reportPhase(`Probing ${parsed.url}`);
@@ -50,7 +51,7 @@ export class ApiUrlImporter implements Importer {
       provider: "API_URL",
       resourceType: "api:url",
       name: parsed.url,
-      externalId: parsed.url,
+      externalId: identity,
       slug: slugify(parsed.url),
       details: {
         statusCode: response.status,
@@ -59,7 +60,7 @@ export class ApiUrlImporter implements Importer {
       instances: [
         {
           environment: "PRODUCTION",
-          externalId: parsed.url,
+          externalId: identity,
           url: parsed.url,
           status,
           version: "1.0.0",

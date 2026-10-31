@@ -32,7 +32,9 @@ describe("McpServerImporter", () => {
     const reported = (context.reportSourceIdentity as ReturnType<typeof vi.fn>).mock.calls[0][0].externalIdentity;
     expect(reported).toContain("mcp.example.com/sse");
     expect(assets).toHaveLength(1);
-    expect(assets[0].externalId).toBe(`${reported}::tools/list`);
+    // Qualified form embeds the pre-migration local id (`{endpoint}:{rtype}`)
+    // so unqualify-based adoption matches legacy rows (ADR-120).
+    expect(assets[0].externalId).toBe(`${reported}::https://mcp.example.com/sse:tools/list`);
     expect(assets[0].provider).toBe("MCP_SERVER");
     expect(assets[0].resourceType).toBe("tools/list");
     expect(assets[0].category).toBe("MCP_SERVER");

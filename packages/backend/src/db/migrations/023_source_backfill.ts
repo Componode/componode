@@ -167,9 +167,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
-  // Remove only what this migration could have created: memberships and
-  // Sources bound to derivable configs. Never touches runs, components,
-  // or externally-created Sources (matched by identity, not provenance).
+  // Remove only what this migration could have created AND that no live
+  // run has since claimed: memberships and Sources bound to derivable
+  // configs whose id appears in no `import_runs.sourceId`. A Source a
+  // real run adopted stays (the FK is RESTRICT and the run is real
+  // provenance, not migration output). Never touches runs or components.
   const kdb = db as Kysely<DB>;
   const configs = await kdb.selectFrom("importer_configs").selectAll().execute();
 
@@ -183,6 +185,14 @@ export async function down(db: Kysely<unknown>): Promise<void> {
       .where("externalIdentity", "=", identity)
       .executeTakeFirst();
     if (!source) continue;
+
+    const referenced = await kdb
+      .selectFrom("import_runs")
+      .select("id")
+      .where("sourceId", "=", source.id)
+      .limit(1)
+      .executeTakeFirst();
+    if (referenced) continue;
 
     await kdb
       .deleteFrom("source_instance_memberships")

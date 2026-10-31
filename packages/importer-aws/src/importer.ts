@@ -10,7 +10,8 @@ function slugify(name: string): string {
 
 function buildAsset(resourceType: string, region: string, endpoint: string | undefined, identity: string): DiscoveredAsset {
   const name = `${resourceType}:${region}`;
-  const externalId = qualifyExternalId(identity, `${region}:${resourceType}`);
+  const localId = `${region}:${resourceType}`;
+  const externalId = qualifyExternalId(identity, localId);
 
   return {
     category: "COMPUTE",
@@ -23,7 +24,7 @@ function buildAsset(resourceType: string, region: string, endpoint: string | und
     instances: [
       {
         environment: "PRODUCTION",
-        externalId: `${externalId}:0`,
+        externalId: `${localId}:0`,
         url: endpoint ?? null,
         status: "RUNNING",
         version: "1.0.0",

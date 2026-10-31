@@ -311,6 +311,24 @@ describe("adopt-on-report and source-qualified externalIds", () => {
     expect(instMs).toHaveLength(2);
     expect(instMs.map((m) => m.details)).toContainEqual({ seenBy: "A" });
     expect(instMs.map((m) => m.details)).toContainEqual({ seenBy: "B" });
+
+    // The same details are readable via the memberships API (US3).
+    const srcA = await db
+      .selectFrom("importer_sources")
+      .selectAll()
+      .where("externalIdentity", "=", "src-A")
+      .executeTakeFirstOrThrow();
+    const apiRes = await app.inject({
+      method: "GET",
+      url: `/api/v1/importer-sources/${srcA.id}/memberships`,
+      cookies: { [SESSION_COOKIE_NAME]: adminSession },
+    });
+    expect(apiRes.statusCode).toBe(200);
+    const body = JSON.parse(apiRes.payload);
+    expect(body.components).toHaveLength(1);
+    expect(body.components[0].details).toEqual({ owner: "A" });
+    expect(body.instances).toHaveLength(1);
+    expect(body.instances[0].details).toEqual({ seenBy: "A" });
   });
 });
 

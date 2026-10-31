@@ -1876,6 +1876,28 @@ paths:
                     items: { $ref: '#/components/schemas/ImportRun' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /importer-sources/{id}/memberships:
+    get:
+      tags: [Importers]
+      summary: List a source's component and instance memberships with per-source details
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Component and instance memberships including per-source details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  components:
+                    type: array
+                    items: { $ref: '#/components/schemas/SourceComponentMembership' }
+                  instances:
+                    type: array
+                    items: { $ref: '#/components/schemas/SourceInstanceMembership' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /importer-sources/{id}/retire:
     post:
       tags: [Importers]
@@ -3633,6 +3655,40 @@ components:
         lastCompletedRunAt: { type: string, format: date-time, nullable: true }
         activeComponentMemberships: { type: integer }
         activeInstanceMemberships: { type: integer }
+        firstSeenInRunId: { type: string, format: uuid, nullable: true }
+        lastSeenInRunId: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    SourceComponentMembership:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        sourceId: { type: string, format: uuid }
+        componentId: { type: string, format: uuid }
+        active: { type: boolean }
+        details:
+          type: object
+          nullable: true
+          description: Per-source facts reported by the source (spec 045)
+        componentName: { type: string, nullable: true }
+        componentExternalId: { type: string, nullable: true }
+        firstSeenInRunId: { type: string, format: uuid, nullable: true }
+        lastSeenInRunId: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    SourceInstanceMembership:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        sourceId: { type: string, format: uuid }
+        componentInstanceId: { type: string, format: uuid }
+        componentId: { type: string, format: uuid, nullable: true }
+        instanceExternalId: { type: string, nullable: true }
+        active: { type: boolean }
+        details:
+          type: object
+          nullable: true
+          description: Per-source facts reported by the source (spec 045)
         firstSeenInRunId: { type: string, format: uuid, nullable: true }
         lastSeenInRunId: { type: string, format: uuid, nullable: true }
         createdAt: { type: string, format: date-time }
