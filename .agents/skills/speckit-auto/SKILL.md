@@ -91,9 +91,10 @@ Then run intelligent verification that detects changed packages:
 CHANGED_PACKAGES=$(git diff --name-only main...HEAD | grep -E '^packages/' | cut -d'/' -f2 | sort -u)
 
 if [ -z "$CHANGED_PACKAGES" ]; then
-  # No package changes detected (e.g., only docs, configs) — run full suite
-  echo "No package source changes detected, running full verification suite..."
-  pnpm lint && pnpm typecheck && pnpm test && pnpm build
+  # No package source changes (docs, ADRs, configs, specs) — minimal verification
+  # Docs/ADRs are committed to drive further work; don't block with full suite
+  echo "No package source changes detected (docs/ADRs/configs only) — running root build only"
+  pnpm build
 else
   # Run verification only for changed packages
   echo "Changed packages detected: $CHANGED_PACKAGES"
