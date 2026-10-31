@@ -239,3 +239,8 @@ register — the provenance foundation is live even before qualification.
 US2 then adds collision safety + continuity (the risky delta, gated by
 adopt-on-report); US3 closes the Wave A `details` debt; US4 lands
 backfill; US5 + polish ratify and document.
+
+## Phase 9: Convergence
+
+- [x] T044 Add integration test in `packages/backend/test/integration/source-adoption.test.ts`: an adopting run that reports identity but yields zero assets still registers the `importer_sources` row and stamps `import_runs.sourceId` (spec edge case / US1, missing)
+- [x] T045 Add test in `packages/backend/test/integration/remote-run*.test.ts` (or remote-run-service unit suite): a `source.identity` frame arriving on a non-adopting job is ignored — `run.sourceId` stays NULL and reconciliation stays config-scoped (FR-013, partial)

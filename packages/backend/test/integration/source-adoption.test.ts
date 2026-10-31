@@ -242,6 +242,29 @@ describe("adopt-on-report and source-qualified externalIds", () => {
     ]);
   });
 
+  it("empty inventory still registers the Source and stamps run.sourceId", async () => {
+    const { db } = await import("../../src/db/connection.js");
+    const configId = (await createConfig()).id;
+
+    // Adopting importer that reports identity but yields nothing.
+    (getImporter as any).mockResolvedValueOnce(importerOf([], "empty-src"));
+    const run = await runOnce(configId);
+    expect(run.status).toBe("COMPLETED");
+
+    const sources = await db.selectFrom("importer_sources").selectAll().execute();
+    expect(sources).toHaveLength(1);
+    expect(sources[0]!.externalIdentity).toBe("empty-src");
+    expect(sources[0]!.boundConfigId).toBe(configId);
+
+    const runRow = await db
+      .selectFrom("import_runs")
+      .selectAll()
+      .where("id", "=", run.id)
+      .executeTakeFirstOrThrow();
+    expect(runRow.sourceId).toBe(sources[0]!.id);
+    expect(runRow.assetsProcessed).toBe(0);
+  });
+
   it("persists asset/instance sourceDetails on the membership, distinct per Source", async () => {
     const { db } = await import("../../src/db/connection.js");
     const configId = (await createConfig()).id;
