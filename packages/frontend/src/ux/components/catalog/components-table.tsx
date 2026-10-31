@@ -13,8 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CATEGORY_LABELS, PROVIDER_META, type InstanceStatus } from "@/ux/lib/domain"
 import type { Component } from "@/ux/lib/view-types"
 
-const PRIORITY: InstanceStatus[] = ["ERROR", "STOPPED", "RUNNING", "GONE"]
-const worstStatus = (c: Component) => PRIORITY.find((s) => c.instances.some((i) => i.status === s)) ?? null
+const PRIORITY: InstanceStatus[] = ["ERROR", "GONE", "STOPPED", "RUNNING"]
+// Spec 039: prefer the backend rollup; fall back to client-computed for payloads that carry instances.
+const worstStatus = (c: Component) => c.worstStatus ?? PRIORITY.find((s) => c.instances.some((i) => i.status === s)) ?? null
 
 export function ComponentsTable({
   data,

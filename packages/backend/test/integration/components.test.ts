@@ -346,4 +346,50 @@ describe("components catalog", () => {
     expect(body.pagination.pageCount).toBe(2);
     expect(body.pagination.hasNext).toBe(true);
   });
+
+describe("list enrichment — worstStatus + lastSeenAt (spec 039, G21)", () => {
+  it("returns worstStatus and lastSeenAt per row; nulls for zero-instance rows", async () => {
+    const mixed = "11111111-1111-1111-1111-111111111111";
+    const empty = "22222222-2222-2222-2222-222222222222";
+    await insertComponent(testDb.db, {
+      id: mixed, slug: "mixed", name: "mixed",
+      category: "API", provider: "GITHUB", resourceType: "github:repository",
+    });
+    await insertComponent(testDb.db, {
+      id: empty, slug: "empty", name: "empty",
+      category: "API", provider: "GITHUB", resourceType: "github:repository",
+    });
+    await insertInstance(testDb.db, {
+      id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      componentId: mixed,
+      status: "RUNNING",
+      externalId: "mixed:0",
+      slug: "mixed-0",
+      lastSeenAt: "2026-10-01T00:00:00Z",
+    });
+    await insertInstance(testDb.db, {
+      id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      componentId: mixed,
+      status: "ERROR",
+      externalId: "mixed:1",
+      slug: "mixed-1",
+      lastSeenAt: "2026-10-20T00:00:00Z",
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/components",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession },
+    });
+    expect(res.statusCode).toBe(200);
+    const rows = JSON.parse(res.payload).data;
+    const m = rows.find((r: any) => r.slug === "mixed");
+    const e = rows.find((r: any) => r.slug === "empty");
+    expect(m.worstStatus).toBe("ERROR");
+    expect(m.lastSeenAt).toBeTruthy();
+    expect(new Date(m.lastSeenAt).toISOString()).toBe("2026-10-20T00:00:00.000Z");
+    expect(e.worstStatus).toBeNull();
+    expect(e.lastSeenAt).toBeNull();
+  });
+});
 });

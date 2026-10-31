@@ -9,6 +9,8 @@ const team = (id: string, name: string, lobId: string | null = null): TeamEntity
   description: null,
   lobId,
   lob: null,
+  memberCount: 0,
+  componentCount: 0,
   createdAt: "",
   updatedAt: "",
 });

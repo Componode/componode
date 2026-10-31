@@ -76,6 +76,8 @@ export interface Component {
   instanceCount: number;
   instances: ComponentInstance[];
   lastSeenAt: string | null;
+  /** Backend rollup (spec 039) — null when the component has no instances. */
+  worstStatus: InstanceStatus | null;
 }
 
 /** Prototype component-group card/detail shape (`componentGroups` fixture). */

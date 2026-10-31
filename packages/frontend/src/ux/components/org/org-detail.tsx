@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CATEGORY_LABELS } from "@/ux/lib/domain";
 import { flags } from "@/ux/lib/flags";
 import { ux } from "@/ux/lib/paths";
-import type { OrgEntity } from "@/api/types";
+import type { OrgEntity, TeamEntity } from "@/api/types";
 import type { Component, Product } from "@/ux/lib/view-types";
 
 interface OwnedTableProps {
@@ -70,7 +70,7 @@ interface OrgDetailProps {
   /** LOB options for the team edit dialog (spec 034). */
   lobs?: OrgEntity[];
   /** Teams associated with this LOB — renders a teams card (spec 034). */
-  associatedTeams?: OrgEntity[];
+  associatedTeams?: TeamEntity[];
   onEdit: (vars: { name: string; slug: string; description?: string | null; lobId?: string | null }) => void;
   onDelete: () => void;
   editPending?: boolean;
@@ -148,9 +148,7 @@ export function OrgDetail({
                   <Link to={ux(`/teams/${t.slug}`)} className="font-medium hover:underline">
                     {t.name}
                   </Link>,
-                  ...(flags.teamMemberCounts
-                    ? [(t as { memberCount?: number }).memberCount ?? "—", (t as { componentCount?: number }).componentCount ?? "—"]
-                    : []),
+                  ...(flags.teamMemberCounts ? [t.memberCount, t.componentCount] : []),
                 ])}
               />
             </Card>

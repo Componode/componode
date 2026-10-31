@@ -236,4 +236,17 @@ describe("team ↔ LOB association (G12)", () => {
     const flat = JSON.stringify(res.json().items);
     expect(flat).toContain("lobId");
   });
+
+  it("GET /teams returns memberCount + componentCount per row (spec 039, G22)", async () => {
+    const list = await app.inject({
+      method: "GET",
+      url: "/api/v1/teams",
+      ...authed(),
+    });
+    expect(list.statusCode).toBe(200);
+    const row = list.json().teams.find((t: any) => t.id === ids.team);
+    expect(typeof row.memberCount).toBe("number");
+    expect(typeof row.componentCount).toBe("number");
+  });
+
 });

@@ -24,7 +24,7 @@ numbers are sequential at creation and may shift:
 6. `037` — schema-driven importer forms (G13) — RESOLVED by spec 037 —
    `035`/`036` were taken by `035-bugfix-user-form-validation` and
    `036-bugfix-ux-findings`
-7. `0NN` — list enrichment (G21, G22) — next free number after `038`
+7. ~~`0NN` — list enrichment (G21, G22)~~ — SHIPPED as spec `039`
 8. `0NN` — dashboard intelligence (G23, G24, G25)
 
 Deferred past this program — re-triaged after it closes: G15 (merged
@@ -212,7 +212,7 @@ own feature specs, not backend gap specs.
   lossless Edit-as-JSON toggle.
 - **Flag**: none — resolved unflagged.
 
-## G21 — List enrichment: component instances/lastSeen + importer lastRun — SPEC QUEUED
+## G21 — List enrichment: component instances/lastSeen + importer lastRun — RESOLVED by spec 039
 
 - **UX surface**: components list `Health` and `Last seen` columns
   (`componentListHealth`, `componentListLastSeen` flags — hidden until
@@ -221,14 +221,14 @@ own feature specs, not backend gap specs.
   (list payload currently omits `instances` and `lastSeenAt`). Importer
   `lastRun` is wired from `DashboardSummary.lastRuns` in spec 038 — this
   entry covers it only if that join proves insufficient.
-- **Resolution**: list-enrichment spec (next free number after `038`).
+- **Resolution**: RESOLVED by spec 039 — `worstStatus` + `lastSeenAt` rollups on `GET /components`; flags flipped ON.
 
-## G22 — Team member counts — SPEC QUEUED
+## G22 — Team member counts — RESOLVED by spec 039
 
 - **UX surface**: teams list `Members` column (`teamMemberCounts` flag —
   renders "—" fallback until this lands); LOB detail teams table.
 - **Need**: `memberCount` on `GET /teams` (and LOB detail reads).
-- **Resolution**: list-enrichment spec, same spec as G21.
+- **Resolution**: RESOLVED by spec 039 — `memberCount` + `componentCount` on `GET /teams`; flag flipped ON.
 
 ## G23 — Stat-grid deltas — SPEC QUEUED
 
