@@ -68,7 +68,7 @@ resolved profile — never a full inventory.
 |---|---|---|
 | `targetId` | yes | Names a profile in `docker-targets.json` |
 | `environmentLabel` | no | Docker label key read for environment mapping (container labels, then Compose service labels) |
-| `environmentMap` | no | JSON map of label value → environment (`PRODUCTION`/`STAGING`/`DEVELOPMENT`/`OTHER`); unmapped → `OTHER` |
+| `environmentMap` | no | JSON map of label value → environment (`DEV`/`TEST`/`STAGING`/`DEMO`/`PRODUCTION`/`OTHER`); unmapped → `OTHER` |
 | `componentIdLabel` | no | Workload-identity override label; default `componode.component-id` |
 | `includeImages` | no | `true` imports cached images as `PACKAGE_REGISTRY` Components; default `false` |
 | `sourceKey` | no | Fallback source identity when the engine reports no `/info.ID` |

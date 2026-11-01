@@ -1,7 +1,8 @@
 # Importers
 
 Importers pull assets from external systems into the Componode catalog. Each
-importer runs inside the backend, reads from one provider, and produces
+importer runs inside the backend (or, when the config is bound to an Import
+Agent, on that agent), reads from one provider, and produces
 **Components** with **Component Instances** — it never writes back to the
 source system.
 

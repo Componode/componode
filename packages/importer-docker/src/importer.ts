@@ -8,6 +8,7 @@ import {
   type Importer,
   type ImporterContext,
 } from "@componode/core";
+import { maskSecretValues } from "@componode/core/secrets";
 import { dockerConfigSchema } from "./config.js";
 import { validateTargetProfile } from "./target-profile.js";
 import { buildDockerOptions } from "./transport.js";
@@ -168,10 +169,7 @@ export class DockerImporter implements Importer {
     resolvedTarget?: unknown,
   ): Promise<CredentialTestResult> {
     const sanitize = (text: string) =>
-      Object.values(secrets)
-        .filter((s) => s.length >= 4)
-        .reduce((m, s) => m.split(s).join("[redacted]"), text)
-        .slice(0, 200);
+      maskSecretValues(text, secrets).slice(0, 200);
     try {
       dockerConfigSchema.partial().parse(config ?? {});
       if (!resolvedTarget) {

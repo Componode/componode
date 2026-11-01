@@ -61,7 +61,7 @@ secret keys. Validation rejects: unknown transports, plaintext hints,
 | `asset.details` (canonical, shared) | `workloadKind` (`compose`\|`standalone`\|`override`), `composeProject`, `composeService`, `workloadId` when overridden, `imageRef` |
 | `asset.sourceDetails` (per-source membership) | per-target compose labels, container names seen, restart policy name, network names — facts that may differ per environment |
 | `instance.details` | `imageDigest`, `imageRef`, `containerName`, `state`, `exitCode?`, `startedAt?` |
-| `instance.rawConfig` | allowlisted snapshot: `ports` (published), `networks` (names), `mounts` (`{type, destination, ref}` — bind sources rendered as opaque `bind:{instanceId}:{destination}` refs, never raw paths), `restartPolicy` |
+| `instance.rawConfig` | allowlisted snapshot: `ports` (published), `networks` (names), `mounts` (`{type, destination, ref}` — bind sources rendered as opaque `bind:{instanceId}:{destination}` refs, never raw paths) |
 | `instance.sourceDetails` | per-source container name/labels that differ per environment |
 | logs / errors | key names and source types only — never values (existing scrubbing applies) |
 

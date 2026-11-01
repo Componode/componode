@@ -114,7 +114,7 @@
 | [ADR-053](./adrs/ADR-053-api-authorization-layered-default-deny.md) | API authorization: layered default-deny |
 | [ADR-054](./adrs/ADR-054-rbac-permission-matrix.md) | RBAC permission matrix; Amendment 1 adds `component:create` (EDITOR) for manual component authoring (spec 042); Amendment 2 (spec 044) adds `importer:source:retire`/`importer:source:reactivate` (ADMIN) |
 | [ADR-055](./adrs/ADR-055-importer-secret-resolution.md) | Importer secret resolution |
-| [ADR-056](./adrs/ADR-056-importer-interface-signature.md) | Importer interface signature (supersedes ADR-025); Amendment 1 — `reportSourceIdentity` + `resolveTarget` + `targetRefKey` (ADR-119); Amendment 2 (spec 044) — `reportsSourceIdentity` manifest flag, in-process `resolveTarget` stub; amended by ADR-120 — `sourceDetails` fields on `DiscoveredAsset`/`DiscoveredAssetInstance`; amended by ADR-121 � `testSecrets` `resolvedTarget`, `requiresAgent` |
+| [ADR-056](./adrs/ADR-056-importer-interface-signature.md) | Importer interface signature (supersedes ADR-025); Amendment 1 — `reportSourceIdentity` + `resolveTarget` + `targetRefKey` (ADR-119); Amendment 2 (spec 044) — `reportsSourceIdentity` manifest flag, in-process `resolveTarget` stub; amended by ADR-120 — `sourceDetails` fields on `DiscoveredAsset`/`DiscoveredAssetInstance`; amended by ADR-121 — `testSecrets` `resolvedTarget`, `requiresAgent` |
 | [ADR-057](./adrs/ADR-057-discoveredasset-final-shape.md) | DiscoveredAsset final shape (supersedes ADR-025) |
 | [ADR-058](./adrs/ADR-058-importer-cancellation.md) | Importer cancellation |
 | [ADR-059](./adrs/ADR-059-importer-run-state-machine.md) | Importer run state machine |
@@ -123,7 +123,7 @@
 | [ADR-062](./adrs/ADR-062-importer-run-progress-reporting.md) | Importer run progress reporting |
 | [ADR-063](./adrs/ADR-063-importer-error-surfacing.md) | Importer error surfacing |
 | [ADR-064](./adrs/ADR-064-importer-validation-harness.md) | Importer validation harness |
-| [ADR-065](./adrs/ADR-065-package-dependency-graph.md) | Package dependency graph; Amendment 1 — `@componode/importer-docker` admitted to the lockstep importer set (ADR-119); amended by ADR-121 � importer ships, lockstep set now 9 |
+| [ADR-065](./adrs/ADR-065-package-dependency-graph.md) | Package dependency graph; Amendment 1 — `@componode/importer-docker` admitted to the lockstep importer set (ADR-119); amended by ADR-121 — importer ships, lockstep set now 9 |
 | [ADR-066](./adrs/ADR-066-bootstrap-admin.md) | Bootstrap admin |
 | [ADR-067](./adrs/ADR-067-logger-abstraction.md) | Logger abstraction |
 | [ADR-068](./adrs/ADR-068-opentelemetry-tracing-integration.md) | OpenTelemetry tracing integration |
