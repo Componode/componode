@@ -42,3 +42,5 @@ __pycache__/
 # Devin agent (may contain credentials — see spec-kit init warning)
 # Uncomment if you want to exclude .devin/ from git:
 # .devin/credentials/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
