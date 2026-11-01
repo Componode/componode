@@ -38,7 +38,13 @@
   "packageManager": "pnpm@9.15.2",
   "pnpm": {
     "overrides": {
-      "archiver-utils>glob": "^13.0.6",
+      "archiver-utils>glob": "^14.0.2",
+      "@fastify/static>glob": "^14.0.2",
+      "@eslint/config-array>minimatch": "^11.0.1",
+      "@typescript-eslint/typescript-estree>minimatch": "^11.0.1",
+      "eslint>minimatch": "^11.0.1",
+      "readdir-glob>minimatch": "^11.0.1",
+      "katex": ">=0.18.2",
       "brace-expansion@<1.1.21": "^1.1.21",
       "fast-uri@^3": "^3.1.7",
       "fast-uri@^4": "^4.1.4",
