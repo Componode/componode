@@ -2,7 +2,7 @@
 # The image builds the monorepo from source, then runs the backend which also
 # serves the built frontend static assets.
 
-FROM node:24.22.2-alpine
+FROM node:26.13.0-alpine
 
 RUN apk add --no-cache wget && \
     addgroup -g 10001 componode && \
