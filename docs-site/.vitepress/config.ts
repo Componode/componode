@@ -12,16 +12,19 @@ export default defineConfig({
   lastUpdated: true,
   themeConfig: {
     nav: [
-      { text: "Guide", link: "/digital-products" },
+      { text: "Guide", link: "/quickstart" },
       { text: "Importers", link: "/importers/" },
       { text: "Deploy & Operate", link: "/deployment" },
       { text: "Reference", link: "/openapi-reference" },
-      { text: "Contribute", link: "/architecture" },
+      { text: "Contribute", link: "/contributing" },
     ],
     sidebar: [
       {
         text: "Guide",
         items: [
+          { text: "Quickstart", link: "/quickstart" },
+          { text: "Using the catalog", link: "/using-the-catalog" },
+          { text: "Credentials & access", link: "/credentials-and-access" },
           { text: "Digital Products in depth", link: "/digital-products" },
         ],
       },
@@ -47,18 +50,21 @@ export default defineConfig({
           { text: "Import Agents", link: "/import-agents" },
           { text: "Agent wire protocol", link: "/agent-protocol" },
           { text: "Security design", link: "/security" },
+          { text: "Troubleshooting & FAQ", link: "/troubleshooting" },
         ],
       },
       {
         text: "Reference",
         items: [
-          { text: "API conventions", link: "/api" },
           { text: "Interactive API (OpenAPI)", link: "/openapi-reference" },
+          { text: "API conventions & tables", link: "/api" },
+          { text: "Vocabulary", link: "/vocabulary" },
         ],
       },
       {
         text: "Contributors",
         items: [
+          { text: "Contributing", link: "/contributing" },
           { text: "Architecture overview", link: "/architecture" },
           { text: "Importer development", link: "/importer-development" },
           { text: "UX/UI reference", link: "/ux" },

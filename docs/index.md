@@ -7,8 +7,8 @@ hero:
   tagline: Open-source, self-hosted catalog that models digital products as compositions of imported components.
   actions:
     - theme: brand
-      text: Get started
-      link: /deployment
+      text: Quickstart — 15 min
+      link: /quickstart
     - theme: alt
       text: View on GitHub
       link: https://github.com/Componode/componode
@@ -17,9 +17,9 @@ features:
   - title: Learn the model
     details: Digital Products, Components, Instances, and the Composable Product Model — explained with worked examples.
     link: /digital-products
-  - title: Deploy the hub
-    details: One Docker Compose stack — Fastify backend, React frontend, PostgreSQL. Up in minutes.
-    link: /deployment
+  - title: Tour the app
+    details: What each screen does, the factual vs. meaning layers, and the curation workflows.
+    link: /using-the-catalog
   - title: Connect importers
     details: Pull-only importers for GitHub, Alibaba Cloud, Docker, API/Web URLs — plus Import Agents for private networks.
     link: /importers/
@@ -44,10 +44,14 @@ so. That's how this project gets better.
 
 | I want to… | Start here |
 |---|---|
-| Understand what Componode models | [Digital Products in depth](./digital-products) |
-| Run it locally | [Deployment](./deployment) |
+| Try it in 15 minutes | [Quickstart](./quickstart) |
+| Understand what Componode models | [Digital Products in depth](./digital-products) · [Vocabulary](./vocabulary) |
+| Learn what each screen does | [Using the catalog](./using-the-catalog) |
+| Manage users, roles, secrets | [Credentials & access](./credentials-and-access) |
+| Run it for real | [Deployment](./deployment) |
 | See what an importer needs | [Importers overview](./importers/) |
 | Reach a private network | [Import Agents](./import-agents) |
-| Call the API | [API conventions](./api) · [Interactive OpenAPI](./openapi-reference) |
-| Understand how it's built | [Architecture](./architecture) · [Importer development](./importer-development) |
+| Fix something broken | [Troubleshooting & FAQ](./troubleshooting) |
+| Call the API | [Interactive OpenAPI](./openapi-reference) · [API conventions](./api) |
+| Understand how it's built | [Architecture](./architecture) · [Contributing](./contributing) |
 | See what's next | [Roadmap](./roadmap) |
