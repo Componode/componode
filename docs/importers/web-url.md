@@ -29,9 +29,16 @@ None.
 
 ## Configuration
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `url` | URL | — | The web page/endpoint to probe (required) |
+<!-- GENERATED:contract -->
+**Secrets:** none
+**Execution:** hub or Import Agent
+**Source identity:** `context.reportSourceIdentity()`
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `url` | URL | yes | — | The web page/endpoint to probe |
+<!-- /GENERATED:contract -->
+
 
 ## Troubleshooting
 

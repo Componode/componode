@@ -31,9 +31,16 @@ None.
 
 ## Configuration
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `url` | URL | — | The API endpoint to probe (required) |
+<!-- GENERATED:contract -->
+**Secrets:** none
+**Execution:** hub or Import Agent
+**Source identity:** `context.reportSourceIdentity()`
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `url` | URL | yes | — | The API endpoint to probe |
+<!-- /GENERATED:contract -->
+
 
 ## Troubleshooting
 
