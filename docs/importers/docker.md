@@ -160,14 +160,21 @@ never a full inventory.
 
 ## Configuration fields
 
-| Field | Required | Notes |
-|---|---|---|
-| `targetId` | yes | Hub: select a managed Docker target. Agent: names a profile in `docker-targets.json` |
-| `environmentLabel` | no | Docker label key read for environment mapping (container labels, then Compose service labels) |
-| `environmentMap` | no | JSON map of label value → environment (`DEV`/`TEST`/`STAGING`/`DEMO`/`PRODUCTION`/`OTHER`); unmapped → `OTHER` |
-| `componentIdLabel` | no | Workload-identity override label; default `componode.component-id` |
-| `includeImages` | no | `true` imports cached images as `PACKAGE_REGISTRY` Components; default `false` |
-| `sourceKey` | no | Fallback source identity when the engine reports no `/info.ID` |
+<!-- GENERATED:contract -->
+**Secrets:** `caCert`, `clientCert`, `clientKey`, `sshPrivateKey`, `sshPassphrase`
+**Execution:** hub or Import Agent · target profiles
+**Source identity:** `context.reportSourceIdentity()`
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `targetId` | string | yes | — | Hub: a managed Docker target; Agent: a profile in docker-targets.json |
+| `environmentLabel` | string | no | — | Docker label key read for environment mapping (container labels, then Compose service labels) |
+| `environmentMap` | record | no | — | Map of label value to environment; unmapped values fall back to OTHER |
+| `includeImages` | bool | no | `false` | Import cached images as PACKAGE_REGISTRY components |
+| `componentIdLabel` | string | no | `componode.component-id` | Workload-identity override label |
+| `sourceKey` | string | no | — | Fallback source identity when the engine reports no /info.ID |
+<!-- /GENERATED:contract -->
+
 
 ## Common failures
 

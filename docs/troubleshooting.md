@@ -51,6 +51,7 @@ logs for remote runs.
 | `importer_mismatch` close | Agent image built from a different commit than the hub — rebuild in lockstep |
 | `refuses insecure` config error | `HUB_URL` is `http://`/`ws://` to a non-loopback host — use TLS |
 | Remote run fails `AGENT_UNAVAILABLE` / `AGENT_LOST` | Agent offline, blocked by policy, or its session dropped — remote runs never resume; fix the agent and re-run |
+| Docker run records `FAILED`/`TARGET_DISABLED` | The Hub target was disabled after the config was saved — re-enable it or point the config at another managed target |
 
 Full agent reference: [Import Agents](./import-agents) ·
 [wire protocol](./agent-protocol).

@@ -66,6 +66,9 @@ with phases, errors, and a result summary. See the
 
 **Import Agents** (`/agents`, admin) — remote runtimes that run importers
 inside networks the hub can't reach. See [Import Agents](./import-agents).
+Target-capable importers (Docker) can also run on the hub against **managed
+targets** — allowlisted connection profiles admins maintain under
+Administration; a disabled target blocks new runs without deleting it.
 
 **Sources** (`/sources`) — provenance records: which importer source each
 component/instance membership came from, and its monitoring state. This is
