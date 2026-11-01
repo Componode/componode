@@ -217,7 +217,7 @@ describe("target profile schema", () => {
 });
 
 describe("testSecrets", () => {
-  it("probes via ping only, sanitizes errors, fails without a resolved target", async () => {
+  it("probes via version only, sanitizes errors, fails without a resolved target", async () => {
     const ok = await importer.testSecrets({ clientCert: "PEM" }, { targetId: "t" }, { transport: "socket", path: "/x" });
     expect(ok.ok).toBe(true);
     expect(mocks.version).toHaveBeenCalled();

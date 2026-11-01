@@ -131,7 +131,7 @@ export class DockerImporter implements Importer {
         // External IDs carry the raw ref — `docker-image:{repo@sha256:…}`
         // for digests, `docker-image:{repo:tag}` for tags (ADR-121 #6).
         const refs = image.RepoDigests?.length
-          ? image.RepoDigests
+          ? image.RepoDigests.filter((d) => d !== "<none>@<none>")
           : (image.RepoTags ?? []).filter((t) => t !== "<none>:<none>");
         for (const ref of refs) {
           const externalId = `docker-image:${ref}`;
@@ -161,7 +161,7 @@ export class DockerImporter implements Importer {
     context.reportPhase("Completed");
   }
 
-  // Minimal per-transport probe: ping/version only — never enumerates
+  // Minimal per-transport probe: /version only — never enumerates
   // (ADR-121). Errors are sanitized of resolved secret values.
   async testSecrets(
     secrets: Record<string, string>,

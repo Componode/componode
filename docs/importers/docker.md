@@ -59,7 +59,7 @@ Link an **AGENT_MANAGED** credential whose reference map supplies the
 keys your transport profiles name (`{env: "VAR"}` / `{file: "path"}` —
 resolved on the agent host under `SECRETS_DIR`). No credential is needed
 for `socket`/`context`-only setups; an empty link or none is fine. The
-**Test** action runs a minimal `ping`/`version` probe through the
+**Test** action runs a minimal `version` probe through the
 resolved profile — never a full inventory.
 
 ## Configuration fields
@@ -78,7 +78,7 @@ resolved profile — never a full inventory.
 | Error | Meaning |
 |---|---|
 | `TARGET_RESOLUTION_FAILED` | `targetId` absent from the registry, registry file missing/malformed, or the profile is invalid — fails before any network access |
-| `SECRET_RESOLUTION_FAILED` | A profile's `*Key` names a secret key the linked credential doesn't provide on the agent |
+| `SECRET_RESOLUTION_FAILED` | A profile's `*Key` names a secret key the linked credential doesn't provide on the agent (a missing key inside the run is a run `FAILED` with the key name in the error) |
 | `AGENT_UNAVAILABLE` / `AGENT_LOST` | Agent offline, over capacity, or disconnected mid-run (remote runs are never resumed) |
 | Run fails at "Identifying source" | `/info.ID` unavailable and no `sourceKey` configured |
 | Run `FAILED` mid-run | An enumeration call failed — the catalog keeps the prior import; nothing is retired on a partial run |
