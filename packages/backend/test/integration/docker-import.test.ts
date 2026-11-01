@@ -13,6 +13,8 @@ import { loginAs, SESSION_COOKIE_NAME, csrfCookie, csrfHeader } from "../helpers
 const dockerManifest = {
   name: "docker", label: "Docker", description: "t", version: "1.0.0",
   implPath: "x", reportsSourceIdentity: true, targetRefKey: "targetId",
+  // Hub-bound docker configs resolve scope.targetId against docker_targets.
+  targetProfileSchema: { safeParse: (v: unknown) => ({ success: true, data: v }) },
 };
 
 function workloadAsset(extId: string, srcId: string, containerId: string): DiscoveredAsset {
@@ -69,9 +71,17 @@ describe("docker source-scoped reconciliation (spec 046)", () => {
   });
 
   async function createConfig() {
-    const res = await app.inject({ method: "POST", url: "/api/v1/importer-configs", ...authed({ importerName: "docker", label: "d", scope: { targetId: "t" } }) });
+    await testDb!.db.insertInto("docker_targets").values({
+      id: uuidv7(), targetId: `t-${randomSuffix()}`, label: "t",
+      description: null, profile: { transport: "socket", path: "/var/run/docker.sock" },
+      enabled: true, createdBy: null, updatedBy: null,
+    }).onConflict((oc) => oc.column("targetId").doNothing()).execute().catch(() => {});
+    const t = await testDb!.db.selectFrom("docker_targets").select("targetId").where("label", "=", "t").executeTakeFirstOrThrow();
+    const res = await app.inject({ method: "POST", url: "/api/v1/importer-configs", ...authed({ importerName: "docker", label: "d", scope: { targetId: t.targetId } }) });
     return JSON.parse(res.payload).config;
   }
+  let seq = 0;
+  const randomSuffix = () => `${Date.now()}-${seq++}`;
   async function runOnce(id: string) {
     const res = await app.inject({ method: "POST", url: `/api/v1/importer-configs/${id}/trigger`, ...authed() });
     const { runId } = JSON.parse(res.payload);

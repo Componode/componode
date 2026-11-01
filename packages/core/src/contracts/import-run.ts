@@ -1,4 +1,4 @@
-import type { ImportRunStatus } from "../constants/index.js";
+import type { ImportRunCancelReason, ImportRunStatus } from "../constants/index.js";
 
 export interface ImportRun {
   id: string;
@@ -22,6 +22,7 @@ export interface ImportRun {
   componentsRetired: number;
   currentPhase?: string | null;
   cancelRequestedAt?: string | null;
+  cancelReason?: ImportRunCancelReason | null;
   errorMessage?: string | null;
   errorStack?: string | null;
   errorType?: string | null;

@@ -30,6 +30,7 @@ import {
   markOrphanedInstancesGone,
   recordRunSourceIdentity,
 } from "./importer-source-service.js";
+import { resolveHubTargetProfile } from "./docker-target-service.js";
 
 const maxConcurrency = parseInt(process.env.IMPORTER_MAX_CONCURRENCY ?? "3", 10);
 if (isNaN(maxConcurrency) || maxConcurrency < 1) {
@@ -906,6 +907,15 @@ async function worker(runId: string): Promise<void> {
     }
 
     const importer = await getImporter(config.importerName);
+    let resolvedTarget: unknown;
+    const targetRefKey = manifest.targetRefKey;
+    if (targetRefKey && !config.agentId) {
+      const targetId = (config.scope as Record<string, unknown> | null)?.[targetRefKey];
+      if (typeof targetId !== "string" || !targetId) {
+        throw Object.assign(new Error(`scope key "${targetRefKey}" must carry a targetId`), { code: "TARGET_RESOLUTION_FAILED" });
+      }
+      resolvedTarget = (await resolveHubTargetProfile(targetId)).profile;
+    }
 
     const reportPhase = async (name: string) => {
       if (controller.signal.aborted) return;
@@ -954,10 +964,10 @@ async function worker(runId: string): Promise<void> {
         );
         return sourceReportPromise;
       },
-      // Target profiles resolve only on Import Agents (ADR-116 A5) —
-      // in-process runs get the failing stub.
-      resolveTarget: (): unknown => {
-        throw new Error("resolveTarget is only available on Import Agents");
+      resolveTarget: (targetId: string): unknown => {
+        const expected = (config.scope as Record<string, unknown>)[targetRefKey ?? "targetId"];
+        if (!resolvedTarget || targetId !== expected) throw new Error(`resolveTarget: no resolved profile for target "${targetId}"`);
+        return resolvedTarget;
       },
     };
 
@@ -1116,7 +1126,7 @@ export async function startRun(
 
   const config = await db
     .selectFrom("importer_configs")
-    .select(["id", "agentId", "importerName"])
+    .select(["id", "agentId", "importerName", "scope"])
     .where("id", "=", configId)
     .executeTakeFirst();
   const agentId = config?.agentId ?? null;
@@ -1181,6 +1191,18 @@ export async function startRun(
     }
   }
 
+  if (!agentId && config?.importerName === "docker") {
+    const targetId = (config.scope as Record<string, unknown> | null)?.targetId;
+    try {
+      if (typeof targetId !== "string") throw Object.assign(new Error("Docker targetId is required"), { code: "TARGET_RESOLUTION_FAILED" });
+      await resolveHubTargetProfile(targetId);
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? "TARGET_RESOLUTION_FAILED";
+      await updateRun(runId, { status: "FAILED", completedAt: new Date().toISOString(), currentPhase: "Failed", errorType: code, errorMessage: (e as Error).message });
+      throw e;
+    }
+  }
+
   if (agentId) {
     if (!remoteDispatcher) {
       // Finalize the committed row — a PENDING orphan would block every
@@ -1205,12 +1227,12 @@ export async function startRun(
   return { runId };
 }
 
-export async function cancelRun(runId: string): Promise<void> {
+export async function cancelRun(runId: string, reason: "USER_REQUESTED" | "TARGET_DISABLED" = "USER_REQUESTED"): Promise<void> {
   const now = new Date().toISOString();
 
   await db
     .updateTable("import_runs")
-    .set({ cancelRequestedAt: now })
+    .set({ cancelRequestedAt: now, cancelReason: reason })
     .where("id", "=", runId)
     .execute();
 

@@ -1,8 +1,10 @@
 # Docker
 
 The Docker importer inventories **containerized workloads** on Docker
-Engines you operate — always through an assigned **Import Agent**;
-direct hub execution is unsupported (ADR-121).
+Engines you operate — either **in-process on the Hub** or through an
+assigned **Import Agent** (ADR-121, ADR-122). Use the Hub for engines the
+backend can reach directly; use an Agent for daemons inside restricted
+networks.
 
 ## What it imports
 
@@ -82,9 +84,19 @@ reads) and **reactivate** it later.
 
 ## Setup in the external tool
 
-Every config runs on an Import Agent. Provision the agent per
+**Hub execution** (Execution = "Hub (in-process)"): admins manage targets
+under **Administration → Docker targets**. Each target stores a
+non-secret route profile — the same typed schema below — keyed by an
+immutable `targetId` (1–200 chars). Transports reference credential *key
+names* only; the values come from the config's linked **STORED**
+credential. The default deployment does not mount a Docker socket into
+the hub — socket and context transports require explicit opt-in (see
+`docs/deployment.md` → *Docker importer on the Hub*).
+
+**Agent execution** (Execution = an agent): provision the agent per
 `docs/agents.md`, then create a target registry at
-`${SECRETS_DIR}/docker-targets.json` — a versioned, read-only allowlist:
+`${SECRETS_DIR}/docker-targets.json` on the agent host — a versioned,
+read-only allowlist:
 
 ```jsonc
 {
@@ -102,29 +114,50 @@ Every config runs on an Import Agent. Provision the agent per
 
 | Transport | External setup |
 |---|---|
-| `socket` | Mount the daemon socket/pipe into the agent (e.g. `-v /var/run/docker.sock:/var/run/docker.sock`, or `//./pipe/docker_engine` on Windows). Agent user needs socket access (docker group). |
+| `socket` | Mount the daemon socket/pipe into the executor host (e.g. `-v /var/run/docker.sock:/var/run/docker.sock`, or `//./pipe/docker_engine` on Windows). The executing process needs socket access (docker group). |
 | `tcp` | Enable the daemon's TLS listener (`dockerd --tlsverify --tlscacert --tlscert --tlskey -H tcp://0.0.0.0:2376`). Issue a client cert/key pair; `caCertKey` is needed only for a private CA. Plaintext and skip-verify are rejected — always verified mTLS. |
 | `ssh` | The remote host needs Docker CLI (`docker system dial-stdio`) and the user needs socket access. Pin the server's SHA-256 host key (`ssh-keyscan`/`ssh-keygen -lf`). Private key + optional passphrase via agent-managed credentials. No password auth, no implicit OpenSSH config. |
-| `context` | A named Docker Context that already exists in the agent's on-disk context store (`~/.docker/contexts/`). `default`, `SkipTLSVerify`, and `ssh://` endpoints are rejected — use a direct `ssh` profile for SSH daemons. |
+| `context` | A named Docker Context that already exists in the executor's on-disk context store (`~/.docker/contexts/`). `default`, `SkipTLSVerify`, and `ssh://` endpoints are rejected — use a direct `ssh` profile for SSH daemons. |
 
-Fields ending in `Key` name secrets resolved on the agent — the profile
-never embeds key material. `targetId`s are immutable: to change an
-endpoint, mint a new profile.
+Fields ending in `Key` name secrets resolved by the executor — the
+profile never embeds key material. `targetId`s are immutable on both
+executors: to change an endpoint, mint a new profile (on the Hub, a new
+target record).
 
 ## Credentials
 
-Link an **AGENT_MANAGED** credential whose reference map supplies the
-keys your transport profiles name (`{env: "VAR"}` / `{file: "path"}` —
-resolved on the agent host under `SECRETS_DIR`). No credential is needed
-for `socket`/`context`-only setups; an empty link or none is fine. The
-**Test** action runs a minimal `version` probe through the
-resolved profile — never a full inventory.
+- **Hub-bound configs** link **STORED** credentials whose keys cover
+  every `*Key` name in the selected target's profile — save-time
+  validation rejects a config whose credential is missing a named key.
+- **Agent-bound configs** link **AGENT_MANAGED** credentials whose
+  reference map supplies the keys (`{env: "VAR"}` / `{file: "path"}` —
+  resolved on the agent host under `SECRETS_DIR`).
+
+No credential is needed for `socket`/`context`-only targets. The target
+detail's **Test** action (or the credential test for agent-bound
+configs) runs a minimal `version` probe through the resolved profile —
+never a full inventory.
+
+## Target lifecycle (Hub)
+
+- **Disable** blocks new config assignments, tests, and runs
+  (`TARGET_DISABLED`); active Hub runs/tests are asked to cancel with
+  `cancelReason: TARGET_DISABLED`. Existing configs keep the reference
+  and can be edited in unrelated fields — they run again once the target
+  is re-enabled or they pick another target.
+- **Delete** is blocked (`TARGET_IN_USE`) while any config references
+  the target.
+- Target create/update/enable/disable/delete/test events are audited
+  and appear in the Activity feed with the target label.
+- Executor changes (Hub ↔ Agent) clear the target and credential
+  selections — registries are executor-local, and the same `targetId`
+  text can name different routes on each.
 
 ## Configuration fields
 
 | Field | Required | Notes |
 |---|---|---|
-| `targetId` | yes | Names a profile in `docker-targets.json` |
+| `targetId` | yes | Hub: select a managed Docker target. Agent: names a profile in `docker-targets.json` |
 | `environmentLabel` | no | Docker label key read for environment mapping (container labels, then Compose service labels) |
 | `environmentMap` | no | JSON map of label value → environment (`DEV`/`TEST`/`STAGING`/`DEMO`/`PRODUCTION`/`OTHER`); unmapped → `OTHER` |
 | `componentIdLabel` | no | Workload-identity override label; default `componode.component-id` |
@@ -135,7 +168,10 @@ resolved profile — never a full inventory.
 
 | Error | Meaning |
 |---|---|
-| `TARGET_RESOLUTION_FAILED` | `targetId` absent from the registry, registry file missing/malformed, or the profile is invalid — fails before any network access |
+| `TARGET_RESOLUTION_FAILED` | `targetId` absent from the executor's registry, registry file missing/malformed (Agent), or the profile is invalid — fails before any network access |
+| `TARGET_DISABLED` | The Hub target is disabled — runs record `FAILED`/`TARGET_DISABLED` and tests return `ok:false`; re-enable or pick another target |
+| `TARGET_IN_USE` | Deleting a Hub target that an importer config still references |
+| `CREDENTIAL_MISSING_KEY` | A Hub target's `*Key` name is not covered by the config's linked `STORED` credentials |
 | `SECRET_RESOLUTION_FAILED` | A profile's `*Key` names a secret key the linked credential doesn't provide on the agent (a missing key inside the run is a run `FAILED` with the key name in the error) |
 | `AGENT_UNAVAILABLE` / `AGENT_LOST` | Agent offline, over capacity, or disconnected mid-run (remote runs are never resumed) |
 | Run fails at "Identifying source" | `/info.ID` unavailable and no `sourceKey` configured |

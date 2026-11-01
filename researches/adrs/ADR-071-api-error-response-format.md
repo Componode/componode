@@ -16,3 +16,7 @@ but v1's only client is the frontend (co-deployed). `code` is what the
 frontend actually needs (switch on `"AUTH_RATE_LIMITED"` to show a specific
 message). The `code` strings are a controlled enum in `core` — machine-
 readable, type-safe, no URI namespace to maintain.
+
+---
+
+**Amended by ADR-122**: the error enum gains `TARGET_NOT_FOUND` (404), `TARGET_DISABLED` (409), `TARGET_IN_USE` (409) (spec 049).

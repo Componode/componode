@@ -48,8 +48,8 @@ export interface Importer {
   // secret material in `error`. `resolvedTarget` carries the
   // preflight-resolved `TargetProfile` — populated only on Import Agents
   // when the manifest declares `targetRefKey` and the scope's named key
-  // holds an allowlisted `targetId` (ADR-121); `undefined` in-process and
-  // for importers without `targetRefKey`.
+  // holds an allowlisted `targetId`; `undefined` for importers without
+  // `targetRefKey` or when no target preflight is needed.
   testSecrets?(
     secrets: Record<string, string>,
     config?: Record<string, unknown>,

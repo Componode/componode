@@ -78,6 +78,7 @@ export interface ImporterManifest {
   configSchema: Record<string, unknown>;
   secrets?: Array<{ key: string; label: string; required: boolean }>;
   requiresAgent?: boolean;
+  targetRefKey?: string;
 }
 
 export interface ImporterConfig {
@@ -132,6 +133,7 @@ export interface ImportRun {
   componentsRetired: number;
   currentPhase: string | null;
   cancelRequestedAt: string | null;
+  cancelReason?: "USER_REQUESTED" | "TARGET_DISABLED" | null;
   errorMessage: string | null;
   errorStack: string | null;
   errorType: string | null;
@@ -495,4 +497,17 @@ export interface SourceMembershipsResponse {
   components: SourceComponentMembership[];
   instances: SourceInstanceMembership[];
   truncated: boolean;
+}
+
+export type DockerTransportProfile = Record<string, unknown>;
+
+export interface DockerTarget {
+  id: string;
+  targetId: string;
+  label: string;
+  description: string | null;
+  profile: DockerTransportProfile;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
