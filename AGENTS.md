@@ -198,6 +198,19 @@ constitution.
   `requireRole`, and `security: []` vs `verifySession` are enforced by a
   backend contract test — drift fails CI. See `ADR-104`.
 
+### Documentation
+
+- User-facing changes update `docs/` in the same change: a new capability
+  updates the relevant guide page (`quickstart`, `using-the-catalog`,
+  `credentials-and-access`, the importer's own page); a new or renamed doc
+  goes into the sidebar in `docs-site/.vitepress/config.ts`. A page that
+  isn't in the sidebar is an orphan — it ships but can't be found.
+- Keep one source of truth per fact: link or `@include` shared content
+  (e.g. `vocabulary.md` renders `CONTEXT.md`) instead of copying prose
+  between pages.
+- Importer setup guides remain required by the importer contract above;
+  that rule is unchanged.
+
 ### Dependency & supply chain
 
 - Add dependencies with `pnpm add` inside the owning workspace package; use

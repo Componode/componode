@@ -1,3 +1,8 @@
+---
+title: Digital Products in depth
+description: Product types, composition edges, and worked modeling examples.
+---
+
 # Digital Products: Types, Composition, and Worked Examples
 
 Componode models your organization's software as **Digital Products** —

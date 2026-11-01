@@ -1,3 +1,8 @@
+---
+title: Docker importer
+description: What the Docker importer discovers and how to configure it.
+---
+
 # Docker
 
 The Docker importer inventories **containerized workloads** on Docker
@@ -83,7 +88,7 @@ reads) and **reactivate** it later.
 ## Setup in the external tool
 
 Every config runs on an Import Agent. Provision the agent per
-`docs/agents.md`, then create a target registry at
+`docs/import-agents.md`, then create a target registry at
 `${SECRETS_DIR}/docker-targets.json` — a versioned, read-only allowlist:
 
 ```jsonc

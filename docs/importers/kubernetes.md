@@ -1,3 +1,8 @@
+---
+title: Kubernetes importer
+description: "Scaffold importer for Kubernetes: what it will discover and how to configure it."
+---
+
 # Kubernetes importer
 
 > **Status: scaffold.** This importer registers the Kubernetes provider and

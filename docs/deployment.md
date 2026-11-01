@@ -1,3 +1,8 @@
+---
+title: Deploying Componode
+description: "Self-hosted install: Docker Compose, env vars, TLS, OIDC, upgrading."
+---
+
 # Deploying Componode
 
 Componode is self-hosted with Docker Compose. One deployment serves one organization.
@@ -224,38 +229,17 @@ enable the store; no data migration is needed.
 
 Import Agents run importers inside networks the hub cannot reach (private
 VPCs, on-prem Kubernetes, egress-only environments). Agents normally run on
-remote hosts — the Compose stack declares an `agent` service so the image
-builds together (`docker compose build`), but it starts **0 replicas** and
-does not run on `docker compose up`.
+remote hosts — see [`docs/import-agents.md`](./import-agents.md) for the
+remote-host deployment walkthrough, full configuration table, lifecycle
+operations, agent-managed credentials, metrics catalog, and troubleshooting.
+The wire protocol is documented in
+[`docs/agent-protocol.md`](./agent-protocol.md).
 
-On a remote host, build the image and run it:
-
-```bash
-docker build -f Dockerfile.agent -t componode-agent:latest .
-
-docker run -d --name componode-agent \
-  -e HUB_URL=https://hub.example.com \
-  -e AGENT_ENROLLMENT_TOKEN_FILE=/run/secrets/enroll_token \
-  -v ./enroll_token:/run/secrets/enroll_token:ro \
-  -v componode-agent-state:/state \
-  -e AGENT_STATE_DIR=/state \
-  componode-agent:latest
-```
-
-The agent makes a single **outbound** TLS WebSocket to the hub — no inbound
-firewall rules are needed. Create the agent in the UI (**Administration →
-Import Agents**) to get the one-time enrollment token.
-
-The agent also serves a GET-only ops listener (`/healthz`, `/readyz`,
-`/metrics`) on `AGENT_OPS_HOST:AGENT_OPS_PORT` (default `0.0.0.0:9464`),
-wired to the image `HEALTHCHECK`. Publish it with `-p 9464:9464` if your
-Prometheus can reach the agent host, or bind to loopback for sidecar
-scraping; `AGENT_OPS_DISABLED=true` turns it off (override the healthcheck
-if you do).
-
-To run an agent co-located with the hub in the Compose stack (local
-testing), create the agent in the UI, set `AGENT_ENROLLMENT_TOKEN` in
-`.env`, and scale the service:
+The Compose stack declares an `agent` service so the image builds together
+(`docker compose build`), but it starts **0 replicas** and does not run on
+`docker compose up`. To run an agent co-located with the hub for local
+testing, create the agent in the UI (**Administration → Import Agents**),
+set `AGENT_ENROLLMENT_TOKEN` in `.env`, and scale the service:
 
 ```bash
 docker compose up -d --scale agent=1
@@ -270,10 +254,6 @@ Caddy being healthy so the CA exists before the agent starts. The durable
 credential persists in the `agent_state` volume across restarts; the ops
 listener is reachable to other containers as `app:9464` but cannot be
 published to the host from the shared namespace.
-
-Full configuration table, lifecycle operations, agent-managed credentials,
-metrics catalog, and troubleshooting: `docs/agents.md`. Wire protocol:
-`docs/agent-protocol.md`.
 
 ## Troubleshooting
 

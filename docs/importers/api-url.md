@@ -1,3 +1,8 @@
+---
+title: API URL importer
+description: What the API URL importer discovers and how to configure it.
+---
+
 # API URL importer
 
 Imports a single API endpoint as a component. On each run it performs one

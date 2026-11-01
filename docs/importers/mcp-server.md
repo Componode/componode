@@ -1,3 +1,8 @@
+---
+title: MCP Server importer
+description: "Scaffold importer for MCP servers: what it will discover and how to configure it."
+---
+
 # MCP Server importer
 
 > **Status: scaffold.** This importer registers the MCP Server provider and

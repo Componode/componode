@@ -1,3 +1,8 @@
+---
+title: Azure importer
+description: "Scaffold importer for Azure: what it will discover and how to configure it."
+---
+
 # Azure importer
 
 > **Status: scaffold.** This importer registers the Azure provider and emits

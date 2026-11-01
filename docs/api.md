@@ -1,4 +1,13 @@
+---
+title: API conventions
+description: API conventions, error codes, auth model, and generated endpoint tables.
+---
+
 # API Reference
+
+> Prefer a clickable, try-it-style view? The
+> [interactive OpenAPI reference](./openapi-reference) renders the same
+> specification with request/response schemas per operation.
 
 > Generated regions below are produced from [`docs/openapi.yaml`](./openapi.yaml)
 > (OpenAPI 3.0) by `pnpm --filter @componode/backend docs:api` — do not edit
