@@ -14,6 +14,7 @@ import { CATEGORY_LABELS, PROVIDER_META } from "@/ux/lib/domain"
 import { flags } from "@/ux/lib/flags"
 import { formatDate } from "@/ux/lib/format"
 import { ComponentEditDialog } from "@/ux/components/catalog/component-edit-dialog"
+import { UrlChecksCard } from "@/ux/components/catalog/url-checks-card"
 import type { Component, ComponentInstance } from "@/ux/lib/view-types"
 import { ux } from "@/ux/lib/paths"
 import { cn } from "@/ux/lib/utils"
@@ -211,6 +212,7 @@ export function ComponentDetail({ component: c }: { component: Component }) {
             />
           </CardContent>
         </Card>
+        <UrlChecksCard component={c} />
       </div>
     </PageContainer>
   )

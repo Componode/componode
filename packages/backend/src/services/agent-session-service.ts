@@ -20,6 +20,8 @@ import {
   type RunCompletePayload,
   type SourceIdentityPayload,
   type RunErrorPayload,
+  type UrlCheckProbePayload,
+  type UrlCheckProbeResultPayload,
 } from "@componode/core";
 import type { Selectable } from "kysely";
 import type { ImportAgentRow } from "../db/types.js";
@@ -112,6 +114,13 @@ interface PendingTest {
   timer: ReturnType<typeof setTimeout>;
 }
 
+interface PendingProbe {
+  session: LiveSession;
+  resolve: (result: UrlCheckProbeResultPayload) => void;
+  reject: (err: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
 // Agent→hub job-stream frame types (spec 027). The hub→agent members of the
 // family (job.assign, cancel) are deliberately absent — an agent sending
 // them gets UNSUPPORTED_FRAME.
@@ -127,6 +136,7 @@ const JOB_STREAM_TYPES = new Set([
 export class AgentSessionService {
   private live = new Map<string, LiveSession>();
   private pendingTests = new Map<string, PendingTest>();
+  private pendingProbes = new Map<string, PendingProbe>();
   private runHandler: RemoteRunHandler | null = null;
   private credentialTestTimeoutMs = envInt(
     "AGENT_CREDENTIAL_TEST_TIMEOUT_MS",
@@ -521,6 +531,56 @@ export class AgentSessionService {
     });
   }
 
+  // Dispatch a remote URL check probe to a connected agent (spec 051 US2).
+  // The payload carries the check's URL/method plus credential reference
+  // names — never values (ADR-117). Rejects with AGENT_OFFLINE when the
+  // agent has no live session and AGENT_PROBE_TIMEOUT when no result
+  // arrives within the probe timeout plus transport grace; the caller
+  // turns either into a MISSED observation.
+  dispatchUrlCheckProbe(
+    agentId: string,
+    payload: UrlCheckProbePayload,
+  ): Promise<UrlCheckProbeResultPayload> {
+    const session = this.live.get(agentId);
+    if (!session || session.socket.readyState !== session.socket.OPEN) {
+      return Promise.reject(
+        Object.assign(new Error("Agent has no connected session"), {
+          statusCode: 503,
+          code: "AGENT_OFFLINE",
+        }),
+      );
+    }
+    // Deadline = the check's own probe timeout plus a small transport
+    // grace — a silent agent must not hold the pending slot forever.
+    const deadlineMs = payload.timeoutMs + 5_000;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingProbes.delete(payload.probeId);
+        reject(
+          Object.assign(
+            new Error(
+              `Agent did not answer the URL check probe within ${deadlineMs} ms`,
+            ),
+            { statusCode: 504, code: "AGENT_PROBE_TIMEOUT" },
+          ),
+        );
+      }, deadlineMs);
+      timer.unref?.();
+
+      this.pendingProbes.set(payload.probeId, {
+        session,
+        resolve,
+        reject,
+        timer,
+      });
+      this.send(session.socket, "url_check.probe", payload);
+      this.log.info(
+        { agent: session.agentName, probeId: payload.probeId },
+        "url check probe dispatched to agent",
+      );
+    });
+  }
+
   private async dispatchJobFrame(
     session: LiveSession,
     type: string,
@@ -546,9 +606,9 @@ export class AgentSessionService {
     }
   }
 
-  private settleTest(
-    entry: PendingTest,
-    settle: (e: PendingTest) => void,
+  private settlePending<T extends { timer: ReturnType<typeof setTimeout> }>(
+    entry: T,
+    settle: (e: T) => void,
   ): void {
     clearTimeout(entry.timer);
     settle(entry);
@@ -574,7 +634,20 @@ export class AgentSessionService {
       const pending = this.pendingTests.get(payload.testId);
       if (pending) {
         this.pendingTests.delete(payload.testId);
-        this.settleTest(pending, (e) => e.resolve(payload));
+        this.settlePending(pending, (e) => e.resolve(payload));
+      }
+      this.noteContact(session);
+      return;
+    }
+
+    if (msg.type === "url_check.probe.result") {
+      // Correlate by probeId — late answers after timeout are ignored,
+      // same convention as credential tests.
+      const payload = msg.payload as UrlCheckProbeResultPayload;
+      const pending = this.pendingProbes.get(payload.probeId);
+      if (pending) {
+        this.pendingProbes.delete(payload.probeId);
+        this.settlePending(pending, (e) => e.resolve(payload));
       }
       this.noteContact(session);
       return;
@@ -710,14 +783,27 @@ export class AgentSessionService {
       metrics.importAgentsConnected.set(this.live.size);
     }
 
-    // A disconnect must not leave a credential test hanging — fail every
-    // pending dispatch on this session.
+    // A disconnect must not leave a credential test or URL check probe
+    // hanging — fail every pending dispatch on this session.
     for (const [testId, pending] of [...this.pendingTests.entries()]) {
       if (pending.session.sessionId === session.sessionId) {
         this.pendingTests.delete(testId);
-        this.settleTest(pending, (e) =>
+        this.settlePending(pending, (e) =>
           e.reject(
             Object.assign(new Error("Agent disconnected during the credential test"), {
+              statusCode: 503,
+              code: "AGENT_OFFLINE",
+            }),
+          ),
+        );
+      }
+    }
+    for (const [probeId, pending] of [...this.pendingProbes.entries()]) {
+      if (pending.session.sessionId === session.sessionId) {
+        this.pendingProbes.delete(probeId);
+        this.settlePending(pending, (e) =>
+          e.reject(
+            Object.assign(new Error("Agent disconnected during the URL check probe"), {
               statusCode: 503,
               code: "AGENT_OFFLINE",
             }),

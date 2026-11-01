@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { AGENT_PROTOCOL_VERSION } from "../constants/import-agent.js";
 import { secretRefMapSchema } from "../schemas/credential.js";
+import {
+  URL_CHECK_AUTH_MODES,
+  URL_CHECK_ERROR_TYPES,
+  URL_CHECK_METHODS,
+} from "../constants/url-check.js";
 
 // Import Agent control channel contract (spec 025, contracts/agent-protocol.md).
 // One outbound wss:// stream carries all frames as JSON. Foundation ships
@@ -123,6 +128,44 @@ export const credentialTestResultPayloadSchema = z
   })
   .strict();
 
+// Remote URL check probe (spec 051, ADR-123/-124): the hub ships the check's
+// URL/method plus credential reference names — never secret values.
+// Correlation is the payload `probeId`, NOT the envelope runId (a probe is
+// not an import run). `secretRefMap` maps credential keys to env/file refs
+// resolved on the agent host (ADR-117).
+export const urlCheckProbePayloadSchema = z
+  .object({
+    probeId: z.string().uuid(),
+    url: z.string().min(1).max(2048),
+    method: z.enum(URL_CHECK_METHODS),
+    timeoutMs: z.number().int().positive(),
+    authMode: z.enum(URL_CHECK_AUTH_MODES),
+    // Names of credential keys to resolve per auth mode — keys only.
+    authKeyNames: z
+      .object({
+        usernameKey: z.string().optional(),
+        passwordKey: z.string().optional(),
+        tokenKey: z.string().optional(),
+        headers: z
+          .array(z.object({ name: z.string(), key: z.string() }).strict())
+          .optional(),
+      })
+      .strict()
+      .optional(),
+    secretRefMap: secretRefMapSchema.optional(),
+  })
+  .strict();
+
+export const urlCheckProbeResultPayloadSchema = z
+  .object({
+    probeId: z.string().uuid(),
+    outcome: z.enum(["SUCCESS", "FAILURE"]),
+    httpStatus: z.number().int().nullable().optional(),
+    durationMs: z.number().int().nullable().optional(),
+    errorType: z.enum(URL_CHECK_ERROR_TYPES).nullable().optional(),
+  })
+  .strict();
+
 // Job execution frames (spec 027, ADR-116): one job = one import run; the
 // envelope `runId` correlates every frame. `job.assign` carries the config
 // scope plus the merged AGENT_MANAGED reference map — names, never values.
@@ -213,6 +256,8 @@ export const agentMessageSchemas = {
   error: envelope(errorPayloadSchema),
   "credential.test": envelope(credentialTestPayloadSchema),
   "credential.test.result": envelope(credentialTestResultPayloadSchema),
+  "url_check.probe": envelope(urlCheckProbePayloadSchema),
+  "url_check.probe.result": envelope(urlCheckProbeResultPayloadSchema),
   "job.assign": jobEnvelope(jobAssignPayloadSchema),
   "job.ack": jobEnvelope(jobAckPayloadSchema),
   "source.identity": jobEnvelope(sourceIdentityPayloadSchema),
@@ -237,6 +282,8 @@ export type AgentCloseReason = AgentClosePayload["reason"];
 export type AgentErrorPayload = z.infer<typeof errorPayloadSchema>;
 export type AgentCredentialTestPayload = z.infer<typeof credentialTestPayloadSchema>;
 export type AgentCredentialTestResultPayload = z.infer<typeof credentialTestResultPayloadSchema>;
+export type UrlCheckProbePayload = z.infer<typeof urlCheckProbePayloadSchema>;
+export type UrlCheckProbeResultPayload = z.infer<typeof urlCheckProbeResultPayloadSchema>;
 export type JobAssignPayload = z.infer<typeof jobAssignPayloadSchema>;
 export type JobAckPayload = z.infer<typeof jobAckPayloadSchema>;
 export type SourceIdentityPayload = z.infer<typeof sourceIdentityPayloadSchema>;

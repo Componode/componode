@@ -132,7 +132,13 @@ export async function getDependents(credentialId: string): Promise<CredentialDep
     .where("clientSecretCredentialId", "=", credentialId)
     .executeTakeFirst();
 
-  return { importerConfigs: configs, oidc: !!oidc };
+  const urlChecks = await db
+    .selectFrom("url_checks")
+    .select(["id", "name"])
+    .where("credentialId", "=", credentialId)
+    .execute();
+
+  return { importerConfigs: configs, oidc: !!oidc, urlChecks };
 }
 
 export async function getCredential(id: string) {
@@ -549,7 +555,11 @@ export async function deleteCredential(id: string, actor: Actor): Promise<void> 
   }
 
   const dependents = await getDependents(id);
-  if (dependents.importerConfigs.length > 0 || dependents.oidc) {
+  if (
+    dependents.importerConfigs.length > 0 ||
+    dependents.oidc ||
+    dependents.urlChecks.length > 0
+  ) {
     throw Object.assign(
       new Error("Credential is in use and cannot be deleted"),
       { statusCode: 409, code: "CREDENTIAL_IN_USE", details: dependents },

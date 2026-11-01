@@ -26,3 +26,16 @@ statuses only (transient statuses would create series that never get a final
 value). `route` label uses normalized route patterns (not raw paths with
 UUIDs). No per-user/per-session labels (high-cardinality, security-relevant).
 Histograms use Prometheus default buckets.
+
+## Amendment 1 — URL Check probe series (2026-11-01, ADR-124)
+
+**Refinement**: `url_check_probes_total{vantage, outcome, errorType}`
+counter and `url_check_probe_duration_seconds{vantage}` histogram join
+the metric inventory — bounded enum labels only. No check id, URL, or
+config labels; the low-cardinality rule stands unchanged.
+
+---
+
+**Amended by ADR-124**: the inventory gains `url_check_probes_total` and
+`url_check_probe_duration_seconds` under the existing bounded-label
+policy; see Amendment 1.

@@ -14,7 +14,9 @@ import { UxProductImportPage } from "@/ux/app/products/import";
 import { UxProductEditPage } from "@/ux/app/products/$slug.edit";
 import { UxProductHistoryPage } from "@/ux/app/products/$slug.history";
 import { UxComponentsPage } from "@/ux/app/components/index";
+import { UxComponentNewPage } from "@/ux/app/components/new";
 import { UxComponentDetailPage } from "@/ux/app/components/$slug";
+import { UxUrlCheckDetailPage } from "@/ux/app/components/$slug.checks.$checkId";
 import { UxComponentPromotePage } from "@/ux/app/components/$slug.promote";
 import { UxComponentHistoryPage } from "@/ux/app/components/$slug.history";
 import { UxComponentGroupsPage } from "@/ux/app/component-groups/index";
@@ -79,7 +81,9 @@ export const routes: RouteObject[] = [
       { path: "products/:slug/edit", element: authed(<UxProductEditPage />) },
       { path: "products/:slug/history", element: authed(<UxProductHistoryPage />) },
       { path: "components", element: authed(<UxComponentsPage />) },
+      { path: "components/new", element: authed(<UxComponentNewPage />) },
       { path: "components/:slug", element: authed(<UxComponentDetailPage />) },
+      { path: "components/:slug/checks/:checkId", element: authed(<UxUrlCheckDetailPage />) },
       { path: "components/:slug/promote", element: authed(<UxComponentPromotePage />) },
       { path: "components/:slug/history", element: authed(<UxComponentHistoryPage />) },
       { path: "component-groups", element: authed(<UxComponentGroupsPage />) },

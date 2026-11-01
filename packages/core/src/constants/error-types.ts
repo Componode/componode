@@ -56,6 +56,8 @@ export const ERROR_TYPES: Record<ErrorCode, ErrorType> = {
   AGENT_TEST_TIMEOUT: { code: "AGENT_TEST_TIMEOUT", status: 504, title: "Agent did not answer the credential test in time" },
   CREDENTIAL_NO_BOUND_AGENT: { code: "CREDENTIAL_NO_BOUND_AGENT", status: 400, title: "No agent-bound config references the credential" },
   CREDENTIAL_KIND_MISMATCH: { code: "CREDENTIAL_KIND_MISMATCH", status: 400, title: "Credential kind incompatible with this binding" },
+  URL_CHECK_NOT_FOUND: { code: "URL_CHECK_NOT_FOUND", status: 404, title: "URL check not found" },
+  MONITORING_SETUP_NOT_FOUND: { code: "MONITORING_SETUP_NOT_FOUND", status: 404, title: "Monitoring setup not found" },
   AGENT_LOST: { code: "AGENT_LOST", status: 503, title: "Connection to the Import Agent was lost" },
   AGENT_UNAVAILABLE: { code: "AGENT_UNAVAILABLE", status: 503, title: "Import Agent is unavailable" },
   AGENT_INCOMPATIBLE: { code: "AGENT_INCOMPATIBLE", status: 400, title: "Import Agent cannot execute this importer" },

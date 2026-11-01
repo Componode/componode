@@ -8,6 +8,7 @@
 > Remote import agents grilling (2026-10-21): ADR-116–117
 > ImporterSource lifecycle ratification (2026-10-31): ADR-119
 > URL Check monitoring ratification (2026-11-01): ADR-123
+> URL Check execution surfaces (2026-11-01, spec 051): ADR-124
 > **Status**: Ratified — these decisions are the foundation for Componode v1.
 > **How to use**: Each ADR is in its own file under `researches/adrs/`.
 > Read the relevant ADRs before starting implementation work. Changes to any
@@ -61,7 +62,8 @@
 
 | ADR | Title |
 |---|---|
-| [ADR-123](./adrs/ADR-123-http-url-check-monitoring.md) | Unified HTTP(S) URL Check monitoring: per-ComponentInstance checks, independent probe history, API authentication (amends ADR-014, 077, 107) |
+| [ADR-123](./adrs/ADR-123-http-url-check-monitoring.md) | Unified HTTP(S) URL Check monitoring: per-ComponentInstance checks, independent probe history, API authentication (amends ADR-014, 077, 107); execution surfaces ratified by ADR-124 |
+| [ADR-124](./adrs/ADR-124-url-check-execution-surfaces.md) | URL Check execution surfaces (spec 051): `url_check.probe`/`url_check.probe.result` agent frames correlated by `probeId` + protocol v4, `urlCheck:*`/`monitoringSetup:update` EDITOR permissions, `URL_CHECK_NOT_FOUND`/`MONITORING_SETUP_NOT_FOUND`, three-table schema, `MISSED` observation semantics, AGENT-vantage ⇒ `AGENT_MANAGED` credential rule, `URL_CHECK_*` env tunables, bounded metric labels (amends ADR-054, 069, 071, 077, 107, 116) |
 
 ### Importer Framework
 
@@ -73,7 +75,7 @@
 | [ADR-025](./adrs/ADR-025-importer-interface-pull-only-asyncgenerator.md) | Importer interface: pull-only AsyncGenerator (superseded by ADR-056/057) |
 | [ADR-026](./adrs/ADR-026-v1-importer-scope-7-importers.md) | v1 importer scope: 7 importers |
 | [ADR-115](./adrs/ADR-115-alibaba-cloud-importer.md) | Alibaba Cloud importer: Resource Center discovery |
-| [ADR-116](./adrs/ADR-116-remote-import-agents.md) | Remote import execution via outbound Import Agents (amends ADR-022, 052, 054, 055, 058, 060, 061, 065, 087, 097, 100, 107); Amendment 2 ratifies spec-027 surfaces — job-frame schemas, dispatch/ack timeouts, NACK→errorType mapping, agent configs/runs endpoints, `OFFLINE_AGENT`; Amendment 3 ratifies spec-028 ops surfaces — `AGENT_OPS_*` listener, heartbeat `ops` + protocol v2, `reportedStatus`, four hub series; Amendment 4 ratifies spec-040 surfaces — `CREDENTIAL_EXPIRING` attention kind, `AttentionItem.detail`, agent `createdBy`/`enrollmentExpiresAt`, dashboard `deltas`; Amendment 5 (ADR-119) — Agent-local target registry, immutable `targetId`, fail-before-network preflight; Amendment 6 (spec 044) — `source.identity` frame, protocol v3, `TARGET_RESOLUTION_FAILED` NACK; amended by ADR-121 (credential-test preflight, first `targetRefKey` adopter) |
+| [ADR-116](./adrs/ADR-116-remote-import-agents.md) | Remote import execution via outbound Import Agents (amends ADR-022, 052, 054, 055, 058, 060, 061, 065, 087, 097, 100, 107); Amendment 2 ratifies spec-027 surfaces — job-frame schemas, dispatch/ack timeouts, NACK→errorType mapping, agent configs/runs endpoints, `OFFLINE_AGENT`; Amendment 3 ratifies spec-028 ops surfaces — `AGENT_OPS_*` listener, heartbeat `ops` + protocol v2, `reportedStatus`, four hub series; Amendment 4 ratifies spec-040 surfaces — `CREDENTIAL_EXPIRING` attention kind, `AttentionItem.detail`, agent `createdBy`/`enrollmentExpiresAt`, dashboard `deltas`; Amendment 5 (ADR-119) — Agent-local target registry, immutable `targetId`, fail-before-network preflight; Amendment 6 (spec 044) — `source.identity` frame, protocol v3, `TARGET_RESOLUTION_FAILED` NACK; amended by ADR-121 (credential-test preflight, first `targetRefKey` adopter); Amendment 7 / amended by ADR-124 — `url_check.probe`/`url_check.probe.result` probe frames correlated by `probeId`, protocol v4 |
 | [ADR-119](./adrs/ADR-119-importer-source-identity-and-lifecycle.md) | ImporterSource identity + lifecycle: durable provenance, source-scoped reconciliation, run-history retention, Agent target resolution (amends ADR-035, 036, 037, 047, 056, 065, 077, 116); Amendment 1 (spec 044) — Source API surface, effective-active union/retire semantics, `LEGACY_UNATTRIBUTED = sourceId NULL` |
 | [ADR-120](./adrs/ADR-120-importer-source-migration-rules.md) | Importer source migration rules (Wave B, spec 045): per-importer identity keys, `{identity}::{localId}` externalId qualification + adopt-on-report rekey, `sourceDetails` → membership details, derivable-only backfill — `sourceId` never backfilled, no batch rekey (amends ADR-056, 119) |
 | [ADR-121](./adrs/ADR-121-docker-importer.md) | Docker importer (Wave C, spec 046): `requiresAgent` manifest flag, `testSecrets` `resolvedTarget` param, typed `docker-targets.json` profile schema (socket/mTLS/ssh/context), scope keys, docker-engine identity + externalId formats, Wave C status + minimization rules (amends ADR-056, 065, 116, 117); Amendment 1 (spec 047) — `dockerObservation` allowlist + health-aware state×health→status table, Source UI + tag suggestions; Amendment 2 (spec 048) — Swarm inventory: manager gate + v1.41 floor, service/node/secret entity mappings, replica + node status tables, `swarmObservation` allowlists |
@@ -119,7 +121,7 @@
 | [ADR-051](./adrs/ADR-051-hierarchy-traversal-merged-cte-with-edge-types.md) | Hierarchy traversal: merged CTE with edge types |
 | [ADR-052](./adrs/ADR-052-audit-model-three-tier.md) | Audit model: three-tier |
 | [ADR-053](./adrs/ADR-053-api-authorization-layered-default-deny.md) | API authorization: layered default-deny |
-| [ADR-054](./adrs/ADR-054-rbac-permission-matrix.md) | RBAC permission matrix; Amendment 1 adds `component:create` (EDITOR) for manual component authoring (spec 042); Amendment 2 (spec 044) adds `importer:source:retire`/`importer:source:reactivate` (ADMIN) |
+| [ADR-054](./adrs/ADR-054-rbac-permission-matrix.md) | RBAC permission matrix; Amendment 1 adds `component:create` (EDITOR) for manual component authoring (spec 042); Amendment 2 (spec 044) adds `importer:source:retire`/`importer:source:reactivate` (ADMIN); Amendment 3 (ADR-124) adds `urlCheck:create|update|delete` + `monitoringSetup:update` (EDITOR) |
 | [ADR-055](./adrs/ADR-055-importer-secret-resolution.md) | Importer secret resolution |
 | [ADR-056](./adrs/ADR-056-importer-interface-signature.md) | Importer interface signature (supersedes ADR-025); Amendment 1 — `reportSourceIdentity` + `resolveTarget` + `targetRefKey` (ADR-119); Amendment 2 (spec 044) — `reportsSourceIdentity` manifest flag, in-process `resolveTarget` stub; amended by ADR-120 — `sourceDetails` fields on `DiscoveredAsset`/`DiscoveredAssetInstance`; amended by ADR-121 — `testSecrets` `resolvedTarget`, `requiresAgent` |
 | [ADR-057](./adrs/ADR-057-discoveredasset-final-shape.md) | DiscoveredAsset final shape (supersedes ADR-025) |
@@ -134,15 +136,15 @@
 | [ADR-066](./adrs/ADR-066-bootstrap-admin.md) | Bootstrap admin |
 | [ADR-067](./adrs/ADR-067-logger-abstraction.md) | Logger abstraction |
 | [ADR-068](./adrs/ADR-068-opentelemetry-tracing-integration.md) | OpenTelemetry tracing integration |
-| [ADR-069](./adrs/ADR-069-prometheus-metrics.md) | Prometheus metrics |
+| [ADR-069](./adrs/ADR-069-prometheus-metrics.md) | Prometheus metrics; Amendment 1 (ADR-124) adds `url_check_probes_total` + `url_check_probe_duration_seconds` under the bounded-label policy |
 | [ADR-070](./adrs/ADR-070-api-versioning.md) | API versioning |
-| [ADR-071](./adrs/ADR-071-api-error-response-format.md) | API error response format |
+| [ADR-071](./adrs/ADR-071-api-error-response-format.md) | API error response format; Amendment 1 (ADR-124) adds `URL_CHECK_NOT_FOUND` + `MONITORING_SETUP_NOT_FOUND` |
 | [ADR-072](./adrs/ADR-072-frontend-error-handling.md) | Frontend error handling |
 | [ADR-073](./adrs/ADR-073-oidc-configuration.md) | OIDC configuration |
 | [ADR-074](./adrs/ADR-074-oidc-claim-to-role-mapping.md) | OIDC claim-to-role mapping |
 | [ADR-075](./adrs/ADR-075-self-registration.md) | Self-registration |
 | [ADR-076](./adrs/ADR-076-app-settings-storage.md) | App settings storage |
-| [ADR-077](./adrs/ADR-077-v1-entity-schema.md) | v1 entity schema (consolidated); Amendment 1 adds `teams.lobId`; Amendment 2 adds ImporterSource + membership tables and run attribution (ADR-119); Amendment 3 adds `url_checks` + `url_check_observations` (ADR-123) |
+| [ADR-077](./adrs/ADR-077-v1-entity-schema.md) | v1 entity schema (consolidated); Amendment 1 adds `teams.lobId`; Amendment 2 adds ImporterSource + membership tables and run attribution (ADR-119); Amendment 3 adds `url_checks` + `url_check_observations` (ADR-123); Amendment 4 adds `component_monitoring_setups` + ratifies URL Check column-level design (ADR-124) |
 | [ADR-078](./adrs/ADR-078-database-migrations.md) | Database migrations |
 | [ADR-079](./adrs/ADR-079-enum-constant-structure.md) | Enum constant structure |
 | [ADR-080](./adrs/ADR-080-pagination-strategy.md) | Pagination strategy |
@@ -176,7 +178,7 @@
 | [ADR-103](./adrs/ADR-103-ux-ui-reference-adoption.md) | UX/UI reference adoption (`docs/ux.md` normative) |
 | [ADR-104](./adrs/ADR-104-api-documentation-sync.md) | API documentation sync (`docs/openapi.yaml` + `docs/api.md` normative) |
 | [ADR-106](./adrs/ADR-106-security-hardening-2026-09-assessment.md) | Security hardening from the 2026-09-10 assessment |
-| [ADR-107](./adrs/ADR-107-credential-store.md) | Application credential store for integration secrets (supersedes ADR-023 no-secrets-at-rest clause); Amendment 1 adds URL Check credential consumers and dependent protection (ADR-123) |
+| [ADR-107](./adrs/ADR-107-credential-store.md) | Application credential store for integration secrets (supersedes ADR-023 no-secrets-at-rest clause); Amendment 1 adds URL Check credential consumers and dependent protection (ADR-123); amended by ADR-124 — concrete `url_checks.credentialId` + `authConfig` key-name mapping, `AGENT`-vantage checks require `AGENT_MANAGED` |
 | [ADR-108](./adrs/ADR-108-mobile-nav-drawer.md) | Mobile navigation drawer below `md` (narrows `docs/ux.md` §9) |
 | [ADR-118](./adrs/ADR-118-product-map-canvas.md) | In-app product map graph canvas (read-only; amends ADR-103/`ux.md` §8) |
 | [ADR-117](./adrs/ADR-117-agent-managed-credentials.md) | Agent-managed credentials: reference-only credential flavor (amends ADR-107, 055, 023, 090); Amendment 1 ratifies spec-026 surfaces — 4 error codes, `credential_test_dispatched`, `agent_credential_tests_total`, `testId` correlation, `keyHints` source types |

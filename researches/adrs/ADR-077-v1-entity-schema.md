@@ -108,3 +108,37 @@ Component-level shared defaults are left to the feature spec and plan.
 
 **Amended by ADR-123**: `url_checks` and `url_check_observations` join the v1
 schema inventory; see Amendment 3.
+
+## Amendment 4 — `component_monitoring_setups` and URL Check column design (2026-11-01, ADR-124)
+
+**Context**: [ADR-124](./ADR-124-url-check-execution-surfaces.md) ratifies
+the column-level design Amendment 3 deferred to the feature spec, plus the
+Component-level shared-defaults record.
+
+**Refinement**:
+
+1. Add `component_monitoring_setups` — one row per Component (`componentId`
+   UNIQUE, `ON DELETE CASCADE`): `cadenceSeconds` (default 300, CHECK
+   60–86400), `vantage` (`HUB`|`AGENT`), `agentId` (nullable FK →
+   `import_agents`, `ON DELETE RESTRICT`; required iff `vantage='AGENT'`).
+2. `url_checks` carries `setupId` (CASCADE), `componentInstanceId`
+   (CASCADE — must belong to the setup's Component), `credentialId`
+   (nullable FK → `credentials`, RESTRICT; required for any
+   `authMode != NONE`), `name`, `url`, `method` (`GET`|`HEAD`, default
+   `GET`), `enabled` (default true), `cadenceSeconds` (nullable override),
+   `successPolicy` jsonb (default 2xx), `authMode`
+   (`NONE`|`BASIC`|`BEARER`|`CUSTOM_HEADERS`), `authConfig` jsonb
+   (credential key-name mappings only — never values),
+   `availabilityTarget` + `targetWindow` (`24H`|`7D`|`30D`; set together
+   or both null), and `nextProbeAt` (null while disabled).
+3. `url_check_observations` is append-only: `urlCheckId` (CASCADE),
+   `scheduledAt` (the slot the observation belongs to), `outcome`
+   (`SUCCESS`|`FAILURE`|`MISSED`), `httpStatus`, `durationMs`,
+   `errorType` (bounded enum), `vantage`, `agentId`. Retained 30 days,
+   then purged.
+
+---
+
+**Amended by ADR-124**: `component_monitoring_setups` joins the v1 schema
+inventory and the URL Check column-level design deferred in Amendment 3 is
+ratified; see Amendment 4.

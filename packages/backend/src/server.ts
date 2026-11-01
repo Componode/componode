@@ -9,6 +9,7 @@ import { bootstrapAdmin } from "./services/bootstrap-service.js";
 import { bootstrapCredentialStore } from "./services/credential-boot.js";
 import { recoverRuns } from "./services/recovery-service.js";
 import { initScheduler } from "./services/scheduler-service.js";
+import { startUrlCheckScheduler } from "./services/url-check-scheduler.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -69,8 +70,13 @@ async function main(): Promise<void> {
   // 5. Initialize scheduled importers
   await initScheduler();
 
-  // 6. Build and start the server
+  // 6. Build the server — buildApp binds the URL check agent dispatch seam
+  //    (setUrlCheckAgentDispatch), so the sweep must start only after it
+  //    returns; otherwise the first pass would mark agent-vantage checks
+  //    spuriously MISSED/AGENT_OFFLINE on every restart. The first sweep
+  //    doubles as the hub-downtime reconcile for missed slots.
   const app = await buildApp();
+  startUrlCheckScheduler();
   const port = parseInt(process.env.PORT ?? "3000", 10);
 
   try {

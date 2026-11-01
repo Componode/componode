@@ -222,7 +222,10 @@ Deferred — each needs its own ADR or spec:
 - Credential-form provider scaffolds — free-form key/value is the model
 - Mobile/tablet support beyond the nav drawer
 - Custom importer-form widgets beyond the schema-driven scope renderer
-  (nested/complex fields stay on per-field JSON)
+  (nested/complex fields stay on per-field JSON) — resolved in one place:
+  the dedicated URL Check editor on the Component detail "URL checks"
+  card and the create-with-checks flow are approved custom controls
+  (spec 051); the general importer-scope-form question stays open
 - Notification delivery (gap G15), TOTP (gap G16), session concurrency
   controls (gap G17), workspace profile fields (gap G18), retention/export
   operations (gap G19)

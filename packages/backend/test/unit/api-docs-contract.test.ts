@@ -68,6 +68,7 @@ beforeAll(async () => {
     { credentialRoutes },
     { agentRoutes },
     { agentChannelRoutes },
+    { urlCheckRoutes },
     { loadSpec, generateApiDoc, API_MD_PATH },
   ] = await Promise.all([
     import("../../src/routes/auth.js"),
@@ -89,6 +90,7 @@ beforeAll(async () => {
     import("../../src/routes/credentials.js"),
     import("../../src/routes/agents.js"),
     import("../../src/routes/agent-channel.js"),
+    import("../../src/routes/url-checks.js"),
     import("../../scripts/generate-api-doc.js"),
   ]);
 
@@ -117,6 +119,7 @@ beforeAll(async () => {
     auditRoutes,
     credentialRoutes,
     agentRoutes,
+    urlCheckRoutes,
   ]) {
     await app.register(plugin, { prefix: API_PREFIX });
   }

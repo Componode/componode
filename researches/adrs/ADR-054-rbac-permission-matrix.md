@@ -52,3 +52,16 @@ audit event with `toActor` attribution, enforces unique kebab-case slugs
 **Refinement**: `importer:source:retire` and `importer:source:reactivate`
 map to ADMIN. Source reads (`GET /importer-sources*`) are
 authenticated-any, consistent with `GET /importer-configs`.
+
+## Amendment 3 — URL Check monitoring permissions (2026-11-01, ADR-124)
+
+**Refinement**: `urlCheck:create`, `urlCheck:update`, `urlCheck:delete`,
+and `monitoringSetup:update` map to EDITOR — the `component:*`
+catalog-authoring tier. The composite create-Component-with-checks path
+requires `component:create` + `urlCheck:create`. All URL Check `GET`
+routes stay authenticated-any (`verifySession`), per the read convention.
+
+---
+
+**Amended by ADR-124**: the matrix gains `urlCheck:create|update|delete`
+and `monitoringSetup:update` (all EDITOR); see Amendment 3.

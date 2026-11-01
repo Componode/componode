@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { listComponentsQuerySchema, updateComponentSchema, createComponentSchema } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
-import { requireRole } from "../plugins/rbac.js";
+import { requireRole, hasPermission } from "../plugins/rbac.js";
 import { listComponents, getComponentById } from "../services/component-catalog-service.js";
 import { updateComponent, createComponent } from "../services/component-group-service.js";
 import { toActor } from "../services/actor.js";
@@ -44,10 +44,18 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
         details: parsed.error.issues,
       });
     }
+    if (
+      parsed.data.monitoring &&
+      !hasPermission(req.user?.role ?? "VIEWER", "urlCheck:create")
+    ) {
+      return reply
+        .status(403)
+        .send({ code: "AUTH_FORBIDDEN", message: "Forbidden" });
+    }
 
     try {
-      const component = await createComponent(parsed.data, toActor(req));
-      return reply.status(201).send({ component });
+      const result = await createComponent(parsed.data, toActor(req));
+      return reply.status(201).send(result);
     } catch (err) {
       return sendServiceError(reply, err);
     }

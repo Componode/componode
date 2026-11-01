@@ -1,4 +1,6 @@
 import * as React from "react";
+import { Link } from "react-router-dom";
+import { MonitorCheckIcon } from "lucide-react";
 import { useAllComponents } from "@/api/hooks/components";
 import { useSession } from "@/api/hooks/auth";
 import { mapComponent } from "@/api/mappers/catalog";
@@ -6,9 +8,11 @@ import { ComponentCreateDialog } from "@/ux/components/catalog/component-create-
 import { ComponentsTable } from "@/ux/components/catalog/components-table";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
 import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
+import { Button } from "@/ux/components/ui/button";
 import { Card } from "@/ux/components/ui/card";
 import { errorMessage } from "@/ux/lib/api-state";
 import { canAccess } from "@/ux/lib/nav";
+import { ux } from "@/ux/lib/paths";
 
 export function UxComponentsPage() {
   // includeRetired: retired rows stay reachable through the lifecycle badge
@@ -25,7 +29,19 @@ export function UxComponentsPage() {
       <PageHeader
         title="Components"
         description="Every deployable unit discovered by importers or added by hand. Each component has one or more instances across environments."
-        actions={canCreate ? <ComponentCreateDialog /> : undefined}
+        actions={
+          canCreate ? (
+            <>
+              <Button variant="outline" asChild>
+                <Link to={ux("/components/new")}>
+                  <MonitorCheckIcon data-icon="inline-start" />
+                  New with URL checks
+                </Link>
+              </Button>
+              <ComponentCreateDialog />
+            </>
+          ) : undefined
+        }
       />
       {isPending ? (
         <Card className="py-0">

@@ -1,4 +1,4 @@
-# Agent wire protocol (v2)
+# Agent wire protocol (v4)
 
 Implementer reference for the Import Agent control channel (spec 025,
 ADR-116). The normative schema lives in
@@ -26,7 +26,7 @@ flow and semantics.
    {
      type: "hello",
      payload: {
-       protocolVersion: 3,                                  // AGENT_PROTOCOL_VERSION
+       protocolVersion: 4,                                  // AGENT_PROTOCOL_VERSION
        agentVersion: "<semver>",
        importers: [{ name: "github", version: "1.0.0" }, …], // compiled manifest set
        capabilities: { maxConcurrentJobs: 1 },
@@ -47,7 +47,7 @@ flow and semantics.
    {
      type: "hello.ok",
      payload: {
-       protocolVersion: 3,
+       protocolVersion: 4,
        agentId: "<uuidv7>",
        name: "<agent-name>",
        allowedImporters: ["github", …],   // hub-managed policy (ADR-116)
@@ -326,3 +326,71 @@ targets: {<targetId>: {transport, ...}}}`) is the allowlist, loaded fresh
 per `job.assign`; failures NACK `TARGET_RESOLUTION_FAILED` before any
 network access. `context.resolveTarget(targetId)` returns the resolved
 non-secret profile on the agent.
+
+## Protocol v4 — URL check probes (spec 051)
+
+`AGENT_PROTOCOL_VERSION` is 4. v4 adds the `url_check.probe` /
+`url_check.probe.result` frame pair so agent-vantage **URL checks** (spec
+051) can execute inside networks the hub cannot reach — same posture as
+`credential.test`: the hub sends reference names only, the agent resolves
+secrets locally, and secret material never crosses the stream.
+
+Hub → agent:
+
+```ts
+{
+  type: "url_check.probe",
+  payload: {
+    probeId: "<uuid>",          // correlation id — probes are not import
+                                // runs, so no envelope runId
+    url: "https://api.example.test/health",
+    method: "GET" | "HEAD",
+    timeoutMs: 30000,           // the check's probe timeout (≤ 60 000)
+    authMode: "NONE" | "BASIC" | "BEARER" | "CUSTOM_HEADERS",
+    authKeyNames?: {            // credential key names to resolve
+      usernameKey?: string, passwordKey?: string,
+      tokenKey?: string,
+      headers?: [{ name: string, key: string }],
+    },
+    secretRefMap?: { token: { env: "API_TOKEN" } },  // refs only — never values
+  },
+}
+```
+
+Agent → hub:
+
+```ts
+{
+  type: "url_check.probe.result",
+  payload: {
+    probeId: "<uuid>",
+    outcome: "SUCCESS" | "FAILURE",
+    httpStatus?: 200,
+    durationMs?: 182,
+    errorType?: "DNS" | "CONNECT" | "TLS" | "TIMEOUT" | "HTTP_STATUS"
+              | "POLICY_BLOCKED" | "ABORTED" | "OTHER",
+  },
+}
+```
+
+Semantics:
+
+- The hub correlates results by `probeId` — late answers after the
+  dispatch deadline (`payload.timeoutMs` + transport grace) are ignored,
+  same convention as credential tests. A missing session rejects
+  `AGENT_OFFLINE`; a silent agent rejects `AGENT_PROBE_TIMEOUT`. Either
+  lands as a `MISSED` observation (`errorType` `AGENT_OFFLINE`/`TIMEOUT`);
+  a result lands as `SUCCESS`/`FAILURE` after the hub re-evaluates the
+  check's success policy — the agent never learns the policy.
+- The agent resolves `secretRefMap` against its own env / `SECRETS_DIR`
+  (identical semantics to `credential.test`), builds auth headers per
+  `authMode`/`authKeyNames`, re-validates the URL against the shared
+  safety policy (ADR-106), runs the same `executeHttpProbe` executor as
+  the hub vantage, and replies with raw fields only — the wire never
+  carries secret values or absolute filesystem paths.
+- An agent that cannot resolve a key still answers
+  `url_check.probe.result{outcome:"FAILURE", errorType:"OTHER"}` — it
+  must not silently drop the frame.
+- URL checks are dispatched by the hub's probe scheduler, not by import
+  runs — they never touch `import_runs`, `component_instances`, or
+  `ImporterSource` state.

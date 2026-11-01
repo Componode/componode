@@ -12,8 +12,10 @@ import {
   type CancelPayload,
   type ImporterRegistry,
   type JobAssignPayload,
+  type UrlCheckProbePayload,
 } from "@componode/core";
 import { JobExecutor } from "./executor.js";
+import { handleUrlCheckProbe } from "./probe.js";
 import { loadTargetProfile } from "./target-registry.js";
 import { proxyForUrl, type AgentConfig } from "./config.js";
 import type { AgentOpsMetrics } from "./metrics.js";
@@ -380,6 +382,16 @@ export async function runSession(
           log,
           send: sendFrame,
           ops: deps.ops,
+        });
+        return;
+      }
+      if (msg.type === "url_check.probe") {
+        // Remote URL check probe (spec 051): refs resolve HERE against the
+        // agent's own env/SECRETS_DIR — values never cross the stream.
+        void handleUrlCheckProbe(msg.payload as UrlCheckProbePayload, {
+          secretsDir: cfg.secretsDir,
+          log,
+          send: sendFrame,
         });
         return;
       }

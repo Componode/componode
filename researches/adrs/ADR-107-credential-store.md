@@ -118,3 +118,11 @@ monitoring-stack credentials, which remain external.
 **Amended by ADR-123**: Credential dependents/deletion protection include
 URL Checks and check credentials follow ADR-107's existing write-only and
 executor-aware resolution rules; see Amendment 1.
+
+---
+
+**Amended by ADR-124**: URL Check credential consumption is concrete —
+`url_checks.credentialId` plus `authConfig` credential key-name mapping
+(never values). Dependents, revocation, and delete protection include
+checks; `AGENT`-vantage checks require `AGENT_MANAGED` credentials, and
+`Authorization` is reserved for `BASIC`/`BEARER` modes.

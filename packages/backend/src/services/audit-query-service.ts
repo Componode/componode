@@ -64,6 +64,47 @@ async function namesFor(
       return fetchNames("importer_configs", ids, "label");
     case "credential":
       return fetchNames("credentials", ids, "label");
+    case "url_check": {
+      const rows = await db
+        .selectFrom("url_checks")
+        .innerJoin(
+          "component_instances",
+          "component_instances.id",
+          "url_checks.componentInstanceId",
+        )
+        .innerJoin(
+          "components",
+          "components.id",
+          "component_instances.componentId",
+        )
+        .select([
+          "url_checks.id",
+          "url_checks.name",
+          "components.name as componentName",
+          "component_instances.environment",
+        ])
+        .where("url_checks.id", "in", ids)
+        .execute();
+      return new Map(
+        rows.map((r) => [
+          r.id,
+          `${r.componentName} · ${r.environment} · ${r.name}`,
+        ]),
+      );
+    }
+    case "monitoring_setup": {
+      const rows = await db
+        .selectFrom("component_monitoring_setups")
+        .innerJoin(
+          "components",
+          "components.id",
+          "component_monitoring_setups.componentId",
+        )
+        .select(["component_monitoring_setups.id", "components.name"])
+        .where("component_monitoring_setups.id", "in", ids)
+        .execute();
+      return new Map(rows.map((r) => [r.id, r.name]));
+    }
     case "user": {
       const rows = await db
         .selectFrom("persons")

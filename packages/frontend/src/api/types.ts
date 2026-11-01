@@ -439,6 +439,26 @@ export type {
   AgentRun,
 } from "@componode/core";
 
+// URL Check monitoring (spec 051 / ADR-123) — contracts live in core.
+export type {
+  MonitoringSetup,
+  SuccessPolicy,
+  BasicAuthConfig,
+  BearerAuthConfig,
+  CustomHeadersAuthConfig,
+  UrlCheckAuthConfig,
+  UrlCheck,
+  UrlCheckObservation,
+  UrlCheckLatest,
+  UrlCheckListItem,
+  UrlCheckMetrics,
+  UpdateMonitoringSetupInput,
+  CreateUrlCheckInput,
+  UpdateUrlCheckInput,
+  CreateInstanceBlock,
+  CreateMonitoringBlock,
+} from "@componode/core";
+
 export interface CreateAgentResult {
   agent: import("@componode/core").ImportAgent;
   enrollment: import("@componode/core").AgentEnrollment;

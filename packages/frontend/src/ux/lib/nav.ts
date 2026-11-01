@@ -122,6 +122,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   "session-policy": "Session policy",
   advanced: "Advanced",
   new: "New",
+  checks: "Checks",
   edit: "Edit",
   import: "Import",
   history: "History",

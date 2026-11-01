@@ -19,6 +19,13 @@ export type SourceStatus = "ACTIVE" | "UNMONITORED" | "RETIRED"
 export type AgentCredentialState = "PENDING_ENROLLMENT" | "ACTIVE" | "REVOKED"
 export type DisconnectReason = "client_close" | "heartbeat_timeout" | "revoked" | "shutdown" | "superseded" | "replaced"
 export type CredentialKind = "STORED" | "AGENT_MANAGED"
+export type UrlCheckVantage = "HUB" | "AGENT"
+/** Derived client-side: enabled + latest observation outcome (spec 051). */
+export type UrlCheckStatus = "UP" | "DOWN" | "NO_DATA" | "DISABLED"
+export type UrlCheckOutcome = "SUCCESS" | "FAILURE" | "MISSED"
+export type UrlCheckMethod = "GET" | "HEAD"
+export type UrlCheckAuthMode = "NONE" | "BASIC" | "BEARER" | "CUSTOM_HEADERS"
+export type UrlCheckTargetWindow = "24H" | "7D" | "30D"
 export type Provider =
   | "GITHUB"
   | "AWS"
@@ -121,6 +128,46 @@ export const DISCONNECT_REASON_META: Record<DisconnectReason, { label: string; d
   shutdown: { label: "Hub shutdown", description: "The hub restarted or shut down", tone: "neutral" },
   superseded: { label: "Superseded", description: "A newer connection used the same credential", tone: "warning" },
   replaced: { label: "Replaced", description: "A rotated credential took over this session", tone: "neutral" },
+}
+
+/**
+ * URL Check monitoring status (spec 051, FR-024). Labels are deliberately
+ * distinct from `HEALTH_META` — a check says "Up"/"Down" (is the URL
+ * reachable from the vantage?) while an instance says "Running"/"Error"
+ * (what did the importer observe?). The two never mix.
+ */
+export const CHECK_STATUS_META: Record<UrlCheckStatus, Meta> = {
+  UP: { label: "Up", description: "Latest probe satisfied the check's success policy", tone: "success" },
+  DOWN: { label: "Down", description: "Latest probe failed under the check's success policy", tone: "destructive" },
+  NO_DATA: { label: "No data", description: "No probe observations recorded yet", tone: "neutral" },
+  DISABLED: { label: "Disabled", description: "Probes are not scheduled; history is retained", tone: "neutral" },
+}
+
+/** Observation outcome — MISSED means the monitor itself did not run a scheduled slot (coverage gap). */
+export const CHECK_OUTCOME_META: Record<UrlCheckOutcome, Meta> = {
+  SUCCESS: { label: "Success", description: "Response satisfied the success policy", tone: "success" },
+  FAILURE: { label: "Failure", description: "Probe ran but failed or returned an unaccepted status", tone: "destructive" },
+  MISSED: { label: "Missed", description: "Scheduled probe did not run — monitor-side coverage gap", tone: "warning" },
+}
+
+/** Human labels for normalized probe error reasons (outcome FAILURE/MISSED). */
+export const CHECK_ERROR_TYPE_LABELS: Record<string, string> = {
+  DNS: "DNS failure",
+  CONNECT: "Connection failed",
+  TLS: "TLS failure",
+  TIMEOUT: "Timed out",
+  HTTP_STATUS: "Unaccepted status",
+  POLICY_BLOCKED: "Blocked by URL policy",
+  AGENT_OFFLINE: "Agent offline",
+  ABORTED: "Aborted",
+  OTHER: "Other error",
+}
+
+export const CHECK_AUTH_MODE_META: Record<UrlCheckAuthMode, { label: string; description: string }> = {
+  NONE: { label: "None", description: "No authentication — public endpoints" },
+  BASIC: { label: "Basic auth", description: "Authorization: Basic from a username/password credential" },
+  BEARER: { label: "Bearer token", description: "Authorization: Bearer from a token credential" },
+  CUSTOM_HEADERS: { label: "Custom headers", description: "Header names mapped to credential-held values" },
 }
 
 export const KIND_META: Record<CredentialKind, { label: string; description: string }> = {

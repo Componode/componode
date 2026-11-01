@@ -51,6 +51,7 @@ tags:
   - name: Search
   - name: Audit
   - name: Agents
+  - name: URLChecks
 paths:
   # ------------------------------------------------------------------ Auth
   /auth/login:
@@ -1114,15 +1115,50 @@ paths:
                   maxItems: 20
                   items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
                 sunsetAt: { type: string, format: date-time, nullable: true }
+                instance:
+                  type: object
+                  additionalProperties: false
+                  description: >-
+                    Composite create (spec 051 US5): create one ComponentInstance
+                    with the component — `status` starts `RUNNING`, `externalId`
+                    is `manual:{slug}`, slug `{slug}-{environment}`.
+                  required: [environment]
+                  properties:
+                    environment:
+                      type: string
+                      enum: [DEV, TEST, STAGING, DEMO, PRODUCTION, OTHER]
+                    url: { type: string, minLength: 1, maxLength: 2048 }
+                    version: { type: string, maxLength: 100 }
+                    region: { type: string, maxLength: 100 }
+                monitoring:
+                  type: object
+                  additionalProperties: false
+                  description: >-
+                    Composite URL-check create — requires `instance`. Checks
+                    target the new instance, so `componentInstanceId` is not
+                    part of the check payload. The whole graph is created in
+                    one transaction; any failure persists nothing.
+                  required: [checks]
+                  properties:
+                    setup: { $ref: '#/components/schemas/UpdateMonitoringSetupInput' }
+                    checks:
+                      type: array
+                      minItems: 1
+                      items: { $ref: '#/components/schemas/CompositeUrlCheckInput' }
       responses:
         '201':
-          description: Component created
+          description: Component created (plus instance/setup/checks when supplied)
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   component: { $ref: '#/components/schemas/Component' }
+                  instance: { $ref: '#/components/schemas/ComponentInstance' }
+                  setup: { $ref: '#/components/schemas/MonitoringSetup' }
+                  checks:
+                    type: array
+                    items: { $ref: '#/components/schemas/UrlCheck' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -1306,6 +1342,226 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+
+  # ------------------------------------------------- URL Check monitoring
+  /components/{componentId}/monitoring-setup:
+    get:
+      tags: [URLChecks]
+      summary: Get the component's URL check monitoring setup
+      parameters:
+        - name: componentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Monitoring setup
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  setup: { $ref: '#/components/schemas/MonitoringSetup' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [URLChecks]
+      summary: Upsert monitoring defaults (cadence, vantage, agent)
+      x-permission: "monitoringSetup:update"
+      description: >-
+        `vantage: 'AGENT'` requires `agentId` of an active Import Agent;
+        `vantage: 'HUB'` clears it. Agent-vantage checks probe from the
+        agent's network — the hub only ships URL + credential reference
+        names (never values).
+      parameters:
+        - name: componentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateMonitoringSetupInput' }
+      responses:
+        '200':
+          description: Updated monitoring setup
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  setup: { $ref: '#/components/schemas/MonitoringSetup' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /components/{componentId}/url-checks:
+    get:
+      tags: [URLChecks]
+      summary: List URL checks for a component (with latest observation)
+      parameters:
+        - name: componentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Setup and checks with latest-observation summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  setup:
+                    allOf:
+                      - $ref: '#/components/schemas/MonitoringSetup'
+                    nullable: true
+                  checks:
+                    type: array
+                    items: { $ref: '#/components/schemas/UrlCheckListItem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [URLChecks]
+      summary: Create a URL check on a component instance
+      x-permission: "urlCheck:create"
+      description: >-
+        Auto-creates the monitoring setup with defaults (HUB vantage, 300 s
+        cadence) when absent. `authMode != NONE` requires an API-category
+        component, a `credentialId`, and `authConfig` credential key names —
+        never secret values. AGENT-vantage setups require an AGENT_MANAGED
+        credential.
+      parameters:
+        - name: componentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateUrlCheckInput' }
+      responses:
+        '201':
+          description: Check created (scheduled from `nextProbeAt`)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  check: { $ref: '#/components/schemas/UrlCheck' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /url-checks/{id}:
+    get:
+      tags: [URLChecks]
+      summary: Get a URL check
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: URL check
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  check: { $ref: '#/components/schemas/UrlCheck' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [URLChecks]
+      summary: Update a URL check (incl. enable/disable)
+      x-permission: "urlCheck:update"
+      description: >-
+        Editing `url` updates the row in place — identity and observation
+        history are preserved. `enabled: false` clears `nextProbeAt` (no
+        MISSED rows accrue while disabled); enabling reschedules from now.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateUrlCheckInput' }
+      responses:
+        '200':
+          description: Updated check
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  check: { $ref: '#/components/schemas/UrlCheck' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [URLChecks]
+      summary: Delete a URL check and its observations
+      x-permission: "urlCheck:delete"
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '204': { description: Check deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /url-checks/{id}/metrics:
+    get:
+      tags: [URLChecks]
+      summary: Per-check availability, error rate, and latency percentiles
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - in: query
+          name: window
+          schema: { type: string, enum: ['24h', '7d', '30d'], default: '24h' }
+      responses:
+        '200':
+          description: >-
+            Metrics over the rolling window. `availability` counts MISSED
+            slots against the check (conservative SLI); `errorRate` covers
+            executed attempts only; `coverageGap` is the MISSED share.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UrlCheckMetrics' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /url-checks/{id}/observations:
+    get:
+      tags: [URLChecks]
+      summary: Observation history (desc by scheduledAt, cursor-paginated)
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - in: query
+          name: before
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Observations page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  observations:
+                    type: array
+                    items: { $ref: '#/components/schemas/UrlCheckObservation' }
+                  nextBefore:
+                    type: string
+                    format: date-time
+                    nullable: true
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   # -------------------------------------------------------- Component groups
   /component-groups:
@@ -3144,6 +3400,8 @@ components:
             - ASSET_TOO_LARGE
             - CREDENTIAL_NO_BOUND_AGENT
             - CREDENTIAL_KIND_MISMATCH
+            - URL_CHECK_NOT_FOUND
+            - MONITORING_SETUP_NOT_FOUND
         message: { type: string }
         details: { type: object, nullable: true, description: Optional machine-readable context (e.g. Zod issues, retryAfter). }
         invalid-params:
@@ -4083,6 +4341,259 @@ components:
         oidc:
           type: boolean
           description: Whether the OIDC configuration references this credential
+        urlChecks:
+          type: array
+          description: URL checks referencing this credential (block deletion)
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+    MonitoringSetup:
+      type: object
+      description: >-
+        Shared per-component monitoring defaults (spec 051). `agentId` is
+        required when `vantage` is `AGENT`, null otherwise.
+      properties:
+        id: { type: string, format: uuid }
+        componentId: { type: string, format: uuid }
+        cadenceSeconds: { type: integer, minimum: 60, maximum: 86400 }
+        vantage: { type: string, enum: [HUB, AGENT] }
+        agentId: { type: string, format: uuid, nullable: true }
+        agentName: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    UpdateMonitoringSetupInput:
+      type: object
+      additionalProperties: false
+      properties:
+        cadenceSeconds: { type: integer, minimum: 60, maximum: 86400 }
+        vantage: { type: string, enum: [HUB, AGENT] }
+        agentId: { type: string, format: uuid, nullable: true }
+    SuccessPolicy:
+      type: object
+      description: Accepted HTTP statuses — explicit codes and/or ranges.
+      properties:
+        codes:
+          type: array
+          items: { type: integer, minimum: 100, maximum: 599 }
+        ranges:
+          type: array
+          items:
+            type: object
+            properties:
+              min: { type: integer, minimum: 100, maximum: 599 }
+              max: { type: integer, minimum: 100, maximum: 599 }
+    UrlCheckAuthConfig:
+      description: >-
+        Maps logical auth fields to credential KEY NAMES — never values.
+        BASIC → `{usernameKey, passwordKey}`; BEARER → `{tokenKey}`;
+        CUSTOM_HEADERS → `{headers: [{name, key}]}` (header names must be
+        RFC 9110 tokens; `Authorization` is reserved).
+      oneOf:
+        - type: object
+          properties:
+            usernameKey: { type: string }
+            passwordKey: { type: string }
+        - type: object
+          properties:
+            tokenKey: { type: string }
+        - type: object
+          properties:
+            headers:
+              type: array
+              minItems: 1
+              items:
+                type: object
+                properties:
+                  name: { type: string }
+                  key: { type: string }
+    UrlCheck:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        setupId: { type: string, format: uuid }
+        componentInstanceId: { type: string, format: uuid }
+        credentialId: { type: string, format: uuid, nullable: true }
+        name: { type: string }
+        url: { type: string }
+        method: { type: string, enum: [GET, HEAD] }
+        enabled: { type: boolean }
+        cadenceSeconds:
+          type: integer
+          minimum: 60
+          maximum: 86400
+          nullable: true
+          description: null → inherit the monitoring setup's cadence
+        successPolicy: { $ref: '#/components/schemas/SuccessPolicy' }
+        authMode:
+          type: string
+          enum: [NONE, BASIC, BEARER, CUSTOM_HEADERS]
+        authConfig:
+          allOf:
+            - $ref: '#/components/schemas/UrlCheckAuthConfig'
+          nullable: true
+        availabilityTarget:
+          type: number
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: Percent; paired with `targetWindow`
+        targetWindow:
+          type: string
+          enum: ['24H', '7D', '30D']
+          nullable: true
+        nextProbeAt: { type: string, format: date-time, nullable: true }
+        createdBy: { type: string, nullable: true }
+        updatedBy: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    UrlCheckLatest:
+      type: object
+      properties:
+        scheduledAt: { type: string, format: date-time }
+        outcome: { type: string, enum: [SUCCESS, FAILURE, MISSED] }
+        httpStatus: { type: integer, nullable: true }
+        durationMs: { type: integer, nullable: true }
+        errorType:
+          type: string
+          enum: [DNS, CONNECT, TLS, TIMEOUT, HTTP_STATUS, POLICY_BLOCKED, AGENT_OFFLINE, ABORTED, OTHER]
+          nullable: true
+        vantage: { type: string, enum: [HUB, AGENT] }
+    UrlCheckListItem:
+      allOf:
+        - $ref: '#/components/schemas/UrlCheck'
+        - type: object
+          properties:
+            latest:
+              allOf:
+                - $ref: '#/components/schemas/UrlCheckLatest'
+              nullable: true
+    UrlCheckObservation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        urlCheckId: { type: string, format: uuid }
+        scheduledAt: { type: string, format: date-time }
+        outcome: { type: string, enum: [SUCCESS, FAILURE, MISSED] }
+        httpStatus: { type: integer, nullable: true }
+        durationMs: { type: integer, nullable: true }
+        errorType:
+          type: string
+          enum: [DNS, CONNECT, TLS, TIMEOUT, HTTP_STATUS, POLICY_BLOCKED, AGENT_OFFLINE, ABORTED, OTHER]
+          nullable: true
+        vantage: { type: string, enum: [HUB, AGENT] }
+        agentId: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+    UrlCheckMetrics:
+      type: object
+      properties:
+        window: { type: string, enum: ['24h', '7d', '30d'] }
+        availability:
+          type: number
+          nullable: true
+          description: SUCCESS / (SUCCESS + FAILURE + MISSED); null when nothing scheduled
+        errorRate:
+          type: number
+          nullable: true
+          description: FAILURE / (SUCCESS + FAILURE); null when nothing executed
+        coverageGap:
+          type: number
+          description: MISSED share of scheduled slots
+        p50: { type: number, nullable: true }
+        p95: { type: number, nullable: true }
+        p99: { type: number, nullable: true }
+        counts:
+          type: object
+          properties:
+            success: { type: integer }
+            failure: { type: integer }
+            missed: { type: integer }
+        latest:
+          allOf:
+            - $ref: '#/components/schemas/UrlCheckLatest'
+          nullable: true
+        vantage: { type: string, enum: [HUB, AGENT] }
+        agentName: { type: string, nullable: true }
+        target:
+          type: object
+          nullable: true
+          properties:
+            availability: { type: number }
+            window: { type: string, enum: ['24H', '7D', '30D'] }
+    CreateUrlCheckInput:
+      type: object
+      additionalProperties: false
+      required: [name, url, componentInstanceId]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        url: { type: string, minLength: 1, maxLength: 2048 }
+        componentInstanceId: { type: string, format: uuid }
+        method: { type: string, enum: [GET, HEAD], default: GET }
+        enabled: { type: boolean, default: true }
+        cadenceSeconds: { type: integer, minimum: 60, maximum: 86400, nullable: true }
+        successPolicy: { $ref: '#/components/schemas/SuccessPolicy' }
+        availabilityTarget: { type: number, minimum: 0, maximum: 100, nullable: true }
+        targetWindow: { type: string, enum: ['24H', '7D', '30D'], nullable: true }
+        authMode:
+          type: string
+          enum: [NONE, BASIC, BEARER, CUSTOM_HEADERS]
+          default: NONE
+        credentialId: { type: string, format: uuid, nullable: true }
+        authConfig:
+          allOf:
+            - $ref: '#/components/schemas/UrlCheckAuthConfig'
+          nullable: true
+    CompositeUrlCheckInput:
+      type: object
+      additionalProperties: false
+      description: >-
+        Check shape inside `monitoring.checks` on `POST /components` —
+        identical to `CreateUrlCheckInput` minus `componentInstanceId`
+        (checks target the new instance).
+      required: [name, url]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        url: { type: string, minLength: 1, maxLength: 2048 }
+        method: { type: string, enum: [GET, HEAD], default: GET }
+        enabled: { type: boolean, default: true }
+        cadenceSeconds: { type: integer, minimum: 60, maximum: 86400, nullable: true }
+        successPolicy: { $ref: '#/components/schemas/SuccessPolicy' }
+        availabilityTarget: { type: number, minimum: 0, maximum: 100, nullable: true }
+        targetWindow: { type: string, enum: ['24H', '7D', '30D'], nullable: true }
+        authMode:
+          type: string
+          enum: [NONE, BASIC, BEARER, CUSTOM_HEADERS]
+          default: NONE
+        credentialId: { type: string, format: uuid, nullable: true }
+        authConfig:
+          allOf:
+            - $ref: '#/components/schemas/UrlCheckAuthConfig'
+          nullable: true
+    UpdateUrlCheckInput:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        url: { type: string, minLength: 1, maxLength: 2048 }
+        componentInstanceId: { type: string, format: uuid }
+        method: { type: string, enum: [GET, HEAD] }
+        enabled: { type: boolean }
+        cadenceSeconds: { type: integer, minimum: 60, maximum: 86400, nullable: true }
+        successPolicy:
+          allOf:
+            - $ref: '#/components/schemas/SuccessPolicy'
+          nullable: true
+        availabilityTarget: { type: number, minimum: 0, maximum: 100, nullable: true }
+        targetWindow: { type: string, enum: ['24H', '7D', '30D'], nullable: true }
+        authMode:
+          type: string
+          enum: [NONE, BASIC, BEARER, CUSTOM_HEADERS]
+        credentialId: { type: string, format: uuid, nullable: true }
+        authConfig:
+          allOf:
+            - $ref: '#/components/schemas/UrlCheckAuthConfig'
+          nullable: true
     CredentialTestResult:
       type: object
       required: [ok]

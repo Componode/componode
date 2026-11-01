@@ -52,8 +52,9 @@ export function UxCredentialDetailPage() {
 
   return (
     <CredentialDetail
-      credential={mapCredential(credential, importers.length)}
+      credential={mapCredential(credential, importers.length + dependents.urlChecks.length)}
       importers={importers}
+      urlChecks={dependents.urlChecks}
       events={(history.data?.items ?? []).map(mapActivityItem)}
     />
   );

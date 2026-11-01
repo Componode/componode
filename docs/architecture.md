@@ -56,8 +56,8 @@ flowchart LR
     API -->|"pull-only AsyncGenerator"| Sources
     API -.->|"OIDC authorization code + PKCE"| IdP
     Prom -->|"GET /metrics"| API
-    Agent -->|"outbound WSS (TLS), protocol v2 —<br/>the hub never dials in"| API
-    API -.->|"job.assign / cancel frames<br/>over the agent's stream"| Agent
+    Agent -->|"outbound WSS (TLS), protocol v4 —<br/>the hub never dials in"| API
+    API -.->|"job.assign / cancel / url_check.probe frames<br/>over the agent's stream"| Agent
     Agent -->|"pull-only AsyncGenerator"| RSrc
     Prom -.->|"GET /metrics (if reachable)"| Agent
 ```
@@ -249,7 +249,7 @@ flowchart LR
         OPS["ops listener :9464<br/>GET /healthz /readyz /metrics"]
     end
 
-    CL -->|"outbound WSS (TLS), protocol v2 —<br/>frames flow both ways"| SS
+    CL -->|"outbound WSS (TLS), protocol v4 —<br/>frames flow both ways"| SS
     AS --> SS
     RR -->|"job.assign / cancel"| SS
     SS -->|"job.ack / asset.batch /<br/>run.complete"| RR
@@ -261,7 +261,7 @@ flowchart LR
   a durable credential the agent persists in `AGENT_STATE_DIR`; rotate and
   revoke are hub-side operations that drop live sessions.
 - **Lockstep handshake**: `hello` must report the hub's exact importer set
-  and `AGENT_PROTOCOL_VERSION` (currently `3`); a mismatch closes the stream
+  and `AGENT_PROTOCOL_VERSION` (currently `4`); a mismatch closes the stream
   and the agent image must be rebuilt from the same commit as the hub.
 - **Remote runs**: a config bound to an agent dispatches `job.assign` over
   the stream (`MAX_JOBS` caps concurrency; overflow queues hub-side). Agent
@@ -272,6 +272,12 @@ flowchart LR
   store reference names only (`{env}` / `{file}`); the agent resolves them
   on its host — secret material never crosses the stream in either
   direction.
+- **Agent-vantage URL checks** (spec 051, protocol v4): a monitoring setup
+  bound to an agent gets `url_check.probe` frames over the stream; the
+  agent resolves the check's credential refs locally, runs the probe, and
+  answers `url_check.probe.result`. The hub correlates by `probeId`,
+  re-evaluates the success policy itself, and writes the observation —
+  probes never touch import-run or instance state.
 - **Ops observability** (spec 028): heartbeats carry an `ops` counter
   snapshot persisted replace-on-write to `import_agents."reportedStatus"`
   and exposed on `GET /agents`/`GET /agents/{id}` alongside

@@ -51,6 +51,11 @@ const PERMISSIONS: Record<string, Role> = {
   "team:create": "EDITOR",
   "team:update": "EDITOR",
   "team:delete": "EDITOR",
+  // URL Check monitoring (spec 051)
+  "urlCheck:create": "EDITOR",
+  "urlCheck:update": "EDITOR",
+  "urlCheck:delete": "EDITOR",
+  "monitoringSetup:update": "EDITOR",
   // Editor actions (not in foundation, but defined for future)
   // Viewer = read-only (default for all GET routes)
 };
