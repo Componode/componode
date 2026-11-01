@@ -40,3 +40,16 @@ running). These must not be conflated.
 > distinct source assets considered the same logical component by a human) is
 > handled via `ComponentGroup` — see [ADR-082](./ADR-082-componentgroup.md). The `GONE` status value was
 > added by [ADR-035](./ADR-035-instance-reconciliation-orphan-missing-instances.md) for orphaned instances.
+
+## Amendment 1 — URL Checks (2026-11-01, ADR-123)
+
+**Refinement**: A `URL Check` is a separate monitoring record associated with
+the `ComponentInstance` it observes. One instance may have multiple checks;
+each check's URL and status/history are distinct from the instance's existing
+`url` and operational `status`. A probe never writes
+`ComponentInstance.status`. See [ADR-123](./ADR-123-http-url-check-monitoring.md).
+
+---
+
+**Amended by ADR-123**: adds URL Checks as separate monitoring records
+associated with a ComponentInstance; see Amendment 1.

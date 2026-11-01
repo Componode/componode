@@ -7,6 +7,7 @@
 > Alibaba Cloud importer grilling (2026-10-21): ADR-115
 > Remote import agents grilling (2026-10-21): ADR-116–117
 > ImporterSource lifecycle ratification (2026-10-31): ADR-119
+> URL Check monitoring ratification (2026-11-01): ADR-123
 > **Status**: Ratified — these decisions are the foundation for Componode v1.
 > **How to use**: Each ADR is in its own file under `researches/adrs/`.
 > Read the relevant ADRs before starting implementation work. Changes to any
@@ -41,7 +42,7 @@
 | ADR | Title |
 |---|---|
 | [ADR-013](./adrs/ADR-013-component-taxonomy-24-categories-provider-resourcetype.md) | Component taxonomy: 25 categories + provider + resourceType |
-| [ADR-014](./adrs/ADR-014-environment-separate-componentinstance-entity.md) | Environment: separate ComponentInstance entity |
+| [ADR-014](./adrs/ADR-014-environment-separate-componentinstance-entity.md) | Environment: separate ComponentInstance entity; Amendment 1 — URL Checks are separate monitoring records attached to an instance (ADR-123) |
 | [ADR-015](./adrs/ADR-015-product-component-dependency-logical-env-agnostic.md) | Product→Component dependency: logical, env-agnostic |
 | [ADR-016](./adrs/ADR-016-component-component-relationships.md) | Component→Component relationships |
 | [ADR-017](./adrs/ADR-017-platform-product-workflow-full-guided-workflow-in-v1.md) | Platform Product workflow: full guided workflow in v1 |
@@ -55,6 +56,12 @@
 | [ADR-112](./adrs/ADR-112-product-health-rollup.md) | Derived product health from component instance status |
 | [ADR-113](./adrs/ADR-113-staged-edge-suggestions.md) | Staged edge suggestions: server-generated DEPENDS_ON candidates (amends ADR-019); spec-042 amendment makes `DECIDED` queryable on `GET /suggestions` for the decided-history view |
 | [ADR-114](./adrs/ADR-114-catalog-bootstrap-import.md) | Catalog bootstrap import: declarative product + dependency file |
+
+### Monitoring
+
+| ADR | Title |
+|---|---|
+| [ADR-123](./adrs/ADR-123-http-url-check-monitoring.md) | Unified HTTP(S) URL Check monitoring: per-ComponentInstance checks, independent probe history, API authentication (amends ADR-014, 077, 107) |
 
 ### Importer Framework
 
@@ -135,7 +142,7 @@
 | [ADR-074](./adrs/ADR-074-oidc-claim-to-role-mapping.md) | OIDC claim-to-role mapping |
 | [ADR-075](./adrs/ADR-075-self-registration.md) | Self-registration |
 | [ADR-076](./adrs/ADR-076-app-settings-storage.md) | App settings storage |
-| [ADR-077](./adrs/ADR-077-v1-entity-schema.md) | v1 entity schema (consolidated); Amendment 1 adds `teams.lobId` (spec 034 — advisory team→LOB link, `ON DELETE SET NULL`); Amendment 2 adds `importer_sources` + Source-membership tables + `import_runs.sourceId` (ADR-119) |
+| [ADR-077](./adrs/ADR-077-v1-entity-schema.md) | v1 entity schema (consolidated); Amendment 1 adds `teams.lobId`; Amendment 2 adds ImporterSource + membership tables and run attribution (ADR-119); Amendment 3 adds `url_checks` + `url_check_observations` (ADR-123) |
 | [ADR-078](./adrs/ADR-078-database-migrations.md) | Database migrations |
 | [ADR-079](./adrs/ADR-079-enum-constant-structure.md) | Enum constant structure |
 | [ADR-080](./adrs/ADR-080-pagination-strategy.md) | Pagination strategy |
@@ -169,7 +176,7 @@
 | [ADR-103](./adrs/ADR-103-ux-ui-reference-adoption.md) | UX/UI reference adoption (`docs/ux.md` normative) |
 | [ADR-104](./adrs/ADR-104-api-documentation-sync.md) | API documentation sync (`docs/openapi.yaml` + `docs/api.md` normative) |
 | [ADR-106](./adrs/ADR-106-security-hardening-2026-09-assessment.md) | Security hardening from the 2026-09-10 assessment |
-| [ADR-107](./adrs/ADR-107-credential-store.md) | Application credential store for integration secrets (supersedes ADR-023 no-secrets-at-rest clause) |
+| [ADR-107](./adrs/ADR-107-credential-store.md) | Application credential store for integration secrets (supersedes ADR-023 no-secrets-at-rest clause); Amendment 1 adds URL Check credential consumers and dependent protection (ADR-123) |
 | [ADR-108](./adrs/ADR-108-mobile-nav-drawer.md) | Mobile navigation drawer below `md` (narrows `docs/ux.md` §9) |
 | [ADR-118](./adrs/ADR-118-product-map-canvas.md) | In-app product map graph canvas (read-only; amends ADR-103/`ux.md` §8) |
 | [ADR-117](./adrs/ADR-117-agent-managed-credentials.md) | Agent-managed credentials: reference-only credential flavor (amends ADR-107, 055, 023, 090); Amendment 1 ratifies spec-026 surfaces — 4 error codes, `credential_test_dispatched`, `agent_credential_tests_total`, `testId` correlation, `keyHints` source types |

@@ -87,3 +87,34 @@ payload type. `AGENT_MANAGED` records hold per-key references (names, not
 values) resolved on the Import Agent host; `STORED` behavior is
 unchanged and the write-only-values rule is preserved —
 `AGENT_MANAGED` stores no values at all.
+
+## Amendment 1 — URL Check credential consumers (2026-11-01, ADR-123)
+
+**Context**: [ADR-123](./ADR-123-http-url-check-monitoring.md) adds API-type
+URL Checks that may authenticate with Basic Auth, Bearer Token, or custom
+request headers. The existing Credential dependents and deletion rules cover
+importer configs and OIDC, but not URL Checks.
+
+**Refinement**:
+
+1. A URL Check may reference one reusable Credential. Multiple checks may
+   reference the same Credential.
+2. Credential dependent listing and deletion protection include URL Checks.
+   Revoked credentials cannot be used by future authenticated probes.
+3. Credential values remain encrypted/write-only. Hub execution uses
+   `STORED` credentials; Import Agent execution uses `AGENT_MANAGED`
+   references. Custom-header values are secret material and are never stored
+   in ordinary monitoring configuration or response observations.
+4. Auth-mode fields, custom-header value mapping, test behavior, and
+   `lastUsedAt` update frequency are defined by the monitoring feature spec;
+   those details do not relax this ADR's secret-handling requirements.
+
+API credentials for monitored target applications are application integration
+secrets. This does not change ADR-023's treatment of infrastructure-only
+monitoring-stack credentials, which remain external.
+
+---
+
+**Amended by ADR-123**: Credential dependents/deletion protection include
+URL Checks and check credentials follow ADR-107's existing write-only and
+executor-aware resolution rules; see Amendment 1.

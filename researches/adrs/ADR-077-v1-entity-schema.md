@@ -87,3 +87,24 @@ Amendment 1).
 **Amended by ADR-119**: `importer_sources` + Source→Component/
 ComponentInstance membership tables join the schema inventory, and
 `import_runs` gains `sourceId` + nullable `configId` — see Amendment 2.
+
+---
+
+## Amendment 3 — URL Check monitoring records (2026-11-01, ADR-123)
+
+**Context**: [ADR-123](./ADR-123-http-url-check-monitoring.md) establishes
+durable URL Check definitions and per-attempt observation history separate
+from importer runs and ImporterSource provenance. The consolidated v1 schema
+inventory must include both records; column-level design remains with the
+feature spec and plan.
+
+**Refinement**: Add `url_checks` for configured checks associated with a
+`component_instances` row and `url_check_observations` for timestamped probe
+results associated with a check. Detailed observations are retained for 30
+days. Exact fields, indexes, retention mechanics, and the storage of
+Component-level shared defaults are left to the feature spec and plan.
+
+---
+
+**Amended by ADR-123**: `url_checks` and `url_check_observations` join the v1
+schema inventory; see Amendment 3.
