@@ -71,6 +71,29 @@ for (const m of codes.matchAll(/"([A-Z][A-Z0-9_]+)"/g)) {
   }
 }
 
+// specs/ dirs → roadmap.md (shipped items must be listed)
+const roadmap = read("docs/roadmap.md");
+const specsDir = join(REPO_ROOT, "specs");
+const specDirs = readdirSync(specsDir).filter((d) => /^\d{3}-/.test(d));
+for (const dir of specDirs) {
+  const num = dir.slice(0, 3);
+  if (!roadmap.includes(`${num}-`)) {
+    problems.push(`spec ${dir} not mentioned in docs/roadmap.md`);
+  }
+}
+
+// shipped-as-future drift: a numbered spec referenced under a "Next"
+// heading must not correspond to a specs/ dir (its work has already
+// started or shipped).
+const nextSection = roadmap.split(/^## Next/m)[1] ?? "";
+for (const m of nextSection.matchAll(/\b(\d{3})-/g)) {
+  if (specDirs.some((d) => d.startsWith(m[1]))) {
+    problems.push(
+      `spec ${m[1]}-* is referenced under "Next" in docs/roadmap.md but has a specs/ dir — shipped or in-flight, not future`,
+    );
+  }
+}
+
 if (problems.length > 0) {
   console.error(`docs drift detected:\n${problems.map((p) => `  ${p}`).join("\n")}\n`);
   process.exit(1);
