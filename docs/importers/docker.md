@@ -28,8 +28,36 @@ direct hub execution is unsupported (ADR-121).
 Compose project/service values are source metadata, not Components or
 edges; the component edit dialog offers them as user-confirmed
 `compose:<project>` / `service:<project>.<service>` tag suggestions.
-Swarm services/nodes arrive in a later wave — this importer emits
-container inventory only.
+
+## Swarm inventory
+
+When the endpoint reports an **active Swarm and manager access**
+(`info.Swarm.ControlAvailable`), the same run also inventories — at
+Engine **API ≥ 1.41** (required for manager-reported `ServiceStatus`;
+below the floor the run fails rather than emit a partial inventory):
+
+- One **CONTAINER_ORCHESTRATION** Component per Swarm service
+  (`swarm-service`), identity by `Spec.Name` (stack-prefixed, so
+  same-named services in different stacks stay distinct) + one
+  aggregate Instance per environment. Status derives from
+  manager-reported replica counts only: full replication → `RUNNING`,
+  partial or zero-of-N → `ERROR`, scaled-to-zero → `STOPPED`, absent →
+  `GONE`. Per-task health is never inferred. Each Instance carries an
+  allowlisted `swarmObservation` (`mode`, `desired`, `running`,
+  optional `completed` and `updateState`, `observedAt`) — never task
+  lists, task inspect, or logs.
+- One **COMPUTE** Component per node (`swarm-node`) with a
+  status-bearing Instance — `ready`+`active` → `RUNNING`,
+  `drain`/`pause` → `STOPPED`, `down`/`disconnected`/unreachable/
+  unknown-or-undefined → `ERROR` — and a bounded `swarmNodeObservation`
+  (`role`, `availability`, `reachability`, `leader`, `state`, `addr`).
+- One metadata-only **SECRET** Component per Swarm secret
+  (`swarm-secret`) — name + revision, no Instances, contents never
+  read. Secret/config *references* appear on service details as
+  bounded `{id,name}` pairs; no `CONFIG` Components.
+
+Non-Swarm endpoints make zero additional calls beyond the `/info` the
+importer already fetches.
 
 ## Instance status
 

@@ -90,14 +90,14 @@ converge → PR). Run one spec at a time; do not interleave waves.
 - [x] User-confirmed `compose:`/`service:` tag suggestions (32-char
       grammar; omit invalid, never truncate or auto-write). (spec 047)
 
-## Phase 5 — Swarm inventory (Wave E)
+## Phase 5 — Swarm inventory (Wave E) — SHIPPED (048)
 
-- [ ] Auto-discovery via `/info` + `ControlAvailable`; API v1.41+ with
-      `/version` negotiation, `ServiceStatus` via `status=1`.
-- [ ] `CONTAINER_ORCHESTRATION` per logical service + aggregate Instance;
+- [x] Auto-discovery via `/info` + `ControlAvailable`; API v1.41+ with
+      `/version` negotiation, `ServiceStatus` via `status=1`. (spec 048, ADR-121 Amendment 2)
+- [x] `CONTAINER_ORCHESTRATION` per logical service + aggregate Instance;
       `COMPUTE` Nodes; metadata-only `SECRET` Secrets; Configs as
       references only.
-- [ ] Manager-reported counts only — no per-task health inference.
+- [x] Manager-reported counts only — no per-task health inference.
 
 ---
 

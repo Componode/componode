@@ -113,3 +113,41 @@ allowlist:
    contract surface, recorded here for provenance only.
 4. Item 9's deferred list shrinks: Swarm (Wave E) and `ssh://` context
    endpoints remain.
+
+## Amendment 2 — Swarm inventory (spec 048)
+
+Wave E extends the importer's emitted surfaces on Swarm managers:
+
+1. **Discovery gate** — Swarm inventory runs iff
+   `info.Swarm.LocalNodeState === "active"` AND `ControlAvailable === true`,
+   using the `/info` call already made for engine identity; non-Swarm and
+   worker-only endpoints make zero additional calls. `ApiVersion >= 1.41`
+   (for `status=1` → `ServiceStatus`) is required when Swarm is detected;
+   below floor → coded run failure — a partial Swarm inventory is never
+   emitted.
+2. **Entity mappings** — each service → `CONTAINER_ORCHESTRATION`
+   Component (`swarm-service`) with one aggregate Instance per
+   environment (envLabel/envMap, default OTHER); each node → `COMPUTE`
+   Component (`swarm-node`) with one status-bearing Instance; each
+   secret → metadata-only `SECRET` Component (`swarm-secret`),
+   `instances: []`, contents never read. Service-referenced
+   secrets/configs are bounded `{id,name}` references on details — no
+   `CONFIG` components, no content.
+3. **Status tables** — service: `running===desired>0 → RUNNING`,
+   `running<desired → ERROR`, `desired===0 → STOPPED`, absent → `GONE`
+   (replicated and global alike — `ServiceStatus` manager counts; per-task
+   health is never inferred). Node: `ready`+`active` → `RUNNING`,
+   `drain`/`pause` → `STOPPED`, `down`/`disconnected`/unreachable/unknown →
+   `ERROR`, absent → `GONE`.
+4. **`swarmObservation` / `swarmNodeObservation` allowlists** — bounded
+   manager-reported facts only (`mode`, `desired`, `running`,
+   `completed?`, `updateState?`, `observedAt`; node: `role`,
+   `availability`, `reachability`, `leader`, `state`, `addr`). Still
+   never: task lists, task inspect, logs, events, contents, raw swarm
+   objects.
+5. **Identities** — component externalIds are name-based
+   (`{src}:swarm-{service,node,secret}:{Spec.Name}`; stack prefix keeps
+   same-named services distinct); instance externalIds carry the
+   resource `ID` so they survive rename. Compose-to-Swarm transitions
+   produce distinct components — no automatic product-edge transfer.
+6. Item 9's deferred list now stands at `ssh://` context endpoints only.

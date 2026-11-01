@@ -7,6 +7,9 @@ const mocks = vi.hoisted(() => ({
   version: vi.fn(),
   listContainers: vi.fn(),
   listImages: vi.fn(),
+  listServices: vi.fn(),
+  listNodes: vi.fn(),
+  listSecrets: vi.fn(),
   ping: vi.fn(),
   getContainer: vi.fn(),
   ctor: vi.fn(),
@@ -21,6 +24,9 @@ vi.mock("dockerode", () => {
     version = mocks.version;
     listContainers = mocks.listContainers;
     listImages = mocks.listImages;
+    listServices = mocks.listServices;
+    listNodes = mocks.listNodes;
+    listSecrets = mocks.listSecrets;
     ping = mocks.ping;
     getContainer = mocks.getContainer;
   }

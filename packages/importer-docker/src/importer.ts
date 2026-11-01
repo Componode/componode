@@ -13,6 +13,14 @@ import { dockerConfigSchema } from "./config.js";
 import { validateTargetProfile } from "./target-profile.js";
 import { buildDockerOptions } from "./transport.js";
 import { mapContainer, buildAsset, type ContainerInspect } from "./mapping.js";
+import {
+  mapSwarmNode,
+  mapSwarmSecret,
+  mapSwarmService,
+  type SwarmNode,
+  type SwarmSecret,
+  type SwarmService,
+} from "./swarm.js";
 import { type WorkloadIdentity } from "./identity.js";
 
 const INSPECT_CONCURRENCY = 8;
@@ -58,6 +66,7 @@ export class DockerImporter implements Importer {
     const info = (await docker.info()) as {
       ID?: string;
       Name?: string;
+      Swarm?: { LocalNodeState?: string; ControlAvailable?: boolean };
     };
     const engineId = info?.ID;
     if (!engineId && !parsed.sourceKey) {
@@ -75,6 +84,65 @@ export class DockerImporter implements Importer {
       externalIdentity: sourceIdentity,
       label: info?.Name ?? parsed.sourceKey,
     });
+
+    // Swarm inventory gate (ADR-121 Amendment 2): gated entirely on the
+    // already-fetched /info — non-Swarm and worker-only endpoints make
+    // zero additional calls. Below the 1.41 floor the run fails visibly;
+    // a partial Swarm inventory is never emitted.
+    const swarm = info?.Swarm;
+    if (swarm?.LocalNodeState === "active" && swarm?.ControlAvailable === true) {
+      context.reportPhase("Inventorying Swarm");
+      const version = (await docker.version()) as { ApiVersion?: string };
+      const [apiMajor = 0, apiMinor = 0] = (version?.ApiVersion ?? "0.0")
+        .split(".")
+        .map(Number);
+      // Fail closed on a malformed version string — NaN comparisons
+      // are false, which would silently skip the floor.
+      if (
+        !Number.isFinite(apiMajor) ||
+        !Number.isFinite(apiMinor) ||
+        apiMajor * 100 + apiMinor < 141
+      ) {
+        throw new Error(
+          `Swarm inventory requires Docker Engine API >= 1.41 (got ${version?.ApiVersion ?? "unknown"})`,
+        );
+      }
+      if (context.signal.aborted) return;
+      const [services, nodes, swarmSecrets] = (await Promise.all([
+        docker.listServices({ status: true }),
+        docker.listNodes(),
+        docker.listSecrets(),
+      ])) as [SwarmService[], SwarmNode[], SwarmSecret[]];
+      for (const svc of services) {
+        if (context.signal.aborted) return;
+        const asset = mapSwarmService(
+          svc,
+          sourceIdentity,
+          parsed.environmentLabel,
+          parsed.environmentMap,
+        );
+        if (!validateDiscoveredAsset(asset)) {
+          throw new Error(`Invalid discovered asset for swarm service ${svc.Spec?.Name ?? svc.ID}`);
+        }
+        yield asset;
+      }
+      for (const node of nodes) {
+        if (context.signal.aborted) return;
+        const asset = mapSwarmNode(node, sourceIdentity);
+        if (!validateDiscoveredAsset(asset)) {
+          throw new Error(`Invalid discovered asset for swarm node ${node.Spec?.Name ?? node.ID}`);
+        }
+        yield asset;
+      }
+      for (const secret of swarmSecrets) {
+        if (context.signal.aborted) return;
+        const asset = mapSwarmSecret(secret, sourceIdentity);
+        if (!validateDiscoveredAsset(asset)) {
+          throw new Error(`Invalid discovered asset for swarm secret ${secret.Spec?.Name ?? secret.ID}`);
+        }
+        yield asset;
+      }
+    }
 
     if (context.signal.aborted) return;
     context.reportPhase("Listing containers");
