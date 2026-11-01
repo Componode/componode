@@ -1,4 +1,5 @@
 import PQueue from "p-queue";
+import { sql } from "kysely";
 import { uuidv7 } from "uuidv7";
 import {
   executeHttpProbe,
@@ -54,6 +55,18 @@ export function setUrlCheckAgentDispatch(
   agentDispatch = fn;
 }
 
+// Liveness seam (spec 052): an agent with no live session must NOT be
+// admission-controlled — its misses are cheap AGENT_OFFLINE writes, and
+// queueing them would delay the miss and misclassify overflow as
+// SATURATED. Unset → treat agents as online (stub-dispatch test paths).
+let agentOnlineChecker: ((agentId: string) => boolean) | null = null;
+
+export function setUrlCheckAgentOnlineChecker(
+  fn: ((agentId: string) => boolean) | null,
+): void {
+  agentOnlineChecker = fn;
+}
+
 const queue = new PQueue({
   concurrency: envInt(
     "URL_CHECK_HUB_CONCURRENCY",
@@ -89,6 +102,16 @@ const agentSlotClaims = new Set<string>();
 // pool creation, so env overrides are clamped for predictable handling.
 function boundInt(name: string, fallback: number): number {
   return Math.max(1, Math.floor(envInt(name, fallback)));
+}
+
+// scheduledAt + cadence as an expression, never rewinding an already-
+// later nextProbeAt
+// (a backlog advance may have moved the schedule forward past this slot).
+function nextSlotSql(scheduledAt: string, cadenceSeconds: number) {
+  const slot = new Date(
+    new Date(scheduledAt).getTime() + cadenceSeconds * 1000,
+  ).toISOString();
+  return sql<string>`GREATEST(COALESCE("nextProbeAt", '-infinity'::timestamptz), ${slot}::timestamptz)`;
 }
 
 // Label-free aggregates (spec 052 US3): which agent is saturated stays on
@@ -136,6 +159,12 @@ function agentQueueMax(): number {
   );
 }
 
+// The scheduler skips claimed checks when writing missed-slot backlog —
+// a deferred task's slot is still in-flight, not missed.
+export function isAgentSlotClaimed(checkId: string): boolean {
+  return agentSlotClaims.has(checkId);
+}
+
 // Test seam: agent-path dispatchProbe resolves at admission, so tests
 // drain the pools before asserting observations.
 export async function waitForAgentProbePoolsIdle(): Promise<void> {
@@ -169,9 +198,6 @@ async function recordObservation(
   cadenceSeconds: number,
   obs: ObservationInput,
 ): Promise<void> {
-  const nextProbeAt = new Date(
-    new Date(scheduledAt).getTime() + cadenceSeconds * 1000,
-  ).toISOString();
   await db.transaction().execute(async (trx) => {
     await trx
       .insertInto("url_check_observations")
@@ -189,7 +215,10 @@ async function recordObservation(
       .execute();
     await trx
       .updateTable("url_checks")
-      .set({ nextProbeAt, updatedAt: new Date().toISOString() })
+      .set({
+        nextProbeAt: nextSlotSql(scheduledAt, cadenceSeconds),
+        updatedAt: new Date().toISOString(),
+      })
       .where("id", "=", checkId)
       // A check disabled mid-flight keeps its cleared schedule (spec 052
       // US2): the in-flight slot still records its outcome, but nothing
@@ -500,9 +529,9 @@ export async function dispatchProbe(
     await db
       .updateTable("url_checks")
       .set({
-        nextProbeAt: new Date(
-          new Date(scheduledAt).getTime() + cadenceSeconds * 1000,
-        ).toISOString(),
+        // Never rewind the schedule — a backlog advance may already hold
+        // a later slot.
+        nextProbeAt: nextSlotSql(scheduledAt, cadenceSeconds),
         updatedAt: new Date().toISOString(),
       })
       .where("id", "=", checkId)
@@ -528,7 +557,7 @@ export async function dispatchProbe(
     // sweep for other checks (FR-005/FR-013); the claim releases when
     // the task settles, after which the still-due slot is re-picked or
     // the observation dedupe above ends the slot.
-    if (agentId && agentDispatch) {
+    if (agentId && agentDispatch && (agentOnlineChecker?.(agentId) ?? true)) {
       if (agentSlotClaims.has(row.id)) return;
       const pool = agentPool(agentId);
       if (pool.size >= agentQueueMax()) {
@@ -541,23 +570,28 @@ export async function dispatchProbe(
         return;
       }
       agentSlotClaims.add(row.id);
-      void pool
-        .add(() =>
-          dispatchAgentProbe(
-            args,
-            scheduledAt,
-            cadenceSeconds,
-            timeoutMs,
-            policy,
-          ),
-        )
-        .catch((err) =>
-          logger.warn(
-            { err, checkId: row.id, agentId },
-            "deferred url check probe failed",
-          ),
-        )
-        .finally(() => agentSlotClaims.delete(row.id));
+      try {
+        void pool
+          .add(() =>
+            dispatchAgentProbe(
+              args,
+              scheduledAt,
+              cadenceSeconds,
+              timeoutMs,
+              policy,
+            ),
+          )
+          .catch((err) =>
+            logger.warn(
+              { err, checkId: row.id, agentId },
+              "deferred url check probe failed",
+            ),
+          )
+          .finally(() => agentSlotClaims.delete(row.id));
+      } catch (err) {
+        agentSlotClaims.delete(row.id);
+        throw err;
+      }
       return;
     }
     await dispatchAgentProbe(

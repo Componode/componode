@@ -6,7 +6,11 @@ import {
 import { db } from "../db/connection.js";
 import { envInt } from "../utils/env.js";
 import { logger } from "../plugins/logging.js";
-import { dispatchProbe, type DispatchProbeDeps } from "./probe-dispatcher.js";
+import {
+  dispatchProbe,
+  isAgentSlotClaimed,
+  type DispatchProbeDeps,
+} from "./probe-dispatcher.js";
 
 // URL Check scheduler (spec 051 US2, research R2/R3): a setInterval sweep
 // selects checks whose nextProbeAt is due, writes one MISSED observation
@@ -51,9 +55,7 @@ async function writeMissedSlots(
       slots.map((t) => new Date(t).toISOString()),
     )
     .execute();
-  const taken = new Set(
-    existing.map((e) => new Date(e.scheduledAt).getTime()),
-  );
+  const taken = new Set(existing.map((e) => new Date(e.scheduledAt).getTime()));
   const pending = slots.filter((t) => !taken.has(t));
   // Oldest-first: everything at or before the last written slot is covered,
   // so nextProbeAt can safely advance past it.
@@ -128,6 +130,10 @@ export async function sweepOnce(deps: SweepDeps = {}): Promise<void> {
       slots.push(t);
     }
     if (slots.length === 0) continue;
+    // A check with an in-flight/deferred agent probe has a live slot —
+    // writing its unobserved backlog would tombstone that slot before the
+    // task can record its real result (spec 052).
+    if (isAgentSlotClaimed(row.id)) continue;
     const { lastCovered, remaining } = await writeMissedSlots(
       row.id,
       slots.slice(0, -1),

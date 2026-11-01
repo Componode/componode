@@ -199,7 +199,14 @@ export function createProbeRunner(
               ? "aborted"
               : "failure",
         ),
-    }).finally(() => controllers.delete(payload.probeId));
+    })
+      .catch((err) =>
+        deps.log.error(
+          { err, probeId: payload.probeId },
+          "url check probe task failed",
+        ),
+      )
+      .finally(() => controllers.delete(payload.probeId));
   };
 
   return {

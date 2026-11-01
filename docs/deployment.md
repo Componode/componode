@@ -30,12 +30,14 @@ running migrations when the database does not meet the requirements.
 ## Quick start
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/Componode/componode.git
    cd componode
    ```
 
 2. Copy and edit the environment file:
+
    ```bash
    cp .env.example .env
    ```
@@ -44,18 +46,20 @@ running migrations when the database does not meet the requirements.
    Change `BOOTSTRAP_ADMIN_PASSWORD` from the default to a secure value.
 
 4. Start the stack:
+
    ```bash
    docker compose up -d
    ```
 
 5. Wait for the `app` service to become healthy:
+
    ```bash
    docker compose ps
    ```
 
 6. Open `https://localhost` — the bundled Caddy serves a self-signed
    certificate, so accept the browser warning (or trust the root CA; see
-   *TLS and reverse proxy*). Plain `http://localhost:3000` also works from
+   _TLS and reverse proxy_). Plain `http://localhost:3000` also works from
    the same host. Log in with the bootstrap admin credentials configured
    in `.env`.
 
@@ -82,29 +86,37 @@ PowerShell, or use Git Bash.
 The deployment is controlled by `.env`. The table below maps each variable to
 its purpose.
 
-| Variable | Required | Default | Purpose |
-|---|---|---|---|
-| `PORT` | no | `3000` | Host port mapped to the application container (bound to `127.0.0.1`). |
-| `SITE_ADDRESS` | no | `localhost` | Public name the bundled Caddy issues its self-signed certificate for — set to this host's DNS name or IP. |
-| `HTTP_PORT` / `HTTPS_PORT` | no | `80` / `443` | Host ports the bundled Caddy binds. |
-| `DATABASE_URL` | no | `postgres://componode:componode_pw@postgres:5432/componode` | PostgreSQL connection string. |
-| `DATABASE_SSL_MODE` | no | `require` in production | `disable`, `require`, or `verify-full`. The bundled Compose Postgres has no TLS, so the deployment sets `disable` explicitly. For a remote Postgres, keep `require` or use `verify-full` with `DATABASE_SSL_CA`. |
-| `DATABASE_SSL_CA` | no | — | Path to a CA certificate file for `verify-full` mode. |
-| `TRUSTED_PROXY_IP` | no | `1` in the Compose stack | Reverse-proxy trust — one hop for the bundled Caddy. Set to empty to ignore `X-Forwarded-*` when no proxy fronts the app; accepts one proxy IP, a comma-separated list, or an integer hop count. See ADR-093. |
-| `SECRETS_DIR` | no | `/run/secrets` | Directory `file:` secret references are allowed to resolve in, and the fallback location of the credential master key (`master.key`). Absolute paths and traversal outside it are rejected. |
-| `COMPONODE_SECRETS_KEY` | no | — | Credential-store master key (32 bytes, base64 or 64-char hex). Encrypts all stored integration credentials (AES-256-GCM). Preferred over `SECRETS_DIR/master.key`. |
-| `COMPONODE_SECRETS_KEY_PREVIOUS` | no | — | Retiring master key during rotation. See *Credential store* below. |
-| `MAX_DB_CONNECTIONS` | no | `10` | Connection pool size. |
-| `BOOTSTRAP_ADMIN_USERNAME` | yes | — | First admin username. |
-| `BOOTSTRAP_ADMIN_PASSWORD` | yes | — | First admin password. |
-| `COOKIE_SECRET` | yes | — | Random secret for session cookies. |
-| `PUBLIC_URL` | no | request origin | Canonical public base URL (e.g., `https://componode.example.com`). Used to build the OIDC callback URL — set it when the app sits behind a reverse proxy so the IdP redirect resolves to the external origin. |
-| `CORS_ALLOWED_ORIGINS` | no | — (CORS disabled) | Comma-separated list of exact origins allowed to call the API with credentials. Unset means no cross-origin access (ADR-088). |
-| `IMPORTER_MAX_CONCURRENCY` | no | `3` | Maximum importer runs executing in parallel. |
-| `DEBUG_ERROR_DETAILS` | no | `false` | `true` includes internal error details in API error responses. Debug only — never enable in production (ADR-096). |
-| `NODE_ENV` | no | `production` | Node environment; should stay `production` for deployments. |
-| `LOG_LEVEL` | no | `info` | Log level (`debug`, `info`, `warn`, `error`). |
-| `PROBLEM_TYPE_BASE` | no | `https://componode.io` | Canonical base URI for RFC 7807 problem `type` fields. |
+| Variable                            | Required | Default                                                     | Purpose                                                                                                                                                                                                          |
+| ----------------------------------- | -------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                              | no       | `3000`                                                      | Host port mapped to the application container (bound to `127.0.0.1`).                                                                                                                                            |
+| `SITE_ADDRESS`                      | no       | `localhost`                                                 | Public name the bundled Caddy issues its self-signed certificate for — set to this host's DNS name or IP.                                                                                                        |
+| `HTTP_PORT` / `HTTPS_PORT`          | no       | `80` / `443`                                                | Host ports the bundled Caddy binds.                                                                                                                                                                              |
+| `DATABASE_URL`                      | no       | `postgres://componode:componode_pw@postgres:5432/componode` | PostgreSQL connection string.                                                                                                                                                                                    |
+| `DATABASE_SSL_MODE`                 | no       | `require` in production                                     | `disable`, `require`, or `verify-full`. The bundled Compose Postgres has no TLS, so the deployment sets `disable` explicitly. For a remote Postgres, keep `require` or use `verify-full` with `DATABASE_SSL_CA`. |
+| `DATABASE_SSL_CA`                   | no       | —                                                           | Path to a CA certificate file for `verify-full` mode.                                                                                                                                                            |
+| `TRUSTED_PROXY_IP`                  | no       | `1` in the Compose stack                                    | Reverse-proxy trust — one hop for the bundled Caddy. Set to empty to ignore `X-Forwarded-*` when no proxy fronts the app; accepts one proxy IP, a comma-separated list, or an integer hop count. See ADR-093.    |
+| `SECRETS_DIR`                       | no       | `/run/secrets`                                              | Directory `file:` secret references are allowed to resolve in, and the fallback location of the credential master key (`master.key`). Absolute paths and traversal outside it are rejected.                      |
+| `COMPONODE_SECRETS_KEY`             | no       | —                                                           | Credential-store master key (32 bytes, base64 or 64-char hex). Encrypts all stored integration credentials (AES-256-GCM). Preferred over `SECRETS_DIR/master.key`.                                               |
+| `COMPONODE_SECRETS_KEY_PREVIOUS`    | no       | —                                                           | Retiring master key during rotation. See _Credential store_ below.                                                                                                                                               |
+| `MAX_DB_CONNECTIONS`                | no       | `10`                                                        | Connection pool size.                                                                                                                                                                                            |
+| `BOOTSTRAP_ADMIN_USERNAME`          | yes      | —                                                           | First admin username.                                                                                                                                                                                            |
+| `BOOTSTRAP_ADMIN_PASSWORD`          | yes      | —                                                           | First admin password.                                                                                                                                                                                            |
+| `COOKIE_SECRET`                     | yes      | —                                                           | Random secret for session cookies.                                                                                                                                                                               |
+| `PUBLIC_URL`                        | no       | request origin                                              | Canonical public base URL (e.g., `https://componode.example.com`). Used to build the OIDC callback URL — set it when the app sits behind a reverse proxy so the IdP redirect resolves to the external origin.    |
+| `CORS_ALLOWED_ORIGINS`              | no       | — (CORS disabled)                                           | Comma-separated list of exact origins allowed to call the API with credentials. Unset means no cross-origin access (ADR-088).                                                                                    |
+| `IMPORTER_MAX_CONCURRENCY`          | no       | `3`                                                         | Maximum importer runs executing in parallel.                                                                                                                                                                     |
+| `DEBUG_ERROR_DETAILS`               | no       | `false`                                                     | `true` includes internal error details in API error responses. Debug only — never enable in production (ADR-096).                                                                                                |
+| `NODE_ENV`                          | no       | `production`                                                | Node environment; should stay `production` for deployments.                                                                                                                                                      |
+| `LOG_LEVEL`                         | no       | `info`                                                      | Log level (`debug`, `info`, `warn`, `error`).                                                                                                                                                                    |
+| `PROBLEM_TYPE_BASE`                 | no       | `https://componode.io`                                      | Canonical base URI for RFC 7807 problem `type` fields.                                                                                                                                                           |
+| `URL_CHECK_SWEEP_INTERVAL_MS`       | no       | `15000`                                                     | How often the hub scheduler dispatches due URL checks.                                                                                                                                                           |
+| `URL_CHECK_PROBE_TIMEOUT_MS`        | no       | `30000`                                                     | Per-probe timeout (clamped to 60000 ms max).                                                                                                                                                                     |
+| `URL_CHECK_HUB_CONCURRENCY`         | no       | `10`                                                        | Maximum concurrent hub-vantage URL check probes (integer ≥ 1).                                                                                                                                                   |
+| `URL_CHECK_PROBE_RATE_LIMIT`        | no       | `20`                                                        | Max hub-vantage probes dispatched per sweep interval (integer ≥ 1).                                                                                                                                              |
+| `URL_CHECK_DEFAULT_CADENCE_SECONDS` | no       | `300`                                                       | Default check cadence; per-check range 60–86400 s.                                                                                                                                                               |
+| `URL_CHECK_AGENT_CONCURRENCY`       | no       | `4`                                                         | Maximum concurrent in-flight probes per Import Agent (integer ≥ 1).                                                                                                                                              |
+| `URL_CHECK_AGENT_RATE_LIMIT`        | no       | `20`                                                        | Max agent-vantage dispatches per sweep interval per agent (integer ≥ 1).                                                                                                                                         |
+| `URL_CHECK_AGENT_QUEUE_MAX`         | no       | `100`                                                       | Max deferred probe slots per agent before slots record `MISSED`/`SATURATED` (integer ≥ 1).                                                                                                                       |
 
 ## TLS and reverse proxy
 

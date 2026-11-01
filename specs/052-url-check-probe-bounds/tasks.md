@@ -108,3 +108,11 @@ per the quickstart scenarios.
 - [x] T02X [Review] code-review: spec — env bounds accept floats/≤0 which p-queue rejects unpredictably (FR-014): clamp via `Math.max(1, Math.floor(envInt(...)))` and document valid ranges in `docs/url-checks.md` + `docs/import-agents.md`.
 - [x] T03X [Review] code-review: standards — hoist the duplicated dispatch-arg literal in `dispatchProbe`; drop the redundant `readyState===OPEN` guard around `this.send` in `agent-session-service.ts` (send already guards); `resetAgentProbePoolsForTests` also clears claims and refreshes the gauges.
 - [x] T03X [Review] Update test call sites for admission-return semantics: `url-checks-bounds.test.ts` and `url-checks-monitoring.test.ts` AGENT tests must `await waitForAgentProbePoolsIdle()` before observation assertions.
+
+## Phase 8: Review round 2
+
+- [x] T032 [Review] code-review: spec — offline agents must bypass admission control (FR-004): `setUrlCheckAgentOnlineChecker` seam wired to `isConnected`; offline misses write `AGENT_OFFLINE` immediately, never deferred or mislabeled `SATURATED`.
+- [x] T033 [Review] code-review: spec+standards — in-flight slot tombstone: `writeMissedSlots` skips claimed checks so a deferred slot can't be marked MISSED while its probe still runs (`isAgentSlotClaimed`).
+- [x] T034 [Review] code-review: spec+standards — claim leak on synchronous `pool.add` throw: try/catch releases the claim.
+- [x] T035 [Review] code-review: spec — `nextProbeAt` rewind: both advance sites use `GREATEST` so backlog advances are never overwritten backward.
+- [x] T036 [Review] code-review: spec+standards — runner `.catch` on the probe task (rejection hygiene); `URL_CHECK_*` vars added to `docs/deployment.md` and `.env.example` (FR-017).
