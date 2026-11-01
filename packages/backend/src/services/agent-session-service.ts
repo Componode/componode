@@ -556,6 +556,15 @@ export class AgentSessionService {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pendingProbes.delete(payload.probeId);
+        // Spec 052: the slot finalizes MISSED/TIMEOUT here — tell the
+        // agent to abort the in-flight fetch instead of letting it run
+        // to its full timeout. Best-effort: only while the socket is
+        // open; a dead session aborts probes agent-side on close.
+        if (session.socket.readyState === session.socket.OPEN) {
+          this.send(session.socket, "url_check.probe.cancel", {
+            probeId: payload.probeId,
+          });
+        }
         reject(
           Object.assign(
             new Error(

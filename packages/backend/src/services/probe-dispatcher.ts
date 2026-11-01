@@ -3,6 +3,9 @@ import { uuidv7 } from "uuidv7";
 import {
   executeHttpProbe,
   statusAccepted,
+  URL_CHECK_AGENT_CONCURRENCY_DEFAULT,
+  URL_CHECK_AGENT_QUEUE_MAX_DEFAULT,
+  URL_CHECK_AGENT_RATE_LIMIT_DEFAULT,
   URL_CHECK_DEFAULT_TIMEOUT_MS,
   URL_CHECK_MAX_PROBE_TIMEOUT_MS,
   URL_CHECK_PROBE_CONCURRENCY_DEFAULT,
@@ -69,6 +72,58 @@ const queue = new PQueue({
   ),
 });
 
+// Agent-vantage admission control (spec 052 US1, FR-001/002/003/005): a
+// bounded pool per agent — separate from the hub queue so one saturated
+// agent can never consume another agent's or the hub-vantage bound. Pool
+// config is read lazily at first dispatch so tests can tune env per case.
+const agentPools = new Map<string, PQueue>();
+
+// Label-free aggregates (spec 052 US3): which agent is saturated stays on
+// the agent's own ops scrape — the hub only exposes the global signal.
+function updateAgentPoolGauges(): void {
+  let inFlight = 0;
+  let depth = 0;
+  for (const q of agentPools.values()) {
+    inFlight += q.pending;
+    depth += q.size;
+  }
+  metrics.urlCheckAgentProbesInFlight.set(inFlight);
+  metrics.urlCheckAgentProbeQueueDepth.set(depth);
+}
+
+function agentPool(agentId: string): PQueue {
+  let pool = agentPools.get(agentId);
+  if (!pool) {
+    pool = new PQueue({
+      concurrency: envInt(
+        "URL_CHECK_AGENT_CONCURRENCY",
+        URL_CHECK_AGENT_CONCURRENCY_DEFAULT,
+      ),
+      intervalCap: envInt(
+        "URL_CHECK_AGENT_RATE_LIMIT",
+        URL_CHECK_AGENT_RATE_LIMIT_DEFAULT,
+      ),
+      interval: envInt(
+        "URL_CHECK_SWEEP_INTERVAL_MS",
+        URL_CHECK_SWEEP_INTERVAL_MS_DEFAULT,
+      ),
+    });
+    for (const ev of ["active", "add", "next", "idle"] as const) {
+      pool.addEventListener(ev, updateAgentPoolGauges);
+    }
+    agentPools.set(agentId, pool);
+  }
+  return pool;
+}
+
+function agentQueueMax(): number {
+  return envInt("URL_CHECK_AGENT_QUEUE_MAX", URL_CHECK_AGENT_QUEUE_MAX_DEFAULT);
+}
+
+export function resetAgentProbePoolsForTests(): void {
+  agentPools.clear();
+}
+
 export interface DispatchProbeDeps {
   fetchImpl?: FetchImpl;
 }
@@ -112,6 +167,10 @@ async function recordObservation(
       .updateTable("url_checks")
       .set({ nextProbeAt, updatedAt: new Date().toISOString() })
       .where("id", "=", checkId)
+      // A check disabled mid-flight keeps its cleared schedule (spec 052
+      // US2): the in-flight slot still records its outcome, but nothing
+      // new is armed for a disabled check.
+      .where("enabled", "=", true)
       .execute();
   });
   metrics.urlCheckProbesTotal.inc({
@@ -345,6 +404,13 @@ async function dispatchAgentProbe(
     return;
   }
 
+  // An agent at-cap refusal (spec 052) means the slot never executed —
+  // MISSED/SATURATED, never an endpoint failure.
+  if (result.errorType === "SATURATED") {
+    await missed("SATURATED");
+    return;
+  }
+
   const outcome = outcomeFor(
     result.httpStatus != null,
     result.httpStatus ?? null,
@@ -402,6 +468,40 @@ export async function dispatchProbe(
   };
 
   if (vantage === "AGENT") {
+    const agentId = row.setupAgentId;
+    // Bounded deferral (clarify 2026-11-01): work beyond the in-flight
+    // bound waits inside the per-agent queue; work beyond the deferral
+    // bound records MISSED/SATURATED — never a silent drop, never an
+    // unbounded wait. The size check and queue.add stay synchronous so
+    // admission is atomic on the event loop.
+    if (agentId && agentDispatch) {
+      const pool = agentPool(agentId);
+      if (pool.size >= agentQueueMax()) {
+        await recordObservation(row.id, scheduledAt, cadenceSeconds, {
+          outcome: "MISSED",
+          errorType: "SATURATED",
+          vantage: "AGENT",
+          agentId,
+        });
+        return;
+      }
+      await pool.add(() =>
+        dispatchAgentProbe(
+          {
+            ...ctx,
+            id: row.id,
+            url: row.url,
+            method: row.method,
+            setupAgentId: row.setupAgentId,
+          },
+          scheduledAt,
+          cadenceSeconds,
+          timeoutMs,
+          policy,
+        ),
+      );
+      return;
+    }
     await dispatchAgentProbe(
       { ...ctx, id: row.id, url: row.url, method: row.method, setupAgentId: row.setupAgentId },
       scheduledAt,

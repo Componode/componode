@@ -6,7 +6,7 @@
 requires the hub to reach every discovery source (cloud control planes,
 Kubernetes API servers, internal endpoints). Deployments with restricted
 inbound networks, private cloud endpoints, or egress-only corporate zones
-make that impossible: the hub cannot reach the source, but a process *inside*
+make that impossible: the hub cannot reach the source, but a process _inside_
 that network can — and can make outbound connections. The model is the
 established outbound-agent pattern (GitHub Actions self-hosted runners, Azure
 DevOps agents). See `researches/remote-import-agents_research.md` for the
@@ -25,11 +25,11 @@ full proposal.
    The hub retains validation (`validateDiscoveredAsset`), upsert,
    reconciliation, run history, and edge suggestions unchanged. The
    `AsyncGenerator<DiscoveredAsset>` contract (ADR-056/057) is the wire
-   boundary; agents forward *every* yielded asset, including invalid ones.
+   boundary; agents forward _every_ yielded asset, including invalid ones.
 
 3. **Outbound-only WebSocket.** The agent initiates all connections; the hub
    never dials the agent. A single `wss://` channel at
-   `GET /api/v1/agent/stream` carries control *and* data: framed JSON
+   `GET /api/v1/agent/stream` carries control _and_ data: framed JSON
    envelopes `{type, runId?, payload}` — `hello`, `job.assign`, `job.ack`,
    `asset.batch` (≤ ~100 assets or ~1 MB/frame), `phase`, `run.complete`,
    `run.error`, `cancel`, `heartbeat` (~30 s), `credential.test` /
@@ -56,7 +56,7 @@ full proposal.
    protocol).
 
 7. **Version lockstep.** `hello` carries `{protocolVersion, agentVersion,
-   importers: [{name, version}]}`; the hub rejects mismatched protocol or
+importers: [{name, version}]}`; the hub rejects mismatched protocol or
    importer versions. Parity is a monorepo build-time property, not runtime
    negotiation.
 
@@ -117,13 +117,13 @@ full proposal.
     `agent_assets_received_total`. Detail: research doc §11.
 
 13. **Hub-managed capability model.** `import_agents.allowedImporters`
-    (jsonb; empty = all) is set in the admin portal per agent — *not* an
+    (jsonb; empty = all) is set in the admin portal per agent — _not_ an
     agent env var: which importers an agent may run is hub policy, not the
     remote host operator's decision. The hub enforces it at dispatch
     (`job.assign` only for allowed importers), at binding (save-time
     `AGENT_INCOMPATIBLE`), and on drift (admin edits or version changes
     re-validate bound configs; flagged in UI). `hello` advertises the
-    *compiled* importer set + versions for version matching only; the
+    _compiled_ importer set + versions for version matching only; the
     agent's job-accept check covers compiled-set + version — it holds no
     allowlist policy. Agent-side config is environment variables only
     (plumbing: `HUB_URL`, `AGENT_TOKEN`, `SECRETS_DIR`, `CA_BUNDLE`,
@@ -207,7 +207,7 @@ extends a surface this ADR defined without changing its intent:
   `ON DELETE RESTRICT`) ships with the foundation migration — the delete
   block gets its guarantee from the FK itself, matching the
   `CREDENTIAL_IN_USE` precedent — while `import_runs.agentId` ships with
-  the execution spec that writes it. The *ability to bind* still arrives
+  the execution spec that writes it. The _ability to bind_ still arrives
   in 027.
 - **Management error codes.** `ERROR_CODES` gains `AGENT_NOT_FOUND`,
   `AGENT_NAME_TAKEN`, `AGENT_IN_USE`, `AGENT_ENROLLMENT_INVALID`,
@@ -219,16 +219,16 @@ extends a surface this ADR defined without changing its intent:
   the session cookie the check exists to protect (see ADR-087
   Amendment 2).
 - **Credential rotation clears revocation.** `POST
-  /api/v1/agents/{id}/enroll` (rotate) issues a new enrollment token on
+/api/v1/agents/{id}/enroll` (rotate) issues a new enrollment token on
   the same identity and clears `revokedAt` — rotation is how a revoked
   agent identity is re-enabled; the superseded credential stays dead.
 - **Rotation is a graceful overlap.** The previous durable credential
-  remains valid until the new enrollment token is *exchanged* — rotation
+  remains valid until the new enrollment token is _exchanged_ — rotation
   alone never drops a live session; the exchange replaces
   `credentialHash` and closes any session running under the old
   credential with `disconnectReason: "replaced"`.
 - **`disconnectReason` gains `replaced`.** `superseded` means a second
-  connection arrived reusing the *same* credential (single-active-session
+  connection arrived reusing the _same_ credential (single-active-session
   rule); `replaced` means the credential itself was superseded by a
   rotation exchange. The `close` wire enum already carried both values —
   this records the reason on `agent_sessions` with the same distinction.
@@ -244,8 +244,8 @@ without changing its intent:
   placeholder): `job.assign{importerName,scope,secretRefMap?}`,
   `job.ack{accepted,reason?}`, `asset.batch{assets[]}` (≤100 assets or
   ~1 MB per frame), `phase{name≤200}`, `run.error{assetExternalId?,
-  errorType,errorMessage}`, `run.complete{result:COMPLETED|CANCELLED|FAILED,
-  errorType?,errorMessage?}`, `cancel{runId}`. `runId` in the envelope is
+errorType,errorMessage}`, `run.complete{result:COMPLETED|CANCELLED|FAILED,
+errorType?,errorMessage?}`, `cancel{runId}`. `runId` in the envelope is
   required on every job frame and is the correlation key (item 12).
 - **Two new hub env tunables** join the item-5 dispatch lifecycle:
   `AGENT_DISPATCH_TIMEOUT_MS` (default 600 000 — the "~10 min dispatch
@@ -254,7 +254,7 @@ without changing its intent:
   `AGENT_UNAVAILABLE`, freeing the capacity slot).
 - **NACK reason → run `errorType` mapping.** A `job.ack` reason beginning
   `SECRET_RESOLUTION_FAILED` fails the run with `errorType:
-  SECRET_RESOLUTION_FAILED` (the agent resolved refs *before* acking, so
+SECRET_RESOLUTION_FAILED` (the agent resolved refs _before_ acking, so
   a missing env var/file is a dispatch-level rejection, not a mid-run
   crash); a reason beginning `AGENT_UNAVAILABLE` (transient refusals such
   as capacity) fails `AGENT_UNAVAILABLE`; every other NACK reason fails
@@ -273,7 +273,7 @@ without changing its intent:
   frames serially per session so a batch's writes fully land before a
   following `run.complete` finalizes — protecting the ADR-100 terminal-
   state immutability trigger from benign out-of-order writes.
-- **Dead-run frame registry.** Frames for a run the hub *never* assigned
+- **Dead-run frame registry.** Frames for a run the hub _never_ assigned
   on a session remain a protocol violation (error + close), but frames
   for a run the hub already finalized — the zombie case after
   ack-timeout/cancel — are discarded (warn-log), so a stray agent job
@@ -299,13 +299,13 @@ without changing its intent:
   `activeRuns[]`, `GET /agents` gains `runningJobs`; `ImportRun` payloads
   carry `agentId` + `agentName` (left-joined, `null` when the agent row
   is gone); `importer_configs` responses carry `agent{ id,name,status }`
-  + `agentIncompatible`; create/update importer-config bodies accept
-  `agentId` (uuid or `null` to unbind) and reject `CREDENTIAL_KIND_MISMATCH`
-  when credential kinds disagree with the execution mode — including
-  deprecated `secretRefs` on a bound config (they resolve hub-side and
-  could never ship to the agent); converting legacy refs on a bound
-  config produces an `AGENT_MANAGED` credential carrying the same
-  references, never a `STORED` one.
+  - `agentIncompatible`; create/update importer-config bodies accept
+    `agentId` (uuid or `null` to unbind) and reject `CREDENTIAL_KIND_MISMATCH`
+    when credential kinds disagree with the execution mode — including
+    deprecated `secretRefs` on a bound config (they resolve hub-side and
+    could never ship to the agent); converting legacy refs on a bound
+    config produces an `AGENT_MANAGED` credential carrying the same
+    references, never a `STORED` one.
 - **`OFFLINE_AGENT` dashboard attention kind** — an agent `OFFLINE` with
   `boundConfigCount > 0` surfaces as an attention item (item 11's
   "attention item, when offline with bound configs"), ranked above the
@@ -419,7 +419,7 @@ fields are read-only compositions over data already stored.
 **Context**: Remote importers need to reach provider endpoints inside the
 restricted network — a Docker daemon, later other remote APIs — without
 the hub ever holding or transmitting the access route. ADR-117 already
-moves *secret values* agent-side; the remaining surface is the
+moves _secret values_ agent-side; the remaining surface is the
 **non-secret route descriptor** (endpoint, transport, TLS pinning
 parameters): where it lives, who validates it, and when it fails.
 
@@ -484,7 +484,7 @@ assets), and the target-preflight refusal needed a named wire reason.
   loaded fresh per `job.assign`; missing/corrupt = empty allowlist (fail
   closed, agent stays up).
 - **New NACK prefix** `AGENT_NACK_TARGET_RESOLUTION_PREFIX =
-  "TARGET_RESOLUTION_FAILED"` — maps to run `FAILED` with that
+"TARGET_RESOLUTION_FAILED"` — maps to run `FAILED` with that
   `errorType` (not `AGENT_INCOMPATIBLE`). The hub `jobGate` mirrors the
   scope-shape check fail-fast before enqueue.
 
@@ -509,7 +509,7 @@ probe is not a run.
 - **`AGENT_PROTOCOL_VERSION` 3 → 4** — the frame set is enumerated.
 - **New frame family** `url_check.probe` (hub → agent,
   `{probeId, url, method, timeoutMs, authMode, authKeyNames,
-  secretRefMap}`) and `url_check.probe.result` (agent → hub,
+secretRefMap}`) and `url_check.probe.result` (agent → hub,
   `{probeId, outcome, httpStatus?, durationMs?, errorType?}`).
   Correlation is by payload `probeId` — the `credential.test`/`testId`
   precedent — not the envelope `runId`; `runId`-correlated frames route
@@ -524,3 +524,21 @@ these frames, `probeId` correlation, protocol v4, plus the permissions,
 error codes, schema, `MISSED` semantics, credential-vantage rule, env
 tunables, and metric-label policy — is ratified in
 `researches/adrs/ADR-124-url-check-execution-surfaces.md`.
+
+## Amendment 8 — URL Check probe cancellation, protocol v5 (2026-11-01, spec 052)
+
+**Context**: spec 052 bounds Agent-vantage probe work (ADR-124
+Amendment 1). A probe the hub finalized without a result must abort on
+the agent promptly; saturation refusals need a wire classification.
+
+**Refinement**:
+
+- **`AGENT_PROTOCOL_VERSION` 4 → 5** — the frame set is enumerated.
+- **`url_check.probe.cancel`** (hub → agent, `{probeId}`) joins the
+  payload-correlated probe family — sent on dispatch-deadline expiry;
+  the agent aborts the matching fetch; unknown/settled ids are no-ops.
+- **`url_check.probe.result`** `errorType` admits `SATURATED` — the
+  agent's at-cap refusal answer.
+
+**Amended by ADR-124 Amendment 1**: the bounds, `SATURATED`→`MISSED`
+mapping, and env tunables are ratified there.

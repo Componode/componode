@@ -131,6 +131,7 @@ function makeConfig(env: Partial<AgentConfig> = {}): AgentConfig {
     streamUrl: "wss://hub.corp/api/v1/agent/stream",
     stateDir,
     maxJobs: 1,
+    urlCheckMaxProbes: 8,
     ...env,
   } as AgentConfig;
 }

@@ -335,8 +335,7 @@ non-secret profile on the agent.
 ## Protocol v4 — URL check probes (spec 051)
 
 `AGENT_PROTOCOL_VERSION` is 4. v4 adds the `url_check.probe` /
-`url_check.probe.result` frame pair so agent-vantage **URL checks** (spec
-051) can execute inside networks the hub cannot reach — same posture as
+`url_check.probe.result` frame pair so agent-vantage **URL checks** (spec 051) can execute inside networks the hub cannot reach — same posture as
 `credential.test`: the hub sends reference names only, the agent resolves
 secrets locally, and secret material never crosses the stream.
 
@@ -399,3 +398,38 @@ Semantics:
 - URL checks are dispatched by the hub's probe scheduler, not by import
   runs — they never touch `import_runs`, `component_instances`, or
   `ImporterSource` state.
+
+## Protocol v5 — URL check probe bounds (spec 052)
+
+`AGENT_PROTOCOL_VERSION` is 5. v5 adds one frame so the hub can cancel
+agent-vantage probes it has already finalized, and extends the
+`errorType` vocabulary with `SATURATED` for bound-related misses.
+
+Hub → agent:
+
+```ts
+{ type: "url_check.probe.cancel", payload: { probeId: "<uuid>" } }
+```
+
+Semantics:
+
+- Sent when the hub finalizes a dispatched probe without a result —
+  the `payload.timeoutMs` + transport-grace deadline. The agent aborts
+  the in-flight fetch immediately; an unknown or settled `probeId` is a
+  no-op. On session close the agent aborts all in-flight probes locally
+  (no frame — the socket is gone).
+- The agent enforces its own in-flight cap (`URL_CHECK_MAX_PROBES`,
+  default 8). A `url_check.probe` frame received at cap is answered
+  immediately `{outcome:"FAILURE", errorType:"SATURATED"}` — explicit
+  refusal, never silent deferral or execution.
+- `SATURATED` joins the `errorType` set on
+  `url_check.probe.result` and on `url_check_observations.errorType`
+  (migration 026): monitor-side capacity misses — hub per-agent
+  deferral overflow or an agent at-cap refusal — recorded as `MISSED`
+  observations, distinguishable from `AGENT_OFFLINE`.
+- Hub-side, agent-vantage dispatch is admission-controlled per agent:
+  `URL_CHECK_AGENT_CONCURRENCY` (4) in-flight,
+  `URL_CHECK_AGENT_RATE_LIMIT` (20/sweep-interval) dispatch rate,
+  `URL_CHECK_AGENT_QUEUE_MAX` (100) bounded deferral. Queue overflow →
+  `MISSED/SATURATED`. Late `url_check.probe.result` frames remain
+  ignored — one observation per scheduled slot, always.

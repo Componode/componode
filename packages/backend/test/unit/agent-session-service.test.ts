@@ -153,3 +153,158 @@ describe("AgentSessionService credential test dispatch", () => {
     expect(internals(svc).pendingTests.size).toBe(0);
   });
 });
+
+// Pending-dispatch mechanics for remote URL check probes (spec 052 US2):
+// dispatch deadline sends a cancel frame before rejecting, late results
+// are ignored, and session close still rejects pending probes.
+describe("AgentSessionService url check probe dispatch", () => {
+  const payload = {
+    probeId: "018c5e60-0000-7000-8000-0000000000aa",
+    url: "https://api.example.test/health",
+    method: "GET",
+    timeoutMs: 1,
+    authMode: "NONE",
+  };
+
+  const fakeSocket = () => {
+    const s = {
+      OPEN: 1,
+      readyState: 1,
+      send: vi.fn(),
+      close: vi.fn(),
+      on: vi.fn(),
+    };
+    return s;
+  };
+  const fakeSession = (agentId: string, socket = fakeSocket()) => ({
+    sessionId: "sess-1",
+    agentId,
+    agentName: "edge-agent",
+    socket: socket as never,
+    lastContactAt: Date.now(),
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const internals = (svc: unknown) => svc as any;
+
+  it("sends url_check.probe and resolves on the matching result frame", async () => {
+    const svc = new AgentSessionService();
+    const socket = fakeSocket();
+    const session = fakeSession("agent-1", socket);
+    internals(svc).live.set("agent-1", session);
+
+    const result = svc.dispatchUrlCheckProbe("agent-1", payload as never);
+    expect(socket.send).toHaveBeenCalledWith(
+      JSON.stringify({ type: "url_check.probe", payload }),
+    );
+
+    await internals(svc).onFrame(
+      session,
+      JSON.stringify({
+        type: "url_check.probe.result",
+        payload: { probeId: payload.probeId, outcome: "SUCCESS", httpStatus: 200 },
+      }),
+    );
+    await expect(result).resolves.toMatchObject({ outcome: "SUCCESS" });
+    expect(internals(svc).pendingProbes.size).toBe(0);
+  });
+
+  it("sends url_check.probe.cancel then rejects AGENT_PROBE_TIMEOUT on the dispatch deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const svc = new AgentSessionService();
+      const socket = fakeSocket();
+      const session = fakeSession("agent-1", socket);
+      internals(svc).live.set("agent-1", session);
+
+      const result = svc.dispatchUrlCheckProbe("agent-1", payload as never);
+      const assertion = expect(result).rejects.toMatchObject({
+        statusCode: 504,
+        code: "AGENT_PROBE_TIMEOUT",
+      });
+      // Deadline = payload.timeoutMs + 5 s transport grace.
+      await vi.advanceTimersByTimeAsync(5_001);
+      await assertion;
+
+      expect(socket.send).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: "url_check.probe.cancel",
+          payload: { probeId: payload.probeId },
+        }),
+      );
+      expect(internals(svc).pendingProbes.size).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not send cancel when the socket already closed before the deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const svc = new AgentSessionService();
+      const socket = fakeSocket();
+      const session = fakeSession("agent-1", socket);
+      internals(svc).live.set("agent-1", session);
+
+      const result = svc.dispatchUrlCheckProbe("agent-1", payload as never);
+      const assertion = expect(result).rejects.toMatchObject({
+        code: "AGENT_PROBE_TIMEOUT",
+      });
+      socket.readyState = 3; // CLOSED
+      socket.send.mockClear();
+      await vi.advanceTimersByTimeAsync(5_001);
+      await assertion;
+      expect(socket.send).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores a result arriving after the pending entry settled (late result → no duplicate)", async () => {
+    vi.useFakeTimers();
+    try {
+      const svc = new AgentSessionService();
+      const socket = fakeSocket();
+      const session = fakeSession("agent-1", socket);
+      internals(svc).live.set("agent-1", session);
+
+      const result = svc.dispatchUrlCheckProbe("agent-1", payload as never);
+      const assertion = expect(result).rejects.toMatchObject({
+        code: "AGENT_PROBE_TIMEOUT",
+      });
+      await vi.advanceTimersByTimeAsync(5_001);
+      await assertion;
+
+      // Late result: no pending entry → ignored, session stays healthy.
+      await internals(svc).onFrame(
+        session,
+        JSON.stringify({
+          type: "url_check.probe.result",
+          payload: {
+            probeId: payload.probeId,
+            outcome: "SUCCESS",
+            httpStatus: 200,
+          },
+        }),
+      );
+      expect(internals(svc).pendingProbes.size).toBe(0);
+      expect(socket.close).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects pending probes AGENT_OFFLINE when the session closes", async () => {
+    const svc = new AgentSessionService();
+    const session = fakeSession("agent-1");
+    internals(svc).live.set("agent-1", session);
+
+    const p = svc.dispatchUrlCheckProbe("agent-1", payload as never);
+    const assertion = expect(p).rejects.toMatchObject({
+      statusCode: 503,
+      code: "AGENT_OFFLINE",
+    });
+    await internals(svc).closeSession(session, "client_close");
+    await assertion;
+    expect(internals(svc).pendingProbes.size).toBe(0);
+  });
+});

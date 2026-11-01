@@ -76,6 +76,21 @@ export class AgentOpsMetrics {
     registers: [this.registry],
   });
 
+  // URL check probes (spec 052 US3): the agent-side signal for "which
+  // agent is saturated" — hub metrics stay label-free aggregates.
+  private readonly urlCheckProbesInFlight = new Gauge({
+    name: "agent_url_check_probes_in_flight",
+    help: "URL check probes currently executing on this agent",
+    registers: [this.registry],
+  });
+
+  private readonly urlCheckProbesTotal = new Counter({
+    name: "agent_url_check_probes_total",
+    help: "URL check probes handled by this agent, by result",
+    labelNames: ["result"] as const,
+    registers: [this.registry],
+  });
+
   // Plain mirrors of the prom counters so snapshot() stays synchronous —
   // prom-client reads are async and the heartbeat tick is not.
   private jobsAssigned = 0;
@@ -158,6 +173,23 @@ export class AgentOpsMetrics {
   secretResolutionFailed(): void {
     this.secretFailures += 1;
     this.secretResolutionFailuresTotal.inc();
+  }
+
+  // Probe admitted under the in-flight cap — gauge up.
+  urlCheckProbeStarted(): void {
+    this.urlCheckProbesInFlight.inc();
+  }
+
+  // Probe settled — gauge down, counter by result. `result` is
+  // success | failure | aborted (saturated refusals never start).
+  urlCheckProbeDone(result: "success" | "failure" | "aborted"): void {
+    this.urlCheckProbesInFlight.dec();
+    this.urlCheckProbesTotal.inc({ result });
+  }
+
+  // Probe frame refused at the in-flight cap — counter only.
+  urlCheckProbeRefused(): void {
+    this.urlCheckProbesTotal.inc({ result: "saturated" });
   }
 
   activeJobs(): number {

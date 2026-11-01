@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–048, 051)
+## Shipped (features 001–048, 051–052)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -91,7 +91,7 @@ file tracks shipped and upcoming work — update it when a spec completes.
   the UI adds agent management with a show-once enrollment dialog and
   copy-ready install command. Job dispatch is deferred to 027.
 - `026-agent-managed-credentials` — a second credential kind beside
-  `STORED` (ADR-117): `AGENT_MANAGED` rows hold only secret *references*
+  `STORED` (ADR-117): `AGENT_MANAGED` rows hold only secret _references_
   (`env` names or files under the agent's `SECRETS_DIR`); values resolve
   on the agent host at test time and never cross the hub-agent channel.
   Kind is immutable and executor-checked (`AGENT_MANAGED` requires
@@ -138,7 +138,7 @@ file tracks shipped and upcoming work — update it when a spec completes.
   attribution; the profile page uses the self path for all roles and the
   `profileSelfEdit` fallback is retired.
 - `031-importer-run-aggregates` — ux-rewrite gap G1: `GET
-  /importer-configs/:id/run-aggregates?days=N` returns zero-filled
+/importer-configs/:id/run-aggregates?days=N` returns zero-filled
   per-day run buckets (runs, failed count, asset created/updated sums)
   computed server-side; the importer-card sparkline renders live data and
   `historyAggregates` is on.
@@ -268,13 +268,25 @@ file tracks shipped and upcoming work — update it when a spec completes.
   schema (migration 024), `urlCheck:*`/`monitoringSetup:update` EDITOR
   permissions, and monitoring state kept fully separate from
   importer-reported instance status and product health.
+- `052-url-check-probe-bounds` — operational bounds for Agent-vantage
+  URL Check probes (gap-analysis G1; ADR-124 Amendment 1, ADR-116
+  Amendment 8): per-agent admission control on the hub
+  (`URL_CHECK_AGENT_CONCURRENCY`/`_RATE_LIMIT`/`_QUEUE_MAX` — bounded
+  deferral, overflow → `MISSED/SATURATED`), an agent-side in-flight cap
+  (`URL_CHECK_MAX_PROBES`) with explicit `SATURATED` refusal, the
+  `url_check.probe.cancel` frame (protocol v5) aborting in-flight
+  fetches on dispatch deadline and session close, one-observation-per-
+  slot integrity under timeout/disconnect/restart, and bounded-label
+  telemetry on both ends.
 
 ## Next — post-v1.1
 
 The Docker importer program's mapped waves (A–E) plus Hub execution
-(049) are complete and URL Check monitoring (051) has shipped; `052` is
-the next open spec slot — see `researches/` and the deferred queues
-below for the next initiative (e.g. remaining importer-source
+(049) are complete and URL Check monitoring (051) plus its operational
+bounds (052) have shipped; `053` is the next open spec slot — see
+`researches/` and the deferred queues below for the next initiative
+(e.g. remaining url-check gap work G2/G3 — see
+`researches/url_check_monitoring_gap_analysis.md` — importer-source
 migrations, UX gap follow-through, or a new importer wave).
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative

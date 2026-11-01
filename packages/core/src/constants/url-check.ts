@@ -25,6 +25,9 @@ export type UrlCheckOutcome = (typeof URL_CHECK_OUTCOMES)[number];
 // Normalized failure reasons. HTTP_STATUS = response received but not in
 // the success policy. POLICY_BLOCKED = URL rejected by ADR-106 validation at
 // run time. AGENT_OFFLINE marks MISSED rows from agent dispatch failure.
+// SATURATED marks MISSED rows where probe work exceeded a configured bound —
+// per-agent deferral overflow on the hub or an at-cap agent refusal (spec
+// 052): monitor-side capacity, not an endpoint or connectivity failure.
 export const URL_CHECK_ERROR_TYPES = [
   "DNS",
   "CONNECT",
@@ -34,6 +37,7 @@ export const URL_CHECK_ERROR_TYPES = [
   "POLICY_BLOCKED",
   "AGENT_OFFLINE",
   "ABORTED",
+  "SATURATED",
   "OTHER",
 ] as const;
 export type UrlCheckErrorType = (typeof URL_CHECK_ERROR_TYPES)[number];
@@ -54,3 +58,11 @@ export const URL_CHECK_MAX_PROBE_TIMEOUT_MS = 60000;
 export const URL_CHECK_PROBE_CONCURRENCY_DEFAULT = 10;
 export const URL_CHECK_PROBE_RATE_LIMIT_DEFAULT = 20;
 export const URL_CHECK_SWEEP_INTERVAL_MS_DEFAULT = 15000;
+
+// Agent-vantage bounds (spec 052, FR-001/002/003/006). The hub bound is
+// deliberately tighter than the agent cap so correct lockstep configs
+// never trigger an at-cap refusal.
+export const URL_CHECK_AGENT_CONCURRENCY_DEFAULT = 4;
+export const URL_CHECK_AGENT_RATE_LIMIT_DEFAULT = 20;
+export const URL_CHECK_AGENT_QUEUE_MAX_DEFAULT = 100;
+export const URL_CHECK_MAX_PROBES_DEFAULT = 8;

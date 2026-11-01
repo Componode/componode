@@ -212,6 +212,18 @@ const urlCheckProbeDurationSeconds = getOrCreateHistogram(
   [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30],
 );
 
+// Spec 052 (ADR-069): label-free aggregates across all agents — per-agent
+// identity stays on the agent's own ops scrape, never a hub label.
+const urlCheckAgentProbesInFlight = getOrCreateGauge(
+  "url_check_agent_probes_in_flight",
+  "Agent-vantage URL check probes currently executing (sum across agents)",
+);
+
+const urlCheckAgentProbeQueueDepth = getOrCreateGauge(
+  "url_check_agent_probe_queue_depth",
+  "Agent-vantage URL check probes deferred in bounded pools (sum across agents)",
+);
+
 const agentLastContactTimestampSeconds = getOrCreateGauge(
   "agent_last_contact_timestamp_seconds",
   "Unix timestamp of the last accepted frame from the agent",
@@ -255,6 +267,8 @@ export const metrics = {
   agentLastContactTimestampSeconds,
   urlCheckProbesTotal,
   urlCheckProbeDurationSeconds,
+  urlCheckAgentProbesInFlight,
+  urlCheckAgentProbeQueueDepth,
 };
 
 export async function metricsPlugin(app: FastifyInstance): Promise<void> {
