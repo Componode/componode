@@ -208,8 +208,15 @@ constitution.
 - Keep one source of truth per fact: link or `@include` shared content
   (e.g. `vocabulary.md` renders `CONTEXT.md`) instead of copying prose
   between pages.
+- `<!-- GENERATED -->` regions are output, not source — never hand-edit
+  them. Change the underlying truth (`docs/openapi.yaml`, an importer
+  manifest, code) and re-run the owning `docs:*` script (`docs:api`,
+  `docs:importers`, …). The `*:check` variants run in CI; a stale
+  generated region fails the build.
 - Importer setup guides remain required by the importer contract above;
-  that rule is unchanged.
+  that rule is unchanged — and importer changes (manifest fields,
+  secrets, config schema, capability behavior) regenerate the importer
+  docs via `docs:importers`.
 
 ### Dependency & supply chain
 
