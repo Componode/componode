@@ -17,18 +17,23 @@ import type { Component, Link } from "@/ux/lib/view-types"
 const NONE = "__none__"
 
 /** spec 047: compose/project tag suggestions — user-confirmed only.
- *  Candidates failing the core tag grammar (invalid or overlong once
- *  qualified) are omitted, never truncated or auto-written. */
+ *  Gated on a Docker-sourced component so shared components never suggest
+ *  non-Docker-reported values. A candidate must satisfy the tag grammar
+ *  un-transformed — tag-invalid or overlong values are silently omitted,
+ *  never lowercased/truncated to fit, and never auto-written. */
 export function tagSuggestions(c: Component, tags: string[]): string[] {
+  if (c.provider !== "DOCKER") return []
   const project = typeof c.details?.composeProject === "string" ? c.details.composeProject : null
   const service = typeof c.details?.composeService === "string" ? c.details.composeService : null
   const candidates = [
     project ? `compose:${project}` : null,
     project && service ? `service:${project}.${service}` : null,
   ]
-  return candidates.filter(
-    (t): t is string => t !== null && tagSchema.safeParse(t).success && !tags.includes(tagSchema.parse(t)),
-  )
+  return candidates.filter((t): t is string => {
+    if (t === null || tags.includes(t)) return false
+    const parsed = tagSchema.safeParse(t)
+    return parsed.success && parsed.data === t
+  })
 }
 
 /** Edit a component's governance fields — updateComponentSchema surface. */
@@ -132,22 +137,25 @@ export function ComponentEditDialog({ component: c, trigger }: { component: Comp
             </Field>
             <Field>
               <TagsInput value={tags} onChange={setTags} id="ce-tags" />
-              {open && tagSuggestions(c, tags).length > 0 ? (
+              {(() => {
+                const suggestions = open ? tagSuggestions(c, tags) : []
+                return suggestions.length > 0 ? (
                 <div className="mt-2 flex flex-wrap items-center gap-1.5" data-testid="tag-suggestions">
                   <span className="text-xs text-muted-foreground">Suggested from source:</span>
-                  {tagSuggestions(c, tags).map((s) => (
+                  {suggestions.map((s) => (
                     <button
                       key={s}
                       type="button"
                       className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 font-mono text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                      onClick={() => setTags((prev) => [...prev, tagSchema.parse(s)])}
+                      onClick={() => setTags((prev) => [...prev, s])}
                     >
                       <PlusIcon className="size-3" aria-hidden="true" />
                       {s}
                     </button>
                   ))}
                 </div>
-              ) : null}
+                ) : null
+              })()}
             </Field>
             <Field>
               <LinksEditor value={links} onChange={setLinks} />

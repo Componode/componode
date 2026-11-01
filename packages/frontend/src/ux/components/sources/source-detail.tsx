@@ -35,13 +35,12 @@ interface SourceDetailProps {
 function DetailsSummary({ details }: { details: Record<string, unknown> | null }) {
   if (!details || Object.keys(details).length === 0)
     return <span className="text-sm text-muted-foreground">—</span>
-  const pairs = Object.entries(details)
-    .filter(([, v]) => v !== null && v !== undefined)
-    .slice(0, 3)
+  const present = Object.entries(details).filter(([, v]) => v !== null && v !== undefined)
+  const pairs = present.slice(0, 3)
   return (
     <span className="font-mono text-xs text-muted-foreground">
       {pairs.map(([k, v]) => `${k}=${String(v)}`).join(" ")}
-      {Object.keys(details).length > pairs.length ? " …" : ""}
+      {present.length > pairs.length ? " …" : ""}
     </span>
   )
 }
@@ -54,6 +53,8 @@ export function SourceDetail({ source, runs, memberships, events }: SourceDetail
   const reactivateSource = useReactivateSource()
   const viewRuns = runs.map(mapImportRun)
   const retired = source.status === "RETIRED"
+  const componentMemberships = memberships?.components ?? []
+  const instanceMemberships = memberships?.instances ?? []
 
   return (
     <PageContainer>
@@ -73,8 +74,11 @@ export function SourceDetail({ source, runs, memberships, events }: SourceDetail
           <AlertTriangleIcon />
           <AlertTitle>This source is unmonitored</AlertTitle>
           <AlertDescription>
-            No config feeds it right now. A config reporting the same provider identity rebinds automatically on its next
-            run — sources are never matched by name.
+            No config feeds it right now. Point an{" "}
+            <Link to={ux("/importers")} className="underline">
+              importer config
+            </Link>{" "}
+            at the same provider identity and it rebinds automatically on its next run — sources are never matched by name.
           </AlertDescription>
         </Alert>
       )}
@@ -186,7 +190,7 @@ export function SourceDetail({ source, runs, memberships, events }: SourceDetail
               <CardTitle className="text-base">Components</CardTitle>
               <CardDescription>Catalog components this source reports — the unit of source-scoped reconciliation.</CardDescription>
             </CardHeader>
-            {(memberships?.components.length ?? 0) === 0 ? (
+            {componentMemberships.length === 0 ? (
               <EmptyState icon={DatabaseIcon} title="No component memberships" description="Components appear after a run reports them." />
             ) : (
               <Table>
@@ -199,7 +203,7 @@ export function SourceDetail({ source, runs, memberships, events }: SourceDetail
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {memberships!.components.map((m) => (
+                  {componentMemberships.map((m) => (
                     <TableRow key={m.id}>
                       <TableCell className="pl-4 text-sm font-medium">{m.componentName ?? m.componentId}</TableCell>
                       <TableCell className="max-w-64">
@@ -222,7 +226,7 @@ export function SourceDetail({ source, runs, memberships, events }: SourceDetail
               <CardTitle className="text-base">Instances</CardTitle>
               <CardDescription>Component instances this source reports.</CardDescription>
             </CardHeader>
-            {(memberships?.instances.length ?? 0) === 0 ? (
+            {instanceMemberships.length === 0 ? (
               <EmptyState icon={DatabaseIcon} title="No instance memberships" description="Instances appear after a run reports them." />
             ) : (
               <Table>
@@ -234,7 +238,7 @@ export function SourceDetail({ source, runs, memberships, events }: SourceDetail
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {memberships!.instances.map((m) => (
+                  {instanceMemberships.map((m) => (
                     <TableRow key={m.id}>
                       <TableCell className="max-w-96 pl-4">
                         {m.instanceExternalId ? <MonoValue value={m.instanceExternalId} copy={false} /> : m.componentInstanceId}

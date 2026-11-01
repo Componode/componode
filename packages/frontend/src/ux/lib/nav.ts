@@ -106,7 +106,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   lobs: "Lines of business",
   teams: "Teams",
   importers: "Importers",
-  sources: "Importer sources",
+  sources: "Sources",
   agents: "Import agents",
   users: "Users",
   sessions: "Sessions",

@@ -4,30 +4,14 @@ import type {
   ImportRun,
   ImporterSource,
   ImporterSourceListItem,
-  ImporterSourceStatus,
   SourceMembershipsResponse,
 } from "@/api/types";
 
-export interface ImporterSourceFilters {
-  status?: ImporterSourceStatus;
-  importerName?: string;
-}
-
-function queryString(filters: ImporterSourceFilters): string {
-  const params = new URLSearchParams();
-  if (filters.status) params.set("status", filters.status);
-  if (filters.importerName) params.set("importerName", filters.importerName);
-  const qs = params.toString();
-  return qs ? `?${qs}` : "";
-}
-
-export function useImporterSources(filters: ImporterSourceFilters = {}) {
+export function useImporterSources() {
   return useQuery({
-    queryKey: ["importer-sources", filters],
+    queryKey: ["importer-sources"],
     queryFn: () =>
-      api<{ sources: ImporterSourceListItem[] }>(
-        `/importer-sources${queryString(filters)}`,
-      ),
+      api<{ sources: ImporterSourceListItem[] }>(`/importer-sources`),
   });
 }
 
@@ -57,7 +41,8 @@ export function useSourceMemberships(id: string | null) {
 }
 
 // Retire/reactivate return the raw importer_sources row, not the enriched
-// list shape — always invalidate and let the detail/list refetch.
+// list shape — invalidate on settle so a 409 SOURCE_STATE_CONFLICT also
+// refreshes the control state to the server's truth.
 export function useRetireSource() {
   const qc = useQueryClient();
   return useMutation({
@@ -65,7 +50,7 @@ export function useRetireSource() {
       api<{ source: ImporterSource }>(`/importer-sources/${id}/retire`, {
         method: "POST",
       }),
-    onSuccess: () => {
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["importer-sources"] });
     },
   });
@@ -78,7 +63,7 @@ export function useReactivateSource() {
       api<{ source: ImporterSource }>(`/importer-sources/${id}/reactivate`, {
         method: "POST",
       }),
-    onSuccess: () => {
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["importer-sources"] });
     },
   });

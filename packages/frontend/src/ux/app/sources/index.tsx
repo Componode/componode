@@ -13,7 +13,7 @@ export function UxSourcesPage() {
     return (
       <PageContainer>
         <Card className="py-0">
-          <TableSkeleton rows={4} columns={6} />
+          <TableSkeleton rows={4} columns={8} />
         </Card>
       </PageContainer>
     );

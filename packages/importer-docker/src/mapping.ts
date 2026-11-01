@@ -125,30 +125,35 @@ export interface MappedContainer {
   instance: DiscoveredAssetInstance;
 }
 
+// Docker reports a zero-time ("0001-01-01T00:00:00Z") for never-started
+// containers — map it to null, not a bogus 1-CE date.
+const dockerTime = (t?: string) =>
+  t && !t.startsWith("0001-01-01") ? t : null;
+
+// Non-zero exit code travels as a fact on both the instance fields and the
+// observation; a clean exit (0) is noise and is omitted.
+const nonZeroExit = (state: ContainerInspect["State"]) =>
+  state?.ExitCode ? { exitCode: state.ExitCode } : {};
+
 // Allowlisted observation snapshot (ADR-121 Amendment 1): engine state +
 // latest health-check facts only. Health.Log (check output) and
 // Config.Healthcheck.Test (command) are never read.
 function mapObservation(state: ContainerInspect["State"]) {
-  const zt = (t?: string) =>
-    t && !t.startsWith("0001-01-01") ? t : null;
-  const healthStatus = state?.Health?.Status;
+  const health = state?.Health;
   return {
     state: state?.Status ?? "unknown",
-    ...(state?.ExitCode !== undefined && state.ExitCode !== 0
-      ? { exitCode: state.ExitCode }
-      : {}),
+    ...nonZeroExit(state),
     ...(state?.OOMKilled ? { oomKilled: true } : {}),
     ...(state?.Restarting ? { restarting: true } : {}),
-    startedAt: zt(state?.StartedAt),
-    finishedAt: zt(state?.FinishedAt),
+    startedAt: dockerTime(state?.StartedAt),
+    finishedAt: dockerTime(state?.FinishedAt),
     // "none" means no usable check data — represent absence as null.
     health:
-      healthStatus && healthStatus !== "none"
+      health?.Status && health.Status !== "none"
         ? {
-            status: healthStatus,
-            ...(state!.Health!.FailingStreak &&
-            state!.Health!.FailingStreak > 0
-              ? { failingStreak: state!.Health!.FailingStreak }
+            status: health.Status,
+            ...(health.FailingStreak && health.FailingStreak > 0
+              ? { failingStreak: health.FailingStreak }
               : {}),
           }
         : null,
@@ -183,20 +188,13 @@ export function mapContainer(
     externalId: instanceExternalId(sourceIdentity, inspect.Id),
     environment,
     status: mapStatus(state),
-    // Docker reports a zero-time ("0001-01-01T00:00:00Z") for never-started
-    // containers — map it to null, not a bogus 1-CE date.
-    deployedAt:
-      state?.StartedAt && !state.StartedAt.startsWith("0001-01-01")
-        ? state.StartedAt
-        : null,
+    deployedAt: dockerTime(state?.StartedAt),
     rawConfig: {
       containerName: (inspect.Name ?? "").replace(/^\/+/, ""),
       imageRef,
       ...(digest ? { imageDigest: digest } : {}),
       state: state?.Status ?? "unknown",
-      ...(state?.ExitCode !== undefined && state.ExitCode !== 0
-        ? { exitCode: state.ExitCode }
-        : {}),
+      ...nonZeroExit(state),
       ports: mapPorts(inspect.NetworkSettings?.Ports),
       networks: Object.keys(inspect.NetworkSettings?.Networks ?? {}),
       mounts: mapMounts(inspect.Mounts, inspect.Id),

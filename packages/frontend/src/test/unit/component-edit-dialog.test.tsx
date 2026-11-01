@@ -96,7 +96,7 @@ describe("compose tag suggestions (spec 047)", () => {
   };
 
   it("offers compose: and project-qualified service: chips; accept appends on save", () => {
-    openFor({ details: { composeProject: "commerce", composeService: "web" }, tags: ["prod"] });
+    openFor({ provider: "DOCKER", details: { composeProject: "commerce", composeService: "web" }, tags: ["prod"] });
     const box = screen.getByTestId("tag-suggestions");
     expect(box.textContent).toContain("compose:commerce");
     expect(box.textContent).toContain("service:commerce.web");
@@ -112,21 +112,33 @@ describe("compose tag suggestions (spec 047)", () => {
 
   it("omits invalid/overlong values and already-present tags", () => {
     openFor({
+      provider: "DOCKER",
       details: { composeProject: "Bad Project!", composeService: "s" },
       tags: ["compose:bad project!"],
     });
     expect(screen.queryByTestId("tag-suggestions")).toBeNull();
+    cleanup();
     openFor({
+      provider: "DOCKER",
       details: { composeProject: "p".repeat(40), composeService: "s" },
       tags: [],
     });
     expect(screen.queryByTestId("tag-suggestions")).toBeNull();
-    openFor({ details: { composeProject: "commerce", composeService: "web" }, tags: ["compose:commerce", "service:commerce.web"] });
+    cleanup();
+    // Grammar-invalid un-transformed (uppercase) — silently omitted, never normalized to fit.
+    openFor({ provider: "DOCKER", details: { composeProject: "Commerce", composeService: "web" }, tags: [] });
+    expect(screen.queryByTestId("tag-suggestions")).toBeNull();
+    cleanup();
+    openFor({ provider: "DOCKER", details: { composeProject: "commerce", composeService: "web" }, tags: ["compose:commerce", "service:commerce.web"] });
     expect(screen.queryByTestId("tag-suggestions")).toBeNull();
   });
 
-  it("shows nothing for components without compose details", () => {
-    openFor({ details: null });
+  it("shows nothing for components without compose details or non-Docker providers", () => {
+    openFor({ provider: "DOCKER", details: null });
+    expect(screen.queryByTestId("tag-suggestions")).toBeNull();
+    cleanup();
+    // Non-Docker component carrying no Docker compose metadata — no suggestions.
+    openFor({ provider: "GITHUB", details: { composeProject: "commerce", composeService: "web" } });
     expect(screen.queryByTestId("tag-suggestions")).toBeNull();
   });
 });

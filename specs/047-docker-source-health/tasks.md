@@ -201,3 +201,21 @@ MVP = Phase 1 + Phase 3 (US1) — health-aware status alone fixes the
 "misleading RUNNING" catalog defect. US2's observation render and US3's
 Source UI are independent follow-on slices; US4 is the smallest and can
 land any time after Phase 2.
+
+## Phase 9: Convergence
+
+- [x] T025 Register `/sources` and `/sources/:id` in the `docs/ux.md` route table per FR-008/US5 (missing)
+- [x] T026 Align `SEGMENT_LABELS["sources"]` with the frontend-surfaces contract value `"Sources"` per contracts/frontend-surfaces.md (partial)
+
+## Phase 10: Review
+
+- [ ] T027 Invalidate source queries on lifecycle-mutation settle so a 409 SOURCE_STATE_CONFLICT refreshes control state per contracts/frontend-surfaces.md (code-review: standards)
+- [ ] T028 Surface the config path in the UNMONITORED alert — link to importer configs per FR-006 (code-review: spec)
+- [ ] T029 Require candidates to pass the tag grammar un-transformed so uppercase/spaced Compose values are silently omitted and chip display equals written value per spec edge cases (code-review: spec)
+- [x] T030 Gate tag suggestions on provider DOCKER so shared Components never suggest non-Docker-reported values per spec edge cases (code-review: spec)
+- [x] T031 Remove dead ImporterSourceFilters/queryString from importer-sources hooks (code-review: standards)
+- [x] T032 Extract the duplicated exitCode/zero-time expressions and `!` assertions in mapping.ts (code-review: standards)
+- [x] T033 Compute tagSuggestions once per render and reuse safeParse output in component-edit-dialog (code-review: standards)
+- [x] T034 Fix DetailsSummary truncation marker to count filtered entries in source-detail (code-review: standards)
+- [x] T035 Drop memberships non-null assertions and set sources skeleton columns to 8 (code-review: standards)
+- [x] T036 Justify or remove the unplanned summary stat cards in sources-view (code-review: spec)
