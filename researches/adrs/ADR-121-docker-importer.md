@@ -82,3 +82,34 @@ identity/externalId formats.
   credential-test path performs target preflight (item 3).
 - **ADR-117** (agent-managed credentials): profile `*Key` indirection
   composes AGENT_MANAGED refs with target profiles (item 4).
+
+## Amendment 1 — Health-aware status and `dockerObservation` (spec 047)
+
+Wave D replaces item 7's engine-state-only rule and extends item 8's
+allowlist:
+
+1. **`rawConfig.dockerObservation`** — each Instance persists an
+   allowlisted snapshot: `state`, `exitCode` (non-zero only),
+   `oomKilled`/`restarting` (true only), `startedAt`/`finishedAt`
+   (Docker zero-time → `null`), and `health` = `{status, failingStreak?}`
+   or `null` when no health check is configured (`"none"` → `null`).
+   Still never: `/stats`, events, `Health.Log` (check output),
+   `Config.Healthcheck.Test` (test command), full inspect JSON, history.
+   The allowlisted fields render on the component detail's Instances
+   table — no Docker-specific monitoring page.
+2. **State × health → `InstanceStatus`** — `running` → `RUNNING` unless
+   `Health.Status == "unhealthy"` (`ERROR`); `starting` health is
+   inconclusive (`RUNNING`); `OOMKilled` overrides any state to `ERROR`
+   (including `exited`); `created`/`paused`/`exited` → `STOPPED`;
+   `dead`/`restarting`/`removing`/unknown/`undefined` → `ERROR`; absent
+   from a completed run → `GONE` via unchanged source-scoped
+   reconciliation. Non-zero `exitCode` alone does not escalate `exited`.
+   ADR-112 derived product health consumes the emitted status — no
+   rollup changes.
+3. **Generic ImporterSource UI + tag suggestions** — `/sources` +
+   `/sources/:id` surfaces on the existing API (no contract change);
+   `compose:<project>`/`service:<project>.<service>` edit-dialog
+   suggestions are user-confirmed, grammar-filtered derivations — no
+   contract surface, recorded here for provenance only.
+4. Item 9's deferred list shrinks: Swarm (Wave E) and `ssh://` context
+   endpoints remain.

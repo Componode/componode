@@ -120,13 +120,14 @@ export function mapComponentInstance(i: ApiInstance): ComponentInstance {
     url: i.url ?? null,
     externalId: i.externalId,
     lastSeenAt: i.lastSeenAt ?? null,
+    rawConfig: i.rawConfig ?? null,
   };
 }
 
 export function mapComponent(
-  c: ApiComponent | (ApiComponent & { instances?: ApiInstance[]; lastSeenAt?: string | null }),
+  c: ApiComponent | (ApiComponent & { instances?: ApiInstance[]; lastSeenAt?: string | null; details?: Record<string, unknown> | null }),
 ): Component {
-  const detail = c as ApiComponent & { instances?: ApiInstance[]; lastSeenAt?: string | null };
+  const detail = c as ApiComponent & { instances?: ApiInstance[]; lastSeenAt?: string | null; details?: Record<string, unknown> | null };
   return {
     id: c.id,
     name: c.name,
@@ -146,6 +147,7 @@ export function mapComponent(
     instances: (detail.instances ?? []).map(mapComponentInstance),
     lastSeenAt: detail.lastSeenAt ?? null,
     worstStatus: narrowOrNull<InstanceStatus>(detail.worstStatus, INSTANCE_STATUSES),
+    details: detail.details ?? null,
   };
 }
 

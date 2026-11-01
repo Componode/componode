@@ -5,6 +5,7 @@ import type {
   ImportRun as ApiImportRun,
   ImportRunError,
   ImporterConfig as ApiImporterConfig,
+  ImporterSourceListItem,
 } from "@/api/types";
 import { narrow, narrowOrNull, narrowOrRaw } from "@/api/mappers/catalog";
 import type {
@@ -12,12 +13,14 @@ import type {
   DisconnectReason,
   Provider,
   RunStatus,
+  SourceStatus,
 } from "@/ux/lib/domain";
 import type {
   AgentSession,
   ImportAgent,
   ImportRun,
   ImporterConfig,
+  ImporterSource,
   RunChange,
   RunError,
 } from "@/ux/lib/view-types";
@@ -323,5 +326,32 @@ export function mapCredential(
     lastUsedAt: c.lastUsedAt,
     usedBy,
     updatedBy: c.updatedBy ?? "—",
+  };
+}
+
+const SOURCE_STATUSES: readonly string[] = [
+  "ACTIVE",
+  "UNMONITORED",
+  "RETIRED",
+];
+
+/** ImporterSource list/detail row → view (spec 047). Provider is
+ *  derived from the importer package name like importer configs. */
+export function mapImporterSource(s: ImporterSourceListItem): ImporterSource {
+  return {
+    id: s.id,
+    importerName: s.importerName,
+    provider: importerProvider(s.importerName),
+    externalIdentity: s.externalIdentity,
+    label: s.label ?? null,
+    status: narrow<SourceStatus>(s.status, SOURCE_STATUSES, "UNMONITORED"),
+    boundConfig: s.boundConfig ?? null,
+    lastCompletedRunAt: s.lastCompletedRunAt ?? null,
+    activeComponentMemberships: s.activeComponentMemberships,
+    activeInstanceMemberships: s.activeInstanceMemberships,
+    firstSeenInRunId: s.firstSeenInRunId ?? null,
+    lastSeenInRunId: s.lastSeenInRunId ?? null,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
   };
 }

@@ -23,6 +23,15 @@ export interface ContainerInspect {
     Status?: string;
     ExitCode?: number;
     StartedAt?: string;
+    FinishedAt?: string;
+    OOMKilled?: boolean;
+    Restarting?: boolean;
+    // Health.Log is deliberately NOT declared — check output and test
+    // commands are on the exclusion list (ADR-121 Amendment 1).
+    Health?: {
+      Status?: string;
+      FailingStreak?: number;
+    };
   };
   Mounts?: Array<{
     Type?: string;
@@ -39,14 +48,17 @@ export interface ContainerInspect {
   RepoDigests?: string[];
 }
 
-// Wave C: engine state only (clarified 2026-11-01) — health-check
-// results do not influence status; dockerObservation ships in Wave D.
-export function mapStateToStatus(
-  state: string | undefined,
+// Health-aware status (ADR-121 Amendment 1, spec 047): engine state
+// decides first, OOMKilled overrides, then a failing health check
+// degrades a running container to ERROR. `starting` health is
+// inconclusive, not failure; unknown states fail closed.
+export function mapStatus(
+  state: ContainerInspect["State"],
 ): InstanceStatus {
-  switch (state) {
+  if (state?.OOMKilled) return "ERROR";
+  switch (state?.Status) {
     case "running":
-      return "RUNNING";
+      return state?.Health?.Status === "unhealthy" ? "ERROR" : "RUNNING";
     case "created":
     case "paused":
     case "exited":
@@ -113,6 +125,41 @@ export interface MappedContainer {
   instance: DiscoveredAssetInstance;
 }
 
+// Docker reports a zero-time ("0001-01-01T00:00:00Z") for never-started
+// containers — map it to null, not a bogus 1-CE date.
+const dockerTime = (t?: string) =>
+  t && !t.startsWith("0001-01-01") ? t : null;
+
+// Non-zero exit code travels as a fact on both the instance fields and the
+// observation; a clean exit (0) is noise and is omitted.
+const nonZeroExit = (state: ContainerInspect["State"]) =>
+  state?.ExitCode ? { exitCode: state.ExitCode } : {};
+
+// Allowlisted observation snapshot (ADR-121 Amendment 1): engine state +
+// latest health-check facts only. Health.Log (check output) and
+// Config.Healthcheck.Test (command) are never read.
+function mapObservation(state: ContainerInspect["State"]) {
+  const health = state?.Health;
+  return {
+    state: state?.Status ?? "unknown",
+    ...nonZeroExit(state),
+    ...(state?.OOMKilled ? { oomKilled: true } : {}),
+    ...(state?.Restarting ? { restarting: true } : {}),
+    startedAt: dockerTime(state?.StartedAt),
+    finishedAt: dockerTime(state?.FinishedAt),
+    // "none" means no usable check data — represent absence as null.
+    health:
+      health?.Status && health.Status !== "none"
+        ? {
+            status: health.Status,
+            ...(health.FailingStreak && health.FailingStreak > 0
+              ? { failingStreak: health.FailingStreak }
+              : {}),
+          }
+        : null,
+  };
+}
+
 export function mapContainer(
   inspect: ContainerInspect,
   sourceIdentity: string,
@@ -136,28 +183,23 @@ export function mapContainer(
   const state = inspect.State;
   const imageRef = inspect.Config?.Image ?? "";
   const digest = (inspect.RepoDigests ?? [])[0];
+  const observation = mapObservation(state);
 
   const instance: DiscoveredAssetInstance = {
     externalId: instanceExternalId(sourceIdentity, inspect.Id),
     environment,
-    status: mapStateToStatus(state?.Status),
-    // Docker reports a zero-time ("0001-01-01T00:00:00Z") for never-started
-    // containers — map it to null, not a bogus 1-CE date.
-    deployedAt:
-      state?.StartedAt && !state.StartedAt.startsWith("0001-01-01")
-        ? state.StartedAt
-        : null,
+    status: mapStatus(state),
+    deployedAt: observation.startedAt,
     rawConfig: {
       containerName: (inspect.Name ?? "").replace(/^\/+/, ""),
       imageRef,
       ...(digest ? { imageDigest: digest } : {}),
-      state: state?.Status ?? "unknown",
-      ...(state?.ExitCode !== undefined && state.ExitCode !== 0
-        ? { exitCode: state.ExitCode }
-        : {}),
+      state: observation.state,
+      ...nonZeroExit(state),
       ports: mapPorts(inspect.NetworkSettings?.Ports),
       networks: Object.keys(inspect.NetworkSettings?.Networks ?? {}),
       mounts: mapMounts(inspect.Mounts, inspect.Id),
+      dockerObservation: observation,
     },
     sourceDetails: {
       labels: allowedLabels(labels, envLabel),

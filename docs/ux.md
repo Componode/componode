@@ -97,6 +97,7 @@ tab (`sessionStorage`).
 | `/suggestions` | Edge-suggestion queue | — |
 | `/importers`, `…/new`, `…/:id` (+`/edit`,`/runs/:runId`) | Import operations | — |
 | `/agents`, `/agents/:id` | Import Agent fleet | ADMIN |
+| `/sources`, `/sources/:id` | ImporterSource provenance | — (retire/reactivate ADMIN via API) |
 | `/lobs`, `…/:slug`, `/teams`, `…/:slug` | Org entities | editor for writes |
 | `/users`, `/users/:id` | User management | ADMIN |
 | `/sessions` | Own sessions | — |

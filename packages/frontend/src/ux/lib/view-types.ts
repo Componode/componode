@@ -18,6 +18,7 @@ import type {
   Provider,
   Role,
   RunStatus,
+  SourceStatus,
 } from "@/ux/lib/domain";
 
 export interface Link {
@@ -56,6 +57,8 @@ export interface ComponentInstance {
   url: string | null;
   externalId: string;
   lastSeenAt: string | null;
+  /** Importer-emitted allowlisted snapshot (dockerObservation — spec 047). */
+  rawConfig: Record<string, unknown> | null;
 }
 
 export interface Component {
@@ -78,6 +81,9 @@ export interface Component {
   lastSeenAt: string | null;
   /** Backend rollup (spec 039) — null when the component has no instances. */
   worstStatus: InstanceStatus | null;
+  /** Shared canonical facts (composeProject/composeService for Docker) —
+   *  only populated on the detail read; null on list rows. */
+  details: Record<string, unknown> | null;
 }
 
 /** Prototype component-group card/detail shape (`componentGroups` fixture). */
@@ -286,4 +292,23 @@ export interface ProductComponentRow {
   sources: string[];
   /** Worst instance status across this component's dep instances; null = none observed. */
   worstStatus: InstanceStatus | null;
+}
+
+/** ImporterSource list/detail row (spec 047) — provenance record from the
+ *  existing `/importer-sources*` API; never a catalog entity. */
+export interface ImporterSource {
+  id: string;
+  importerName: string;
+  provider: Provider;
+  externalIdentity: string;
+  label: string | null;
+  status: SourceStatus;
+  boundConfig: { id: string; label: string } | null;
+  lastCompletedRunAt: string | null;
+  activeComponentMemberships: number;
+  activeInstanceMemberships: number;
+  firstSeenInRunId: string | null;
+  lastSeenInRunId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

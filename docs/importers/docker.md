@@ -15,12 +15,42 @@ direct hub execution is unsupported (ADR-121).
   names, and a redacted bind-mount representation — never raw host
   paths, environment variables, health-check output, or full inspect
   JSON.
+- Each Instance also persists an allowlisted **`dockerObservation`**
+  snapshot under `rawConfig`: engine `state`, non-zero `exitCode`,
+  `oomKilled`/`restarting` flags, `startedAt`/`finishedAt`, and
+  `health` (`status` + `failingStreak`, or `null` when no health check
+  is configured). Never collected: `/stats`, events, health-check
+  output (`Health.Log`), health-check test commands, or history — the
+  observation renders on the component detail's Instances table.
 - Optionally (off by default): cached local images as metadata-only
   **PACKAGE_REGISTRY** Components.
 
 Compose project/service values are source metadata, not Components or
-edges. Swarm services/nodes and health observations arrive in later
-waves — this importer emits container inventory only.
+edges; the component edit dialog offers them as user-confirmed
+`compose:<project>` / `service:<project>.<service>` tag suggestions.
+Swarm services/nodes arrive in a later wave — this importer emits
+container inventory only.
+
+## Instance status
+
+Engine state and latest health-check facts map to `InstanceStatus`
+(ADR-121 Amendment 1): `running` → `RUNNING` unless the health check is
+`unhealthy` (`ERROR`); `starting` health is inconclusive (`RUNNING`);
+`created`/`paused`/`exited` → `STOPPED`; OOM-killed, `dead`,
+`restarting`, `removing`, and unknown states → `ERROR`; absent from a
+completed run → `GONE`. Non-zero exit codes alone do not escalate
+`exited` past `STOPPED`.
+
+## Source lifecycle
+
+Every Docker run attributes to a durable **ImporterSource**
+(`docker-engine:{/info.ID}`). Sources are visible under **Sources →
+Importer sources** in the app: identity, bound config, last complete
+run, run history, and membership counts. Deleting a config leaves the
+source `UNMONITORED` — a config reporting the same engine identity
+rebinds on its next run (rebind-on-report, never by name). Admins can
+explicitly **retire** a source (memberships excluded from catalog
+reads) and **reactivate** it later.
 
 ## Setup in the external tool
 
