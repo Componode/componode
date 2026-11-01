@@ -119,6 +119,7 @@ describe("POST /api/v1/credentials/:id/test", () => {
     expect(testSecretsMock).toHaveBeenCalledWith(
       { token: "ghp_live_secret_1234" },
       { org: "acme" },
+      undefined,
     );
     expect(res.body).not.toContain("ghp_live_secret_1234");
   });
