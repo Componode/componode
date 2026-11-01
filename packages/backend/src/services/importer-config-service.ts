@@ -91,6 +91,22 @@ function attachCredentialFields<T extends { id: string; secretRefs?: unknown[] |
   };
 }
 
+/** Save-time enforcement of `manifest.requiresAgent` (ADR-121): an
+ *  importer that declares it never runs in-process — the config must
+ *  carry an `agentId`. */
+async function assertAgentRequirement(
+  importerName: string,
+  agentId: string | null,
+): Promise<void> {
+  const manifest = await getManifest(importerName);
+  if (manifest.requiresAgent && !agentId) {
+    throw Object.assign(
+      new Error(`Importer "${importerName}" requires an Import Agent`),
+      { statusCode: 400, code: "VALIDATION_FAILED" },
+    );
+  }
+}
+
 /**
  * Save-time agent-binding check (spec 027 US1, ADR-116): the agent must
  * exist, not be revoked, and — when it advertises a non-empty
@@ -305,6 +321,7 @@ export async function createImporterConfig(
 ) {
   await validateScopeForImporter(input.importerName, input.scope);
   assertValidSchedule(input.schedule);
+  await assertAgentRequirement(input.importerName, input.agentId ?? null);
 
   const id = uuidv7();
   const now = new Date().toISOString();
@@ -411,6 +428,7 @@ export async function updateImporterConfig(
   // kind rules apply against THIS pair (spec 026/027).
   const effectiveAgentId =
     input.agentId !== undefined ? input.agentId : (existing.agentId ?? null);
+  await assertAgentRequirement(importerName, effectiveAgentId);
 
   updates.updatedBy = actor.id;
   updates.updatedAt = new Date().toISOString();

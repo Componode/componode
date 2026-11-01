@@ -71,15 +71,15 @@ converge → PR). Run one spec at a time; do not interleave waves.
 
 ## Phase 3 — Docker Engine workload inventory (Wave C)
 
-- [ ] `@componode/importer-docker` package; lockstep registration in
+- [x] `@componode/importer-docker` package; lockstep registration in
       core, backend, agent.
-- [ ] Target profiles: socket/named pipe, mutual-TLS TCP, pinned-host-key
+- [x] Target profiles: socket/named pipe, mutual-TLS TCP, pinned-host-key
       SSH, allowlisted named Docker Context.
-- [ ] `CONTAINER` Component per logical workload; one Component Instance
+- [x] `CONTAINER` Component per logical workload; one Component Instance
       per concrete container; canonical project/service identity +
       `componode.component-id` override.
-- [ ] Redacted bind mounts, safe network/volume refs, image ref/digest.
-- [ ] User guide `docs/importers/docker.md` (index + sidebar links).
+- [x] Redacted bind mounts, safe network/volume refs, image ref/digest.
+- [x] User guide `docs/importers/docker.md` (index + sidebar links).
 
 ## Phase 4 — Docker observations and Source UI (Wave D)
 

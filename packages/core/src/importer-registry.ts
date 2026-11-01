@@ -26,6 +26,10 @@ export interface ImporterManifest {
   // its first asset yield (ADR-056 A2). Absent/false = legacy
   // unattributed provenance until the importer's migration wave.
   reportsSourceIdentity?: boolean;
+  // When true, configs for this importer MUST be bound to an Import
+  // Agent — create/update with agentId null is rejected and in-process
+  // dispatch refuses to run it (ADR-121). Absent = hub-or-agent.
+  requiresAgent?: boolean;
 }
 
 export interface ImporterRegistry {
@@ -50,6 +54,7 @@ export const IMPORTER_PACKAGES = [
   "@componode/importer-api-url",
   "@componode/importer-mcp-server",
   "@componode/importer-alibaba-cloud",
+  "@componode/importer-docker",
 ];
 
 export function createImporterRegistry(

@@ -14,6 +14,7 @@ import {
   type JobAssignPayload,
 } from "@componode/core";
 import { JobExecutor } from "./executor.js";
+import { loadTargetProfile } from "./target-registry.js";
 import { proxyForUrl, type AgentConfig } from "./config.js";
 import type { AgentOpsMetrics } from "./metrics.js";
 import {
@@ -144,7 +145,36 @@ export async function handleCredentialTest(
         `MANIFEST_NO_TEST: importer "${payload.importerName}" does not support credential testing`,
       );
     }
-    const result = await importer.testSecrets(secrets, payload.scope);
+    // Target preflight (ADR-121): a manifest declaring targetRefKey gets
+    // the same allowlist resolution as job.assign — unknown/malformed/
+    // unprovisioned profiles fail the test with a non-secret reason.
+    let resolvedTarget: unknown;
+    const manifest = await deps.registry.getManifest(payload.importerName);
+    if (manifest?.targetRefKey) {
+      const targetId = payload.scope?.[manifest.targetRefKey];
+      if (typeof targetId !== "string" || targetId.length === 0) {
+        return reply(
+          false,
+          `TARGET_RESOLUTION_FAILED: scope key "${manifest.targetRefKey}" must carry a targetId`,
+        );
+      }
+      try {
+        resolvedTarget = await loadTargetProfile(
+          deps.secretsDir,
+          payload.importerName,
+          targetId,
+        );
+      } catch (err) {
+        return reply(
+          false,
+          `TARGET_RESOLUTION_FAILED: ${err instanceof Error ? err.message : "target resolution failed"}`,
+        );
+      }
+    }
+    const result =
+      resolvedTarget !== undefined
+        ? await importer.testSecrets(secrets, payload.scope, resolvedTarget)
+        : await importer.testSecrets(secrets, payload.scope);
     // Importer contract says error strings carry no secret material, but
     // scrub anyway — a non-conforming importer must not leak a resolved
     // value back to the hub over the channel (FR-012/SC-002).

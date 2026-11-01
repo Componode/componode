@@ -206,15 +206,27 @@ file tracks shipped and upcoming work — update it when a spec completes.
   contract-first admission of `@componode/importer-docker` to the
   lockstep set. Docs-only — no runtime code.
 
+- `046-docker-workload-inventory` — Wave C of the Docker importer
+  program: `@componode/importer-docker` in lockstep (core/backend/agent);
+  agent-only execution (`requiresAgent` manifest flag, ADR-121);
+  `docker-targets.json` profiles — socket/npipe, verified mTLS TCP,
+  pinned-host-key SSH, allowlisted named Context; `targetRefKey` +
+  `resolveTarget` + credential-test preflight; `docker-engine:{/info.ID}`
+  source identity; `CONTAINER` workload components + per-container
+  instances; opt-in `PACKAGE_REGISTRY` image inventory; minimization
+  allowlist (no env vars/raw paths/health output);
+  `docs/importers/docker.md`.
+
 ## Next — post-v1.1
 
-**Docker importer program — Wave C**: `046` is expected to be
-`docker-workload-inventory` (`@componode/importer-docker` — Docker Engine
-workload inventory: socket/pipe, mTLS TCP, pinned-host-key SSH targets;
-`CONTAINER` components + container instances; see
-`researches/docker-importer-spec-waves.md` and
-`researches/docker-importer-implementation-tracking.md` Phase 3).
-Waves D (observations + Source UI) and E (Swarm) follow.
+**Docker importer program — Wave D**: `047` is expected to be Docker
+source health observations + generic ImporterSource UI
+(`rawConfig.dockerObservation` allowlisted snapshot, health-aware
+`InstanceStatus` mapping, Source list/detail/lifecycle controls in the
+Importers operations area, user-confirmed `compose:`/`service:` tag
+suggestions; see `researches/docker-importer-spec-waves.md` and
+`researches/docker-importer-implementation-tracking.md` Phase 4).
+Wave E (Swarm) follows.
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and

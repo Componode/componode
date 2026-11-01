@@ -30,6 +30,7 @@ export default defineConfig({
           { text: "Overview", link: "/importers/" },
           { text: "GitHub", link: "/importers/github" },
           { text: "Alibaba Cloud", link: "/importers/alibaba-cloud" },
+          { text: "Docker", link: "/importers/docker" },
           { text: "API URL", link: "/importers/api-url" },
           { text: "Web URL", link: "/importers/web-url" },
           { text: "AWS (scaffold)", link: "/importers/aws" },

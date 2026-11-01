@@ -148,3 +148,7 @@ part of this decision and change only via further amendment:
   names in list views (they remain visible in `secretRefMap` on detail).
 - **Ref-map edits** — `PATCH secretRefMap` replaces the map in place with
   no dependent-config revalidation; audits carry key names only.
+
+**Amended by ADR-121**: docker target profiles reference AGENT_MANAGED
+secret keys via `*Key` fields (ADR-121 item 4) — profiles carry
+references, never key material.

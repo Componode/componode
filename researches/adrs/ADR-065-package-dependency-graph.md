@@ -47,3 +47,6 @@ remains a leaf with zero `@componode/*` deps.
 
 **Amended by ADR-119**: `@componode/importer-docker` is admitted to the
 hub+agent lockstep importer set contract-first — see Amendment 1.
+
+**Amended by ADR-121**: `@componode/importer-docker` ships — the
+contract-first admission lands; the lockstep importer set is now 9.
