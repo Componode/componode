@@ -29,7 +29,7 @@ defaults managed once per Component:
   - **Hub** (default): the Componode backend probes the URL directly.
     Use it for endpoints the hub's network can reach.
   - **Import Agent**: probes run on a selected [Import
-    Agent](./agents.md) — for endpoints inside networks the hub cannot
+    Agent](./import-agents.md) — for endpoints inside networks the hub cannot
     reach.
 
 One vantage applies to the whole setup; every metric display states it
@@ -134,7 +134,7 @@ authentication controls are not offered on other categories (e.g.
   Bearer modes.
 
 Secret values are never typed into check configuration or the URL. Each
-check selects a reusable **[Credential](./agents.md#agent-managed-credentials-spec-026)**
+check selects a reusable **[Credential](./import-agents.md#agent-managed-credentials-spec-026)**
 from the credential store, and its auth fields map to the credential's
 key names — never values. One credential can serve many checks; checks
 appear in the credential's dependent list, a credential in use by checks
