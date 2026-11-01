@@ -216,17 +216,25 @@ file tracks shipped and upcoming work — update it when a spec completes.
   instances; opt-in `PACKAGE_REGISTRY` image inventory; minimization
   allowlist (no env vars/raw paths/health output);
   `docs/importers/docker.md`.
+- `047-docker-source-health` — Wave D of the Docker importer program:
+  `rawConfig.dockerObservation` allowlisted snapshot (engine state +
+  latest health facts, never health output/test commands/stats/events);
+  health-aware `InstanceStatus` mapping (unhealthy/OOM → `ERROR`,
+  rendered on instance detail; ADR-121 Amendment 1, ADR-112 rollup
+  verified); generic ImporterSource UI at `/sources` +
+  `/sources/:id` (identity, bound config, runs, memberships,
+  ADMIN-gated retire/reactivate, rebind-on-report reattach); and
+  user-confirmed `compose:`/`service:` tag suggestions in the
+  component edit dialog.
 
 ## Next — post-v1.1
 
-**Docker importer program — Wave D**: `047` is expected to be Docker
-source health observations + generic ImporterSource UI
-(`rawConfig.dockerObservation` allowlisted snapshot, health-aware
-`InstanceStatus` mapping, Source list/detail/lifecycle controls in the
-Importers operations area, user-confirmed `compose:`/`service:` tag
-suggestions; see `researches/docker-importer-spec-waves.md` and
-`researches/docker-importer-implementation-tracking.md` Phase 4).
-Wave E (Swarm) follows.
+**Docker importer program — Wave E**: `048` is expected to be Swarm
+inventory (auto-discovery via `/info` + `ControlAvailable`, API v1.41+
+`ServiceStatus`, `CONTAINER_ORCHESTRATION` services + aggregate
+instances, `COMPUTE` nodes, metadata-only `SECRET` secrets; see
+`researches/docker-importer-spec-waves.md` and
+`researches/docker-importer-implementation-tracking.md` Phase 5).
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and

@@ -190,6 +190,8 @@ export interface ComponentInstance {
   externalId: string;
   slug: string;
   lastSeenAt: string | null;
+  /** Importer-emitted allowlisted snapshot (e.g. dockerObservation — spec 047). */
+  rawConfig?: Record<string, unknown> | null;
 }
 
 export interface ComponentWithInstances extends Component {
@@ -447,4 +449,50 @@ export interface CreateAgentResult {
 export interface EnrollmentGrant {
   agentName: string;
   enrollment: import("@componode/core").AgentEnrollment;
+}
+
+// ImporterSource provenance (spec 044/ADR-119) — contracts live in core.
+export type {
+  ImporterSource,
+  ImporterSourceListItem,
+  BoundConfigSummary,
+  ImporterSourceStatus,
+  ImporterSourceListQuery,
+} from "@componode/core";
+
+/** GET /importer-sources/:id/memberships row shapes (openapi.yaml
+ *  SourceComponentMembership/SourceInstanceMembership — not in core
+ *  contracts, so mirrored here). */
+export interface SourceComponentMembership {
+  id: string;
+  sourceId: string;
+  componentId: string;
+  active: boolean;
+  details: Record<string, unknown> | null;
+  componentName: string | null;
+  componentExternalId: string | null;
+  firstSeenInRunId: string | null;
+  lastSeenInRunId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SourceInstanceMembership {
+  id: string;
+  sourceId: string;
+  componentInstanceId: string;
+  componentId: string | null;
+  instanceExternalId: string | null;
+  active: boolean;
+  details: Record<string, unknown> | null;
+  firstSeenInRunId: string | null;
+  lastSeenInRunId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SourceMembershipsResponse {
+  components: SourceComponentMembership[];
+  instances: SourceInstanceMembership[];
+  truncated: boolean;
 }

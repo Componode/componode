@@ -15,6 +15,7 @@ export type Environment = "DEV" | "TEST" | "STAGING" | "DEMO" | "PRODUCTION" | "
 export type RunStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED" | "INTERRUPTED"
 export type CredentialStatus = "ACTIVE" | "REVOKED"
 export type AgentStatus = "CONNECTED" | "OFFLINE" | "NEVER_CONNECTED"
+export type SourceStatus = "ACTIVE" | "UNMONITORED" | "RETIRED"
 export type AgentCredentialState = "PENDING_ENROLLMENT" | "ACTIVE" | "REVOKED"
 export type DisconnectReason = "client_close" | "heartbeat_timeout" | "revoked" | "shutdown" | "superseded" | "replaced"
 export type CredentialKind = "STORED" | "AGENT_MANAGED"
@@ -99,6 +100,12 @@ export const AGENT_STATUS_META: Record<AgentStatus, Meta> = {
   CONNECTED: { label: "Connected", description: "Holding a live, authenticated session with the hub", tone: "success" },
   OFFLINE: { label: "Offline", description: "No heartbeat for ~90 seconds or the session was closed", tone: "neutral" },
   NEVER_CONNECTED: { label: "Never connected", description: "Registered, but the enrollment token has not been used yet", tone: "warning" },
+}
+
+export const SOURCE_STATUS_META: Record<SourceStatus, Meta> = {
+  ACTIVE: { label: "Active", description: "A bound config is feeding this source", tone: "success" },
+  UNMONITORED: { label: "Unmonitored", description: "No active config feeds it — a config reporting the same identity rebinds on its next run", tone: "warning" },
+  RETIRED: { label: "Retired", description: "Explicitly retired — excluded from catalog reads until reactivated", tone: "neutral" },
 }
 
 export const AGENT_CREDENTIAL_META: Record<AgentCredentialState, Meta> = {

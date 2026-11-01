@@ -1,6 +1,7 @@
 import * as React from "react"
 import { toast } from "sonner"
-import { PencilIcon } from "lucide-react"
+import { PencilIcon, PlusIcon } from "lucide-react"
+import { tagSchema } from "@componode/core"
 import { useUpdateComponent } from "@/api/hooks/components"
 import { useComponentGroups } from "@/api/hooks/component-groups"
 import { useTeams } from "@/api/hooks/org"
@@ -14,6 +15,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { Component, Link } from "@/ux/lib/view-types"
 
 const NONE = "__none__"
+
+/** spec 047: compose/project tag suggestions — user-confirmed only.
+ *  Candidates failing the core tag grammar (invalid or overlong once
+ *  qualified) are omitted, never truncated or auto-written. */
+export function tagSuggestions(c: Component, tags: string[]): string[] {
+  const project = typeof c.details?.composeProject === "string" ? c.details.composeProject : null
+  const service = typeof c.details?.composeService === "string" ? c.details.composeService : null
+  const candidates = [
+    project ? `compose:${project}` : null,
+    project && service ? `service:${project}.${service}` : null,
+  ]
+  return candidates.filter(
+    (t): t is string => t !== null && tagSchema.safeParse(t).success && !tags.includes(tagSchema.parse(t)),
+  )
+}
 
 /** Edit a component's governance fields — updateComponentSchema surface. */
 export function ComponentEditDialog({ component: c, trigger }: { component: Component; trigger?: React.ReactNode }) {
@@ -116,6 +132,22 @@ export function ComponentEditDialog({ component: c, trigger }: { component: Comp
             </Field>
             <Field>
               <TagsInput value={tags} onChange={setTags} id="ce-tags" />
+              {open && tagSuggestions(c, tags).length > 0 ? (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5" data-testid="tag-suggestions">
+                  <span className="text-xs text-muted-foreground">Suggested from source:</span>
+                  {tagSuggestions(c, tags).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 font-mono text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                      onClick={() => setTags((prev) => [...prev, tagSchema.parse(s)])}
+                    >
+                      <PlusIcon className="size-3" aria-hidden="true" />
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </Field>
             <Field>
               <LinksEditor value={links} onChange={setLinks} />

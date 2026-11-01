@@ -81,14 +81,14 @@ converge → PR). Run one spec at a time; do not interleave waves.
 - [x] Redacted bind mounts, safe network/volume refs, image ref/digest.
 - [x] User guide `docs/importers/docker.md` (index + sidebar links).
 
-## Phase 4 — Docker observations and Source UI (Wave D)
+## Phase 4 — Docker observations and Source UI (Wave D) — SHIPPED (047)
 
-- [ ] `rawConfig.dockerObservation` allowlisted snapshot; `InstanceStatus`
-      mapping per the plan's status table.
-- [ ] Generic ImporterSource list/detail/lifecycle UI in Importers
-      operations area.
-- [ ] User-confirmed `compose:`/`service:` tag suggestions (32-char
-      grammar; omit invalid, never truncate or auto-write).
+- [x] `rawConfig.dockerObservation` allowlisted snapshot; `InstanceStatus`
+      mapping per the plan's status table. (spec 047, ADR-121 Amendment 1)
+- [x] Generic ImporterSource list/detail/lifecycle UI in Importers
+      operations area. (`/sources` + `/sources/:id`, spec 047)
+- [x] User-confirmed `compose:`/`service:` tag suggestions (32-char
+      grammar; omit invalid, never truncate or auto-write). (spec 047)
 
 ## Phase 5 — Swarm inventory (Wave E)
 

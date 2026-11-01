@@ -2,6 +2,7 @@ import {
   ActivityIcon,
   BoxesIcon,
   Building2Icon,
+  DatabaseIcon,
   DownloadCloudIcon,
   KeyRoundIcon,
   LayersIcon,
@@ -58,6 +59,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { title: "Importers", href: ux("/importers"), icon: DownloadCloudIcon },
       { title: "Import agents", href: ux("/agents"), icon: RadioTowerIcon, minRole: "ADMIN" },
+      { title: "Importer sources", href: ux("/sources"), icon: DatabaseIcon },
     ],
   },
   {
@@ -104,6 +106,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   lobs: "Lines of business",
   teams: "Teams",
   importers: "Importers",
+  sources: "Importer sources",
   agents: "Import agents",
   users: "Users",
   sessions: "Sessions",

@@ -48,6 +48,8 @@ import { UxImporterEditPage } from "@/ux/app/importers/$id.edit";
 import { UxRunDetailPage } from "@/ux/app/importers/$id.runs.$runId";
 import { UxAgentsPage } from "@/ux/app/agents/index";
 import { UxAgentDetailPage } from "@/ux/app/agents/$id";
+import { UxSourcesPage } from "@/ux/app/sources/index";
+import { UxSourceDetailPage } from "@/ux/app/sources/$id";
 
 // Auth pages render outside the shell (no sidebar/top bar/palette).
 const authed = (element: React.ReactNode, requiredRole?: string) => (
@@ -88,6 +90,8 @@ export const routes: RouteObject[] = [
       { path: "importers/:id", element: authed(<UxImporterDetailPage />) },
       { path: "importers/:id/edit", element: authed(<UxImporterEditPage />) },
       { path: "importers/:id/runs/:runId", element: authed(<UxRunDetailPage />) },
+      { path: "sources", element: authed(<UxSourcesPage />) },
+      { path: "sources/:id", element: authed(<UxSourceDetailPage />) },
       { path: "agents", element: authed(<UxAgentsPage />, "ADMIN") },
       { path: "agents/:id", element: authed(<UxAgentDetailPage />, "ADMIN") },
       { path: "users", element: authed(<UxUsersPage />, "ADMIN") },

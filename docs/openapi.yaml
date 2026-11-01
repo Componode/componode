@@ -3620,6 +3620,48 @@ components:
         instanceCount:
           type: integer
           description: Instance count (present on list responses)
+        instances:
+          type: array
+          description: >-
+            Embedded on the detail response only — non-GONE instances
+            observed for this component (spec 047). Absent on list
+            responses.
+          items: { $ref: '#/components/schemas/ComponentInstance' }
+        lastSeenInRunId: { type: string, format: uuid, nullable: true }
+        createdBy: { type: string, format: uuid, nullable: true }
+        updatedBy: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ComponentInstance:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        componentId: { type: string, format: uuid }
+        environment:
+          type: string
+          enum: [DEV, TEST, STAGING, DEMO, PRODUCTION, OTHER]
+        url: { type: string, nullable: true }
+        region: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [RUNNING, STOPPED, ERROR, GONE]
+          description: >-
+            Operational state. Docker-sourced instances are health-aware
+            (ADR-121 Amendment 1): a failing health check or OOM kill maps
+            to ERROR.
+        version: { type: string, nullable: true }
+        deployedAt: { type: string, format: date-time, nullable: true }
+        externalId: { type: string }
+        slug: { type: string }
+        rawConfig:
+          type: object
+          nullable: true
+          description: >-
+            Importer-emitted allowlisted snapshot. Docker instances carry
+            `dockerObservation` — engine state plus latest health-check
+            facts (never health output, test commands, stats, events, or
+            inspect JSON).
+        lastSeenAt: { type: string, format: date-time, nullable: true }
         lastSeenInRunId: { type: string, format: uuid, nullable: true }
         createdBy: { type: string, format: uuid, nullable: true }
         updatedBy: { type: string, format: uuid, nullable: true }

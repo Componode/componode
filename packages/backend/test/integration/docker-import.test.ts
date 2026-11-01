@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import type { DiscoveredAsset } from "@componode/core";
+import { uuidv7 } from "uuidv7";
 
 vi.mock("../../src/services/importer-registry.js", async () => {
   const actual = await vi.importActual<any>("../../src/services/importer-registry.js");
@@ -124,5 +125,41 @@ describe("docker source-scoped reconciliation (spec 046)", () => {
     const src = await testDb!.db.selectFrom("importer_sources").selectAll().where("externalIdentity", "=", "docker-engine:C").executeTakeFirstOrThrow();
     expect(src.status).toBe("UNMONITORED");
     expect(src.boundConfigId).toBeNull();
+  });
+
+  it("an unhealthy-instance ERROR status persists and degrades a wired product's health (spec 047, ADR-112)", async () => {
+    const asset = workloadAsset("compose:p:web", "docker-engine:D", "cD");
+    // What the docker importer now emits for a running + unhealthy container.
+    asset.instances = [{
+      externalId: "docker-engine:D::cD",
+      environment: "PRODUCTION",
+      status: "ERROR",
+      rawConfig: { dockerObservation: { state: "running", health: { status: "unhealthy", failingStreak: 3 } } },
+    }];
+    (getImporter as any).mockResolvedValueOnce(dockerImporter([asset], "docker-engine:D"));
+    const cfg = await createConfig();
+    expect((await runOnce(cfg.id)).status).toBe("COMPLETED");
+
+    const inst = await testDb!.db.selectFrom("component_instances").selectAll().where("externalId", "=", "docker-engine:D::cD").executeTakeFirstOrThrow();
+    expect(inst.status).toBe("ERROR");
+    expect((inst.rawConfig as any).dockerObservation.health.status).toBe("unhealthy");
+
+    // Human-declared DEPENDS_ON edge → derived product health degrades.
+    const productId = uuidv7();
+    await testDb!.db.insertInto("digital_products").values({
+      id: productId, name: "Storefront", slug: "storefront",
+      description: null, type: "BUSINESS_CAPABILITY", lifecycle: "ACTIVE",
+      lobOwnerId: null, teamOwnerId: null, sunsetAt: null,
+      createdBy: null, updatedBy: null, createdAt: new Date(), updatedAt: new Date(),
+    } as never).execute();
+    await testDb!.db.insertInto("product_depends_on_component")
+      .values({ productId, componentId: inst.componentId }).execute();
+
+    const res = await app.inject({
+      method: "GET", url: `/api/v1/products/storefront`,
+      cookies: { [SESSION_COOKIE_NAME]: adminSession },
+    });
+    const detail = JSON.parse(res.payload);
+    expect(detail.health?.status).toBe("ERROR");
   });
 });

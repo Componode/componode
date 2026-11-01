@@ -146,21 +146,60 @@ describe("DockerImporter.run", () => {
     expect(mount.destination).toBe("/data");
   });
 
-  it("maps engine state to status (health ignored in Wave C)", async () => {
-    const cases: Array<[string, string]> = [
-      ["running", "RUNNING"],
-      ["exited", "STOPPED"],
-      ["created", "STOPPED"],
-      ["paused", "STOPPED"],
-      ["dead", "ERROR"],
-      ["restarting", "ERROR"],
-      ["bogus", "ERROR"],
+  it("maps engine state + health to status (spec 047)", async () => {
+    const cases: Array<[Record<string, unknown>, string]> = [
+      [{ Status: "running" }, "RUNNING"],
+      [{ Status: "running", Health: { Status: "healthy" } }, "RUNNING"],
+      [{ Status: "running", Health: { Status: "starting" } }, "RUNNING"],
+      [{ Status: "running", Health: { Status: "unhealthy" } }, "ERROR"],
+      [{ Status: "running", OOMKilled: true }, "ERROR"],
+      [{ Status: "exited" }, "STOPPED"],
+      [{ Status: "exited", OOMKilled: true }, "ERROR"],
+      [{ Status: "created" }, "STOPPED"],
+      [{ Status: "paused" }, "STOPPED"],
+      [{ Status: "dead" }, "ERROR"],
+      [{ Status: "restarting" }, "ERROR"],
+      [{ Status: "bogus" }, "ERROR"],
     ];
     for (const [state, expected] of cases) {
-      inspects.set("abc123", inspectFixture({ State: { Status: state } }));
+      inspects.set("abc123", inspectFixture({ State: state }));
       const { assets } = await run({ targetId: "local" });
       expect(assets[0].instances[0].status).toBe(expected);
     }
+  });
+
+  it("persists an allowlisted dockerObservation, never health output/commands", async () => {
+    inspects.set(
+      "abc123",
+      inspectFixture({
+        State: {
+          Status: "running",
+          Health: {
+            Status: "unhealthy",
+            FailingStreak: 2,
+            Log: [{ ExitCode: 1, Output: "nc: connection refused" }],
+          },
+        },
+        Config: {
+          Image: "registry.local/commerce/web:1.2.3",
+          Labels: {
+            "com.docker.compose.project": "commerce",
+            "com.docker.compose.service": "web",
+          },
+          Healthcheck: { Test: ["CMD-SHELL", "nc -z localhost 80"] },
+        },
+      }),
+    );
+    const { assets } = await run({ targetId: "local" });
+    expect(validateDiscoveredAsset(assets[0])).toBe(true);
+    const obs = (assets[0].instances[0].rawConfig as any).dockerObservation;
+    expect(obs).toMatchObject({
+      state: "running",
+      health: { status: "unhealthy", failingStreak: 2 },
+    });
+    const json = JSON.stringify(assets);
+    expect(json).not.toContain("connection refused");
+    expect(json).not.toContain("nc -z");
   });
 
   it("skips image inventory by default; emits PACKAGE_REGISTRY assets when opted in", async () => {
