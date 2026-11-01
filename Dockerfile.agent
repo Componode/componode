@@ -12,7 +12,7 @@
 #     -e AGENT_STATE_DIR=/state \
 #     componode-agent:latest
 
-FROM node:24.21.0-alpine
+FROM node:24.22.2-alpine
 
 RUN addgroup -g 10001 componode && \
     adduser -u 10001 -G componode -D componode
