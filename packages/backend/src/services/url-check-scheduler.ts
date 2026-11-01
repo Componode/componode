@@ -9,6 +9,7 @@ import { logger } from "../plugins/logging.js";
 import {
   dispatchProbe,
   isAgentSlotClaimed,
+  nextSlotSql,
   type DispatchProbeDeps,
 } from "./probe-dispatcher.js";
 
@@ -117,6 +118,10 @@ export async function sweepOnce(deps: SweepDeps = {}): Promise<void> {
 
   const dispatches: Promise<unknown>[] = [];
   for (const row of due) {
+    // A check with an in-flight/deferred agent probe has a live slot —
+    // writing its unobserved backlog would tombstone that slot before the
+    // task can record its real result (spec 052).
+    if (isAgentSlotClaimed(row.id)) continue;
     const cadenceSeconds = row.cadenceSeconds ?? row.setupCadenceSeconds;
     // Slots due up to now: the latest is the current slot (probed for
     // real once the check is caught up); every earlier slot was skipped
@@ -130,10 +135,6 @@ export async function sweepOnce(deps: SweepDeps = {}): Promise<void> {
       slots.push(t);
     }
     if (slots.length === 0) continue;
-    // A check with an in-flight/deferred agent probe has a live slot —
-    // writing its unobserved backlog would tombstone that slot before the
-    // task can record its real result (spec 052).
-    if (isAgentSlotClaimed(row.id)) continue;
     const { lastCovered, remaining } = await writeMissedSlots(
       row.id,
       slots.slice(0, -1),
@@ -147,9 +148,10 @@ export async function sweepOnce(deps: SweepDeps = {}): Promise<void> {
       await db
         .updateTable("url_checks")
         .set({
-          nextProbeAt: new Date(
-            lastCovered! + cadenceSeconds * 1000,
-          ).toISOString(),
+          nextProbeAt: nextSlotSql(
+            new Date(lastCovered!).toISOString(),
+            cadenceSeconds,
+          ),
           updatedAt: nowIso,
         })
         .where("id", "=", row.id)

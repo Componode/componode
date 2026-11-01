@@ -105,9 +105,9 @@ function boundInt(name: string, fallback: number): number {
 }
 
 // scheduledAt + cadence as an expression, never rewinding an already-
-// later nextProbeAt
-// (a backlog advance may have moved the schedule forward past this slot).
-function nextSlotSql(scheduledAt: string, cadenceSeconds: number) {
+// later nextProbeAt (a backlog advance may have moved the schedule
+// forward past this slot). Exported for the scheduler's backlog advance.
+export function nextSlotSql(scheduledAt: string, cadenceSeconds: number) {
   const slot = new Date(
     new Date(scheduledAt).getTime() + cadenceSeconds * 1000,
   ).toISOString();
