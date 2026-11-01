@@ -12,7 +12,7 @@ import {
 } from "@componode/core";
 
 /**
- * Migration 024 — URL Check monitoring (spec 051, ADR-123/ADR-077 A3).
+ * Migration 025 — URL Check monitoring (spec 051, ADR-123/ADR-077 A3).
  *
  * Adds:
  * - `component_monitoring_setups`: one shared monitoring setup per Component
