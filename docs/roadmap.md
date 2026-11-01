@@ -227,14 +227,20 @@ file tracks shipped and upcoming work — update it when a spec completes.
   user-confirmed `compose:`/`service:` tag suggestions in the
   component edit dialog.
 
+- `048-docker-swarm-inventory` — Wave E of the Docker importer program:
+  Swarm auto-discovery on manager endpoints (`ControlAvailable` gate on
+  the already-fetched `/info`, zero extra calls otherwise; API v1.41
+  floor for `ServiceStatus`), `CONTAINER_ORCHESTRATION` services with
+  aggregate instances + replica-derived status (`swarmObservation`),
+  `COMPUTE` nodes (`swarmNodeObservation`), metadata-only `SECRET`
+  secrets + bounded secret/config references; ADR-121 Amendment 2.
+
 ## Next — post-v1.1
 
-**Docker importer program — Wave E**: `048` is expected to be Swarm
-inventory (auto-discovery via `/info` + `ControlAvailable`, API v1.41+
-`ServiceStatus`, `CONTAINER_ORCHESTRATION` services + aggregate
-instances, `COMPUTE` nodes, metadata-only `SECRET` secrets; see
-`researches/docker-importer-spec-waves.md` and
-`researches/docker-importer-implementation-tracking.md` Phase 5).
+The Docker importer program's mapped waves (A–E) are complete;
+`049` is open — see `researches/` and `docs/roadmap.md` candidates
+for the next initiative (e.g. remaining importer-source migrations,
+UX gap follow-through, or a new importer wave).
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and

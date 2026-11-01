@@ -162,4 +162,63 @@ describe("docker source-scoped reconciliation (spec 046)", () => {
     const detail = JSON.parse(res.payload);
     expect(detail.health?.status).toBe("ERROR");
   });
+
+  it("swarm assets persist; partial-replica ERROR degrades a wired product; absent service goes GONE (spec 048)", async () => {
+    const svc: DiscoveredAsset = {
+      externalId: "docker-engine:E:swarm-service:shop_web", name: "shop_web",
+      category: "CONTAINER_ORCHESTRATION", provider: "DOCKER", resourceType: "swarm-service",
+      details: { mode: "replicated", stack: "shop" },
+      instances: [{
+        externalId: "docker-engine:E::swarm-service:svc1", environment: "OTHER", status: "ERROR",
+        rawConfig: { swarmObservation: { mode: "replicated", desired: 3, running: 2, observedAt: "2026-11-01T00:00:00Z" } },
+      }],
+    };
+    const node: DiscoveredAsset = {
+      externalId: "docker-engine:E:swarm-node:worker-1", name: "worker-1",
+      category: "COMPUTE", provider: "DOCKER", resourceType: "swarm-node",
+      instances: [{ externalId: "docker-engine:E::swarm-node:n1", environment: "OTHER", status: "RUNNING",
+        rawConfig: { swarmNodeObservation: { role: "worker", availability: "active", reachability: null, leader: false, state: "ready", addr: "10.0.0.2" } } }],
+    };
+    const secret: DiscoveredAsset = {
+      externalId: "docker-engine:E:swarm-secret:api-key", name: "api-key",
+      category: "SECRET", provider: "DOCKER", resourceType: "swarm-secret",
+      details: { secretId: "sec1", revision: 7 }, instances: [],
+    };
+    (getImporter as any).mockResolvedValueOnce(dockerImporter([svc, node, secret], "docker-engine:E"));
+    const cfg = await createConfig();
+    expect((await runOnce(cfg.id)).status).toBe("COMPLETED");
+
+    const comps = await testDb!.db.selectFrom("components").selectAll().execute();
+    const byCat = Object.fromEntries(comps.map((c) => [c.category, c]));
+    expect(byCat.CONTAINER_ORCHESTRATION?.resourceType).toBe("swarm-service");
+    expect(byCat.COMPUTE?.resourceType).toBe("swarm-node");
+    expect(byCat.SECRET?.resourceType).toBe("swarm-secret");
+    const inst = await testDb!.db.selectFrom("component_instances").selectAll()
+      .where("externalId", "=", "docker-engine:E::swarm-service:svc1").executeTakeFirstOrThrow();
+    expect(inst.status).toBe("ERROR");
+    expect((inst.rawConfig as any).swarmObservation).toMatchObject({ desired: 3, running: 2 });
+
+    // Wired product rollup degrades on the service's ERROR (ADR-112).
+    const productId = uuidv7();
+    await testDb!.db.insertInto("digital_products").values({
+      id: productId, name: "Shop", slug: "shop-product",
+      description: null, type: "BUSINESS_CAPABILITY", lifecycle: "ACTIVE",
+      lobOwnerId: null, teamOwnerId: null, sunsetAt: null,
+      createdBy: null, updatedBy: null, createdAt: new Date(), updatedAt: new Date(),
+    } as never).execute();
+    await testDb!.db.insertInto("product_depends_on_component")
+      .values({ productId, componentId: inst.componentId }).execute();
+    const res = await app.inject({
+      method: "GET", url: `/api/v1/products/shop-product`,
+      cookies: { [SESSION_COOKIE_NAME]: adminSession },
+    });
+    expect(JSON.parse(res.payload).health?.status).toBe("ERROR");
+
+    // Service absent on the next completed run → GONE (source-scoped).
+    (getImporter as any).mockResolvedValueOnce(dockerImporter([node, secret], "docker-engine:E"));
+    expect((await runOnce(cfg.id)).status).toBe("COMPLETED");
+    const inst2 = await testDb!.db.selectFrom("component_instances").select("status")
+      .where("externalId", "=", "docker-engine:E::swarm-service:svc1").executeTakeFirstOrThrow();
+    expect(inst2.status).toBe("GONE");
+  });
 });
