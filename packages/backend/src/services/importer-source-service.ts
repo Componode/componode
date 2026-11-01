@@ -51,11 +51,11 @@ export async function registerOrMatchSource(
 
   // T044: insert-or-select under the UNIQUE(importerName, externalIdentity)
   // key — a concurrent report must merge onto the same row, not collide.
-  const existingId = uuidv7();
+  const candidateId = uuidv7();
   await trx
     .insertInto("importer_sources")
     .values({
-      id: existingId,
+      id: candidateId,
       importerName,
       externalIdentity,
       label: identity.label ?? null,
@@ -78,7 +78,7 @@ export async function registerOrMatchSource(
     .where("externalIdentity", "=", externalIdentity)
     .executeTakeFirstOrThrow();
 
-  if (row.id === existingId) {
+  if (row.id === candidateId) {
     // Fresh registration — audit `created`.
     await writeEntityChange(
       {
@@ -96,7 +96,6 @@ export async function registerOrMatchSource(
       },
       trx,
     );
-    return row;
   }
 
   // Re-match (ADR-119): refresh identity + bind + reactivate. Status
@@ -142,6 +141,47 @@ export async function registerOrMatchSource(
     .set(updates)
     .where("id", "=", row.id)
     .execute();
+
+  // A config reports exactly one identity — re-pointing it at a
+  // different system must unbind the previously bound Source
+  // (ADR-119 #3): it goes UNMONITORED and loses the binding, or two
+  // Sources would appear bound to one config.
+  if (boundConfigId !== null) {
+    const stale = await trx
+      .selectFrom("importer_sources")
+      .select(["id", "status"])
+      .where("boundConfigId", "=", boundConfigId)
+      .where("id", "!=", row.id)
+      .execute();
+    for (const staleSource of stale) {
+      // Always clear the binding — a config reports exactly one identity,
+      // so a stale bound pointer is wrong regardless of status. Only a
+      // non-RETIRED Source flips to UNMONITORED; a retired one stays.
+      await trx
+        .updateTable("importer_sources")
+        .set({
+          boundConfigId: null,
+          ...(staleSource.status === "RETIRED" ? {} : { status: "UNMONITORED" }),
+          updatedAt: now,
+        })
+        .where("id", "=", staleSource.id)
+        .execute();
+      await writeEntityChange(
+        {
+          entityType: "importer_source",
+          entityId: staleSource.id,
+          action: "unbound",
+          changes: {
+            configId: boundConfigId,
+            reason: "config rebound to a different source identity",
+          },
+          importRunId: runId,
+          actor,
+        },
+        trx,
+      );
+    }
+  }
 
   if (boundChanged && boundConfigId !== null) {
     await writeEntityChange(
@@ -369,6 +409,54 @@ export async function getSource(id: string) {
     lastCompletedRunAt: lastRun?.lastCompletedRunAt ?? null,
     activeComponentMemberships: Number(compCount?.n ?? 0),
     activeInstanceMemberships: Number(instCount?.n ?? 0),
+  };
+}
+
+/**
+ * Source→Component and Source→ComponentInstance memberships with their
+ * per-source `details` (spec 045 US3 — what each source reported).
+ */
+export async function listSourceMemberships(sourceId: string) {
+  const components = await db
+    .selectFrom("source_component_memberships")
+    .leftJoin(
+      "components",
+      "components.id",
+      "source_component_memberships.componentId",
+    )
+    .selectAll("source_component_memberships")
+    .select([
+      "components.name as componentName",
+      "components.externalId as componentExternalId",
+    ])
+    .where("sourceId", "=", sourceId)
+    .orderBy("source_component_memberships.createdAt", "asc")
+    .orderBy("source_component_memberships.id", "asc")
+    .limit(201)
+    .execute();
+
+  const instances = await db
+    .selectFrom("source_instance_memberships")
+    .leftJoin(
+      "component_instances",
+      "component_instances.id",
+      "source_instance_memberships.componentInstanceId",
+    )
+    .selectAll("source_instance_memberships")
+    .select([
+      "component_instances.externalId as instanceExternalId",
+      "component_instances.componentId as componentId",
+    ])
+    .where("sourceId", "=", sourceId)
+    .orderBy("source_instance_memberships.createdAt", "asc")
+    .orderBy("source_instance_memberships.id", "asc")
+    .limit(201)
+    .execute();
+
+  return {
+    components: components.slice(0, 200),
+    instances: instances.slice(0, 200),
+    truncated: components.length > 200 || instances.length > 200,
   };
 }
 

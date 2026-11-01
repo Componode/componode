@@ -1,4 +1,4 @@
-import { validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
+import { canonicalizeSourceIdentity, qualifyExternalId, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
 import { awsConfigSchema } from "./config.js";
 
 function slugify(name: string): string {
@@ -8,9 +8,10 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function buildAsset(resourceType: string, region: string, endpoint: string | undefined): DiscoveredAsset {
+function buildAsset(resourceType: string, region: string, endpoint: string | undefined, identity: string): DiscoveredAsset {
   const name = `${resourceType}:${region}`;
-  const externalId = `${region}:${resourceType}`;
+  const localId = `${region}:${resourceType}`;
+  const externalId = qualifyExternalId(canonicalizeSourceIdentity(identity), localId);
 
   return {
     category: "COMPUTE",
@@ -23,7 +24,7 @@ function buildAsset(resourceType: string, region: string, endpoint: string | und
     instances: [
       {
         environment: "PRODUCTION",
-        externalId: `${externalId}:0`,
+        externalId: `${localId}:0`,
         url: endpoint ?? null,
         status: "RUNNING",
         version: "1.0.0",
@@ -49,6 +50,7 @@ export class AwsImporter implements Importer {
 
     context.reportPhase("Initializing");
     const parsed = awsConfigSchema.parse(config);
+    await context.reportSourceIdentity({ externalIdentity: parsed.sourceKey });
 
     context.reportPhase("Listing resources");
     for (const resourceType of parsed.resourceTypes) {
@@ -57,7 +59,7 @@ export class AwsImporter implements Importer {
       }
 
       context.reportPhase(`Processing ${resourceType}`);
-      const asset = buildAsset(resourceType, parsed.region, parsed.endpoint);
+      const asset = buildAsset(resourceType, parsed.region, parsed.endpoint, parsed.sourceKey);
       if (!validateDiscoveredAsset(asset)) {
         throw new Error(`Invalid discovered asset for resource type ${resourceType}`);
       }

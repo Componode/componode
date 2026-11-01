@@ -121,7 +121,12 @@ export type {
   SecretResolver,
   ImporterSecretDeclaration,
 } from "./contracts/importer.js";
-export { canonicalizeSourceIdentity } from "./utils/source-identity.js";
+export {
+  canonicalizeSourceIdentity,
+  qualifyExternalId,
+  isQualifiedExternalId,
+  unqualifyExternalId,
+} from "./utils/source-identity.js";
 export {
   importerSourceListQuerySchema,
   type ImporterSourceListQuery,

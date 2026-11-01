@@ -2,6 +2,7 @@ import {
   AGENT_NACK_TARGET_RESOLUTION_PREFIX,
   AGENT_NACK_UNAVAILABLE_PREFIX,
   NOOP_TRACER,
+  sourceIdentityPayloadSchema,
   type ImporterRegistry,
   type JobAssignPayload,
   type Logger,
@@ -246,6 +247,16 @@ export class JobExecutor {
           if (job.sourceIdentityReported) {
             log.warn({ runId }, "duplicate source identity report ignored");
             return;
+          }
+          // Validate before send — an out-of-bounds frame would fail
+          // hub-side parse and kill the whole session (BAD_FRAME/1008),
+          // taking every in-flight job down with it. A contract violation
+          // fails only this run, matching the in-process path.
+          if (!sourceIdentityPayloadSchema.safeParse(identity).success) {
+            throw Object.assign(
+              new Error("Source identity exceeds protocol bounds (identity ≤512 chars, label ≤200)"),
+              { code: "CONTRACT_VIOLATION" },
+            );
           }
           job.sourceIdentityReported = true;
           send("source.identity", identity, runId);

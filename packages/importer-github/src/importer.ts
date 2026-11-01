@@ -1,5 +1,5 @@
 import type { Octokit } from "octokit";
-import type { DiscoveredAsset, Importer, ImporterContext } from "@componode/core";
+import { canonicalizeSourceIdentity, qualifyExternalId, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
 import { githubConfigSchema, type GithubConfig } from "./config.js";
 import { buildOctokit } from "./client.js";
 import { fetchOrganizationAsset } from "./github-org.js";
@@ -94,6 +94,8 @@ function buildDiscoveredAsset(
   };
 }
 
+const GITHUB_API_BASE = "https://api.github.com";
+
 export class GithubImporter implements Importer {
   readonly name = "github";
   readonly version = "1.1.0";
@@ -107,6 +109,53 @@ export class GithubImporter implements Importer {
     context.reportPhase("Authenticating");
 
     const octokit = buildOctokit(parsed, secrets);
+
+    // Source identity (ADR-120 A2): {canonicalBaseUrl}org/{orgId} in
+    // path form — URL canonicalization strips `#` fragments, which would
+    // collapse every org into one Source. Fetched before the first
+    // yield — including empty inventories. GHES numeric IDs collide
+    // across instances, so GHES externalIds are qualified with the
+    // source identity; github.com IDs stay unqualified.
+    const canonicalBase = canonicalizeSourceIdentity(
+      parsed.baseUrl ?? GITHUB_API_BASE,
+    );
+    let orgId: number | string | undefined;
+    try {
+      const orgResponse = await octokit.rest.orgs.get({
+        org: parsed.org,
+        signal: context.signal,
+      });
+      orgId = (orgResponse.data as { id?: number | string }).id;
+    } catch (err) {
+      // Only permission-style failures fall back to the login identity —
+      // network/5xx errors must still fail the run rather than invent a
+      // renamable source key (ADR-120).
+      const status = (err as { status?: number }).status;
+      if (status !== 403 && status !== 404) throw err;
+      orgId = undefined;
+    }
+    // Fall back to the org login — mirrors the org asset's own
+    // `login:` externalId fallback and keeps degraded (no org-read
+    // permission) runs working; the identity is still unique per
+    // instance+org. Path form (not `#` fragment): URL canonicalization
+    // strips fragments, which would collapse every org into one Source
+    // (ADR-120 Amendment 2).
+    const base = canonicalBase.replace(/\/$/, "");
+    const sourceIdentity =
+      orgId !== undefined && orgId !== null
+        ? `${base}/org/${orgId}`
+        : `${base}/login/${encodeURIComponent(parsed.org)}`;
+    await context.reportSourceIdentity({
+      externalIdentity: sourceIdentity,
+      label: parsed.org,
+    });
+    const qualifyGhes =
+      canonicalBase !== canonicalizeSourceIdentity(GITHUB_API_BASE)
+        ? (a: DiscoveredAsset): DiscoveredAsset => ({
+            ...a,
+            externalId: qualifyExternalId(sourceIdentity, a.externalId),
+          })
+        : (a: DiscoveredAsset): DiscoveredAsset => a;
 
     const logRateLimit = async () => {
       const rateLimit = await withCapability(() =>
@@ -189,11 +238,11 @@ export class GithubImporter implements Importer {
         (orgAsset.details as Record<string, unknown>).billing = billing.billing;
       }
       (orgAsset.details as Record<string, unknown>).capabilities = capabilities;
-      yield orgAsset;
+      yield qualifyGhes(orgAsset);
     }
 
     for (const asset of [...runnerAssets, ...packageAssets]) {
-      yield asset;
+      yield qualifyGhes(asset);
     }
 
     context.reportPhase("Listing repositories");
@@ -210,12 +259,12 @@ export class GithubImporter implements Importer {
 
       const instances = await buildRepoInstances(octokit, repo as RepoLike, parsed, context.signal);
       const repoBilling = billing?.repoBilling.get(repo.full_name);
-      yield buildDiscoveredAsset(repo, instances, repoBilling);
+      yield qualifyGhes(buildDiscoveredAsset(repo, instances, repoBilling));
 
       if (parsed.includeWorkflows) {
         for await (const asset of fetchWorkflowAssets(octokit, repo, context.signal)) {
           if (context.signal.aborted) return;
-          yield asset;
+          yield qualifyGhes(asset);
         }
       }
     }

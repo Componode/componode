@@ -104,7 +104,7 @@ describe("quickstart: 003-component-catalog", () => {
 
   it("runs the quickstart steps end-to-end", async () => {
     // 1. Trigger an importer (AWS) so the catalog has components
-    const { configId, runId } = await createConfigAndRun("aws", { region: "us-east-1", resourceTypes: ["ec2:instance"] });
+    const { configId, runId } = await createConfigAndRun("aws", { region: "us-east-1", resourceTypes: ["ec2:instance"], sourceKey: "acct-it" });
     const run = await waitForRun(configId, runId);
     expect(run.status).toBe("COMPLETED");
 

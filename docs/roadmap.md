@@ -180,6 +180,15 @@ file tracks shipped and upcoming work — update it when a spec completes.
 
 - `042-catalog-authoring` — the three remaining ux-rewrite feature gaps: `POST /components` (`component:create` → EDITOR, ADR-054 Amendment 1) + "Add manually"/"New group" dialogs (G29); product-detail Relations card wiring `useAddEdge`/`useRemoveEdge` with kind-aware targets and surfaced `409 CYCLE` (G31); suggestions Pending/History tabs via a new `DECIDED` status filter spanning all terminal states (G32, ADR-113 amendment). `manualEntityCreate` + `suggestionsHistory` flags removed.
 
+- `045-importer-source-migration` — Wave B of the Docker importer program:
+  all 8 in-tree importers adopt `reportsSourceIdentity` with per-importer
+  identity keys (ADR-120) — github `{canonicalBase}#org:{id}`/`#login:`
+  fallback, alibaba-cloud STS accountId, azure subscriptionId, aws/k8s/mcp
+  `sourceKey`-or-endpoint, api-url/web-url canonical URL. `{identity}::{id}`
+  externalId qualification where IDs are source-local, adopt-on-report
+  matching, `sourceDetails` → membership `details`, and migration 023 —
+  derivable-only Source+membership backfill with `LEGACY_UNATTRIBUTED`
+  preserved and no batch rekey.
 - `044-importer-source-core` — the generic ImporterSource core (ADR-119):
   durable `importer_sources` with `ACTIVE`/`UNMONITORED`/`RETIRED`
   lifecycle and one-config binding, `reportSourceIdentity` +
@@ -198,6 +207,14 @@ file tracks shipped and upcoming work — update it when a spec completes.
   lockstep set. Docs-only — no runtime code.
 
 ## Next — post-v1.1
+
+**Docker importer program — Wave C**: `046` is expected to be
+`docker-workload-inventory` (`@componode/importer-docker` — Docker Engine
+workload inventory: socket/pipe, mTLS TCP, pinned-host-key SSH targets;
+`CONTAINER` components + container instances; see
+`researches/docker-importer-spec-waves.md` and
+`researches/docker-importer-implementation-tracking.md` Phase 3).
+Waves D (observations + Source UI) and E (Swarm) follow.
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and

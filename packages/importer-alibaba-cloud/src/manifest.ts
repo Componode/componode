@@ -6,6 +6,7 @@ export const manifest = {
   description: "Import Alibaba Cloud account resources via Resource Center.",
   version: "1.0.0",
   implPath: "@componode/importer-alibaba-cloud/importer",
+  reportsSourceIdentity: true,
   configSchema: alibabaCloudConfigSchema,
   secrets: [
     { key: "accessKeyId", label: "AccessKey ID", required: true },

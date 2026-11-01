@@ -6,6 +6,7 @@ export const manifest = {
   description: "Import MCP server tools and resources as components and instances.",
   version: "1.0.0",
   implPath: "@componode/importer-mcp-server/importer",
+  reportsSourceIdentity: true,
   configSchema: mcpServerConfigSchema,
   secrets: [],
 };

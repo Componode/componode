@@ -4,6 +4,7 @@ import {
   AGENT_NACK_SECRET_RESOLUTION_PREFIX,
   AGENT_NACK_TARGET_RESOLUTION_PREFIX,
   AGENT_NACK_UNAVAILABLE_PREFIX,
+  canonicalizeSourceIdentity,
   validateDiscoveredAssetDetailed,
   type AgentActiveRun,
   type AssetBatchPayload,
@@ -70,6 +71,9 @@ export interface RemoteJobContext {
   reportsSourceIdentity: boolean;
   /** Durable source attribution once the source.identity frame lands. */
   sourceId: string | null;
+  /** Canonical externalIdentity of the reported Source — drives
+   *  adopt-on-report legacy matching in processAsset (ADR-120). */
+  sourceIdentity: string | null;
   /** Set when a cancel lands between row-commit and enqueue — the run
    *  must finalize CANCELLED without ever dispatching (in-process parity:
    *  the worker honors cancelRequestedAt). */
@@ -107,7 +111,7 @@ export interface RemoteRunStore {
   reconcile(
     job: RemoteJobContext,
     yieldedComponentIds: Set<string>,
-  ): Promise<number>;
+  ): Promise<{ componentsRetired: number; instancesOrphaned: number }>;
   stageSuggestions(componentIds: string[], runId: string): Promise<void>;
   touchCredentials(credentialIds: string[]): Promise<void>;
   /** Conditional PENDING→RUNNING transition; false = the run left PENDING
@@ -546,7 +550,23 @@ export class RemoteRunService implements RemoteRunHandler {
       this.log.warn({ runId }, "ignoring duplicate source.identity frame");
       return true;
     }
-    entry.job.sourceId = await this.store.recordSourceIdentity(entry.job, payload);
+    try {
+      entry.job.sourceId = await this.store.recordSourceIdentity(entry.job, payload);
+    } catch (err) {
+      // A registration failure swallowed into the frame-queue warn log
+      // leaves the run to die later under a misleading CONTRACT_VIOLATION
+      // — finalize with the real cause instead.
+      await this.finalize(entry, "failed", {
+        status: "FAILED",
+        completedAt: new Date().toISOString(),
+        currentPhase: "Failed",
+        errorType: (err as { code?: string }).code ?? "RUNTIME_ERROR",
+        errorMessage:
+          err instanceof Error ? err.message : "Source identity registration failed",
+      });
+      return true;
+    }
+    entry.job.sourceIdentity = canonicalizeSourceIdentity(payload.externalIdentity);
     return true;
   }
 
@@ -679,10 +699,11 @@ export class RemoteRunService implements RemoteRunHandler {
         }, true);
         return true;
       }
-      const componentsRetired = await this.store.reconcile(
+      const { componentsRetired, instancesOrphaned } = await this.store.reconcile(
         entry.job,
         entry.yieldedComponentIds,
       );
+      entry.counters.orphaned += instancesOrphaned;
       // Reconcile yields — a cancel/session-loss may have finalized
       // meanwhile; writing now would hit the terminal-state trigger. A
       // cancel request landing during reconcile still wins below.
@@ -1021,6 +1042,7 @@ export function createDbRemoteRunStore(): RemoteRunStore {
         missingTarget,
         reportsSourceIdentity: manifest.reportsSourceIdentity === true,
         sourceId: run.sourceId ?? null,
+        sourceIdentity: null,
         cancelRequestedAt: run.cancelRequestedAt,
         runCreatedAt: run.createdAt,
         agent: {
@@ -1050,7 +1072,7 @@ export function createDbRemoteRunStore(): RemoteRunStore {
     async processAsset(job, asset) {
       return traceDbQuery("processAsset", () =>
         db.transaction().execute(async (trx) =>
-          processAsset(trx, job.runId, job.importerName, asset, job.triggeredBy, job.sourceId),
+          processAsset(trx, job.runId, job.importerName, asset, job.triggeredBy, { sourceId: job.sourceId, sourceIdentity: job.sourceIdentity, configId: job.configId }),
         ),
       );
     },

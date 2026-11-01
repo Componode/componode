@@ -76,4 +76,38 @@ describe("validateDiscoveredAsset", () => {
   it("rejects a missing instances array", () => {
     expect(validateDiscoveredAsset({ ...baseAsset, instances: undefined })).toBe(false);
   });
+
+  it("accepts asset-level and instance-level sourceDetails", () => {
+    expect(
+      validateDiscoveredAsset({
+        ...baseAsset,
+        sourceDetails: { arn: "arn:x", identityType: "AK" },
+        instances: [
+          {
+            environment: "PRODUCTION" as const,
+            externalId: "main",
+            sourceDetails: { node: "i-1" },
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects a non-object sourceDetails", () => {
+    expect(
+      validateDiscoveredAsset({ ...baseAsset, sourceDetails: "nope" }),
+    ).toBe(false);
+    expect(
+      validateDiscoveredAsset({
+        ...baseAsset,
+        instances: [
+          {
+            environment: "PRODUCTION" as const,
+            externalId: "main",
+            sourceDetails: 42,
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
 });

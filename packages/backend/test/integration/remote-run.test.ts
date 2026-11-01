@@ -301,6 +301,7 @@ describe("remote run execution", () => {
     expect(running.agentName).toBe("edge-run");
     expect(running.startedAt).not.toBeNull();
 
+    sendFrame(ws, "source.identity", runId, { externalIdentity: "test-src" });
     sendFrame(ws, "phase", runId, { name: "Fetching repos" });
     await new Promise((r) => setTimeout(r, 150));
     expect((await getRun(configId, runId)).currentPhase).toBe("Fetching repos");
@@ -365,6 +366,7 @@ describe("remote run execution", () => {
     const assign1 = await onFrame(ws, "job.assign");
     expect(assign1.runId).toBe(runId1);
     sendFrame(ws, "job.ack", runId1, { accepted: true });
+    sendFrame(ws, "source.identity", runId1, { externalIdentity: "test-src" });
 
     // Invoke startRun directly — the same branch the scheduler takes for a
     // bound config (T016).
@@ -390,6 +392,7 @@ describe("remote run execution", () => {
     const runId = await trigger(configId);
     await onFrame(ws, "job.assign");
     sendFrame(ws, "job.ack", runId, { accepted: true });
+    sendFrame(ws, "source.identity", runId, { externalIdentity: "test-src" });
     sendFrame(ws, "asset.batch", runId, { assets: [repoAsset("repo-m")] });
     sendFrame(ws, "run.complete", runId, { result: "COMPLETED" });
     await waitForRunStatus(configId, runId, "COMPLETED");
@@ -425,6 +428,7 @@ describe("remote run execution", () => {
     const runId = await trigger(configId);
     await onFrame(ws, "job.assign");
     sendFrame(ws, "job.ack", runId, { accepted: true });
+    sendFrame(ws, "source.identity", runId, { externalIdentity: "test-src" });
     sendFrame(ws, "run.complete", runId, { result: "COMPLETED" });
     await waitForRunStatus(configId, runId, "COMPLETED");
     ws.close();

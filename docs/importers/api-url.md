@@ -36,3 +36,10 @@ None.
 |---|---|
 | "URL is not allowed" | URL is private/loopback/metadata or non-HTTP(S) — the SSRF guard is working |
 | Instance `ERROR` status | Endpoint responded non-2xx — still recorded, that's the point of the probe |
+
+## Source identity
+
+Identity is the canonicalized `url` (scheme-normalized, credentials and auth
+query params stripped — never stored). `externalId` already uses the URL, so
+it is unchanged. Migration 023 backfills a Source + memberships for existing
+configs.

@@ -27,3 +27,16 @@ None.
 |---|---|---|---|
 | `resourceTypes` | string[] | `["tools/list"]` | MCP method labels; one placeholder component each |
 | `endpoint` | URL | unset | Recorded on the asset's details/url; reserved for the server's transport URL |
+| `sourceKey` | string | unset | Fallback source identity when `endpoint` is absent — one of the two is required (ADR-120) |
+
+## Source identity
+
+Identity is the canonicalized `endpoint` URL when set (scheme-normalized,
+credentials and auth params stripped — never stored), else `scope.sourceKey`;
+one of the two is **required** or the run fails. `externalId`s are qualified
+(`{identity}::{endpoint}:{method}` — previously `{endpoint}:{method}` or
+`mcp:{method}`; the embedded endpoint is canonicalized so no credentials
+persist in the id).
+Migration 023 backfills a Source + memberships for configs that have an
+`endpoint`; endpoint-less configs adopt on their next run once `sourceKey` is
+set.

@@ -72,6 +72,7 @@ function makeFastImporter(yields: DiscoveredAsset[]): Importer {
       _secrets: Record<string, string>,
       context: ImporterContext,
     ) {
+      await context.reportSourceIdentity({ externalIdentity: "test-source" });
       for (const asset of yields) {
         if (context.signal.aborted) return;
         await context.reportPhase(`Processing ${asset.externalId}`);

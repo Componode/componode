@@ -6,6 +6,7 @@ export const manifest = {
   description: "Import Kubernetes workloads and namespaces as components and instances.",
   version: "1.0.0",
   implPath: "@componode/importer-kubernetes/importer",
+  reportsSourceIdentity: true,
   configSchema: kubernetesConfigSchema,
   secrets: [],
 };

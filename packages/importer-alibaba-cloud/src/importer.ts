@@ -42,6 +42,10 @@ export class AlibabaCloudImporter implements Importer {
     if (!identity.accountId) {
       throw new Error("Alibaba Cloud GetCallerIdentity returned no AccountId");
     }
+    await context.reportSourceIdentity({
+      externalIdentity: identity.accountId,
+      label: `Alibaba Cloud account ${identity.accountId}`,
+    });
     if (context.signal.aborted) return;
 
     context.reportPhase("Checking service");
@@ -103,7 +107,7 @@ export class AlibabaCloudImporter implements Importer {
     };
 
     context.reportPhase("Searching resources");
-    for await (const asset of iterResourceAssets(client, parsed, context, billing, coverage)) {
+    for await (const asset of iterResourceAssets(client, parsed, context, billing, coverage, identity.accountId)) {
       if (context.signal.aborted) return;
       const candidate: unknown = asset;
       if (!validateDiscoveredAsset(candidate)) {

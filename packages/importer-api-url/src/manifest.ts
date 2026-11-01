@@ -6,6 +6,7 @@ export const manifest = {
   description: "Import an API URL endpoint as a component instance.",
   version: "1.0.0",
   implPath: "@componode/importer-api-url/importer",
+  reportsSourceIdentity: true,
   configSchema: apiUrlConfigSchema,
   secrets: [],
 };

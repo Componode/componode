@@ -110,7 +110,7 @@ describe("importers other", () => {
   }
 
   it("imports AWS components", async () => {
-    const { configId, runId } = await createConfigAndRun("aws", { region: "us-east-1", resourceTypes: ["ec2:instance"] });
+    const { configId, runId } = await createConfigAndRun("aws", { region: "us-east-1", resourceTypes: ["ec2:instance"], sourceKey: "acct-it" });
     const run = await waitForRun(configId, runId);
     expect(run.status).toBe("COMPLETED");
 
@@ -136,7 +136,7 @@ describe("importers other", () => {
   });
 
   it("imports Kubernetes components", async () => {
-    const { configId, runId } = await createConfigAndRun("kubernetes", { namespace: "default", resourceTypes: ["apps/v1:Deployment"] });
+    const { configId, runId } = await createConfigAndRun("kubernetes", { namespace: "default", resourceTypes: ["apps/v1:Deployment"], sourceKey: "cluster-it" });
     const run = await waitForRun(configId, runId);
     expect(run.status).toBe("COMPLETED");
 
@@ -214,7 +214,7 @@ describe("importers other", () => {
   );
 
   it("imports MCP server components", async () => {
-    const { configId, runId } = await createConfigAndRun("mcp-server", { resourceTypes: ["tools/list"] });
+    const { configId, runId } = await createConfigAndRun("mcp-server", { resourceTypes: ["tools/list"], sourceKey: "mcp-it" });
     const run = await waitForRun(configId, runId);
     expect(run.status).toBe("COMPLETED");
 

@@ -52,6 +52,10 @@ database.
 `resolveTarget`, and `ImporterManifest` gains `targetRefKey` — see
 Amendment 1.
 
+**Amended by ADR-120**: `DiscoveredAsset`/`DiscoveredAssetInstance` gain
+optional `sourceDetails` — per-source facts persisted on the Source
+membership rather than the shared canonical `details` (spec 045).
+
 ## Amendment 2 — manifest adoption flags and in-process resolveTarget (2026-10-31, spec 044)
 
 **Refinement**: `ImporterManifest` gains `targetRefKey?: string` (names the

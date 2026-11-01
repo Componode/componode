@@ -17,16 +17,20 @@ describe("AzureImporter", () => {
   it("yields a DiscoveredAsset with a PRODUCTION instance", async () => {
     const importer = new AzureImporter();
     const assets = [];
+    const context = makeContext();
 
     for await (const asset of importer.run(
       { resourceTypes: ["Microsoft.Compute/virtualMachines"], subscriptionId: "sub-1" },
       {},
-      makeContext(),
+      context,
     )) {
       assets.push(asset);
     }
 
+    // subscriptionId is the source identity (ADR-120).
+    expect(context.reportSourceIdentity).toHaveBeenCalledWith({ externalIdentity: "sub-1" });
     expect(assets).toHaveLength(1);
+    expect(assets[0].externalId).toBe("sub-1:Microsoft.Compute/virtualMachines");
     expect(assets[0].provider).toBe("AZURE");
     expect(assets[0].resourceType).toBe("Microsoft.Compute/virtualMachines");
     expect(assets[0].instances).toHaveLength(1);

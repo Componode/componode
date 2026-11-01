@@ -6,6 +6,7 @@ export const manifest = {
   description: "Import a web URL endpoint as a component instance.",
   version: "1.0.0",
   implPath: "@componode/importer-web-url/importer",
+  reportsSourceIdentity: true,
   configSchema: webUrlConfigSchema,
   secrets: [],
 };

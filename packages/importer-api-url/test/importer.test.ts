@@ -32,11 +32,17 @@ describe("ApiUrlImporter", () => {
   it("yields a DiscoveredAsset with a PRODUCTION instance", async () => {
     const importer = new ApiUrlImporter();
     const assets = [];
+    const context = makeContext();
 
-    for await (const asset of importer.run({ url: "https://api.example.com/health" }, {}, makeContext())) {
+    for await (const asset of importer.run({ url: "https://api.example.com/health" }, {}, context)) {
       assets.push(asset);
     }
 
+    // Canonical URL is the source identity (ADR-120).
+    expect(context.reportSourceIdentity).toHaveBeenCalledTimes(1);
+    expect(
+      (context.reportSourceIdentity as ReturnType<typeof vi.fn>).mock.calls[0][0].externalIdentity,
+    ).toContain("api.example.com/health");
     expect(assets).toHaveLength(1);
     expect(assets[0].provider).toBe("API_URL");
     expect(assets[0].resourceType).toBe("api:url");

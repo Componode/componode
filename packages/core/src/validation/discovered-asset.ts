@@ -16,6 +16,7 @@ const discoveredAssetInstanceSchema = z.object({
   deployedAt: z.string().datetime().nullable().optional(),
   externalId: z.string().min(1),
   rawConfig: z.record(z.string(), z.unknown()).nullable().optional(),
+  sourceDetails: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 const discoveredAssetSchema = z.object({
@@ -27,6 +28,7 @@ const discoveredAssetSchema = z.object({
   slug: z.string().max(100).optional(),
   instances: z.array(discoveredAssetInstanceSchema),
   details: z.record(z.string(), z.unknown()).nullable().optional(),
+  sourceDetails: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 export interface ValidationResult {

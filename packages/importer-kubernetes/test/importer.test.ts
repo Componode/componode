@@ -17,16 +17,20 @@ describe("KubernetesImporter", () => {
   it("yields a DiscoveredAsset with a PRODUCTION instance", async () => {
     const importer = new KubernetesImporter();
     const assets = [];
+    const context = makeContext();
 
     for await (const asset of importer.run(
-      { namespace: "default", resourceTypes: ["apps/v1:Deployment"] },
+      { namespace: "default", resourceTypes: ["apps/v1:Deployment"], sourceKey: "cluster-test" },
       {},
-      makeContext(),
+      context,
     )) {
       assets.push(asset);
     }
 
+    // sourceKey is the fallback identity when no endpoint (ADR-120).
+    expect(context.reportSourceIdentity).toHaveBeenCalledWith({ externalIdentity: "cluster-test" });
     expect(assets).toHaveLength(1);
+    expect(assets[0].externalId).toBe("cluster-test::default:apps/v1:Deployment");
     expect(assets[0].provider).toBe("KUBERNETES");
     expect(assets[0].resourceType).toBe("apps/v1:Deployment");
     expect(assets[0].instances).toHaveLength(1);
@@ -47,7 +51,7 @@ describe("KubernetesImporter", () => {
       const importer = new KubernetesImporter();
       const assets = [];
       for await (const asset of importer.run(
-        { namespace: "default", resourceTypes: ["apps/v1:Deployment"] },
+        { namespace: "default", resourceTypes: ["apps/v1:Deployment"], sourceKey: "cluster-test" },
         {},
         makeContext(),
       )) {

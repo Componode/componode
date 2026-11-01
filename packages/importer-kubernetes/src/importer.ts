@@ -1,4 +1,4 @@
-import { validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
+import { canonicalizeSourceIdentity, qualifyExternalId, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
 import { kubernetesConfigSchema } from "./config.js";
 
 function slugify(name: string): string {
@@ -8,9 +8,10 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function buildAsset(resourceType: string, namespace: string, endpoint: string | undefined): DiscoveredAsset {
+function buildAsset(resourceType: string, namespace: string, endpoint: string | undefined, identity: string): DiscoveredAsset {
   const name = `${resourceType}:${namespace}`;
-  const externalId = `${namespace}:${resourceType}`;
+  const localId = `${namespace}:${resourceType}`;
+  const externalId = qualifyExternalId(canonicalizeSourceIdentity(identity), localId);
 
   return {
     category: "CONTAINER_ORCHESTRATION",
@@ -23,7 +24,7 @@ function buildAsset(resourceType: string, namespace: string, endpoint: string | 
     instances: [
       {
         environment: "PRODUCTION",
-        externalId: `${externalId}:0`,
+        externalId: `${localId}:0`,
         url: endpoint ?? null,
         status: "RUNNING",
         version: "1.0.0",
@@ -49,6 +50,15 @@ export class KubernetesImporter implements Importer {
 
     context.reportPhase("Initializing");
     const parsed = kubernetesConfigSchema.parse(config);
+    const identity = parsed.endpoint
+      ? canonicalizeSourceIdentity(parsed.endpoint)
+      : parsed.sourceKey;
+    if (!identity) {
+      // Unreachable — schema refine enforces endpoint|sourceKey — but
+      // narrows `string | undefined` and fails closed if that drifts.
+      throw new Error("kubernetes importer requires endpoint or sourceKey (ADR-120).");
+    }
+    await context.reportSourceIdentity({ externalIdentity: identity });
 
     context.reportPhase("Listing resources");
     for (const resourceType of parsed.resourceTypes) {
@@ -57,7 +67,7 @@ export class KubernetesImporter implements Importer {
       }
 
       context.reportPhase(`Processing ${resourceType}`);
-      const asset = buildAsset(resourceType, parsed.namespace, parsed.endpoint);
+      const asset = buildAsset(resourceType, parsed.namespace, parsed.endpoint, identity);
       if (!validateDiscoveredAsset(asset)) {
         throw new Error(`Invalid discovered asset for resource type ${resourceType}`);
       }

@@ -14,6 +14,7 @@ export type ImporterSourceStatus =
 export const SOURCE_AUDIT_ACTIONS = [
   "created",
   "bound",
+  "unbound",
   "unmonitored",
   "retired",
   "reactivated",

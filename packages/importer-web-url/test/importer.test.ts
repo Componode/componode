@@ -32,11 +32,17 @@ describe("WebUrlImporter", () => {
   it("yields a DiscoveredAsset with a PRODUCTION instance", async () => {
     const importer = new WebUrlImporter();
     const assets = [];
+    const context = makeContext();
 
-    for await (const asset of importer.run({ url: "https://example.com" }, {}, makeContext())) {
+    for await (const asset of importer.run({ url: "https://example.com" }, {}, context)) {
       assets.push(asset);
     }
 
+    // Canonical URL is the source identity (ADR-120).
+    expect(context.reportSourceIdentity).toHaveBeenCalledTimes(1);
+    expect(
+      (context.reportSourceIdentity as ReturnType<typeof vi.fn>).mock.calls[0][0].externalIdentity,
+    ).toContain("example.com");
     expect(assets).toHaveLength(1);
     expect(assets[0].provider).toBe("WEB_URL");
     expect(assets[0].resourceType).toBe("web:url");

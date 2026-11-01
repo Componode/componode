@@ -291,6 +291,7 @@ describe("config drift", () => {
     const runId = await trigger(configId);
     await onFrame(ws, "job.assign");
     sendFrame(ws, "job.ack", runId, { accepted: true });
+    sendFrame(ws, "source.identity", runId, { externalIdentity: "test-src" });
     await waitForStatus(runId, "RUNNING");
 
     // Narrow the policy mid-flight — the running job finishes normally.
