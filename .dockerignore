@@ -1,9 +1,13 @@
-node_modules
-dist
-.turbo
-coverage
+# Patterns without a leading **/ match the context root only — build
+# artifacts and env files must be excluded at every level of the monorepo
+# (e.g. packages/backend/dist), otherwise stale local output leaks into
+# the image and shadows freshly built files (e.g. renamed migrations).
+**/node_modules
+**/dist
+**/.turbo
+**/coverage
 .git
-.env*
+**/.env*
 *.log
 .specify
 .devin
