@@ -1,29 +1,53 @@
-# Componode Documentation
+---
+layout: home
 
-Welcome to the Componode documentation. Componode is an open-source, self-hosted Digital Product Asset Management (DPAM) platform.
+hero:
+  name: Componode
+  text: Digital Product Asset Management
+  tagline: Open-source, self-hosted catalog that models digital products as compositions of imported components.
+  actions:
+    - theme: brand
+      text: Get started
+      link: /deployment
+    - theme: alt
+      text: View on GitHub
+      link: https://github.com/Componode/componode
 
-## What is Componode?
+features:
+  - title: Learn the model
+    details: Digital Products, Components, Instances, and the Composable Product Model — explained with worked examples.
+    link: /digital-products
+  - title: Deploy the hub
+    details: One Docker Compose stack — Fastify backend, React frontend, PostgreSQL. Up in minutes.
+    link: /deployment
+  - title: Connect importers
+    details: Pull-only importers for GitHub, Alibaba Cloud, Docker, API/Web URLs — plus Import Agents for private networks.
+    link: /importers/
+  - title: Explore the API
+    details: Interactive OpenAPI reference covering every route under /api/v1.
+    link: /openapi-reference
+---
 
-Componode helps you model your **Digital Products** — applications, solutions, platforms — as compositions of building-block **Components** imported from repository tools, cloud environments, container orchestrators, and web/API/MCP endpoints.
+::: tip About this project
+Componode is a personal learning project. It was built to explore, hands-on,
+how applications are developed today with AI coding assistants — the tooling,
+the workflows (spec-driven development, ADRs, changesets), and the
+architecture decisions that come with a real codebase.
 
-## Key concepts
+It was not built by a professional developer, so expect rough edges — and it
+is **not a production-grade solution**. If you spot something questionable,
+please [open an issue](https://github.com/Componode/componode/issues) and say
+so. That's how this project gets better.
+:::
 
-- **Digital Product** — a business capability or customer-facing solution.
-- **Component** — a shared building block (e.g., a service, database, compute instance).
-- **Component Instance** — a deployed occurrence of a component in a specific environment.
-- **Importer** — a pull-only connector that discovers assets and returns `AsyncGenerator<DiscoveredAsset>`.
+## Where to go next
 
-## Getting started
-
-- [Deploy with Docker Compose](deployment.md)
-- [Release process](release.md)
-- [Roadmap](roadmap.md)
-
-## Reference
-
-- [Digital products & composition](digital-products.md)
-- [Architecture overview](architecture.md)
-- [API reference](api.md)
-- [OpenAPI reference](openapi-reference.md)
-- [UX/UI reference](ux.md)
-- [Importer development](importer-development.md)
+| I want to… | Start here |
+|---|---|
+| Understand what Componode models | [Digital Products in depth](./digital-products) |
+| Run it locally | [Deployment](./deployment) |
+| See what an importer needs | [Importers overview](./importers/) |
+| Reach a private network | [Import Agents](./import-agents) |
+| Call the API | [API conventions](./api) · [Interactive OpenAPI](./openapi-reference) |
+| Understand how it's built | [Architecture](./architecture) · [Importer development](./importer-development) |
+| See what's next | [Roadmap](./roadmap) |

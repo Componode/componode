@@ -2,26 +2,27 @@ import { defineConfig } from "vitepress";
 
 export default defineConfig({
   title: "Componode",
-  description: "Open-source, self-hosted Digital Product Asset Management",
+  description:
+    "Open-source, self-hosted Digital Product Asset Management — a personal learning project in AI-assisted development",
   srcDir: "../docs",
+  srcExclude: ["**/.vitepress/**"],
   outDir: "./.vitepress/dist",
   cleanUrls: true,
   base: "/componode/",
+  lastUpdated: true,
   themeConfig: {
     nav: [
-      { text: "Home", link: "/" },
-      { text: "Architecture", link: "/architecture" },
-      { text: "Deployment", link: "/deployment" },
-      { text: "API", link: "/api" },
+      { text: "Guide", link: "/digital-products" },
       { text: "Importers", link: "/importers/" },
+      { text: "Deploy & Operate", link: "/deployment" },
+      { text: "Reference", link: "/openapi-reference" },
+      { text: "Contribute", link: "/architecture" },
     ],
     sidebar: [
       {
-        text: "Getting Started",
+        text: "Guide",
         items: [
-          { text: "Deployment", link: "/deployment" },
-          { text: "Release Process", link: "/release" },
-          { text: "Roadmap", link: "/roadmap" },
+          { text: "Digital Products in depth", link: "/digital-products" },
         ],
       },
       {
@@ -40,29 +41,44 @@ export default defineConfig({
         ],
       },
       {
-        text: "Import Agents",
+        text: "Deploy & Operate",
         items: [
-          { text: "Deployment & Hardening", link: "/agents" },
-          { text: "Wire Protocol", link: "/agent-protocol" },
+          { text: "Deployment", link: "/deployment" },
+          { text: "Import Agents", link: "/import-agents" },
+          { text: "Agent wire protocol", link: "/agent-protocol" },
+          { text: "Security design", link: "/security" },
         ],
       },
       {
         text: "Reference",
         items: [
-          { text: "Digital Products", link: "/digital-products" },
-          { text: "Architecture", link: "/architecture" },
-          { text: "API Reference", link: "/api" },
-          { text: "OpenAPI Reference", link: "/openapi-reference" },
-          { text: "UX/UI Reference", link: "/ux" },
-          { text: "Importer Development", link: "/importer-development" },
+          { text: "API conventions", link: "/api" },
+          { text: "Interactive API (OpenAPI)", link: "/openapi-reference" },
+        ],
+      },
+      {
+        text: "Contributors",
+        items: [
+          { text: "Architecture overview", link: "/architecture" },
+          { text: "Importer development", link: "/importer-development" },
+          { text: "UX/UI reference", link: "/ux" },
+          { text: "Release process", link: "/release" },
+          { text: "Roadmap", link: "/roadmap" },
         ],
       },
     ],
+    outline: { level: [2, 3], label: "On this page" },
+    search: { provider: "local" },
+    editLink: {
+      pattern: "https://github.com/Componode/componode/edit/main/docs/:path",
+      text: "Edit this page on GitHub",
+    },
     socialLinks: [
       { icon: "github", link: "https://github.com/Componode/componode" },
     ],
     footer: {
-      message: "Released under the Apache 2.0 License.",
+      message:
+        "Released under the Apache 2.0 License. A personal learning project in AI-assisted development — not a production-grade solution.",
       copyright: "Copyright © present Componode contributors",
     },
   },
