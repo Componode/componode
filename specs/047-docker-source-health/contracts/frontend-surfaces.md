@@ -74,13 +74,25 @@ candidates = candidates − component.tags
 ```
 
 - Import `tagSchema` from `@componode/core` (precedent:
-  `PASSWORD_MIN_LENGTH` import in `register.tsx`) — transform
-  (trim/lowercase) then validate; failing values are simply not offered
-  (never truncated).
+  `PASSWORD_MIN_LENGTH` import in `register.tsx`) — a candidate is
+  offered only when it satisfies the grammar **un-transformed**
+  (`safeParse(t).success && parsed === t`), so grammar-invalid values —
+  uppercase, spaces, or overlong once prefixed/qualified — are silently
+  omitted rather than normalized to fit (spec edge cases; as shipped).
+- Suggestions derive from `component.details.composeProject` /
+  `composeService`, gated on `component.provider === "DOCKER"` — `details`
+  is written wholesale by the last reporting Docker source, so shared
+  Components can never suggest non-Docker-reported values (round-2
+  review note: this substitutes for the per-Source membership
+  `sourceDetails` named in the spec's assumptions — last-writer-wins
+  across alternating Docker reporters, which stays Docker-derived).
 - Accept chip → `onChange([...tags, candidate])`; nothing is written
   until the user saves the edit.
 - Hidden when no candidates (non-Compose/standalone/non-Docker
   components unchanged).
+- List/detail summary strip: `Summary` stat cards (Active / Unmonitored
+  / Retired counts) precede `SourcesTable`, mirroring `AgentsView` —
+  extracted to `ux/components/patterns/summary-card` and shared.
 
 ## OpenAPI sync (ADR-104)
 

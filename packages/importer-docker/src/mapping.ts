@@ -183,22 +183,23 @@ export function mapContainer(
   const state = inspect.State;
   const imageRef = inspect.Config?.Image ?? "";
   const digest = (inspect.RepoDigests ?? [])[0];
+  const observation = mapObservation(state);
 
   const instance: DiscoveredAssetInstance = {
     externalId: instanceExternalId(sourceIdentity, inspect.Id),
     environment,
     status: mapStatus(state),
-    deployedAt: dockerTime(state?.StartedAt),
+    deployedAt: observation.startedAt,
     rawConfig: {
       containerName: (inspect.Name ?? "").replace(/^\/+/, ""),
       imageRef,
       ...(digest ? { imageDigest: digest } : {}),
-      state: state?.Status ?? "unknown",
+      state: observation.state,
       ...nonZeroExit(state),
       ports: mapPorts(inspect.NetworkSettings?.Ports),
       networks: Object.keys(inspect.NetworkSettings?.Networks ?? {}),
       mounts: mapMounts(inspect.Mounts, inspect.Id),
-      dockerObservation: mapObservation(state),
+      dockerObservation: observation,
     },
     sourceDetails: {
       labels: allowedLabels(labels, envLabel),

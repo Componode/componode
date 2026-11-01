@@ -4,21 +4,10 @@ import { EnrollAgentDialog } from "@/ux/components/agents/enroll-agent-dialog"
 import { AgentsTable } from "@/ux/components/agents/agents-table"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { EmptyState } from "@/ux/components/patterns/states"
+import { Summary } from "@/ux/components/patterns/summary-card"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
-import { Card, CardContent } from "@/ux/components/ui/card"
+import { Card } from "@/ux/components/ui/card"
 import type { ImportAgent } from "@/ux/lib/view-types"
-
-function Summary({ label, value, hint }: { label: string; value: number; hint: string }) {
-  return (
-    <Card className="py-4">
-      <CardContent className="flex flex-col gap-1 px-4">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        <span className="tabular text-2xl font-semibold">{value}</span>
-        <span className="text-xs text-muted-foreground">{hint}</span>
-      </CardContent>
-    </Card>
-  )
-}
 
 export function AgentsView({ agents: rows }: { agents: ImportAgent[] }) {
   const live = rows.filter((a) => a.credentialState === "ACTIVE")

@@ -2,21 +2,10 @@ import { DatabaseIcon, InfoIcon } from "lucide-react"
 import { SourcesTable } from "@/ux/components/sources/sources-table"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { EmptyState } from "@/ux/components/patterns/states"
+import { Summary } from "@/ux/components/patterns/summary-card"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
-import { Card, CardContent } from "@/ux/components/ui/card"
+import { Card } from "@/ux/components/ui/card"
 import type { ImporterSource } from "@/ux/lib/view-types"
-
-function Summary({ label, value, hint }: { label: string; value: number; hint: string }) {
-  return (
-    <Card className="py-4">
-      <CardContent className="flex flex-col gap-1 px-4">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        <span className="tabular text-2xl font-semibold">{value}</span>
-        <span className="text-xs text-muted-foreground">{hint}</span>
-      </CardContent>
-    </Card>
-  )
-}
 
 export function SourcesView({ sources: rows }: { sources: ImporterSource[] }) {
   const active = rows.filter((s) => s.status === "ACTIVE").length

@@ -39,7 +39,7 @@ function DetailsSummary({ details }: { details: Record<string, unknown> | null }
   const pairs = present.slice(0, 3)
   return (
     <span className="font-mono text-xs text-muted-foreground">
-      {pairs.map(([k, v]) => `${k}=${String(v)}`).join(" ")}
+      {pairs.map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v) : String(v)}`).join(" ")}
       {present.length > pairs.length ? " …" : ""}
     </span>
   )

@@ -21,7 +21,7 @@ export function UxSourceDetailPage() {
     return (
       <PageContainer>
         <Card className="py-0">
-          <TableSkeleton rows={6} columns={4} />
+          <TableSkeleton rows={6} columns={7} />
         </Card>
       </PageContainer>
     );

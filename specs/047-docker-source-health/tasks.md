@@ -219,3 +219,11 @@ land any time after Phase 2.
 - [x] T034 Fix DetailsSummary truncation marker to count filtered entries in source-detail (code-review: standards)
 - [x] T035 Drop memberships non-null assertions and set sources skeleton columns to 8 (code-review: standards)
 - [x] T036 Justify or remove the unplanned summary stat cards in sources-view (code-review: spec)
+
+## Phase 11: Review round 2
+
+- [x] T037 Extract the duplicated Summary card into a shared pattern used by agents-view and sources-view (code-review: standards)
+- [x] T038 Update contracts/frontend-surfaces.md — document the stat strip, the un-transformed grammar check, and the component.details derivation source (code-review: spec)
+- [x] T039 Reuse mapObservation output in mapContainer instead of recomputing state/time/exit (code-review: standards)
+- [x] T040 Guard DetailsSummary against object-valued details (JSON.stringify) (code-review: standards)
+- [x] T041 Align source-detail skeleton column count with the widest table (code-review: standards)
