@@ -127,10 +127,11 @@ export class DockerImporter implements Importer {
       const seen = new Set<string>();
       for (const image of images) {
         if (context.signal.aborted) return;
-        const refs = (image.RepoDigests?.length
+        // External IDs carry the raw ref — `docker-image:{repo@sha256:…}`
+        // for digests, `docker-image:{repo:tag}` for tags (ADR-121 #6).
+        const refs = image.RepoDigests?.length
           ? image.RepoDigests
-          : (image.RepoTags ?? []).filter((t) => t !== "<none>:<none>")
-        ).map((r) => r.replace("@sha256:", "@").replace(/:(?=[^:/]+$)/, "@"));
+          : (image.RepoTags ?? []).filter((t) => t !== "<none>:<none>");
         for (const ref of refs) {
           const externalId = `docker-image:${ref}`;
           if (seen.has(externalId)) continue;
@@ -178,7 +179,7 @@ export class DockerImporter implements Importer {
       }
       const profile = validateTargetProfile(resolvedTarget);
       const docker = new Docker(buildDockerOptions(profile, secrets));
-      await docker.ping();
+      await docker.version();
       return { ok: true };
     } catch (err) {
       return {

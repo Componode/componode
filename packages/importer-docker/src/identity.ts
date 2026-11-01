@@ -51,7 +51,3 @@ export function instanceExternalId(
 ): string {
   return `${sourceIdentity}::${containerId}`;
 }
-
-export function imageExternalId(repo: string, ref: string): string {
-  return `docker-image:${repo}@${ref}`;
-}

@@ -171,7 +171,7 @@ describe("DockerImporter.run", () => {
     ]);
     const { assets } = await run({ targetId: "local", includeImages: true });
     const image = assets.find((a) => a.category === "PACKAGE_REGISTRY");
-    expect(image?.externalId).toBe("docker-image:app@latest");
+    expect(image?.externalId).toBe("docker-image:app:latest");
     expect(image?.instances).toEqual([]);
     expect(validateDiscoveredAsset(image)).toBe(true);
   });
@@ -220,11 +220,11 @@ describe("testSecrets", () => {
   it("probes via ping only, sanitizes errors, fails without a resolved target", async () => {
     const ok = await importer.testSecrets({ clientCert: "PEM" }, { targetId: "t" }, { transport: "socket", path: "/x" });
     expect(ok.ok).toBe(true);
-    expect(mocks.ping).toHaveBeenCalled();
+    expect(mocks.version).toHaveBeenCalled();
     expect(mocks.listContainers).not.toHaveBeenCalled();
     const noTarget = await importer.testSecrets({}, {}, undefined);
     expect(noTarget.ok).toBe(false);
-    mocks.ping.mockRejectedValueOnce(new Error("dial fail PEM"));
+    mocks.version.mockRejectedValueOnce(new Error("dial fail PEM"));
     const bad = await importer.testSecrets({ clientKey: "PEMMATERIAL" }, {}, { transport: "socket", path: "/x" });
     expect(bad.ok).toBe(false);
     expect(bad.error).not.toContain("PEMMATERIAL");

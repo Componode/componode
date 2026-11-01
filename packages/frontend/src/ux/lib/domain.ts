@@ -128,7 +128,7 @@ export const KIND_META: Record<CredentialKind, { label: string; description: str
 }
 
 /** Importer names an agent may be allowed to serve. Mirrors the compiled importer packages. */
-export const IMPORTER_NAMES = ["github", "aws", "azure", "alibaba-cloud", "kubernetes", "web-url", "api-url", "mcp-server"] as const
+export const IMPORTER_NAMES = ["github", "aws", "azure", "alibaba-cloud", "kubernetes", "web-url", "api-url", "mcp-server", "docker"] as const
 
 export const PROVIDER_META: Record<Provider, { label: string; short: string }> = {
   GITHUB: { label: "GitHub", short: "GH" },

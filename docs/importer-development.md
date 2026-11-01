@@ -258,6 +258,7 @@ Per-importer identity keys (spec 045, ADR-120 — full table in
 | kubernetes | canonical `endpoint` | `scope.sourceKey` |
 | mcp-server | canonical `endpoint` | `scope.sourceKey` |
 | api-url / web-url | canonical `url` | — (URL is required) |
+| docker | `docker-engine:{/info.ID}` | `docker-engine:{scope.sourceKey}` — run fails when neither is available |
 
 Where the existing `externalId` is source-local or collision-prone, qualify
 it with `qualifyExternalId(identity, id)` from `@componode/core` — the

@@ -239,3 +239,13 @@ US4/US5 harden provenance and minimization; US6 + polish close the wave.
 - [x] T047 [code-review: spec] docs/importers/docker.md — correct context-store path (`~/.docker/contexts/`; `DOCKER_CONFIG` not consulted in Wave C) (LOW)
 - [x] T048 [code-review: spec] FR-011 clarify — container `Config.Labels` already include Compose service labels (merged at create); comment in mapping.ts (LOW)
 - [x] T049 [code-review: standards] abort-signal unit test — aborted signal short-circuits run() before/after listing (LOW)
+
+## Phase 12: Review (round 2)
+
+- [x] T050 [code-review: standards] fix mojibake `ADR-121 �` in architecture-decisions.md rows 117/126 (HIGH)
+- [x] T051 [code-review: spec] add `docker` to frontend `IMPORTER_NAMES` + `IMPORTER_PROVIDERS` — allowedImporters pickers must offer it for policy-restricted agents (HIGH)
+- [x] T052 [code-review: spec] image externalId uses the raw ref (`docker-image:{repo@sha256:…}` / `docker-image:{repo:tag}`) — remove sha256-strip munging + dead `imageExternalId` export (HIGH)
+- [x] T053 [code-review: standards] remove dead `HostConfig.RestartPolicy` field; `deployedAt` maps Docker zero-time (`0001-01-01`) to null (MEDIUM)
+- [x] T054 [code-review: spec] `testSecrets` probes via `docker.version()` to match the guide's ping/version claim (LOW)
+- [x] T055 [code-review: spec] credential-service in-process testSecrets path refuses requiresAgent importers explicitly (MEDIUM)
+- [x] T056 [code-review: standards] importer-development.md source-identity table — add docker row (LOW)

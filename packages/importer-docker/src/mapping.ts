@@ -24,7 +24,6 @@ export interface ContainerInspect {
     ExitCode?: number;
     StartedAt?: string;
   };
-  HostConfig?: { RestartPolicy?: { Name?: string } };
   Mounts?: Array<{
     Type?: string;
     Destination?: string;
@@ -142,7 +141,12 @@ export function mapContainer(
     externalId: instanceExternalId(sourceIdentity, inspect.Id),
     environment,
     status: mapStateToStatus(state?.Status),
-    deployedAt: state?.StartedAt ?? null,
+    // Docker reports a zero-time ("0001-01-01T00:00:00Z") for never-started
+    // containers — map it to null, not a bogus 1-CE date.
+    deployedAt:
+      state?.StartedAt && !state.StartedAt.startsWith("0001-01-01")
+        ? state.StartedAt
+        : null,
     rawConfig: {
       containerName: (inspect.Name ?? "").replace(/^\/+/, ""),
       imageRef,
