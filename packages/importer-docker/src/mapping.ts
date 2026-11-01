@@ -121,6 +121,9 @@ export function mapContainer(
   envMap: Record<string, Environment> | undefined,
   componentIdLabel: string,
 ): MappedContainer {
+  // FR-011: container Config.Labels already include Compose service
+  // labels — Docker merges them at container create, so this read IS the
+  // service-label fallback the spec names; there is no second lookup.
   const labels = inspect.Config?.Labels ?? {};
   const identity = workloadIdentity(
     labels,
@@ -139,6 +142,7 @@ export function mapContainer(
     externalId: instanceExternalId(sourceIdentity, inspect.Id),
     environment,
     status: mapStateToStatus(state?.Status),
+    deployedAt: state?.StartedAt ?? null,
     rawConfig: {
       containerName: (inspect.Name ?? "").replace(/^\/+/, ""),
       imageRef,
@@ -147,11 +151,9 @@ export function mapContainer(
       ...(state?.ExitCode !== undefined && state.ExitCode !== 0
         ? { exitCode: state.ExitCode }
         : {}),
-      ...(state?.StartedAt ? { startedAt: state.StartedAt } : {}),
       ports: mapPorts(inspect.NetworkSettings?.Ports),
       networks: Object.keys(inspect.NetworkSettings?.Networks ?? {}),
       mounts: mapMounts(inspect.Mounts, inspect.Id),
-      restartPolicy: inspect.HostConfig?.RestartPolicy?.Name ?? "",
     },
     sourceDetails: {
       labels: allowedLabels(labels, envLabel),

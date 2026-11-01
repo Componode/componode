@@ -47,7 +47,7 @@ Every config runs on an Import Agent. Provision the agent per
 | `socket` | Mount the daemon socket/pipe into the agent (e.g. `-v /var/run/docker.sock:/var/run/docker.sock`, or `//./pipe/docker_engine` on Windows). Agent user needs socket access (docker group). |
 | `tcp` | Enable the daemon's TLS listener (`dockerd --tlsverify --tlscacert --tlscert --tlskey -H tcp://0.0.0.0:2376`). Issue a client cert/key pair; `caCertKey` is needed only for a private CA. Plaintext and skip-verify are rejected — always verified mTLS. |
 | `ssh` | The remote host needs Docker CLI (`docker system dial-stdio`) and the user needs socket access. Pin the server's SHA-256 host key (`ssh-keyscan`/`ssh-keygen -lf`). Private key + optional passphrase via agent-managed credentials. No password auth, no implicit OpenSSH config. |
-| `context` | A named Docker Context that already exists in the agent's on-disk context store (`$DOCKER_CONFIG/contexts/` or `~/.docker/contexts/`). `default`, `SkipTLSVerify`, and `ssh://` endpoints are rejected — use a direct `ssh` profile for SSH daemons. |
+| `context` | A named Docker Context that already exists in the agent's on-disk context store (`~/.docker/contexts/`). `default`, `SkipTLSVerify`, and `ssh://` endpoints are rejected — use a direct `ssh` profile for SSH daemons. |
 
 Fields ending in `Key` name secrets resolved on the agent — the profile
 never embeds key material. `targetId`s are immutable: to change an

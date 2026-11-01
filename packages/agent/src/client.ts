@@ -171,10 +171,7 @@ export async function handleCredentialTest(
         );
       }
     }
-    const result =
-      resolvedTarget !== undefined
-        ? await importer.testSecrets(secrets, payload.scope, resolvedTarget)
-        : await importer.testSecrets(secrets, payload.scope);
+    const result = await importer.testSecrets(secrets, payload.scope, resolvedTarget);
     // Importer contract says error strings carry no secret material, but
     // scrub anyway — a non-conforming importer must not leak a resolved
     // value back to the hub over the channel (FR-012/SC-002).

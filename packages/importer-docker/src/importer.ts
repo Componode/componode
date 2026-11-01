@@ -1,5 +1,6 @@
 import Docker from "dockerode";
 import {
+  canonicalizeSourceIdentity,
   validateDiscoveredAsset,
   type CredentialTestResult,
   type DiscoveredAsset,
@@ -11,7 +12,7 @@ import { dockerConfigSchema } from "./config.js";
 import { validateTargetProfile } from "./target-profile.js";
 import { buildDockerOptions } from "./transport.js";
 import { mapContainer, buildAsset, type ContainerInspect } from "./mapping.js";
-import { imageExternalId, type WorkloadIdentity } from "./identity.js";
+import { type WorkloadIdentity } from "./identity.js";
 
 const INSPECT_CONCURRENCY = 8;
 
@@ -63,7 +64,12 @@ export class DockerImporter implements Importer {
         "Docker Engine /info.ID is unavailable and no sourceKey is configured — cannot attribute the run to an ImporterSource",
       );
     }
-    const sourceIdentity = `docker-engine:${engineId ?? parsed.sourceKey}`;
+    // Canonicalize once and reuse — standalone/instance externalIds embed
+    // this prefix and must match the canonical form the Source service
+    // stores (code-review T041).
+    const sourceIdentity = canonicalizeSourceIdentity(
+      `docker-engine:${engineId ?? parsed.sourceKey}`,
+    );
     await context.reportSourceIdentity({
       externalIdentity: sourceIdentity,
       label: info?.Name ?? parsed.sourceKey,
@@ -126,7 +132,7 @@ export class DockerImporter implements Importer {
           : (image.RepoTags ?? []).filter((t) => t !== "<none>:<none>")
         ).map((r) => r.replace("@sha256:", "@").replace(/:(?=[^:/]+$)/, "@"));
         for (const ref of refs) {
-          const externalId = imageExternalId("", ref);
+          const externalId = `docker-image:${ref}`;
           if (seen.has(externalId)) continue;
           seen.add(externalId);
           const asset: DiscoveredAsset = {
@@ -134,7 +140,7 @@ export class DockerImporter implements Importer {
             provider: "DOCKER",
             resourceType: "image",
             name: ref,
-            externalId: `docker-image:${ref}`,
+            externalId,
             details: {
               imageId: image.Id,
               size: image.Size,

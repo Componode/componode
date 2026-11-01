@@ -1,7 +1,6 @@
 import type Docker from "dockerode";
 import type { DockerTargetProfile } from "./target-profile.js";
 import { resolveDockerContext } from "./context-store.js";
-import { createHash } from "node:crypto";
 
 export type DockerOptions = Docker.DockerOptions;
 
@@ -11,9 +10,6 @@ function pinBytes(pin: string): Buffer {
     return Buffer.from(pin.slice("SHA256:".length), "base64");
   }
   if (/^[0-9a-fA-F]{64}$/.test(pin)) {
-    return Buffer.from(pin, "hex");
-  }
-  if (/^[0-9a-fA-F]{32}$/.test(pin)) {
     return Buffer.from(pin, "hex");
   }
   throw new Error("hostKeySha256 must be a 64-hex digest or SHA256:<base64>");

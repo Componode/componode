@@ -175,6 +175,18 @@ describe("DockerImporter.run", () => {
     expect(image?.instances).toEqual([]);
     expect(validateDiscoveredAsset(image)).toBe(true);
   });
+
+  it("an aborted signal short-circuits run() before listing", async () => {
+    const ac = new AbortController();
+    ac.abort();
+    const context = makeContext();
+    context.signal = ac.signal;
+    const assets = [];
+    for await (const a of importer.run({ targetId: "local" }, {}, context))
+      assets.push(a);
+    expect(assets).toHaveLength(0);
+    expect(mocks.listContainers).not.toHaveBeenCalled();
+  });
 });
 
 describe("workload identity", () => {

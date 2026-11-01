@@ -226,3 +226,16 @@ US4/US5 harden provenance and minimization; US6 + polish close the wave.
 
 - [x] T038 [US3] Dedicated transport builder + context-store unit tests in `packages/importer-docker/test/transport.test.ts` and `context-store.test.ts`: ssh → `sshOptions` carries `privateKey`/`hostVerifier`/`hostHash:"sha256"` with hex+`SHA256:base64` pin normalization; tcp missing named secrets → non-secret throw; fixture context store resolves `unix`/`tcp`(+TLS), rejects `default`/`SkipTLSVerify`/`ssh://`
 - [x] T039 [US2][US4] Backend integration in `packages/backend/test/integration/docker-import.test.ts`: fake docker assets through `processAsset` — two Sources share one workload Component with per-source instance memberships; second run retires only the reporting source's absent instance; config delete → Source `UNMONITORED` w/ history; importer throwing mid-enumeration → `FAILED` run, zero memberships deactivated
+
+## Phase 11: Review
+
+- [x] T040 [code-review: standards+spec] requiresAgent dispatch-time gate in `startRun` — refuse in-process dispatch for requiresAgent importers (fail the run, not silent resolveTarget failure) (HIGH)
+- [x] T041 [code-review: spec] canonicalize `docker-engine:{sourceKey}` via `canonicalizeSourceIdentity` so standalone/instance externalId prefixes match the stored Source identity (HIGH)
+- [x] T042 [code-review: standards] `pinBytes` — reject 32-hex pins; SHA-256 (64-hex or `SHA256:<base64>`) only per ADR-121 (MEDIUM)
+- [x] T043 [code-review: standards+spec] image dedup key = emitted externalId (`docker-image:{ref}`) — remove `imageExternalId("", ref)` divergence (MEDIUM)
+- [x] T044 [code-review: spec] rawConfig minimization — drop unratified `restartPolicy`; surface `startedAt` via the `deployedAt` contract field instead of ad-hoc rawConfig (MEDIUM)
+- [x] T045 [code-review: standards] agent client.ts — pass `resolvedTarget` unconditionally; update the credential-test stub expectation (MEDIUM)
+- [x] T046 [code-review: standards] remove unused `createHash` import in transport.ts (LOW)
+- [x] T047 [code-review: spec] docs/importers/docker.md — correct context-store path (`~/.docker/contexts/`; `DOCKER_CONFIG` not consulted in Wave C) (LOW)
+- [x] T048 [code-review: spec] FR-011 clarify — container `Config.Labels` already include Compose service labels (merged at create); comment in mapping.ts (LOW)
+- [x] T049 [code-review: standards] abort-signal unit test — aborted signal short-circuits run() before/after listing (LOW)

@@ -65,6 +65,7 @@ describe("agent credential.test handling", () => {
       expect(probe).toHaveBeenCalledWith(
         { token: "secret-token-value" },
         undefined,
+        undefined,
       );
       const frame = tx.last();
       expect(frame.type).toBe("credential.test.result");
