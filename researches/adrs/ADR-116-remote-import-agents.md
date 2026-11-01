@@ -496,3 +496,31 @@ path now performs the same target preflight as `job.assign`.
 ---
 
 **Amended by ADR-122**: the Hub now owns a database-backed `docker_targets` registry for its own executor; Agent-local registries and the wire protocol are unchanged (spec 049).
+
+## Amendment 7 — URL Check probe frames, protocol v4 (2026-11-01, spec 051)
+
+**Context**: spec 051 implements ADR-123 URL Check monitoring. Checks on
+an `AGENT`-vantage monitoring setup must execute probes inside the
+restricted network; the run-job frames are `import_runs`-shaped and a
+probe is not a run.
+
+**Refinement**:
+
+- **`AGENT_PROTOCOL_VERSION` 3 → 4** — the frame set is enumerated.
+- **New frame family** `url_check.probe` (hub → agent,
+  `{probeId, url, method, timeoutMs, authMode, authKeyNames,
+  secretRefMap}`) and `url_check.probe.result` (agent → hub,
+  `{probeId, outcome, httpStatus?, durationMs?, errorType?}`).
+  Correlation is by payload `probeId` — the `credential.test`/`testId`
+  precedent — not the envelope `runId`; `runId`-correlated frames route
+  to the remote-run handler and would imply `import_runs` semantics.
+  `secretRefMap` carries reference names only (ADR-117); secret values
+  never cross the wire. A slot the agent cannot execute is recorded as a
+  `MISSED` observation (`errorType` `AGENT_OFFLINE`/`TIMEOUT`), not a
+  failed run.
+
+**Amended by ADR-124**: the full URL Check execution-surface contract —
+these frames, `probeId` correlation, protocol v4, plus the permissions,
+error codes, schema, `MISSED` semantics, credential-vantage rule, env
+tunables, and metric-label policy — is ratified in
+`researches/adrs/ADR-124-url-check-execution-surfaces.md`.

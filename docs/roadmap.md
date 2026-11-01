@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–043)
+## Shipped (features 001–048, 051)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -251,13 +251,31 @@ file tracks shipped and upcoming work — update it when a spec completes.
 - `050-bugfix-codeql-sanitize` — CodeQL `js/incomplete-sanitization`
   findings on the importer-docs generator: shared `mdCell()` escape
   (backslash-first ordering) plus a unit regression test.
+- `051-url-check-monitoring` — unified HTTP(S) URL Check monitoring
+  (ADR-123, ADR-124): per-ComponentInstance checks with independent probe
+  history on a shared per-Component monitoring setup (default 5-minute
+  cadence, Hub or Import Agent vantage — agent probes ride new
+  `url_check.probe`/`url_check.probe.result` stream frames correlated by
+  `probeId`, protocol v4), GET/HEAD with no redirects and no body
+  retention, per-check success policy (2xx default) plus optional
+  availability target, availability/error-rate/coverage-gap and
+  p50·p95·p99 TTFB over rolling 24h/7d/30d with 30-day observation
+  retention, `MISSED` rows for scheduled-but-unexecuted slots
+  (conservative SLI, shown as a distinct coverage gap), API-category auth
+  (Basic/Bearer/custom headers via reusable Credentials —
+  `Authorization` reserved, agent vantage requires `AGENT_MANAGED`),
+  `component_monitoring_setups`/`url_checks`/`url_check_observations`
+  schema (migration 024), `urlCheck:*`/`monitoringSetup:update` EDITOR
+  permissions, and monitoring state kept fully separate from
+  importer-reported instance status and product health.
 
 ## Next — post-v1.1
 
 The Docker importer program's mapped waves (A–E) plus Hub execution
-(049) are complete; see `researches/` and the deferred queues below for
-the next initiative (e.g. remaining importer-source migrations, UX gap
-follow-through, or a new importer wave).
+(049) are complete and URL Check monitoring (051) has shipped; `052` is
+the next open spec slot — see `researches/` and the deferred queues
+below for the next initiative (e.g. remaining importer-source
+migrations, UX gap follow-through, or a new importer wave).
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and

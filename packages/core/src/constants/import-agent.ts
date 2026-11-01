@@ -53,7 +53,8 @@ export type AgentAuditAction = (typeof AGENT_AUDIT_ACTIONS)[number];
 // Lockstep parity (ADR-116 #7): hub and agent must agree exactly.
 // v2: heartbeat payload gains the optional `ops` snapshot (spec 028).
 // v3: `source.identity` job-stream frame (spec 044, ADR-116 Amendment 6).
-export const AGENT_PROTOCOL_VERSION = 3;
+// v4: `url_check.probe` / `url_check.probe.result` frames (spec 051, ADR-124).
+export const AGENT_PROTOCOL_VERSION = 4;
 
 // Wire `error` frame codes — shared vocabulary, both directions emit these.
 export const AGENT_ERROR_CODES = {

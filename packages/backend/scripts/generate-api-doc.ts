@@ -75,6 +75,8 @@ const CODE_MEANINGS: Record<string, string> = {
   AGENT_CREDENTIAL_INVALID: "Invalid or revoked agent credential (401)",
   AGENT_VERSION_MISMATCH: "Agent protocol/importer version mismatch (403)",
   AGENT_OFFLINE: "Bound import agent is not connected (503)",
+  URL_CHECK_NOT_FOUND: "URL check not found (404)",
+  MONITORING_SETUP_NOT_FOUND: "Component monitoring setup not found (404)",
   AGENT_TEST_TIMEOUT:
     "Agent did not answer the credential test in time (504)",
   CREDENTIAL_NO_BOUND_AGENT:

@@ -90,3 +90,31 @@ export type {
   AgentAuditAction,
   AgentErrorCode,
 } from "./import-agent.js";
+
+export {
+  URL_CHECK_METHODS,
+  URL_CHECK_AUTH_MODES,
+  URL_CHECK_VANTAGES,
+  URL_CHECK_OUTCOMES,
+  URL_CHECK_ERROR_TYPES,
+  URL_CHECK_WINDOWS,
+  URL_CHECK_WINDOW_PARAMS,
+  URL_CHECK_DEFAULT_CADENCE_SECONDS,
+  URL_CHECK_MIN_CADENCE_SECONDS,
+  URL_CHECK_MAX_CADENCE_SECONDS,
+  URL_CHECK_RETENTION_DAYS,
+  URL_CHECK_DEFAULT_TIMEOUT_MS,
+  URL_CHECK_MAX_PROBE_TIMEOUT_MS,
+  URL_CHECK_PROBE_CONCURRENCY_DEFAULT,
+  URL_CHECK_PROBE_RATE_LIMIT_DEFAULT,
+  URL_CHECK_SWEEP_INTERVAL_MS_DEFAULT,
+} from "./url-check.js";
+export type {
+  UrlCheckMethod,
+  UrlCheckAuthMode,
+  UrlCheckVantage,
+  UrlCheckOutcome,
+  UrlCheckErrorType,
+  UrlCheckWindow,
+  UrlCheckWindowParam,
+} from "./url-check.js";

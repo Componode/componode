@@ -2,6 +2,10 @@ import { z } from "zod";
 import { COMPONENT_CATEGORIES } from "../constants/component-categories.js";
 import { COMPONENT_PROVIDERS } from "../constants/component-providers.js";
 import { linksSchema, tagSchema, tagsSchema } from "./metadata.js";
+import {
+  createInstanceBlockSchema,
+  createMonitoringBlockSchema,
+} from "./url-check.js";
 
 const lifecycleEnum = ["ACTIVE", "RETIRED"] as [string, ...string[]];
 
@@ -71,6 +75,10 @@ export const createComponentSchema = z.object({
   links: linksSchema.optional(),
   tags: tagsSchema.optional(),
   sunsetAt: z.string().datetime({ offset: true }).nullable().optional(),
+  // Composite create-with-checks (spec 051 US5): `monitoring` requires
+  // `instance` — enforced at the service layer.
+  instance: createInstanceBlockSchema.optional(),
+  monitoring: createMonitoringBlockSchema.optional(),
 }).strict();
 
 export const createComponentGroupSchema = z.object({

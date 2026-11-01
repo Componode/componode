@@ -199,6 +199,19 @@ const agentSessionDurationSeconds = getOrCreateHistogram(
   [1, 5, 15, 30, 60, 120, 300, 600, 1800, 3600],
 );
 
+const urlCheckProbesTotal = getOrCreateCounter(
+  "url_check_probes_total",
+  "URL check probe attempts by vantage, outcome, and error type",
+  ["vantage", "outcome", "errorType"],
+);
+
+const urlCheckProbeDurationSeconds = getOrCreateHistogram(
+  "url_check_probe_duration_seconds",
+  "URL check request-to-response-headers duration in seconds",
+  ["vantage"],
+  [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30],
+);
+
 const agentLastContactTimestampSeconds = getOrCreateGauge(
   "agent_last_contact_timestamp_seconds",
   "Unix timestamp of the last accepted frame from the agent",
@@ -240,6 +253,8 @@ export const metrics = {
   agentRemoteJobDurationSeconds,
   agentSessionDurationSeconds,
   agentLastContactTimestampSeconds,
+  urlCheckProbesTotal,
+  urlCheckProbeDurationSeconds,
 };
 
 export async function metricsPlugin(app: FastifyInstance): Promise<void> {

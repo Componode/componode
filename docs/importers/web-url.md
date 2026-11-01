@@ -47,6 +47,13 @@ None.
 | "URL is not allowed" | URL is private/loopback/metadata or non-HTTP(S) — the SSRF guard is working |
 | Instance `ERROR` status | Page responded non-2xx — recorded as-is so the catalog reflects reachability |
 
+## Monitoring vs. discovery
+
+This importer performs one fetch per import run — a point-in-time
+discovery record, not a monitoring history. For scheduled availability,
+error-rate, and latency tracking on the same endpoint, configure [URL
+Checks](../url-checks.md) on the imported Component instead.
+
 ## Source identity
 
 Identity is the canonicalized `url` (scheme-normalized, credentials and auth

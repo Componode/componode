@@ -372,6 +372,51 @@ export interface EdgeSuggestionRow {
   decidedBy: string | null;
 }
 
+export interface ComponentMonitoringSetupRow {
+  id: string;
+  componentId: string;
+  cadenceSeconds: Generated<number>;
+  vantage: Generated<string>;
+  agentId: string | null;
+  createdAt: Generated<string>;
+  updatedAt: Generated<string>;
+}
+
+export interface UrlCheckRow {
+  id: string;
+  setupId: string;
+  componentInstanceId: string;
+  credentialId: string | null;
+  name: string;
+  url: string;
+  method: Generated<string>;
+  enabled: Generated<boolean>;
+  cadenceSeconds: number | null;
+  successPolicy: Generated<unknown>;
+  authMode: Generated<string>;
+  authConfig: unknown;
+  availabilityTarget: string | null; // numeric(5,2) arrives as string
+  targetWindow: string | null;
+  nextProbeAt: string | null;
+  createdBy: string | null;
+  updatedBy: string | null;
+  createdAt: Generated<string>;
+  updatedAt: Generated<string>;
+}
+
+export interface UrlCheckObservationRow {
+  id: string;
+  urlCheckId: string;
+  scheduledAt: string;
+  outcome: string;
+  httpStatus: number | null;
+  durationMs: number | null;
+  errorType: string | null;
+  vantage: string;
+  agentId: string | null;
+  createdAt: Generated<string>;
+}
+
 export interface KyselyMigrationRow {
   name: string;
   timestamp: number;
@@ -414,6 +459,9 @@ export interface DB {
   entity_changes: EntityChangeRow;
   edge_changes: EdgeChangeRow;
   edge_suggestions: EdgeSuggestionRow;
+  component_monitoring_setups: ComponentMonitoringSetupRow;
+  url_checks: UrlCheckRow;
+  url_check_observations: UrlCheckObservationRow;
   kysely_migration: KyselyMigrationRow;
   kysely_migration_lock: KyselyMigrationLockRow;
 }

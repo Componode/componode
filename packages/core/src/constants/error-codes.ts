@@ -56,6 +56,8 @@ export const ERROR_CODES = [
   "TARGET_DISABLED",
   "TARGET_IN_USE",
   "TARGET_RESOLUTION_FAILED",
+  "URL_CHECK_NOT_FOUND",
+  "MONITORING_SETUP_NOT_FOUND",
 ] as const;
 
 export type ErrorCode = typeof ERROR_CODES[number];

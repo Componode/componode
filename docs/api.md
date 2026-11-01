@@ -105,6 +105,8 @@ exception is `GET /metrics`, which is served at the root.
 | `TARGET_DISABLED` | Docker target is disabled — blocked for new configs, runs, and tests (409) |
 | `TARGET_IN_USE` | Docker target delete blocked by referencing importer configs (409) |
 | `TARGET_RESOLUTION_FAILED` | Target profile could not be resolved or is malformed (400) |
+| `URL_CHECK_NOT_FOUND` | URL check not found (404) |
+| `MONITORING_SETUP_NOT_FOUND` | Component monitoring setup not found (404) |
 <!-- /GENERATED:error-codes -->
 
 ---
@@ -442,3 +444,25 @@ never retrievable from any endpoint.
 | POST | `/api/v1/agent/enroll` | Exchange an enrollment token for a durable agent credential | Public |
 | GET | `/api/v1/agent/stream` | Agent control stream (WebSocket upgrade) | Agent credential |
 <!-- /GENERATED:table:Agents -->
+
+## URL checks
+
+URL Check monitoring (ADR-123, spec 051): per-ComponentInstance HTTP(S)
+probes on a shared schedule and vantage (Hub by default, or a selected
+Import Agent). Reads are open to any authenticated role; writes require
+the URL check permissions. Observation history is retained for 30 days.
+`authConfig` carries credential key names only — never secret values.
+
+<!-- GENERATED:table:URLChecks -->
+| Method | Path | Description | Access |
+|---|---|---|---|
+| GET | `/api/v1/components/:componentId/monitoring-setup` | Get the component's URL check monitoring setup | Authenticated |
+| PUT | `/api/v1/components/:componentId/monitoring-setup` | Upsert monitoring defaults (cadence, vantage, agent) | `monitoringSetup:update` |
+| GET | `/api/v1/components/:componentId/url-checks` | List URL checks for a component (with latest observation) | Authenticated |
+| POST | `/api/v1/components/:componentId/url-checks` | Create a URL check on a component instance | `urlCheck:create` |
+| GET | `/api/v1/url-checks/:id` | Get a URL check | Authenticated |
+| PATCH | `/api/v1/url-checks/:id` | Update a URL check (incl. enable/disable) | `urlCheck:update` |
+| DELETE | `/api/v1/url-checks/:id` | Delete a URL check and its observations | `urlCheck:delete` |
+| GET | `/api/v1/url-checks/:id/metrics` | Per-check availability, error rate, and latency percentiles | Authenticated |
+| GET | `/api/v1/url-checks/:id/observations` | Observation history (desc by scheduledAt, cursor-paginated) | Authenticated |
+<!-- /GENERATED:table:URLChecks -->

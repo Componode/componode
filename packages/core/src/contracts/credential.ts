@@ -33,6 +33,9 @@ export type CredentialListItem = Omit<Credential, "secretRefMap">;
 export interface CredentialDependents {
   importerConfigs: Array<{ id: string; label: string }>;
   oidc: boolean;
+  // URL checks referencing this credential (spec 051 US4) — block deletion
+  // the same way importer config dependents do.
+  urlChecks: Array<{ id: string; name: string }>;
 }
 
 export interface CredentialDetail {

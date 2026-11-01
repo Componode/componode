@@ -19,6 +19,12 @@ import type {
   Role,
   RunStatus,
   SourceStatus,
+  UrlCheckAuthMode,
+  UrlCheckMethod,
+  UrlCheckOutcome,
+  UrlCheckStatus,
+  UrlCheckTargetWindow,
+  UrlCheckVantage,
 } from "@/ux/lib/domain";
 
 export interface Link {
@@ -312,4 +318,91 @@ export interface ImporterSource {
   lastSeenInRunId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// --- URL Check monitoring (spec 051) ---------------------------------------
+
+/** Shared per-component probe defaults — cadence and execution vantage. */
+export interface MonitoringSetupView {
+  id: string;
+  cadenceSeconds: number;
+  vantage: UrlCheckVantage;
+  agentId: string | null;
+  agentName: string | null;
+  /** Display label for the vantage: "Hub" or the agent's name. */
+  vantageLabel: string;
+}
+
+/** Latest-observation summary embedded on list rows. */
+export interface UrlCheckLatestView {
+  scheduledAt: string;
+  outcome: UrlCheckOutcome;
+  httpStatus: number | null;
+  durationMs: number | null;
+  errorType: string | null;
+  vantage: UrlCheckVantage;
+}
+
+/** authConfig maps logical fields to credential KEY NAMES — never values. */
+export type UrlCheckAuthConfigView =
+  | { usernameKey: string; passwordKey: string }
+  | { tokenKey: string }
+  | { headers: { name: string; key: string }[] };
+
+export interface UrlCheckView {
+  id: string;
+  setupId: string;
+  componentInstanceId: string;
+  credentialId: string | null;
+  name: string;
+  url: string;
+  method: UrlCheckMethod;
+  enabled: boolean;
+  /** null = inherits the monitoring setup cadence. */
+  cadenceSeconds: number | null;
+  successPolicy: { codes: number[]; ranges: { min: number; max: number }[] };
+  /** Compact rendering of successPolicy, e.g. "200–299, 301". */
+  successPolicyLabel: string;
+  authMode: UrlCheckAuthMode;
+  authConfig: UrlCheckAuthConfigView | null;
+  availabilityTarget: number | null;
+  targetWindow: UrlCheckTargetWindow | null;
+  nextProbeAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  latest: UrlCheckLatestView | null;
+  /** Derived display status — visually distinct from instance health. */
+  status: UrlCheckStatus;
+}
+
+export interface UrlCheckObservationView {
+  id: string;
+  scheduledAt: string;
+  outcome: UrlCheckOutcome;
+  httpStatus: number | null;
+  durationMs: number | null;
+  errorType: string | null;
+  vantage: UrlCheckVantage;
+  agentId: string | null;
+}
+
+export interface UrlCheckMetricsView {
+  window: "24h" | "7d" | "30d";
+  /** Human label for the rolling window, e.g. "24 hours". */
+  windowLabel: string;
+  /** 0..1 — successful scheduled probes / all scheduled probes. */
+  availability: number | null;
+  /** 0..1 — failed probes / attempted probes. */
+  errorRate: number | null;
+  /** 0..1 — scheduled slots that never ran (monitor-side downtime). */
+  coverageGap: number;
+  p50: number | null;
+  p95: number | null;
+  p99: number | null;
+  counts: { success: number; failure: number; missed: number };
+  latest: UrlCheckLatestView | null;
+  vantage: UrlCheckVantage;
+  /** "Hub" or the executing agent's name — phrase as "reachable from". */
+  vantageLabel: string;
+  target: { availability: number; window: UrlCheckTargetWindow } | null;
 }

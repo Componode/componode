@@ -193,7 +193,11 @@ describe("credential store", () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.credential.id).toBe(id);
-      expect(body.dependents).toEqual({ importerConfigs: [], oidc: false });
+      expect(body.dependents).toEqual({
+        importerConfigs: [],
+        oidc: false,
+        urlChecks: [],
+      });
     });
 
     it("404s for unknown id", async () => {

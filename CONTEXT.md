@@ -23,6 +23,13 @@ operational status (`RUNNING`/`STOPPED`/`ERROR`/`GONE`), distinct from the
 Component's logical lifecycle.
 _Avoid_: deployment, environment
 
+**URL Check**:
+A configured check of one HTTP(S) URL associated with a ComponentInstance.
+A ComponentInstance can have multiple URL Checks; each has its own monitoring
+status and availability history, separate from the instance's operational
+status and importer-reported state (ADR-123).
+_Avoid_: URL Importer when referring to a monitoring check
+
 **Component Group**:
 A human-declared equivalence across distinct source assets (e.g. three EC2
 instances in three accounts considered the same logical component). A

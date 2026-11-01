@@ -5,17 +5,25 @@ import {
   updateComponentGroupSchema,
   createComponentSchema,
   updateComponentSchema,
+  createUrlCheckSchema,
+  URL_CHECK_DEFAULT_CADENCE_SECONDS,
   type CreateComponentGroupInput,
   type CreateComponentInput,
   type UpdateComponentGroupInput,
   type UpdateComponentInput,
   type Link,
+  type MonitoringSetup,
+  type UrlCheck,
   listComponentGroupsQuerySchema,
 } from "@componode/core";
+import type { Selectable } from "kysely";
 import { db } from "../db/connection.js";
+import type { ComponentInstanceRow, ComponentRow } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
 import { tagsDiffer } from "./suggestion-signals.js";
+import { insertCheck } from "./url-check-service.js";
+import { assertAgentUsable } from "./monitoring-setup-service.js";
 
 function isValidSlug(slug: string): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && slug.length <= 100;
@@ -407,11 +415,26 @@ export async function updateComponent(
  * createComponentGroup: slug format + uniqueness, FK existence checks,
  * uuid v7, audit event. Importer-managed columns stay null.
  */
+export interface CreateComponentResult {
+  component: Selectable<ComponentRow> | undefined;
+  // Composite create-with-checks (spec 051 US5) — present only when the
+  // request carried the instance/monitoring blocks.
+  instance?: Selectable<ComponentInstanceRow>;
+  setup?: MonitoringSetup;
+  checks?: UrlCheck[];
+}
+
 export async function createComponent(
   input: CreateComponentInput,
   actor: Actor,
-) {
+): Promise<CreateComponentResult> {
   const parsed = createComponentSchema.parse(input);
+  if (parsed.monitoring && !parsed.instance) {
+    throw Object.assign(
+      new Error("monitoring requires an instance block"),
+      { statusCode: 400, code: "VALIDATION_FAILED" },
+    );
+  }
   if (!isValidSlug(parsed.slug)) {
     throw Object.assign(new Error("Invalid slug"), {
       statusCode: 400,
@@ -450,6 +473,19 @@ export async function createComponent(
         code: "NOT_FOUND",
       });
     }
+  }
+
+  // Setup-block validation runs before the transaction so a bad request
+  // fails fast; row validation (agent usable, check rules) happens inside.
+  const setupIn = parsed.monitoring?.setup;
+  if (parsed.monitoring && setupIn?.vantage === "AGENT" && !setupIn.agentId) {
+    throw Object.assign(
+      new Error("agentId is required when vantage is AGENT"),
+      { statusCode: 400, code: "VALIDATION_FAILED" },
+    );
+  }
+  if (setupIn?.agentId) {
+    await assertAgentUsable(setupIn.agentId);
   }
 
   const id = uuidv7();
@@ -492,11 +528,130 @@ export async function createComponent(
       trx,
     );
 
-    return trx
+    const component = await trx
       .selectFrom("components")
       .selectAll()
       .where("components.id", "=", id)
       .executeTakeFirst();
+
+    if (!parsed.instance) {
+      return { component };
+    }
+
+    // Composite create (spec 051 US5): component + one instance, plus the
+    // monitoring setup + every check when a monitoring block is present —
+    // all in this transaction, so a failed check rolls the graph back.
+    const block = parsed.instance;
+    const instanceId = uuidv7();
+    await trx
+      .insertInto("component_instances")
+      .values({
+        id: instanceId,
+        componentId: id,
+        environment: block.environment,
+        url: block.url ?? null,
+        region: block.region ?? null,
+        status: "RUNNING",
+        version: block.version ?? null,
+        deployedAt: null,
+        rawConfig: null,
+        externalId: `manual:${parsed.slug}`,
+        slug: `${parsed.slug}-${block.environment.toLowerCase()}`,
+        lastSeenAt: null,
+        lastSeenInRunId: null,
+        createdBy: actor.id,
+        updatedBy: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await writeEntityChange(
+      {
+        entityType: "component_instance",
+        entityId: instanceId,
+        action: "created",
+        changes: {
+          componentId: id,
+          environment: block.environment,
+          externalId: `manual:${parsed.slug}`,
+        },
+        actor,
+      },
+      trx,
+    );
+    const instance = await trx
+      .selectFrom("component_instances")
+      .selectAll()
+      .where("id", "=", instanceId)
+      .executeTakeFirst();
+
+    if (!parsed.monitoring) {
+      return { component, instance };
+    }
+
+    const vantage = setupIn?.vantage ?? "HUB";
+    const setupId = uuidv7();
+    await trx
+      .insertInto("component_monitoring_setups")
+      .values({
+        id: setupId,
+        componentId: id,
+        cadenceSeconds:
+          setupIn?.cadenceSeconds ?? URL_CHECK_DEFAULT_CADENCE_SECONDS,
+        vantage,
+        agentId: vantage === "AGENT" ? (setupIn?.agentId ?? null) : null,
+      })
+      .execute();
+    await writeEntityChange(
+      {
+        entityType: "monitoring_setup",
+        entityId: setupId,
+        action: "created",
+        changes: {
+          componentId: id,
+          cadenceSeconds:
+            setupIn?.cadenceSeconds ?? URL_CHECK_DEFAULT_CADENCE_SECONDS,
+          vantage,
+        },
+        actor,
+      },
+      trx,
+    );
+    const setupRow = await trx
+      .selectFrom("component_monitoring_setups")
+      .selectAll()
+      .where("id", "=", setupId)
+      .executeTakeFirstOrThrow();
+    const agentName = setupRow.agentId
+      ? (
+          await trx
+            .selectFrom("import_agents")
+            .select("name")
+            .where("id", "=", setupRow.agentId)
+            .executeTakeFirst()
+        )?.name ?? null
+      : null;
+    const setup: MonitoringSetup = {
+      id: setupRow.id,
+      componentId: setupRow.componentId,
+      cadenceSeconds: setupRow.cadenceSeconds,
+      vantage: setupRow.vantage as MonitoringSetup["vantage"],
+      agentId: setupRow.agentId,
+      agentName,
+      createdAt: setupRow.createdAt,
+      updatedAt: setupRow.updatedAt,
+    };
+
+    const checks: UrlCheck[] = [];
+    for (const checkInput of parsed.monitoring.checks) {
+      const checkParsed = createUrlCheckSchema.parse({
+        ...checkInput,
+        componentInstanceId: instanceId,
+      });
+      checks.push(await insertCheck(trx, id, setupId, vantage, checkParsed, actor));
+    }
+
+    return { component, instance, setup, checks };
   });
 }
 

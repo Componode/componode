@@ -60,6 +60,7 @@ export default withMermaid(
         items: [
           { text: "Interactive API (OpenAPI)", link: "/openapi-reference" },
           { text: "API conventions & tables", link: "/api" },
+          { text: "URL Checks", link: "/url-checks" },
           { text: "Vocabulary", link: "/vocabulary" },
         ],
       },

@@ -383,3 +383,67 @@ export {
 } from "./validation/url-safety.js";
 export { computeProductHealth } from "./product-health.js";
 export type { ProductHealthInput } from "./product-health.js";
+
+// URL Check monitoring (spec 051, ADR-123)
+export type {
+  MonitoringSetup,
+  SuccessPolicy,
+  BasicAuthConfig,
+  BearerAuthConfig,
+  CustomHeadersAuthConfig,
+  UrlCheckAuthConfig,
+  UrlCheck,
+  UrlCheckObservation,
+  UrlCheckLatest,
+  UrlCheckListItem,
+  UrlCheckMetrics,
+} from "./contracts/url-check.js";
+export {
+  successPolicySchema,
+  authConfigSchema,
+  updateMonitoringSetupSchema,
+  createUrlCheckSchema,
+  updateUrlCheckSchema,
+  urlCheckMetricsQuerySchema,
+  urlCheckObservationsQuerySchema,
+  createInstanceBlockSchema,
+  createMonitoringBlockSchema,
+} from "./schemas/url-check.js";
+export type {
+  UpdateMonitoringSetupInput,
+  CreateUrlCheckInput,
+  UpdateUrlCheckInput,
+  UrlCheckMetricsQuery,
+  UrlCheckObservationsQuery,
+  CreateInstanceBlock,
+  CreateMonitoringBlock,
+} from "./schemas/url-check.js";
+export { executeHttpProbe, statusAccepted } from "./monitoring/probe.js";
+export type { HttpProbeInput, HttpProbeResult } from "./monitoring/probe.js";
+export {
+  URL_CHECK_METHODS,
+  URL_CHECK_AUTH_MODES,
+  URL_CHECK_VANTAGES,
+  URL_CHECK_OUTCOMES,
+  URL_CHECK_ERROR_TYPES,
+  URL_CHECK_WINDOWS,
+  URL_CHECK_WINDOW_PARAMS,
+  URL_CHECK_DEFAULT_CADENCE_SECONDS,
+  URL_CHECK_MIN_CADENCE_SECONDS,
+  URL_CHECK_MAX_CADENCE_SECONDS,
+  URL_CHECK_RETENTION_DAYS,
+  URL_CHECK_DEFAULT_TIMEOUT_MS,
+  URL_CHECK_MAX_PROBE_TIMEOUT_MS,
+  URL_CHECK_PROBE_CONCURRENCY_DEFAULT,
+  URL_CHECK_PROBE_RATE_LIMIT_DEFAULT,
+  URL_CHECK_SWEEP_INTERVAL_MS_DEFAULT,
+} from "./constants/url-check.js";
+export type {
+  UrlCheckMethod,
+  UrlCheckAuthMode,
+  UrlCheckVantage,
+  UrlCheckOutcome,
+  UrlCheckErrorType,
+  UrlCheckWindow,
+  UrlCheckWindowParam,
+} from "./constants/url-check.js";

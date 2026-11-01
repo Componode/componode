@@ -28,6 +28,8 @@ interface CredentialDetailProps {
   credential: Credential
   /** Bound importer configs (full rows — scope is needed for test connection). */
   importers: ImporterConfig[]
+  /** URL checks referencing this credential (FR-022 dependents). */
+  urlChecks: { id: string; name: string }[]
   events: AuditEvent[]
 }
 
@@ -36,7 +38,7 @@ function daysUntil(iso: string | null): number | null {
   return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
 }
 
-export function CredentialDetail({ credential, importers, events }: CredentialDetailProps) {
+export function CredentialDetail({ credential, importers, urlChecks, events }: CredentialDetailProps) {
   const navigate = useNavigate()
   const [tab, setTab] = useValidatedTab(TABS)
   const test = useTestCredential(credential.id)
@@ -118,7 +120,7 @@ export function CredentialDetail({ credential, importers, events }: CredentialDe
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="usage">Used by ({importers.length})</TabsTrigger>
+          <TabsTrigger value="usage">Used by ({importers.length + urlChecks.length})</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
@@ -167,35 +169,57 @@ export function CredentialDetail({ credential, importers, events }: CredentialDe
           </Card>
         </TabsContent>
 
-        <TabsContent value="usage" className="mt-4">
+        <TabsContent value="usage" className="mt-4 space-y-4">
           <Card className="overflow-hidden py-0">
-            {importers.length === 0 ? (
-              <EmptyState icon={KeyRoundIcon} title="Not used by any importer" description="Attach this credential from an importer's settings to start using it." />
+            {importers.length === 0 && urlChecks.length === 0 ? (
+              <EmptyState icon={KeyRoundIcon} title="Not used yet" description="Attach this credential from an importer's settings or a URL check to start using it." />
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="pl-4">Importer</TableHead>
-                    <TableHead>Schedule</TableHead>
-                    <TableHead className="pr-4">Last run</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {importers.map((i) => (
-                    <TableRow key={i.id}>
-                      <TableCell className="pl-4">
-                        <Link to={ux(`/importers/${i.id}`)} className="font-medium hover:underline">
-                          {i.label}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{i.enabled ? (i.schedule ?? "Manual") : "Disabled"}</TableCell>
-                      <TableCell className="pr-4 font-mono text-xs text-muted-foreground">
-                        {Object.keys(i.scope).slice(0, 3).join(", ") || "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <>
+                {importers.length > 0 && (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40 hover:bg-muted/40">
+                        <TableHead className="pl-4">Importer</TableHead>
+                        <TableHead>Schedule</TableHead>
+                        <TableHead className="pr-4">Last run</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {importers.map((i) => (
+                        <TableRow key={i.id}>
+                          <TableCell className="pl-4">
+                            <Link to={ux(`/importers/${i.id}`)} className="font-medium hover:underline">
+                              {i.label}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{i.enabled ? (i.schedule ?? "Manual") : "Disabled"}</TableCell>
+                          <TableCell className="pr-4 font-mono text-xs text-muted-foreground">
+                            {Object.keys(i.scope).slice(0, 3).join(", ") || "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+                {urlChecks.length > 0 && (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40 hover:bg-muted/40">
+                        <TableHead className="pl-4">URL check</TableHead>
+                        <TableHead className="pr-4">ID</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {urlChecks.map((c) => (
+                        <TableRow key={c.id}>
+                          <TableCell className="pl-4 font-medium">{c.name}</TableCell>
+                          <TableCell className="pr-4 font-mono text-xs text-muted-foreground">{c.id}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </>
             )}
           </Card>
         </TabsContent>
@@ -229,7 +253,7 @@ export function CredentialDetail({ credential, importers, events }: CredentialDe
                   description: "Importers stop using it immediately. This cannot be undone.",
                   buttonLabel: "Revoke",
                   confirmTitle: `Revoke ${credential.label}?`,
-                  confirmDescription: `${importers.length} importer${importers.length === 1 ? "" : "s"} will fail until a new credential is attached.`,
+                  confirmDescription: `${importers.length + urlChecks.length} dependent${importers.length + urlChecks.length === 1 ? "" : "s"} (importers, URL checks) will fail until a new credential is attached.`,
                   confirmLabel: "Revoke credential",
                   typeToConfirm: credential.slug,
                   successMessage: `${credential.label} revoked`,
@@ -250,8 +274,8 @@ export function CredentialDetail({ credential, importers, events }: CredentialDe
             confirmLabel: "Delete credential",
             typeToConfirm: credential.slug,
             blockedReason:
-              importers.length > 0
-                ? `Detach it from the ${importers.length} importer${importers.length === 1 ? "" : "s"} using it before deleting.`
+              importers.length + urlChecks.length > 0
+                ? `Detach it from the ${importers.length + urlChecks.length} dependent${importers.length + urlChecks.length === 1 ? "" : "s"} (importers, URL checks) using it before deleting.`
                 : undefined,
             successMessage: `${credential.label} deleted`,
             onConfirm: () =>

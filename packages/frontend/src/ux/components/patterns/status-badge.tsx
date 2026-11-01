@@ -5,6 +5,8 @@ import {
   AGENT_STATUS_META,
   type AgentCredentialState,
   type AgentStatus,
+  CHECK_OUTCOME_META,
+  CHECK_STATUS_META,
   CREDENTIAL_STATUS_META,
   CRITICALITY_META,
   type Criticality,
@@ -22,6 +24,8 @@ import {
   RUN_STATUS_META,
   type RunStatus,
   type Tone,
+  type UrlCheckOutcome,
+  type UrlCheckStatus,
 } from "@/ux/lib/domain"
 import { cn } from "@/ux/lib/utils"
 
@@ -81,6 +85,20 @@ export function HealthBadge({ value }: { value: InstanceStatus | null }) {
   return <StatusBadge {...metaOr(HEALTH_META, value)} />
 }
 export const EnvironmentBadge = ({ value }: { value: Environment }) => <StatusBadge {...metaOr(ENVIRONMENT_META, value)} />
+/**
+ * URL Check monitoring status (spec 051, FR-024) — deliberately distinct
+ * from `HealthBadge`: checks read "Up"/"Down"/"No data"/"Disabled" in a
+ * mono caps treatment while instances read "Running"/"Error".
+ */
+export function CheckStatusBadge({ value, vantageLabel }: { value: UrlCheckStatus; vantageLabel?: string }) {
+  const meta = metaOr(CHECK_STATUS_META, value)
+  const description = vantageLabel ? `${meta.description} — reachable from ${vantageLabel}.` : meta.description
+  return <StatusBadge {...meta} description={description} className="font-mono uppercase tracking-wide" />
+}
+/** Single observation outcome on the check history surfaces. */
+export const CheckOutcomeBadge = ({ value }: { value: UrlCheckOutcome }) => (
+  <StatusBadge {...metaOr(CHECK_OUTCOME_META, value)} />
+)
 export const RunStatusBadge = ({ value }: { value: RunStatus }) => (
   <StatusBadge {...metaOr(RUN_STATUS_META, value)} pulse={value === "RUNNING"} />
 )

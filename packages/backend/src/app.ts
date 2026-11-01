@@ -33,10 +33,13 @@ import { orgRoutes } from "./routes/org.js";
 import { auditRoutes } from "./routes/audit.js";
 import { agentRoutes } from "./routes/agents.js";
 import { agentChannelRoutes } from "./routes/agent-channel.js";
+import { urlCheckRoutes } from "./routes/url-checks.js";
 import { agentAuthPlugin } from "./plugins/agent-auth.js";
 import { AgentSessionService } from "./services/agent-session-service.js";
 import { RemoteRunService } from "./services/remote-run-service.js";
 import { setRemoteRunDispatcher } from "./services/import-run-service.js";
+import { setUrlCheckAgentDispatch } from "./services/probe-dispatcher.js";
+import { stopUrlCheckScheduler } from "./services/url-check-scheduler.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -93,6 +96,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   const agentSessions = new AgentSessionService(app.log);
   agentSessions.start();
   app.decorate("agentSessions", agentSessions);
+  // URL Check probes (spec 051): the dispatcher reaches the live session
+  // service through this seam — the scheduler runs outside the app context.
+  setUrlCheckAgentDispatch((agentId, payload) =>
+    agentSessions.dispatchUrlCheckProbe(agentId, payload),
+  );
 
   // Remote run dispatch (spec 027): the dispatcher owns agent job state;
   // the session service routes job frames to it and notifies on session
@@ -103,6 +111,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.decorate("remoteRuns", remoteRuns);
 
   app.addHook("onClose", async () => {
+    setUrlCheckAgentDispatch(null);
+    stopUrlCheckScheduler();
     remoteRuns.stop();
     setRemoteRunDispatcher(null);
     await agentSessions.stop();
@@ -120,6 +130,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(dockerTargetRoutes, { prefix: "/api/v1" });
   await app.register(componentRoutes, { prefix: "/api/v1" });
   await app.register(componentGroupRoutes, { prefix: "/api/v1" });
+  await app.register(urlCheckRoutes, { prefix: "/api/v1" });
   await app.register(dashboardRoutes, { prefix: "/api/v1" });
   await app.register(searchRoutes, { prefix: "/api/v1" });
   await app.register(productRoutes, { prefix: "/api/v1" });

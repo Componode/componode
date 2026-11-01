@@ -5,9 +5,14 @@ import { TooltipProvider } from "@/ux/components/ui/tooltip";
 import { ComponentDetail } from "@/ux/components/catalog/component-detail";
 import type { Component, ComponentInstance } from "@/ux/lib/view-types";
 
-// The edit dialog needs live query hooks — out of scope for this test.
+// The edit dialog and URL-checks card need live query hooks — out of
+// scope for this test.
 vi.mock("@/ux/components/catalog/component-edit-dialog", () => ({
   ComponentEditDialog: () => null,
+}));
+vi.mock("@/ux/components/catalog/url-checks-card", () => ({
+  UrlChecksCard: () => null,
+  OutcomeDots: () => null,
 }));
 
 const wrap = (el: React.ReactElement) =>
