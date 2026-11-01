@@ -1,4 +1,8 @@
-import Fastify, { type FastifyInstance, type FastifyLoggerOptions, type FastifyServerOptions } from "fastify";
+import Fastify, {
+  type FastifyInstance,
+  type FastifyLoggerOptions,
+  type FastifyServerOptions,
+} from "fastify";
 import cookie from "@fastify/cookie";
 import websocket from "@fastify/websocket";
 import staticPlugin from "@fastify/static";
@@ -38,7 +42,10 @@ import { agentAuthPlugin } from "./plugins/agent-auth.js";
 import { AgentSessionService } from "./services/agent-session-service.js";
 import { RemoteRunService } from "./services/remote-run-service.js";
 import { setRemoteRunDispatcher } from "./services/import-run-service.js";
-import { setUrlCheckAgentDispatch } from "./services/probe-dispatcher.js";
+import {
+  setUrlCheckAgentDispatch,
+  setUrlCheckAgentOnlineChecker,
+} from "./services/probe-dispatcher.js";
 import { stopUrlCheckScheduler } from "./services/url-check-scheduler.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -56,7 +63,10 @@ export function resolveTrustProxy(): FastifyServerOptions["trustProxy"] {
   // proxy-addr (Fastify's trustProxy implementation) accepts a numeric hop
   // count, but the FastifyServerOptions type omits `number` — cast it.
   if (/^\d+$/.test(raw)) return Number.parseInt(raw, 10) as unknown as boolean;
-  const parts = raw.split(",").map((p) => p.trim()).filter(Boolean);
+  const parts = raw
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
   return parts.length === 1 ? parts[0]! : parts;
 }
 
@@ -101,6 +111,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   setUrlCheckAgentDispatch((agentId, payload) =>
     agentSessions.dispatchUrlCheckProbe(agentId, payload),
   );
+  // Offline agents bypass admission control (spec 052 FR-004): their
+  // misses are cheap AGENT_OFFLINE writes, never deferred probe work.
+  setUrlCheckAgentOnlineChecker((agentId) =>
+    agentSessions.isConnected(agentId),
+  );
 
   // Remote run dispatch (spec 027): the dispatcher owns agent job state;
   // the session service routes job frames to it and notifies on session
@@ -112,6 +127,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   app.addHook("onClose", async () => {
     setUrlCheckAgentDispatch(null);
+    setUrlCheckAgentOnlineChecker(null);
     stopUrlCheckScheduler();
     remoteRuns.stop();
     setRemoteRunDispatcher(null);
@@ -138,7 +154,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(orgRoutes, { prefix: "/api/v1" });
   await app.register(auditRoutes, { prefix: "/api/v1" });
   await app.register(agentRoutes, { prefix: "/api/v1" });
-  await app.register(agentChannelRoutes, { prefix: "/api/v1", sessions: agentSessions });
+  await app.register(agentChannelRoutes, {
+    prefix: "/api/v1",
+    sessions: agentSessions,
+  });
 
   // Metrics endpoint — unauthenticated, no prefix (ADR-069)
   await app.register(metricsRoutes);

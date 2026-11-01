@@ -166,6 +166,15 @@ export const urlCheckProbeResultPayloadSchema = z
   })
   .strict();
 
+// Probe cancellation (spec 052, protocol v5): the hub signals an aborted
+// dispatch — payload-correlated by probeId like the rest of the probe
+// family, not the runId-correlated job `cancel` frame.
+export const urlCheckProbeCancelPayloadSchema = z
+  .object({
+    probeId: z.string().uuid(),
+  })
+  .strict();
+
 // Job execution frames (spec 027, ADR-116): one job = one import run; the
 // envelope `runId` correlates every frame. `job.assign` carries the config
 // scope plus the merged AGENT_MANAGED reference map — names, never values.
@@ -258,6 +267,7 @@ export const agentMessageSchemas = {
   "credential.test.result": envelope(credentialTestResultPayloadSchema),
   "url_check.probe": envelope(urlCheckProbePayloadSchema),
   "url_check.probe.result": envelope(urlCheckProbeResultPayloadSchema),
+  "url_check.probe.cancel": envelope(urlCheckProbeCancelPayloadSchema),
   "job.assign": jobEnvelope(jobAssignPayloadSchema),
   "job.ack": jobEnvelope(jobAckPayloadSchema),
   "source.identity": jobEnvelope(sourceIdentityPayloadSchema),
@@ -284,6 +294,7 @@ export type AgentCredentialTestPayload = z.infer<typeof credentialTestPayloadSch
 export type AgentCredentialTestResultPayload = z.infer<typeof credentialTestResultPayloadSchema>;
 export type UrlCheckProbePayload = z.infer<typeof urlCheckProbePayloadSchema>;
 export type UrlCheckProbeResultPayload = z.infer<typeof urlCheckProbeResultPayloadSchema>;
+export type UrlCheckProbeCancelPayload = z.infer<typeof urlCheckProbeCancelPayloadSchema>;
 export type JobAssignPayload = z.infer<typeof jobAssignPayloadSchema>;
 export type JobAckPayload = z.infer<typeof jobAckPayloadSchema>;
 export type SourceIdentityPayload = z.infer<typeof sourceIdentityPayloadSchema>;

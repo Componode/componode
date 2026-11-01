@@ -26,9 +26,9 @@ here per the ADR-fidelity rule.
 
 1. **Agent probe frames.** Two new frames on the agent stream:
    `url_check.probe` (hub → agent) carrying `{probeId, url, method,
-   timeoutMs, authMode, authKeyNames, secretRefMap}` and
+timeoutMs, authMode, authKeyNames, secretRefMap}` and
    `url_check.probe.result` (agent → hub) carrying `{probeId, outcome,
-   httpStatus?, durationMs?, errorType?}`. Correlation is by payload
+httpStatus?, durationMs?, errorType?}`. Correlation is by payload
    `probeId` — the `credential.test`/`testId` precedent — not the envelope
    `runId`: probes are not import runs, and `runId`-correlated frames
    route to the remote-run handler with `import_runs` semantics.
@@ -76,7 +76,7 @@ here per the ADR-fidelity rule.
    execute — selected agent offline, hub downtime recovered at startup,
    or dispatch rejection — persists a `MISSED` row with `scheduledAt`
    set to the missed slot. Metrics: `availability = SUCCESS / (SUCCESS +
-   FAILURE + MISSED)` — scheduled-but-missed probes count against
+FAILURE + MISSED)` — scheduled-but-missed probes count against
    availability (conservative SLI, per the user-clarified decision);
    `errorRate = FAILURE / (SUCCESS + FAILURE)` — executed attempts only;
    `coverageGap = MISSED` share, displayed distinctly so monitor-side
@@ -104,7 +104,7 @@ here per the ADR-fidelity rule.
    (default 300; per-setup and per-check overrides bounded 60–86400 s).
 
 8. **Metric-label policy.** `url_check_probes_total{vantage, outcome,
-   errorType}` counter and `url_check_probe_duration_seconds{vantage}`
+errorType}` counter and `url_check_probe_duration_seconds{vantage}`
    histogram — bounded enum labels only. No check id, URL, or config
    labels (ADR-069 low-cardinality rule, FR-018). The raw URL may appear
    in pino logs (non-secret configuration); credential material never
@@ -154,7 +154,7 @@ here per the ADR-fidelity rule.
   revocation, and delete protection include checks.
 
 **Unchanged**: ADR-106 URL destination restrictions (validated at write
-*and* probe time, on the agent too), ADR-112 product-health rollup,
+_and_ probe time, on the agent too), ADR-112 product-health rollup,
 ADR-117 `AGENT_MANAGED` reference-only semantics, ADR-119 ImporterSource
 identity and reconciliation.
 
@@ -194,3 +194,47 @@ check count.
 - **Pre-aggregated rollups for percentiles** — rejected. `percentile_cont`
   over ≤ ~8.6k rows/check is exact and trivially cheap; rollups cannot be
   re-aggregated across windows.
+
+## Amendment 1 — Agent-vantage bounds and cancellation (2026-11-01, spec 052)
+
+**Context**: the G1 gap analysis showed the ratified execution bounds
+(item 7) applied only to HUB-vantage dispatch — `dispatchProbe` branched
+to agent execution before the `p-queue`, the agent ran every
+`url_check.probe` frame unbounded, and no cancellation path existed.
+
+**Refinements**:
+
+- **Item 1 (frames)** — the probe family gains
+  `url_check.probe.cancel` (hub → agent, `{probeId}`), sent when the hub
+  finalizes a dispatch without a result (deadline expiry). The agent
+  aborts the in-flight fetch via `AbortSignal`; unknown/settled
+  `probeId` is a no-op; session close aborts all in-flight probes
+  locally. `AGENT_PROTOCOL_VERSION` 4 → 5 (lockstep).
+- **Item 4 (schema)** — `SATURATED` joins `URL_CHECK_ERROR_TYPES`
+  (migration 026 alters `url_check_obs_error_type_check`): the slot
+  could not execute because probe work exceeded a bound.
+- **Item 5 (MISSED semantics)** — two `SATURATED` sources map to
+  `MISSED`: hub per-agent deferral overflow, and an agent at-cap refusal
+  (`url_check.probe.result{outcome:"FAILURE", errorType:"SATURATED"}` —
+  an unexecuted refusal is never an endpoint FAILURE). Distinguishing
+  `SATURATED` from `AGENT_OFFLINE` separates "monitor overloaded" from
+  "agent down".
+- **Item 7 (env tunables)** — gains `URL_CHECK_AGENT_CONCURRENCY`
+  (default 4 — per-agent in-flight bound), `URL_CHECK_AGENT_RATE_LIMIT`
+  (default 20 — dispatches per sweep interval per agent),
+  `URL_CHECK_AGENT_QUEUE_MAX` (default 100 — bounded deferral; overflow
+  → MISSED/SATURATED per the spec-052 clarification), and agent-side
+  `URL_CHECK_MAX_PROBES` (default 8 — the agent's own cap, deliberately
+  above the hub bound).
+- **Item 8 (metric-label policy)** — `url_check_probes_total` exposes
+  saturation via `errorType="SATURATED"`; hub adds label-free gauges
+  `url_check_agent_probes_in_flight` and
+  `url_check_agent_probe_queue_depth` (sums across agents — agentId is
+  never a label); agent ops gains
+  `agent_url_check_probes_in_flight` and
+  `agent_url_check_probes_total{result}` — which agent saturates is read
+  at the agent's own scrape target.
+
+**Unchanged**: one observation per scheduled slot under every finalize
+path — a result arriving after finalization is discarded; cancellation
+is prompt-resource-freeing, not a new outcome.

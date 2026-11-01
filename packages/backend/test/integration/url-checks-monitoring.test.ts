@@ -2,11 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { uuidv7 } from "uuidv7";
 import { randomBytes } from "node:crypto";
 import { startTestDb, type TestDb } from "../helpers/testcontainers.js";
-import {
-  SESSION_COOKIE_NAME,
-  csrfCookie,
-  csrfHeader,
-} from "../helpers/api.js";
+import { SESSION_COOKIE_NAME, csrfCookie, csrfHeader } from "../helpers/api.js";
 
 // Spec 051 US2/US4/US5 — probe dispatcher, scheduler sweep + retention, and
 // composite create. Service-level tests drive dispatchProbe/sweepOnce
@@ -137,6 +133,11 @@ async function seedCheck(
 }
 
 async function observations(db: TestDb["db"], checkId: string) {
+  // Agent-vantage dispatchProbe resolves at admission (spec 052) — drain
+  // the per-agent pools so deferred work finalizes before we assert.
+  const { waitForAgentProbePoolsIdle } =
+    await import("../../src/services/probe-dispatcher.js");
+  await waitForAgentProbePoolsIdle();
   return db
     .selectFrom("url_check_observations")
     .selectAll()
@@ -163,23 +164,19 @@ describe("url check monitoring (US2/US4/US5)", () => {
     process.env.COMPONODE_SECRETS_KEY = TEST_KEY;
     vi.resetModules();
 
-    const { resetKeyringCache } = await import(
-      "../../src/utils/credential-crypto.js"
-    );
+    const { resetKeyringCache } =
+      await import("../../src/utils/credential-crypto.js");
     resetKeyringCache();
-    const { bootstrapAdmin } = await import(
-      "../../src/services/bootstrap-service.js"
-    );
+    const { bootstrapAdmin } =
+      await import("../../src/services/bootstrap-service.js");
     await bootstrapAdmin();
     const { buildApp } = await import("../../src/app.js");
     app = await buildApp();
     await app.ready();
-    ({ dispatchProbe, setUrlCheckAgentDispatch } = await import(
-      "../../src/services/probe-dispatcher.js"
-    ));
-    ({ sweepOnce, purgeExpiredObservations } = await import(
-      "../../src/services/url-check-scheduler.js"
-    ));
+    ({ dispatchProbe, setUrlCheckAgentDispatch } =
+      await import("../../src/services/probe-dispatcher.js"));
+    ({ sweepOnce, purgeExpiredObservations } =
+      await import("../../src/services/url-check-scheduler.js"));
     const { loginAs } = await import("../helpers/api.js");
     adminSession = (await loginAs(app, ADMIN_USERNAME, ADMIN_PASSWORD))!;
   }, 120000);
@@ -334,11 +331,7 @@ describe("url check monitoring (US2/US4/US5)", () => {
     });
     await sweepOnce({ fetchImpl: async () => okResponse(200) });
     const obs = await observations(testDb.db, checkId);
-    expect(obs.map((o) => o.outcome)).toEqual([
-      "MISSED",
-      "MISSED",
-      "SUCCESS",
-    ]);
+    expect(obs.map((o) => o.outcome)).toEqual(["MISSED", "MISSED", "SUCCESS"]);
     expect(new Date(obs[0].scheduledAt).getTime()).toBe(start - 150_000);
     expect(new Date(obs[2].scheduledAt).getTime()).toBe(start - 30_000);
     const check = await testDb.db

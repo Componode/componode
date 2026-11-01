@@ -21,6 +21,7 @@ function cfg(overrides: Partial<AgentConfig> = {}): AgentConfig {
     streamUrl: "wss://hub.corp.internal/api/v1/agent/stream",
     stateDir: mkdtempSync(join(tmpdir(), "agent-enroll-")),
     maxJobs: 1,
+    urlCheckMaxProbes: 8,
     ...overrides,
   };
 }

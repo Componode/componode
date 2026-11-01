@@ -390,7 +390,10 @@ export class AgentSessionService {
       session.frameQueue = (session.frameQueue ?? Promise.resolve())
         .then(() => this.onFrame(session, raw))
         .catch((err) =>
-          this.log.warn({ agent: session.agentName, err }, "agent frame handling failed"),
+          this.log.warn(
+            { agent: session.agentName, err },
+            "agent frame handling failed",
+          ),
         );
     });
     socket.on("close", () => void this.closeSession(session, "client_close"));
@@ -556,6 +559,13 @@ export class AgentSessionService {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pendingProbes.delete(payload.probeId);
+        // Spec 052: the slot finalizes MISSED/TIMEOUT here — tell the
+        // agent to abort the in-flight fetch instead of letting it run
+        // to its full timeout. Best-effort: send() drops on a closed
+        // socket, and a dead session aborts probes agent-side anyway.
+        this.send(session.socket, "url_check.probe.cancel", {
+          probeId: payload.probeId,
+        });
         reject(
           Object.assign(
             new Error(
@@ -592,15 +602,27 @@ export class AgentSessionService {
       case "job.ack":
         return h.onJobAck(session.agentId, runId, payload as JobAckPayload);
       case "source.identity":
-        return h.onSourceIdentity(session.agentId, runId, payload as SourceIdentityPayload);
+        return h.onSourceIdentity(
+          session.agentId,
+          runId,
+          payload as SourceIdentityPayload,
+        );
       case "asset.batch":
-        return h.onAssetBatch(session.agentId, runId, payload as AssetBatchPayload);
+        return h.onAssetBatch(
+          session.agentId,
+          runId,
+          payload as AssetBatchPayload,
+        );
       case "phase":
         return h.onPhase(session.agentId, runId, payload as PhasePayload);
       case "run.error":
         return h.onRunError(session.agentId, runId, payload as RunErrorPayload);
       case "run.complete":
-        return h.onRunComplete(session.agentId, runId, payload as RunCompletePayload);
+        return h.onRunComplete(
+          session.agentId,
+          runId,
+          payload as RunCompletePayload,
+        );
       default:
         return false;
     }
@@ -662,7 +684,12 @@ export class AgentSessionService {
     if (JOB_STREAM_TYPES.has(msg.type)) {
       this.noteContact(session);
       const handled = this.runHandler
-        ? await this.dispatchJobFrame(session, msg.type, msg.runId!, msg.payload)
+        ? await this.dispatchJobFrame(
+            session,
+            msg.type,
+            msg.runId!,
+            msg.payload,
+          )
         : false;
       if (!handled) {
         if (this.runHandler?.isDeadRun(session.agentId, msg.runId!)) {
@@ -790,10 +817,13 @@ export class AgentSessionService {
         this.pendingTests.delete(testId);
         this.settlePending(pending, (e) =>
           e.reject(
-            Object.assign(new Error("Agent disconnected during the credential test"), {
-              statusCode: 503,
-              code: "AGENT_OFFLINE",
-            }),
+            Object.assign(
+              new Error("Agent disconnected during the credential test"),
+              {
+                statusCode: 503,
+                code: "AGENT_OFFLINE",
+              },
+            ),
           ),
         );
       }
@@ -803,10 +833,13 @@ export class AgentSessionService {
         this.pendingProbes.delete(probeId);
         this.settlePending(pending, (e) =>
           e.reject(
-            Object.assign(new Error("Agent disconnected during the URL check probe"), {
-              statusCode: 503,
-              code: "AGENT_OFFLINE",
-            }),
+            Object.assign(
+              new Error("Agent disconnected during the URL check probe"),
+              {
+                statusCode: 503,
+                code: "AGENT_OFFLINE",
+              },
+            ),
           ),
         );
       }

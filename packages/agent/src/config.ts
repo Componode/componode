@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { URL_CHECK_MAX_PROBES_DEFAULT } from "@componode/core";
 
 // Agent runtime configuration (spec 025 US5, ADR-116). Fails closed on
 // insecure transports: the stream carries credentials, so anything but
@@ -19,6 +20,9 @@ export interface AgentConfig {
   secretsDir?: string;
   caBundle?: string;
   maxJobs: number;
+  /** Max concurrent in-flight URL check probes (spec 052). Excess probe
+   *  frames are refused with a SATURATED result — never queued unbounded. */
+  urlCheckMaxProbes: number;
   httpsProxy?: string;
   httpProxy?: string;
   noProxy?: string;
@@ -41,6 +45,12 @@ const envSchema = z.object({
   SECRETS_DIR: z.string().min(1).optional(),
   CA_BUNDLE: z.string().min(1).optional(),
   MAX_JOBS: z
+    .string()
+    .regex(/^\d+$/)
+    .transform((v) => Number(v))
+    .pipe(z.number().int().min(1))
+    .optional(),
+  URL_CHECK_MAX_PROBES: z
     .string()
     .regex(/^\d+$/)
     .transform((v) => Number(v))
@@ -104,6 +114,7 @@ export function loadConfig(
     secretsDir: e.SECRETS_DIR,
     caBundle: e.CA_BUNDLE,
     maxJobs: e.MAX_JOBS ?? 1,
+    urlCheckMaxProbes: e.URL_CHECK_MAX_PROBES ?? URL_CHECK_MAX_PROBES_DEFAULT,
     httpsProxy: e.HTTPS_PROXY,
     httpProxy: e.HTTP_PROXY,
     noProxy: e.NO_PROXY,

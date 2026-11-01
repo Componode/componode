@@ -1,8 +1,12 @@
 import PQueue from "p-queue";
+import { sql } from "kysely";
 import { uuidv7 } from "uuidv7";
 import {
   executeHttpProbe,
   statusAccepted,
+  URL_CHECK_AGENT_CONCURRENCY_DEFAULT,
+  URL_CHECK_AGENT_QUEUE_MAX_DEFAULT,
+  URL_CHECK_AGENT_RATE_LIMIT_DEFAULT,
   URL_CHECK_DEFAULT_TIMEOUT_MS,
   URL_CHECK_MAX_PROBE_TIMEOUT_MS,
   URL_CHECK_PROBE_CONCURRENCY_DEFAULT,
@@ -51,6 +55,18 @@ export function setUrlCheckAgentDispatch(
   agentDispatch = fn;
 }
 
+// Liveness seam (spec 052): an agent with no live session must NOT be
+// admission-controlled — its misses are cheap AGENT_OFFLINE writes, and
+// queueing them would delay the miss and misclassify overflow as
+// SATURATED. Unset → treat agents as online (stub-dispatch test paths).
+let agentOnlineChecker: ((agentId: string) => boolean) | null = null;
+
+export function setUrlCheckAgentOnlineChecker(
+  fn: ((agentId: string) => boolean) | null,
+): void {
+  agentOnlineChecker = fn;
+}
+
 const queue = new PQueue({
   concurrency: envInt(
     "URL_CHECK_HUB_CONCURRENCY",
@@ -68,6 +84,98 @@ const queue = new PQueue({
     URL_CHECK_SWEEP_INTERVAL_MS_DEFAULT,
   ),
 });
+
+// Agent-vantage admission control (spec 052 US1, FR-001/002/003/005): a
+// bounded pool per agent — separate from the hub queue so one saturated
+// agent can never consume another agent's or the hub-vantage bound. Pool
+// config is read lazily at first dispatch so tests can tune env per case.
+const agentPools = new Map<string, PQueue>();
+
+// Checks whose latest slot is still in-flight or deferred on the agent
+// path. Admission claims the check and returns without waiting for the
+// queued work — a saturated agent can never stall the sweep for other
+// agents or Hub-vantage checks (FR-005/FR-013). The slot stays due until
+// the task records its observation, then the claim releases.
+const agentSlotClaims = new Set<string>();
+
+// Bounds must be whole numbers ≥ 1 — p-queue rejects fractional caps at
+// pool creation, so env overrides are clamped for predictable handling.
+function boundInt(name: string, fallback: number): number {
+  return Math.max(1, Math.floor(envInt(name, fallback)));
+}
+
+// scheduledAt + cadence as an expression, never rewinding an already-
+// later nextProbeAt (a backlog advance may have moved the schedule
+// forward past this slot). Exported for the scheduler's backlog advance.
+export function nextSlotSql(scheduledAt: string, cadenceSeconds: number) {
+  const slot = new Date(
+    new Date(scheduledAt).getTime() + cadenceSeconds * 1000,
+  ).toISOString();
+  return sql<string>`GREATEST(COALESCE("nextProbeAt", '-infinity'::timestamptz), ${slot}::timestamptz)`;
+}
+
+// Label-free aggregates (spec 052 US3): which agent is saturated stays on
+// the agent's own ops scrape — the hub only exposes the global signal.
+function updateAgentPoolGauges(): void {
+  let inFlight = 0;
+  let depth = 0;
+  for (const q of agentPools.values()) {
+    inFlight += q.pending;
+    depth += q.size;
+  }
+  metrics.urlCheckAgentProbesInFlight.set(inFlight);
+  metrics.urlCheckAgentProbeQueueDepth.set(depth);
+}
+
+function agentPool(agentId: string): PQueue {
+  let pool = agentPools.get(agentId);
+  if (!pool) {
+    pool = new PQueue({
+      concurrency: boundInt(
+        "URL_CHECK_AGENT_CONCURRENCY",
+        URL_CHECK_AGENT_CONCURRENCY_DEFAULT,
+      ),
+      intervalCap: boundInt(
+        "URL_CHECK_AGENT_RATE_LIMIT",
+        URL_CHECK_AGENT_RATE_LIMIT_DEFAULT,
+      ),
+      interval: envInt(
+        "URL_CHECK_SWEEP_INTERVAL_MS",
+        URL_CHECK_SWEEP_INTERVAL_MS_DEFAULT,
+      ),
+    });
+    for (const ev of ["active", "add", "next", "idle"] as const) {
+      pool.addEventListener(ev, updateAgentPoolGauges);
+    }
+    agentPools.set(agentId, pool);
+  }
+  return pool;
+}
+
+function agentQueueMax(): number {
+  return boundInt(
+    "URL_CHECK_AGENT_QUEUE_MAX",
+    URL_CHECK_AGENT_QUEUE_MAX_DEFAULT,
+  );
+}
+
+// The scheduler skips claimed checks when writing missed-slot backlog —
+// a deferred task's slot is still in-flight, not missed.
+export function isAgentSlotClaimed(checkId: string): boolean {
+  return agentSlotClaims.has(checkId);
+}
+
+// Test seam: agent-path dispatchProbe resolves at admission, so tests
+// drain the pools before asserting observations.
+export async function waitForAgentProbePoolsIdle(): Promise<void> {
+  await Promise.all([...agentPools.values()].map((q) => q.onIdle()));
+}
+
+export function resetAgentProbePoolsForTests(): void {
+  agentPools.clear();
+  agentSlotClaims.clear();
+  updateAgentPoolGauges();
+}
 
 export interface DispatchProbeDeps {
   fetchImpl?: FetchImpl;
@@ -90,9 +198,6 @@ async function recordObservation(
   cadenceSeconds: number,
   obs: ObservationInput,
 ): Promise<void> {
-  const nextProbeAt = new Date(
-    new Date(scheduledAt).getTime() + cadenceSeconds * 1000,
-  ).toISOString();
   await db.transaction().execute(async (trx) => {
     await trx
       .insertInto("url_check_observations")
@@ -110,8 +215,15 @@ async function recordObservation(
       .execute();
     await trx
       .updateTable("url_checks")
-      .set({ nextProbeAt, updatedAt: new Date().toISOString() })
+      .set({
+        nextProbeAt: nextSlotSql(scheduledAt, cadenceSeconds),
+        updatedAt: new Date().toISOString(),
+      })
       .where("id", "=", checkId)
+      // A check disabled mid-flight keeps its cleared schedule (spec 052
+      // US2): the in-flight slot still records its outcome, but nothing
+      // new is armed for a disabled check.
+      .where("enabled", "=", true)
       .execute();
   });
   metrics.urlCheckProbesTotal.inc({
@@ -168,19 +280,15 @@ type CheckContext = {
 // as probe failures, never silently skipped).
 async function resolveHubHeaders(
   check: CheckContext,
-): Promise<{ headers: Record<string, string> } | { errorType: UrlCheckErrorType }> {
+): Promise<
+  { headers: Record<string, string> } | { errorType: UrlCheckErrorType }
+> {
   if (check.authMode === "NONE") return { headers: {} };
   if (!check.credentialId) return { errorType: "OTHER" };
 
   const credential = await db
     .selectFrom("credentials")
-    .select([
-      "id",
-      "status",
-      "kind",
-      "encryptedPayload",
-      "lastUsedAt",
-    ])
+    .select(["id", "status", "kind", "encryptedPayload", "lastUsedAt"])
     .where("id", "=", check.credentialId)
     .executeTakeFirst();
   if (!credential || credential.status !== "ACTIVE") {
@@ -345,6 +453,13 @@ async function dispatchAgentProbe(
     return;
   }
 
+  // An agent at-cap refusal (spec 052) means the slot never executed —
+  // MISSED/SATURATED, never an endpoint failure.
+  if (result.errorType === "SATURATED") {
+    await missed("SATURATED");
+    return;
+  }
+
   const outcome = outcomeFor(
     result.httpStatus != null,
     result.httpStatus ?? null,
@@ -401,9 +516,86 @@ export async function dispatchProbe(
     authConfig: (row.authConfig as UrlCheckAuthConfig | null) ?? null,
   };
 
+  // Slot-level dedupe (spec 052): an observation for this slot means the
+  // probe already finalized — running again could only ever write a
+  // duplicate. The slot is simply re-armed so the schedule keeps moving.
+  const alreadyObserved = await db
+    .selectFrom("url_check_observations")
+    .select("id")
+    .where("urlCheckId", "=", checkId)
+    .where("scheduledAt", "=", scheduledAt)
+    .executeTakeFirst();
+  if (alreadyObserved) {
+    await db
+      .updateTable("url_checks")
+      .set({
+        // Never rewind the schedule — a backlog advance may already hold
+        // a later slot.
+        nextProbeAt: nextSlotSql(scheduledAt, cadenceSeconds),
+        updatedAt: new Date().toISOString(),
+      })
+      .where("id", "=", checkId)
+      .where("enabled", "=", true)
+      .execute();
+    return;
+  }
+
   if (vantage === "AGENT") {
+    const agentId = row.setupAgentId;
+    const args = {
+      ...ctx,
+      id: row.id,
+      url: row.url,
+      method: row.method,
+      setupAgentId: row.setupAgentId,
+    };
+    // Bounded deferral (clarify 2026-11-01): work beyond the in-flight
+    // bound waits inside the per-agent queue; work beyond the deferral
+    // bound records MISSED/SATURATED — never a silent drop, never an
+    // unbounded wait. Admission claims the check and returns without
+    // awaiting the queued task, so a saturated agent cannot stall the
+    // sweep for other checks (FR-005/FR-013); the claim releases when
+    // the task settles, after which the still-due slot is re-picked or
+    // the observation dedupe above ends the slot.
+    if (agentId && agentDispatch && (agentOnlineChecker?.(agentId) ?? true)) {
+      if (agentSlotClaims.has(row.id)) return;
+      const pool = agentPool(agentId);
+      if (pool.size >= agentQueueMax()) {
+        await recordObservation(row.id, scheduledAt, cadenceSeconds, {
+          outcome: "MISSED",
+          errorType: "SATURATED",
+          vantage: "AGENT",
+          agentId,
+        });
+        return;
+      }
+      agentSlotClaims.add(row.id);
+      try {
+        void pool
+          .add(() =>
+            dispatchAgentProbe(
+              args,
+              scheduledAt,
+              cadenceSeconds,
+              timeoutMs,
+              policy,
+            ),
+          )
+          .catch((err) =>
+            logger.warn(
+              { err, checkId: row.id, agentId },
+              "deferred url check probe failed",
+            ),
+          )
+          .finally(() => agentSlotClaims.delete(row.id));
+      } catch (err) {
+        agentSlotClaims.delete(row.id);
+        throw err;
+      }
+      return;
+    }
     await dispatchAgentProbe(
-      { ...ctx, id: row.id, url: row.url, method: row.method, setupAgentId: row.setupAgentId },
+      args,
       scheduledAt,
       cadenceSeconds,
       timeoutMs,

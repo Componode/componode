@@ -12,10 +12,11 @@ import {
   type CancelPayload,
   type ImporterRegistry,
   type JobAssignPayload,
+  type UrlCheckProbeCancelPayload,
   type UrlCheckProbePayload,
 } from "@componode/core";
 import { JobExecutor } from "./executor.js";
-import { handleUrlCheckProbe } from "./probe.js";
+import { createProbeRunner } from "./probe.js";
 import { loadTargetProfile } from "./target-registry.js";
 import { proxyForUrl, type AgentConfig } from "./config.js";
 import type { AgentOpsMetrics } from "./metrics.js";
@@ -84,6 +85,8 @@ export interface SessionDeps {
   ops?: AgentOpsMetrics;
   /** Fired once per session when hello.ok lands — drives /readyz. */
   onEstablished?: () => void;
+  /** Fetch seam for URL check probes (spec 052) — tests inject a stub. */
+  probeFetchImpl?: (url: string, init: RequestInit) => Promise<Response>;
   log?: {
     debug: (o: object, m: string) => void;
     info: (o: object, m: string) => void;
@@ -280,6 +283,17 @@ export async function runSession(
       ops: deps.ops,
     });
 
+    // URL check probes (spec 052): bounded in-flight cap + cancellable
+    // controllers per session — teardown aborts them alongside jobs.
+    const probeRunner = createProbeRunner({
+      secretsDir: cfg.secretsDir,
+      log,
+      send: sendFrame,
+      maxProbes: cfg.urlCheckMaxProbes,
+      fetchImpl: deps.probeFetchImpl,
+      ops: deps.ops,
+    });
+
     // Drift signal (contract): a peer speaking a newer/foreign protocol sends
     // frames this build can't handle — respond `error`, close, and exit
     // terminally (protocol_mismatch → exit 2) rather than silently ignoring.
@@ -388,11 +402,17 @@ export async function runSession(
       if (msg.type === "url_check.probe") {
         // Remote URL check probe (spec 051): refs resolve HERE against the
         // agent's own env/SECRETS_DIR — values never cross the stream.
-        void handleUrlCheckProbe(msg.payload as UrlCheckProbePayload, {
-          secretsDir: cfg.secretsDir,
-          log,
-          send: sendFrame,
-        });
+        // Admission is capped (spec 052): excess frames get a SATURATED
+        // refusal rather than unbounded local concurrency.
+        probeRunner.handleProbe(msg.payload as UrlCheckProbePayload);
+        return;
+      }
+      if (msg.type === "url_check.probe.cancel") {
+        // Hub finalized the dispatch without a result (spec 052) — abort
+        // the in-flight fetch promptly; unknown ids are a no-op.
+        probeRunner.cancel(
+          (msg.payload as UrlCheckProbeCancelPayload).probeId,
+        );
         return;
       }
       if (msg.type === "job.assign") {
@@ -430,8 +450,10 @@ export async function runSession(
 
     socket.on("close", () => {
       // The session is each job's lifeline — abort all local work; the hub
-      // independently fails the runs AGENT_LOST (no resume in v1).
+      // independently fails the runs AGENT_LOST (no resume in v1). In-flight
+      // URL check probes abort too (spec 052 FR-008).
       executor.abortAll();
+      probeRunner.abortAll();
       // Only established sessions count toward sessions_total — a failed
       // connect or pre-handshake close was never a session (spec 028).
       deps.ops?.markDisconnected(

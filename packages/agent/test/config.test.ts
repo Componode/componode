@@ -57,6 +57,17 @@ describe("loadConfig", () => {
   it("rejects a non-positive MAX_JOBS", () => {
     expect(() => loadConfig({ HUB_URL: "https://hub.corp", MAX_JOBS: "0" })).toThrow();
   });
+
+  it("defaults URL_CHECK_MAX_PROBES to the core default and parses overrides", () => {
+    expect(loadConfig({ HUB_URL: "https://hub.corp" }).urlCheckMaxProbes).toBe(8);
+    expect(
+      loadConfig({ HUB_URL: "https://hub.corp", URL_CHECK_MAX_PROBES: "3" })
+        .urlCheckMaxProbes,
+    ).toBe(3);
+    expect(() =>
+      loadConfig({ HUB_URL: "https://hub.corp", URL_CHECK_MAX_PROBES: "0" }),
+    ).toThrow();
+  });
 });
 
 describe("credential precedence", () => {

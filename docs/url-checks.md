@@ -60,7 +60,7 @@ deleting a Component removes its monitoring setup and every check under
 it. A `RETIRED` Component's checks stop probing but remain readable.
 
 For endpoints with no catalog entry yet, the create flow (Components →
-*New component*) can create the Component, its first Component Instance,
+_New component_) can create the Component, its first Component Instance,
 and its first checks in one pass — the new Component's page opens with
 checks already listed and probing.
 
@@ -107,13 +107,13 @@ never implied when unset.
 
 Per check, over each rolling window (24 hours, 7 days, 30 days):
 
-| Metric | Definition |
-|---|---|
-| **Availability** | Successful scheduled probes ÷ all scheduled probes — `SUCCESS / (SUCCESS + FAILURE + MISSED)`. Scheduled-but-unexecuted slots count against availability. |
-| **Error rate** | Failed probes ÷ executed probes — `FAILURE / (SUCCESS + FAILURE)`. |
-| **Latency** | p50 / p95 / p99 of request-start → response-headers duration over successful probes. This boundary **is** TTFB — they are the same measurement, never two metrics. |
+| Metric           | Definition                                                                                                                                                                                                                              |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Availability** | Successful scheduled probes ÷ all scheduled probes — `SUCCESS / (SUCCESS + FAILURE + MISSED)`. Scheduled-but-unexecuted slots count against availability.                                                                               |
+| **Error rate**   | Failed probes ÷ executed probes — `FAILURE / (SUCCESS + FAILURE)`.                                                                                                                                                                      |
+| **Latency**      | p50 / p95 / p99 of request-start → response-headers duration over successful probes. This boundary **is** TTFB — they are the same measurement, never two metrics.                                                                      |
 | **Coverage gap** | The `MISSED` share of the window — scheduled slots that never executed because the agent was offline, the hub was down, or dispatch was rejected. Displayed distinctly so monitor-side downtime is never mistaken for endpoint failure. |
-| **Latest** | The most recent observation: outcome, status code, error reason, and vantage. |
+| **Latest**       | The most recent observation: outcome, status code, error reason, and vantage.                                                                                                                                                           |
 
 Every display labels its window and vantage. Detailed observations are
 retained for **30 days** and then purged; all metrics are computed from
@@ -182,10 +182,43 @@ by side as separate signals — that separation is deliberate.
 
 Defaults are the supported values; override only for tests or tuning.
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `URL_CHECK_SWEEP_INTERVAL_MS` | `15000` | How often the hub scheduler dispatches due checks |
-| `URL_CHECK_PROBE_TIMEOUT_MS` | `30000` | Per-probe timeout (clamped to 60000 ms max) |
-| `URL_CHECK_HUB_CONCURRENCY` | `10` | Maximum concurrent hub-vantage probes |
-| `URL_CHECK_PROBE_RATE_LIMIT` | `20` | Max hub-vantage probes dispatched per sweep-interval window |
-| `URL_CHECK_DEFAULT_CADENCE_SECONDS` | `300` | Default setup cadence; per-check range 60–86400 s |
+| Variable                            | Default | Purpose                                                                        |
+| ----------------------------------- | ------- | ------------------------------------------------------------------------------ |
+| `URL_CHECK_SWEEP_INTERVAL_MS`       | `15000` | How often the hub scheduler dispatches due checks                              |
+| `URL_CHECK_PROBE_TIMEOUT_MS`        | `30000` | Per-probe timeout (clamped to 60000 ms max)                                    |
+| `URL_CHECK_HUB_CONCURRENCY`         | `10`    | Maximum concurrent hub-vantage probes                                          |
+| `URL_CHECK_PROBE_RATE_LIMIT`        | `20`    | Max hub-vantage probes dispatched per sweep-interval window                    |
+| `URL_CHECK_DEFAULT_CADENCE_SECONDS` | `300`   | Default setup cadence; per-check range 60–86400 s                              |
+| `URL_CHECK_AGENT_CONCURRENCY`       | `4`     | Maximum concurrent in-flight probes per Import Agent (integer ≥ 1)             |
+| `URL_CHECK_AGENT_RATE_LIMIT`        | `20`    | Max agent-vantage dispatches per sweep-interval window per agent (integer ≥ 1) |
+| `URL_CHECK_AGENT_QUEUE_MAX`         | `100`   | Max deferred (queued) probe slots per agent before MISSED (integer ≥ 1)        |
+
+## Agent-vantage bounds and cancellation
+
+Agent-vantage probes are admission-controlled **per agent**: at most
+`URL_CHECK_AGENT_CONCURRENCY` probes run concurrently against one Import
+Agent, dispatches start no faster than `URL_CHECK_AGENT_RATE_LIMIT` per
+sweep interval, and excess work waits in a bounded queue of
+`URL_CHECK_AGENT_QUEUE_MAX` slots.
+
+When the queue is also full, the scheduled slot records a **MISSED**
+observation with `errorType: SATURATED` — distinguishable from
+`AGENT_OFFLINE` misses so "monitor overloaded" never reads as "agent
+down". A saturated agent never delays probes for other agents or for
+Hub-vantage checks. The agent itself enforces its own cap
+(`URL_CHECK_MAX_PROBES`, see
+[Import Agents](import-agents.md#environment-variables)) and refuses
+excess frames with the same `SATURATED` result, which lands as MISSED.
+
+Cancellation is prompt: when the hub-side dispatch deadline passes it
+sends a `url_check.probe.cancel` frame so the agent aborts the in-flight
+request rather than running it to the full timeout; a session close
+aborts all of the agent's in-flight probes. Every scheduled slot
+produces at most one observation — a result arriving after its slot
+finalized is discarded, so timeouts, cancellations, disconnects, and
+hub restarts can never create duplicate or rewritten observations.
+
+The hub exposes `url_check_agent_probes_in_flight` and
+`url_check_agent_probe_queue_depth` gauges (aggregates across agents —
+per-agent identity lives on the agent's own `/metrics`), and
+`url_check_probes_total{errorType="SATURATED"}` counts saturated slots.

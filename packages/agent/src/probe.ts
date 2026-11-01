@@ -8,7 +8,12 @@ import {
   SecretRefError,
   SecretResolutionError,
 } from "@componode/core/secrets";
-import { createAgentResolver, resolveRefMap, type AgentLog } from "./secrets.js";
+import {
+  createAgentResolver,
+  resolveRefMap,
+  type AgentLog,
+} from "./secrets.js";
+import type { AgentOpsMetrics } from "./metrics.js";
 
 // Agent-side url_check.probe handling (spec 051, contracts/agent-frames.md):
 // secret refs resolve HERE against the agent's own env/SECRETS_DIR — values
@@ -24,6 +29,12 @@ export interface UrlCheckProbeDeps {
   log: AgentLog;
   send: (type: string, frame: unknown) => void;
   fetchImpl?: FetchImpl;
+  /** Composed with the probe timeout inside executeHttpProbe (spec 052). */
+  signal?: AbortSignal;
+  /** Ops counters (spec 052 US3) — probe in-flight gauge + result counter. */
+  ops?: AgentOpsMetrics;
+  /** Called with each result before it is sent — feeds ops metrics. */
+  onResult?: (result: { outcome: string; errorType?: string | null }) => void;
 }
 
 // Key name the frame asked for is absent from the resolved bundle — a
@@ -70,9 +81,8 @@ export async function handleUrlCheckProbe(
   payload: UrlCheckProbePayload,
   deps: UrlCheckProbeDeps,
 ): Promise<void> {
-  const reply = (
-    result: Omit<UrlCheckProbeResultPayload, "probeId">,
-  ): void => {
+  const reply = (result: Omit<UrlCheckProbeResultPayload, "probeId">): void => {
+    deps.onResult?.(result);
     deps.send("url_check.probe.result", {
       probeId: payload.probeId,
       ...result,
@@ -97,6 +107,7 @@ export async function handleUrlCheckProbe(
         method: payload.method,
         timeoutMs: payload.timeoutMs,
         headers,
+        signal: deps.signal,
       },
       deps.fetchImpl,
     );
@@ -111,7 +122,10 @@ export async function handleUrlCheckProbe(
     // masked against the resolved bundle before logging. The wire only
     // ever sees an errorType.
     if (err instanceof SecretResolutionError || err instanceof SecretRefError) {
-      deps.log.warn({ err: err.message }, "url check probe secret resolution failed");
+      deps.log.warn(
+        { err: err.message },
+        "url check probe secret resolution failed",
+      );
       return reply({ outcome: "FAILURE", errorType: "OTHER" });
     }
     deps.log.warn(
@@ -125,4 +139,82 @@ export async function handleUrlCheckProbe(
     );
     reply({ outcome: "FAILURE", errorType: "OTHER" });
   }
+}
+
+// Probe runner (spec 052, FR-006/007/008): admission control + cancellation
+// for the agent side. At most `maxProbes` fetches run concurrently — excess
+// frames get an immediate SATURATED refusal (explicit, never silently
+// deferred or dropped). Each accepted probe gets an AbortController so a
+// hub `url_check.probe.cancel` or session teardown can stop the fetch
+// promptly instead of letting it run to its timeout.
+export interface UrlCheckProbeRunner {
+  /** Admit a probe frame: run it under the cap, or refuse SATURATED. */
+  handleProbe(payload: UrlCheckProbePayload): void;
+  /** Abort one in-flight probe; unknown/settled ids are a no-op. */
+  cancel(probeId: string): void;
+  /** Abort every in-flight probe (session teardown). */
+  abortAll(): void;
+  inFlightCount(): number;
+}
+
+export function createProbeRunner(
+  deps: UrlCheckProbeDeps & { maxProbes: number },
+): UrlCheckProbeRunner {
+  const controllers = new Map<string, AbortController>();
+
+  const handleProbe = (payload: UrlCheckProbePayload): void => {
+    // A repeated probeId must not overwrite the in-flight controller —
+    // it would bypass the cap and lose the original's cancel handle.
+    if (controllers.has(payload.probeId)) {
+      deps.log.warn(
+        { probeId: payload.probeId },
+        "duplicate url check probe frame ignored",
+      );
+      return;
+    }
+    if (controllers.size >= deps.maxProbes) {
+      deps.ops?.urlCheckProbeRefused();
+      deps.send("url_check.probe.result", {
+        probeId: payload.probeId,
+        outcome: "FAILURE",
+        errorType: "SATURATED",
+      });
+      deps.log.warn(
+        { probeId: payload.probeId, maxProbes: deps.maxProbes },
+        "url check probe refused — agent at in-flight cap",
+      );
+      return;
+    }
+    const controller = new AbortController();
+    controllers.set(payload.probeId, controller);
+    deps.ops?.urlCheckProbeStarted();
+    void handleUrlCheckProbe(payload, {
+      ...deps,
+      signal: controller.signal,
+      onResult: (r) =>
+        deps.ops?.urlCheckProbeDone(
+          r.outcome === "SUCCESS"
+            ? "success"
+            : r.errorType === "ABORTED"
+              ? "aborted"
+              : "failure",
+        ),
+    })
+      .catch((err) =>
+        deps.log.error(
+          { err, probeId: payload.probeId },
+          "url check probe task failed",
+        ),
+      )
+      .finally(() => controllers.delete(payload.probeId));
+  };
+
+  return {
+    handleProbe,
+    cancel: (probeId) => controllers.get(probeId)?.abort(),
+    abortAll: () => {
+      for (const c of controllers.values()) c.abort();
+    },
+    inFlightCount: () => controllers.size,
+  };
 }
