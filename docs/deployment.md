@@ -239,7 +239,8 @@ The Compose stack declares an `agent` service so the image builds together
 (`docker compose build`), but it starts **0 replicas** and does not run on
 `docker compose up`. To run an agent co-located with the hub for local
 testing, create the agent in the UI (**Administration → Import Agents**),
-set `AGENT_ENROLLMENT_TOKEN` in `.env`, and scale the service:
+set `AGENT_ENROLLMENT_TOKEN` and `HUB_URL` (`https://hub`) in `.env`, and
+scale the service:
 
 ```bash
 docker compose up -d --scale agent=1

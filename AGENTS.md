@@ -210,13 +210,18 @@ constitution.
   between pages.
 - `<!-- GENERATED -->` regions are output, not source — never hand-edit
   them. Change the underlying truth (`docs/openapi.yaml`, an importer
-  manifest, code) and re-run the owning `docs:*` script (`docs:api`,
-  `docs:importers`, …). The `*:check` variants run in CI; a stale
-  generated region fails the build.
+  manifest, `DB` in `types.ts`) and re-run the owning `docs:*` script
+  (`docs:api`, `docs:importers`, `docs:schema`). The `*:check` variants
+  run in CI; a stale generated region fails the build.
 - Importer setup guides remain required by the importer contract above;
   that rule is unchanged — and importer changes (manifest fields,
   secrets, config schema, capability behavior) regenerate the importer
   docs via `docs:importers`.
+- Enumerable facts must appear in the docs that cover them:
+  `docs:oracle:check` fails on `.env.example` vars or Compose services
+  missing from `deployment.md`, importer labels missing from
+  `architecture.md`, or core error codes missing from `api.md`;
+  `docs:sidebar:check` fails on pages missing from the site chrome.
 
 ### Dependency & supply chain
 

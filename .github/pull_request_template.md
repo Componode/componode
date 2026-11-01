@@ -6,6 +6,8 @@
 
 - [ ] API endpoint added/changed/removed → `docs/openapi.yaml` updated and `pnpm --filter @componode/backend docs:api` regenerated (`docs:api:check` gates CI)
 - [ ] Importer touched (manifest, secrets, config schema, capabilities) → `pnpm --filter @componode/backend docs:importers` regenerated (`docs:importers:check` gates CI), and `docs/importers/<name>.md` covers setup, credentials, and common failures
+- [ ] Schema changed (migration / `DB` in `types.ts`) → `pnpm --filter @componode/backend docs:schema` regenerated (`docs:schema:check` gates CI)
+- [ ] Env var or Compose service added → `deployment.md` updated (`docs:oracle:check` gates CI)
 - [ ] User-facing capability added/changed → the relevant guide page updated (`quickstart`, `using-the-catalog`, `credentials-and-access`, `deployment`)
 - [ ] New or renamed doc page → added to the sidebar in `docs-site/.vitepress/config.ts` (`docs:sidebar:check` gates CI)
 - [ ] Contract surface extended past a ratified ADR → amendment or new ADR in `researches/adrs/` with back-pointers (AGENTS.md → ADR fidelity)

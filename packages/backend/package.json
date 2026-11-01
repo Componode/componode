@@ -18,7 +18,10 @@
     "docs:api:check": "tsx scripts/generate-api-doc.ts --check",
     "docs:importers": "tsx scripts/generate-importer-docs.ts",
     "docs:importers:check": "tsx scripts/generate-importer-docs.ts --check",
-    "docs:sidebar:check": "tsx scripts/check-docs-sidebar.ts"
+    "docs:sidebar:check": "tsx scripts/check-docs-sidebar.ts",
+    "docs:schema": "tsx scripts/generate-schema-doc.ts",
+    "docs:schema:check": "tsx scripts/generate-schema-doc.ts --check",
+    "docs:oracle:check": "tsx scripts/check-docs-oracle.ts"
   },
   "dependencies": {
     "@componode/core": "workspace:*",
