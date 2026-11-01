@@ -1,3 +1,8 @@
+---
+title: AWS importer
+description: "Scaffold importer for AWS: what it will discover and how to configure it."
+---
+
 # AWS importer
 
 > **Status: scaffold.** This importer registers the AWS provider and emits a

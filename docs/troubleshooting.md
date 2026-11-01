@@ -1,3 +1,8 @@
+---
+title: Troubleshooting & FAQ
+description: Common failures and fixes, grouped by where they surface.
+---
+
 # Troubleshooting & FAQ
 
 Common failures grouped by where they surface. When in doubt, check the

@@ -1,3 +1,8 @@
+---
+title: Release process
+description: Changesets and the release workflow.
+---
+
 # Releasing Componode
 
 Componode uses [changesets](https://github.com/changesets/changesets) and GitHub

@@ -1,3 +1,8 @@
+---
+title: Importers
+description: "Pull-only importers: what they discover and how an import works."
+---
+
 # Importers
 
 Importers pull assets from external systems into the Componode catalog. Each

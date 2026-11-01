@@ -1,3 +1,8 @@
+---
+title: Agent wire protocol
+description: "Import Agent to hub WebSocket protocol: handshake, frames, versioning."
+---
+
 # Agent wire protocol (v2)
 
 Implementer reference for the Import Agent control channel (spec 025,

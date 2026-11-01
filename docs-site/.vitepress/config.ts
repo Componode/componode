@@ -1,6 +1,8 @@
 import { defineConfig } from "vitepress";
+import { withMermaid } from "vitepress-plugin-mermaid";
 
-export default defineConfig({
+export default withMermaid(
+  defineConfig({
   title: "Componode",
   description:
     "Open-source, self-hosted Digital Product Asset Management — a personal learning project in AI-assisted development",
@@ -88,4 +90,5 @@ export default defineConfig({
       copyright: "Copyright © present Componode contributors",
     },
   },
-});
+  }),
+);

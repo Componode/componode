@@ -1,3 +1,8 @@
+---
+title: Quickstart
+description: From zero to first imported asset and curated product edge in about 15 minutes.
+---
+
 # Quickstart
 
 Get Componode running, log in, and import your first asset — about 15

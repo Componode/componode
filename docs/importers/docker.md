@@ -1,3 +1,8 @@
+---
+title: Docker importer
+description: What the Docker importer discovers and how to configure it.
+---
+
 # Docker
 
 The Docker importer inventories **containerized workloads** on Docker

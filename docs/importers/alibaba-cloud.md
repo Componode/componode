@@ -1,3 +1,8 @@
+---
+title: Alibaba Cloud importer
+description: What the Alibaba Cloud importer discovers and how to configure it.
+---
+
 # Alibaba Cloud importer
 
 Imports an Alibaba Cloud account's resource inventory via **Resource Center**

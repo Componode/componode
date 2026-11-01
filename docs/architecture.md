@@ -1,3 +1,8 @@
+---
+title: Architecture overview
+description: "Runtime architecture: deployment topology, data flow, auth, importer pipeline, persistence."
+---
+
 # Architecture Overview
 
 This document describes the runtime architecture of Componode: the deployment

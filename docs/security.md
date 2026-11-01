@@ -1,3 +1,8 @@
+---
+title: Security design
+description: "The security decisions the codebase explores: auth, secrets, API safety."
+---
+
 # Security design
 
 ::: warning Educational project

@@ -1,3 +1,8 @@
+---
+title: Using the catalog
+description: "A tour of the app: factual vs. meaning layers and curation workflows."
+---
+
 # Using the catalog
 
 A tour of what each part of the app does, and the mental model behind it.

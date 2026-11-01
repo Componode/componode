@@ -1,3 +1,8 @@
+---
+title: Deploying Componode
+description: "Self-hosted install: Docker Compose, env vars, TLS, OIDC, upgrading."
+---
+
 # Deploying Componode
 
 Componode is self-hosted with Docker Compose. One deployment serves one organization.

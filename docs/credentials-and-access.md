@@ -1,3 +1,8 @@
+---
+title: Credentials & access
+description: Roles, sign-in options, sessions, and the encrypted credential store.
+---
+
 # Credentials & access
 
 How people sign in, what each role can do, and how integration secrets are

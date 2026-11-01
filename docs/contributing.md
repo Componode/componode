@@ -1,3 +1,8 @@
+---
+title: Contributing
+description: Development setup, quality gates, and the spec-kit workflow.
+---
+
 # Contributing
 
 Componode is a personal learning project exploring how applications are

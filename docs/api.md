@@ -1,3 +1,8 @@
+---
+title: API conventions
+description: API conventions, error codes, auth model, and generated endpoint tables.
+---
+
 # API Reference
 
 > Prefer a clickable, try-it-style view? The

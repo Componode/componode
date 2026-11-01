@@ -1,3 +1,8 @@
+---
+title: Web URL importer
+description: What the Web URL importer discovers and how to configure it.
+---
+
 # Web URL importer
 
 Imports a single web page or endpoint as a component. On each run it
