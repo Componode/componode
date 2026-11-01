@@ -1,3 +1,8 @@
+---
+title: Importers
+description: "Pull-only importers: what they discover and how an import works."
+---
+
 # Importers
 
 Importers pull assets from external systems into the Componode catalog. Each
@@ -12,7 +17,7 @@ source system.
 |---|---|---|---|
 | [GitHub](./github) | Organization, repositories, environments, releases, workflows, runners, packages, billing usage | Personal access token | Full |
 | [Alibaba Cloud](./alibaba-cloud) | Account inventory via Resource Center (ECS, OSS, RDS, VPC, …), optional per-resource config and costs | RAM AccessKey pair | Full |
-| [Docker](./docker) | Docker Engine container workloads via an Import Agent | Agent-side target profile + optional TLS/SSH key refs | Full (agent-only) |
+| [Docker](./docker) | Docker Engine container workloads on the Hub or via an Import Agent | Managed target profile + optional TLS/SSH key refs | Full |
 | [API URL](./api-url) | A single API endpoint, probed over HTTP | None | Full |
 | [Web URL](./web-url) | A single web page/endpoint, probed over HTTP | None | Full |
 | [AWS](./aws) | Placeholder asset scaffold | None | Scaffold — no live discovery yet |

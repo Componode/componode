@@ -1,3 +1,8 @@
+---
+title: Roadmap
+description: Shipped features and what is next.
+---
+
 # Componode Roadmap
 
 Development proceeds as sequential spec-kit features under `specs/`. This

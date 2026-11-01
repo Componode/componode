@@ -1,3 +1,8 @@
+---
+title: UX/UI reference
+description: Design tokens, conventions, information architecture, and gap governance.
+---
+
 # UX & UI Reference — v1.1.0 baseline
 
 > **Status**: Normative — ratified by ADR-103; this edition records the

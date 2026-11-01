@@ -1,3 +1,8 @@
+---
+title: Import Agents
+description: "Remote importers for private networks: enrollment, configuration, lifecycle, metrics."
+---
+
 # Import Agents
 
 Remote **Import Agents** (spec 025, ADR-116) run Componode importers inside

@@ -1,3 +1,8 @@
+---
+title: Agent wire protocol
+description: "Import Agent to hub WebSocket protocol: handshake, frames, versioning."
+---
+
 # Agent wire protocol (v2)
 
 Implementer reference for the Import Agent control channel (spec 025,
@@ -308,7 +313,7 @@ Ops observability series (spec 028): `agent_dispatch_wait_seconds{agent}`
 last accepted frame).
 
 The agent process also exposes its own Prometheus surface — see
-`docs/agents.md` § Operations observability.
+`docs/import-agents.md` § Operations observability.
 
 ## Protocol v3 — source.identity (spec 044)
 

@@ -24,6 +24,7 @@
     "@types/node": "^26.6.5",
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
+    "mermaid": "^11.17.2",
     "prettier": "^3.9.10",
     "turbo": "^2.11.10",
     "typescript": "^6.0.3",
@@ -31,6 +32,7 @@
     "vite": "^7.3.7",
     "vitepress": "^1.6.4",
     "vitepress-openapi": "^0.2.5",
+    "vitepress-plugin-mermaid": "^2.0.17",
     "vitest": "^5.0.5"
   },
   "packageManager": "pnpm@9.15.2",

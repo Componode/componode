@@ -1,3 +1,8 @@
+---
+title: Docker importer
+description: What the Docker importer discovers and how to configure it.
+---
+
 # Docker
 
 The Docker importer inventories **containerized workloads** on Docker
@@ -94,7 +99,7 @@ the hub — socket and context transports require explicit opt-in (see
 `docs/deployment.md` → *Docker importer on the Hub*).
 
 **Agent execution** (Execution = an agent): provision the agent per
-`docs/agents.md`, then create a target registry at
+`docs/import-agents.md`, then create a target registry at
 `${SECRETS_DIR}/docker-targets.json` on the agent host — a versioned,
 read-only allowlist:
 

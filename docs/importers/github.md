@@ -1,3 +1,8 @@
+---
+title: GitHub importer
+description: What the GitHub importer discovers and how to configure it.
+---
+
 # GitHub importer
 
 Imports a GitHub organization — its profile, repositories, environments,

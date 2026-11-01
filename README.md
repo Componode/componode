@@ -1,5 +1,9 @@
 # Componode
 
+[![CI](https://github.com/Componode/componode/actions/workflows/ci.yml/badge.svg)](https://github.com/Componode/componode/actions/workflows/ci.yml)
+[![Docs](https://github.com/Componode/componode/actions/workflows/docs.yml/badge.svg)](https://componode.github.io/componode/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
 **Open-source, self-hosted Digital Product Asset Management (DPAM).**
 
 Componode lets you model your **Digital Products** — applications, solutions,
@@ -13,13 +17,30 @@ Business own Business Capability Products that compose shared Platform
 Products. Importers pull the factual layer (what exists); humans curate the
 meaning layer (what it means).
 
+> **Documentation site:** <https://componode.github.io/componode/>
+
+### About this project
+
+Componode is a personal learning project. I built it to explore, hands-on,
+how applications are developed today with AI coding assistants — the
+tooling, the workflows (spec-driven development, ADRs, changesets), and the
+architecture decisions that come with a real codebase. The spec-kit
+workflow, constitution, and 120+ ADRs are part of the exercise: I'm
+learning how structured process shapes AI-assisted work.
+
+I'm not a professional developer, so expect rough edges — and this is
+**not a production-grade solution**. If you spot something questionable —
+a design choice, a doc, a security decision — that's the point: please
+open an issue and tell me. That's how this project (and I) get better.
+
 ## At a glance
 
 - **Single-organization**: one deployment = one org/team. No multi-tenancy,
   no `Organization`/tenant layer.
-- **Importer-first**: the headline value is importing assets — 7 built-in
-  importers cover GitHub, AWS, Azure, Kubernetes, Web URL, API URL, and MCP
-  Server sources.
+- **Importer-first**: the headline value is importing assets — nine in-tree
+  importer packages: five with live discovery (GitHub, Alibaba Cloud,
+  Docker, API URL, Web URL) and four scaffolds (AWS, Azure, Kubernetes,
+  MCP Server) that exercise the pipeline end-to-end.
 - **Curated catalog**: a human-maintained product hierarchy enriched by
   imported facts, with audit history on every change.
 - **Self-hosted monolith**: Fastify backend, React frontend, PostgreSQL —
@@ -40,9 +61,13 @@ docker compose up -d
 Open `https://localhost` (the bundled Caddy serves a self-signed
 certificate — accept the browser warning) or `http://localhost:3000`, and
 log in with your bootstrap admin credentials. The backend runs migrations
-on first boot and serves the built frontend. See
-[docs/deployment.md](docs/deployment.md) for external databases, TLS,
-reverse proxies, and OIDC setup.
+on first boot and serves the built frontend.
+
+The [documentation site](https://componode.github.io/componode/) has a
+guided [quickstart](https://componode.github.io/componode/quickstart) that
+takes you from first login to your first imported asset and curated
+product edge in about 15 minutes. For external databases, TLS, reverse
+proxies, and OIDC see [docs/deployment.md](docs/deployment.md).
 
 ## Features
 
@@ -61,7 +86,8 @@ reverse proxies, and OIDC setup.
   dashboard coverage metrics with worklist filters, product completeness
   chips, and sunset-overdue attention.
 - **Importer framework**: scheduled, pull-only importers with run history,
-  reconciliation, and cancellation.
+  reconciliation, and cancellation — in-process on the hub or remotely on
+  Import Agents in networks the hub can't reach.
 - **Credential store**: AES-256-GCM encrypted integration secrets, managed
   in-app with rotation, revocation, and a write-only API.
 - **Auth & security**: local auth (Argon2id, server-side sessions) plus
@@ -72,18 +98,22 @@ reverse proxies, and OIDC setup.
 
 ## Documentation
 
-| Document | Contents |
+The full documentation lives on the
+[site](https://componode.github.io/componode/) and in [`docs/`](docs/).
+
+| I want to… | Read |
 |---|---|
-| [docs/deployment.md](docs/deployment.md) | Self-hosted install, env vars, TLS, OIDC, smoke test |
-| [docs/api.md](docs/api.md) | Human-readable API reference (generated from OpenAPI) |
-| [docs/openapi.yaml](docs/openapi.yaml) | Machine-readable OpenAPI 3.0 spec |
-| [docs/importer-development.md](docs/importer-development.md) | How to write an importer |
-| [docs/digital-products.md](docs/digital-products.md) | Product types & composition — plain-English guide with examples |
-| [docs/architecture.md](docs/architecture.md) | Architecture overview |
-| [docs/ux.md](docs/ux.md) | UX/UI conventions and deferred UI work |
-| [docs/release.md](docs/release.md) | Changesets and release process |
-| [docs/roadmap.md](docs/roadmap.md) | Shipped features and what's next |
-| [researches/architecture-decisions.md](researches/architecture-decisions.md) | ADR index — 100+ ratified decisions |
+| Try it in ~15 minutes | [docs/quickstart.md](docs/quickstart.md) |
+| Deploy for real | [docs/deployment.md](docs/deployment.md) |
+| Learn the model | [docs/digital-products.md](docs/digital-products.md) · [docs/vocabulary.md](docs/vocabulary.md) |
+| Tour the app | [docs/using-the-catalog.md](docs/using-the-catalog.md) |
+| Manage users & secrets | [docs/credentials-and-access.md](docs/credentials-and-access.md) |
+| Connect a source | [docs/importers/](docs/importers/index.md) |
+| Reach a private network | [docs/import-agents.md](docs/import-agents.md) · [docs/agent-protocol.md](docs/agent-protocol.md) |
+| Call the API | [docs/api.md](docs/api.md) · [docs/openapi.yaml](docs/openapi.yaml) |
+| Understand the build | [docs/architecture.md](docs/architecture.md) · [docs/contributing.md](docs/contributing.md) |
+| Fix something | [docs/troubleshooting.md](docs/troubleshooting.md) |
+| See what's next | [docs/roadmap.md](docs/roadmap.md) |
 
 All API routes live under `/api/v1` (except `GET /metrics`). Authenticated
 routes require a `componode_session` cookie; state-changing routes also
@@ -136,91 +166,22 @@ packages/
 ├── core/                  # Shared contracts, constants, Zod schemas (leaf — zero deps)
 ├── backend/               # Fastify API, Kysely services, migrations, plugins
 ├── frontend/              # React/Vite dashboard
-└── importer-*/            # 7 pull-only importers: github, aws, azure,
-                           # kubernetes, web-url, api-url, mcp-server
-docs/                      # Source documentation (see table above)
-docs-site/                 # VitePress documentation site
+├── agent/                 # Import Agent runtime (enrolls, outbound WSS stream)
+└── importer-*/            # 9 pull-only importers (5 live, 4 scaffolds)
+docs/                      # Source documentation (docs-site renders it to GitHub Pages)
+docs-site/                 # VitePress site config + theme
 researches/                # Research docs + ADRs (adrs/, architecture-decisions.md)
-specs/                     # spec-kit feature specs (001-foundation … 023-coverage-and-hygiene)
+specs/                     # spec-kit feature specs (001-foundation … )
 .specify/                  # spec-kit config, constitution, workflows
 scripts/                   # Deployment and validation scripts
 ```
 
 ## Development
 
-### Prerequisites
-
-- Node.js 24+
-- pnpm 9+
-- Docker (for PostgreSQL and integration tests)
-
-### Local setup
-
-```bash
-git clone https://github.com/Componode/componode.git
-cd componode
-pnpm install
-```
-
-Start a PostgreSQL instance with `pgcrypto` and publish it on localhost (the
-bundled Compose Postgres is internal-only, so run a dev container instead):
-
-```bash
-docker run -d --name componode-db -p 5432:5432 \
-  -e POSTGRES_PASSWORD=postgres \
-  -v "$PWD/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro" \
-  postgres:16-alpine
-```
-
-`init-db.sql` creates the `componode` database and a least-privilege user.
-Then set env vars for the backend (`packages/backend/.env`, or export them —
-the backend reads `process.env` directly):
-
-```text
-DATABASE_URL=postgres://componode:componode_pw@localhost:5432/componode
-DATABASE_SSL_MODE=disable
-COOKIE_SECRET=<openssl rand -base64 32>
-BOOTSTRAP_ADMIN_USERNAME=admin
-BOOTSTRAP_ADMIN_PASSWORD=<8+ chars>
-```
-
-Start the backend (migrations and bootstrap admin run on first boot) and, in
-a second terminal, the frontend:
-
-```bash
-pnpm --filter @componode/backend dev
-pnpm --filter @componode/frontend dev
-```
-
-The frontend runs at `http://localhost:5173` and proxies API requests to
-`http://localhost:3000`.
-
-### Commands
-
-```bash
-pnpm build             # Build all packages (Turborepo)
-pnpm dev               # Start dev servers for all packages
-pnpm test              # Run all tests
-pnpm test:unit         # Unit tests only
-pnpm test:integration  # Integration tests (requires Docker)
-pnpm lint              # Lint all packages
-pnpm typecheck         # Typecheck all packages
-pnpm db:migrate        # Run database migrations
-```
-
-### Spec-driven development
-
-Feature work follows the spec-kit workflow (installed version is tracked in
-`.specify/integration.json`): each feature gets a
-`specs/{NNN-feature-name}/` directory with `spec.md`, `plan.md`, and
-`tasks.md`, produced and executed via the `/speckit-*` skills
-(`speckit-specify` → `speckit-plan` → `speckit-tasks` → `speckit-implement` →
-`speckit-analyze`/`speckit-converge`). Bugfixes use a lighter
-`NNN-bugfix-*` variant that still requires a regression test.
-
-The binding rules are `.specify/memory/constitution.md` (7 principles) and
-the ADRs indexed in `researches/architecture-decisions.md`. See `AGENTS.md`
-for the full contributor rules.
+See **[docs/contributing.md](docs/contributing.md)** for the full setup:
+prerequisites (Node 24, pnpm 9, Docker), the dev database, env vars, dev
+servers, quality gates (`pnpm lint && pnpm typecheck && pnpm test &&
+pnpm build`), and the spec-kit feature workflow.
 
 ## Architecture principles
 
@@ -242,15 +203,11 @@ Componode is governed by seven constitution principles:
 
 ## Roadmap
 
-Componode v1.0.0 shipped spec-kit features 001–016 (foundation, importer
-framework, component catalog, UX shell, product hierarchy, audit, deployment,
-plus post-v1 hardening and fixes). Features 017–023 delivered the
-practical-DPAM stream: catalog metadata, edge-rule ergonomics, group
-dependencies, product health, the platform product workflow, catalog
-bootstrap, edge suggestions, and coverage & hygiene. v1.1.0 adds the eighth
-in-tree importer (Alibaba Cloud, 024), the Import Agents program (025–028),
-the v1.1 UX baseline (029), and the ux-rewrite gap resolutions (030–034).
-What's next lives in [docs/roadmap.md](docs/roadmap.md).
+Current and shipped work is tracked on the
+[roadmap](docs/roadmap.md): the DPAM foundation and importer framework are
+in place, the practical-curation stream (coverage, suggestions, product
+health) shipped with v1.1, and the importer program keeps expanding —
+live sources today, scaffold providers next.
 
 ## License
 

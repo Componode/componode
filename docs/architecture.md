@@ -1,3 +1,8 @@
+---
+title: Architecture overview
+description: "Runtime architecture: deployment topology, data flow, auth, importer pipeline, persistence."
+---
+
 # Architecture Overview
 
 This document describes the runtime architecture of Componode: the deployment
@@ -277,7 +282,7 @@ flowchart LR
   and exposed on `GET /agents`/`GET /agents/{id}` alongside
   `lastHeartbeatAt`/`lastDisconnectReason`; the agent-local listener
   mirrors the hub `/metrics` posture (unauthenticated, GET-only, no secret
-  material). Full reference: `docs/agents.md`, `docs/agent-protocol.md`.
+  material). Full reference: `docs/import-agents.md`, `docs/agent-protocol.md`.
 
 ## Credential store
 
@@ -396,7 +401,7 @@ other; `core` never imports anything `@componode/*`.
 | Decision rationale | `researches/architecture-decisions.md`, `researches/adrs/` |
 | API surface | `docs/api.md`, `docs/openapi.yaml` |
 | Deployment & ops | `docs/deployment.md` |
-| Import Agents | `docs/agents.md`, `docs/agent-protocol.md` |
+| Import Agents | `docs/import-agents.md`, `docs/agent-protocol.md` |
 | Building an importer | `docs/importer-development.md` |
 | UI conventions | `docs/ux.md` |
-| Security posture | `docs/security/` (dated assessments) |
+| Security posture | `docs/security.md`; dated assessments in `researches/security/` |
