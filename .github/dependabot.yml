@@ -34,3 +34,14 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+
+  # Covers both root Dockerfiles (Dockerfile, Dockerfile.agent): keeps the
+  # patch-pinned node:24.x.y-alpine base image tracking the latest Node 24
+  # patch release.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
