@@ -78,6 +78,19 @@ const queue = new PQueue({
 // config is read lazily at first dispatch so tests can tune env per case.
 const agentPools = new Map<string, PQueue>();
 
+// Checks whose latest slot is still in-flight or deferred on the agent
+// path. Admission claims the check and returns without waiting for the
+// queued work — a saturated agent can never stall the sweep for other
+// agents or Hub-vantage checks (FR-005/FR-013). The slot stays due until
+// the task records its observation, then the claim releases.
+const agentSlotClaims = new Set<string>();
+
+// Bounds must be whole numbers ≥ 1 — p-queue rejects fractional caps at
+// pool creation, so env overrides are clamped for predictable handling.
+function boundInt(name: string, fallback: number): number {
+  return Math.max(1, Math.floor(envInt(name, fallback)));
+}
+
 // Label-free aggregates (spec 052 US3): which agent is saturated stays on
 // the agent's own ops scrape — the hub only exposes the global signal.
 function updateAgentPoolGauges(): void {
@@ -95,11 +108,11 @@ function agentPool(agentId: string): PQueue {
   let pool = agentPools.get(agentId);
   if (!pool) {
     pool = new PQueue({
-      concurrency: envInt(
+      concurrency: boundInt(
         "URL_CHECK_AGENT_CONCURRENCY",
         URL_CHECK_AGENT_CONCURRENCY_DEFAULT,
       ),
-      intervalCap: envInt(
+      intervalCap: boundInt(
         "URL_CHECK_AGENT_RATE_LIMIT",
         URL_CHECK_AGENT_RATE_LIMIT_DEFAULT,
       ),
@@ -117,11 +130,22 @@ function agentPool(agentId: string): PQueue {
 }
 
 function agentQueueMax(): number {
-  return envInt("URL_CHECK_AGENT_QUEUE_MAX", URL_CHECK_AGENT_QUEUE_MAX_DEFAULT);
+  return boundInt(
+    "URL_CHECK_AGENT_QUEUE_MAX",
+    URL_CHECK_AGENT_QUEUE_MAX_DEFAULT,
+  );
+}
+
+// Test seam: agent-path dispatchProbe resolves at admission, so tests
+// drain the pools before asserting observations.
+export async function waitForAgentProbePoolsIdle(): Promise<void> {
+  await Promise.all([...agentPools.values()].map((q) => q.onIdle()));
 }
 
 export function resetAgentProbePoolsForTests(): void {
   agentPools.clear();
+  agentSlotClaims.clear();
+  updateAgentPoolGauges();
 }
 
 export interface DispatchProbeDeps {
@@ -227,19 +251,15 @@ type CheckContext = {
 // as probe failures, never silently skipped).
 async function resolveHubHeaders(
   check: CheckContext,
-): Promise<{ headers: Record<string, string> } | { errorType: UrlCheckErrorType }> {
+): Promise<
+  { headers: Record<string, string> } | { errorType: UrlCheckErrorType }
+> {
   if (check.authMode === "NONE") return { headers: {} };
   if (!check.credentialId) return { errorType: "OTHER" };
 
   const credential = await db
     .selectFrom("credentials")
-    .select([
-      "id",
-      "status",
-      "kind",
-      "encryptedPayload",
-      "lastUsedAt",
-    ])
+    .select(["id", "status", "kind", "encryptedPayload", "lastUsedAt"])
     .where("id", "=", check.credentialId)
     .executeTakeFirst();
   if (!credential || credential.status !== "ACTIVE") {
@@ -467,14 +487,49 @@ export async function dispatchProbe(
     authConfig: (row.authConfig as UrlCheckAuthConfig | null) ?? null,
   };
 
+  // Slot-level dedupe (spec 052): an observation for this slot means the
+  // probe already finalized — running again could only ever write a
+  // duplicate. The slot is simply re-armed so the schedule keeps moving.
+  const alreadyObserved = await db
+    .selectFrom("url_check_observations")
+    .select("id")
+    .where("urlCheckId", "=", checkId)
+    .where("scheduledAt", "=", scheduledAt)
+    .executeTakeFirst();
+  if (alreadyObserved) {
+    await db
+      .updateTable("url_checks")
+      .set({
+        nextProbeAt: new Date(
+          new Date(scheduledAt).getTime() + cadenceSeconds * 1000,
+        ).toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+      .where("id", "=", checkId)
+      .where("enabled", "=", true)
+      .execute();
+    return;
+  }
+
   if (vantage === "AGENT") {
     const agentId = row.setupAgentId;
+    const args = {
+      ...ctx,
+      id: row.id,
+      url: row.url,
+      method: row.method,
+      setupAgentId: row.setupAgentId,
+    };
     // Bounded deferral (clarify 2026-11-01): work beyond the in-flight
     // bound waits inside the per-agent queue; work beyond the deferral
     // bound records MISSED/SATURATED — never a silent drop, never an
-    // unbounded wait. The size check and queue.add stay synchronous so
-    // admission is atomic on the event loop.
+    // unbounded wait. Admission claims the check and returns without
+    // awaiting the queued task, so a saturated agent cannot stall the
+    // sweep for other checks (FR-005/FR-013); the claim releases when
+    // the task settles, after which the still-due slot is re-picked or
+    // the observation dedupe above ends the slot.
     if (agentId && agentDispatch) {
+      if (agentSlotClaims.has(row.id)) return;
       const pool = agentPool(agentId);
       if (pool.size >= agentQueueMax()) {
         await recordObservation(row.id, scheduledAt, cadenceSeconds, {
@@ -485,25 +540,28 @@ export async function dispatchProbe(
         });
         return;
       }
-      await pool.add(() =>
-        dispatchAgentProbe(
-          {
-            ...ctx,
-            id: row.id,
-            url: row.url,
-            method: row.method,
-            setupAgentId: row.setupAgentId,
-          },
-          scheduledAt,
-          cadenceSeconds,
-          timeoutMs,
-          policy,
-        ),
-      );
+      agentSlotClaims.add(row.id);
+      void pool
+        .add(() =>
+          dispatchAgentProbe(
+            args,
+            scheduledAt,
+            cadenceSeconds,
+            timeoutMs,
+            policy,
+          ),
+        )
+        .catch((err) =>
+          logger.warn(
+            { err, checkId: row.id, agentId },
+            "deferred url check probe failed",
+          ),
+        )
+        .finally(() => agentSlotClaims.delete(row.id));
       return;
     }
     await dispatchAgentProbe(
-      { ...ctx, id: row.id, url: row.url, method: row.method, setupAgentId: row.setupAgentId },
+      args,
       scheduledAt,
       cadenceSeconds,
       timeoutMs,

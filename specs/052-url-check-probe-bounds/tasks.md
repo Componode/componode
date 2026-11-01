@@ -99,3 +99,12 @@ MVP = Phases 1–3 (US1): bounded, saturation-visible agent-vantage dispatch.
 US2 then layers prompt cancellation on the same surfaces. US3 is docs +
 telemetry and can land incrementally. Each phase is independently testable
 per the quickstart scenarios.
+
+## Phase 7: Review
+
+- [x] T02X [Review] code-review: spec+standards — head-of-line blocking: agent-vantage `dispatchProbe` awaits deferred pool work and `sweepOnce` awaits all dispatches, so a saturated agent stalls later sweeps (FR-005/FR-013). Fix: per-check in-flight claim set (`agentSlotClaims`), enqueue-and-return admission, `waitForAgentProbePoolsIdle()` test seam; deferred task logs failures and releases the claim.
+- [x] T02X [Review] code-review: spec — duplicate observations possible on re-dispatch (FR-010): add UNIQUE `(urlCheckId, scheduledAt)` to migration 026 and a `scheduledAt` dedupe check in `dispatchProbe` so an already-observed slot is a no-op (prevents constraint-retry loops).
+- [x] T02X [Review] code-review: spec+standards — duplicate `probeId` frames overwrite the runner's controller map (cap bypass + lost cancel handle): ignore duplicate `probeId` silently (log warn) before the cap check.
+- [x] T02X [Review] code-review: spec — env bounds accept floats/≤0 which p-queue rejects unpredictably (FR-014): clamp via `Math.max(1, Math.floor(envInt(...)))` and document valid ranges in `docs/url-checks.md` + `docs/import-agents.md`.
+- [x] T03X [Review] code-review: standards — hoist the duplicated dispatch-arg literal in `dispatchProbe`; drop the redundant `readyState===OPEN` guard around `this.send` in `agent-session-service.ts` (send already guards); `resetAgentProbePoolsForTests` also clears claims and refreshes the gauges.
+- [x] T03X [Review] Update test call sites for admission-return semantics: `url-checks-bounds.test.ts` and `url-checks-monitoring.test.ts` AGENT tests must `await waitForAgentProbePoolsIdle()` before observation assertions.

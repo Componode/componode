@@ -65,7 +65,7 @@ Agents_.
 | `AGENT_OPS_HOST`                          | no       | `0.0.0.0`                              | Bind address for the operations listener — `127.0.0.1` for local-only                                                                                      |
 | `AGENT_OPS_PORT`                          | no       | `9464`                                 | Operations listener port                                                                                                                                   |
 | `AGENT_OPS_DISABLED`                      | no       | —                                      | `"true"` disables the operations listener entirely                                                                                                         |
-| `URL_CHECK_MAX_PROBES`                    | no       | `8`                                    | Max concurrent URL check probes on this agent — excess probe frames are refused `SATURATED`                                                                |
+| `URL_CHECK_MAX_PROBES`                    | no       | `8`                                    | Max concurrent URL check probes on this agent (integer ≥ 1) — excess probe frames are refused `SATURATED`                                                  |
 | `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | no       | —                                      | Standard egress proxy support                                                                                                                              |
 
 Credential precedence: `AGENT_TOKEN_FILE` → `AGENT_TOKEN` → persisted

@@ -1,4 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  vi,
+} from "vitest";
 import { uuidv7 } from "uuidv7";
 import { randomBytes } from "node:crypto";
 import { startTestDb, type TestDb } from "../helpers/testcontainers.js";
@@ -120,6 +128,11 @@ async function seedCheck(
 }
 
 async function observations(db: TestDb["db"], checkId: string) {
+  // Agent-vantage dispatchProbe resolves at admission (spec 052) — drain
+  // the per-agent pools so deferred work finalizes before we assert.
+  const { waitForAgentProbePoolsIdle } =
+    await import("../../src/services/probe-dispatcher.js");
+  await waitForAgentProbePoolsIdle();
   return db
     .selectFrom("url_check_observations")
     .selectAll()
@@ -133,6 +146,7 @@ describe("url check agent-vantage bounds (spec 052 US1)", () => {
   let dispatchProbe: typeof import("../../src/services/probe-dispatcher.js").dispatchProbe;
   let setUrlCheckAgentDispatch: typeof import("../../src/services/probe-dispatcher.js").setUrlCheckAgentDispatch;
   let resetAgentProbePoolsForTests: typeof import("../../src/services/probe-dispatcher.js").resetAgentProbePoolsForTests;
+  let waitForAgentProbePoolsIdle: typeof import("../../src/services/probe-dispatcher.js").waitForAgentProbePoolsIdle;
 
   const okResult = (probeId: string) => ({
     probeId,
@@ -150,8 +164,12 @@ describe("url check agent-vantage bounds (spec 052 US1)", () => {
     process.env.BOOTSTRAP_ADMIN_PASSWORD = ADMIN_PASSWORD;
     process.env.COMPONODE_SECRETS_KEY = TEST_KEY;
     vi.resetModules();
-    ({ dispatchProbe, setUrlCheckAgentDispatch, resetAgentProbePoolsForTests } =
-      await import("../../src/services/probe-dispatcher.js"));
+    ({
+      dispatchProbe,
+      setUrlCheckAgentDispatch,
+      resetAgentProbePoolsForTests,
+      waitForAgentProbePoolsIdle,
+    } = await import("../../src/services/probe-dispatcher.js"));
   }, 120000);
 
   afterAll(async () => {
@@ -164,7 +182,11 @@ describe("url check agent-vantage bounds (spec 052 US1)", () => {
     delete process.env.URL_CHECK_SWEEP_INTERVAL_MS;
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Drain first: a deferred task resolves agentDispatch at run time, so
+    // leftover work from a prior test must finish inside it — otherwise a
+    // zombie task would fire against the next test's stub.
+    await waitForAgentProbePoolsIdle();
     setUrlCheckAgentDispatch(null);
     resetAgentProbePoolsForTests();
     delete process.env.URL_CHECK_AGENT_CONCURRENCY;
@@ -195,6 +217,9 @@ describe("url check agent-vantage bounds (spec 052 US1)", () => {
     await Promise.all(
       checks.map(({ checkId }) => dispatchProbe(checkId, iso(0))),
     );
+    // Admission returns immediately — drain so every slot actually ran
+    // before asserting the observed concurrency ceiling.
+    await waitForAgentProbePoolsIdle();
 
     expect(maxInFlight).toBeLessThanOrEqual(2);
     for (const { checkId } of checks) {
@@ -230,6 +255,10 @@ describe("url check agent-vantage bounds (spec 052 US1)", () => {
     await new Promise((r) => setTimeout(r, 20));
     // Queue now holds check 2 (size 1 = max) — check 3 must be refused.
     await dispatchProbe(checks[2].checkId, iso(0));
+    expect(dispatched).toHaveLength(1); // refused before any stub call
+
+    release();
+    await Promise.all([first, second]);
 
     const obs3 = await observations(testDb.db, checks[2].checkId);
     expect(obs3).toHaveLength(1);
@@ -239,10 +268,6 @@ describe("url check agent-vantage bounds (spec 052 US1)", () => {
       vantage: "AGENT",
       agentId,
     });
-    expect(dispatched).toHaveLength(1);
-
-    release();
-    await Promise.all([first, second]);
     for (const { checkId } of checks.slice(0, 2)) {
       const obs = await observations(testDb.db, checkId);
       expect(obs).toHaveLength(1);
@@ -268,6 +293,9 @@ describe("url check agent-vantage bounds (spec 052 US1)", () => {
     await Promise.all(
       checks.map(({ checkId }) => dispatchProbe(checkId, iso(0))),
     );
+    // Dispatch resolves at admission — drain so the rate-limited second
+    // start has run before we assert spacing.
+    await waitForAgentProbePoolsIdle();
 
     expect(starts).toHaveLength(2);
     // Second dispatch must wait for the next 80 ms interval window.
@@ -307,21 +335,27 @@ describe("url check agent-vantage bounds (spec 052 US1)", () => {
     const pb1 = dispatchProbe(b1.checkId, iso(0));
     const phub = dispatchProbe(hub.checkId, iso(0), {
       fetchImpl: async () =>
-        ({ status: 200, body: { cancel: async () => {} } }) as unknown as Response,
+        ({
+          status: 200,
+          body: { cancel: async () => {} },
+        }) as unknown as Response,
     });
 
     // B and HUB complete while A's single in-flight slot is still held.
-    await Promise.all([pb1, phub]);
-    expect(calls.B).toBe(1);
-    expect(calls.A).toBe(1); // a2 is deferred, not yet dispatched
+    await phub;
+    // Draining would block on A's held gate — poll the counters instead.
+    await vi.waitFor(() => {
+      expect(calls.B).toBe(1);
+      expect(calls.A).toBe(1); // a2 is deferred, not yet dispatched
+    });
+    await pb1;
+
+    releaseA();
+    await vi.waitFor(() => expect(calls.A).toBe(2)); // a1 then deferred a2
     const bObs = await observations(testDb.db, b1.checkId);
     expect(bObs[0].outcome).toBe("SUCCESS");
     const hubObs = await observations(testDb.db, hub.checkId);
     expect(hubObs[0]).toMatchObject({ outcome: "SUCCESS", vantage: "HUB" });
-
-    releaseA();
-    await Promise.all([pa1, pa2]);
-    expect(calls.A).toBe(2); // a1 then deferred a2 both ran, one at a time
     for (const { checkId } of [a1, a2]) {
       const obs = await observations(testDb.db, checkId);
       expect(obs).toHaveLength(1);

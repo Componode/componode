@@ -28,9 +28,23 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .alterTable("url_check_observations")
     .addCheckConstraint("url_check_obs_error_type_check", errorTypeCheck)
     .execute();
+
+  // One observation per scheduled slot, enforced at the DB level — a
+  // re-dispatch after hub restart or a racing deferred write can never
+  // produce a second row for the same slot (spec 052 FR-010).
+  await db.schema
+    .createIndex("url_check_obs_slot_unique")
+    .on("url_check_observations")
+    .columns(["urlCheckId", "scheduledAt"])
+    .unique()
+    .execute();
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  await db.schema
+    .dropIndex("url_check_obs_slot_unique")
+    .on("url_check_observations")
+    .execute();
   await db.schema
     .alterTable("url_check_observations")
     .dropConstraint("url_check_obs_error_type_check")

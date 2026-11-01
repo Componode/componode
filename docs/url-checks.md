@@ -182,16 +182,16 @@ by side as separate signals — that separation is deliberate.
 
 Defaults are the supported values; override only for tests or tuning.
 
-| Variable                            | Default | Purpose                                                                |
-| ----------------------------------- | ------- | ---------------------------------------------------------------------- |
-| `URL_CHECK_SWEEP_INTERVAL_MS`       | `15000` | How often the hub scheduler dispatches due checks                      |
-| `URL_CHECK_PROBE_TIMEOUT_MS`        | `30000` | Per-probe timeout (clamped to 60000 ms max)                            |
-| `URL_CHECK_HUB_CONCURRENCY`         | `10`    | Maximum concurrent hub-vantage probes                                  |
-| `URL_CHECK_PROBE_RATE_LIMIT`        | `20`    | Max hub-vantage probes dispatched per sweep-interval window            |
-| `URL_CHECK_DEFAULT_CADENCE_SECONDS` | `300`   | Default setup cadence; per-check range 60–86400 s                      |
-| `URL_CHECK_AGENT_CONCURRENCY`       | `4`     | Maximum concurrent in-flight probes per Import Agent                   |
-| `URL_CHECK_AGENT_RATE_LIMIT`        | `20`    | Max agent-vantage dispatches per sweep-interval window per agent       |
-| `URL_CHECK_AGENT_QUEUE_MAX`         | `100`   | Max deferred (queued) probe slots per agent before slots record MISSED |
+| Variable                            | Default | Purpose                                                                        |
+| ----------------------------------- | ------- | ------------------------------------------------------------------------------ |
+| `URL_CHECK_SWEEP_INTERVAL_MS`       | `15000` | How often the hub scheduler dispatches due checks                              |
+| `URL_CHECK_PROBE_TIMEOUT_MS`        | `30000` | Per-probe timeout (clamped to 60000 ms max)                                    |
+| `URL_CHECK_HUB_CONCURRENCY`         | `10`    | Maximum concurrent hub-vantage probes                                          |
+| `URL_CHECK_PROBE_RATE_LIMIT`        | `20`    | Max hub-vantage probes dispatched per sweep-interval window                    |
+| `URL_CHECK_DEFAULT_CADENCE_SECONDS` | `300`   | Default setup cadence; per-check range 60–86400 s                              |
+| `URL_CHECK_AGENT_CONCURRENCY`       | `4`     | Maximum concurrent in-flight probes per Import Agent (integer ≥ 1)             |
+| `URL_CHECK_AGENT_RATE_LIMIT`        | `20`    | Max agent-vantage dispatches per sweep-interval window per agent (integer ≥ 1) |
+| `URL_CHECK_AGENT_QUEUE_MAX`         | `100`   | Max deferred (queued) probe slots per agent before MISSED (integer ≥ 1)        |
 
 ## Agent-vantage bounds and cancellation
 

@@ -23,8 +23,7 @@ function captureSend() {
   const frames: Array<{ type: string; payload: any }> = [];
   return {
     frames,
-    send: (type: string, payload: unknown) =>
-      frames.push({ type, payload }),
+    send: (type: string, payload: unknown) => frames.push({ type, payload }),
     last: () => frames[frames.length - 1]!,
   };
 }
@@ -198,7 +197,12 @@ describe("probe runner in-flight cap (spec 052)", () => {
       inFlight -= 1;
       return okResponse(200);
     });
-    const runner = createProbeRunner({ log, send: tx.send, fetchImpl, maxProbes: 2 });
+    const runner = createProbeRunner({
+      log,
+      send: tx.send,
+      fetchImpl,
+      maxProbes: 2,
+    });
 
     runner.handleProbe(payloadFor(id(1)));
     runner.handleProbe(payloadFor(id(2)));
@@ -228,7 +232,12 @@ describe("probe runner in-flight cap (spec 052)", () => {
       await new Promise<void>((r) => gates.push(r));
       return okResponse(200);
     });
-    const runner = createProbeRunner({ log, send: tx.send, fetchImpl, maxProbes: 1 });
+    const runner = createProbeRunner({
+      log,
+      send: tx.send,
+      fetchImpl,
+      maxProbes: 1,
+    });
 
     runner.handleProbe(payloadFor(id(1)));
     runner.handleProbe(payloadFor(id(2))); // refused
@@ -287,9 +296,7 @@ describe("probe runner cancellation (spec 052)", () => {
     runner.cancel(id(1));
     await vi.waitFor(() => expect(runner.inFlightCount()).toBe(1));
 
-    const aborted = tx.frames.find(
-      (f) => f.payload.probeId === id(1),
-    )!;
+    const aborted = tx.frames.find((f) => f.payload.probeId === id(1))!;
     expect(aborted.payload).toMatchObject({
       outcome: "FAILURE",
       errorType: "ABORTED",
@@ -297,6 +304,29 @@ describe("probe runner cancellation (spec 052)", () => {
     // The sibling probe is untouched and still running.
     runner.abortAll();
     await vi.waitFor(() => expect(runner.inFlightCount()).toBe(0));
+  });
+
+  it("ignores a duplicate probeId — cap bypass and lost cancel handle prevented", async () => {
+    const { log } = makeLog();
+    const tx = captureSend();
+    const fetchImpl = abortableFetch();
+    const runner = createProbeRunner({
+      log,
+      send: tx.send,
+      fetchImpl,
+      maxProbes: 1,
+    });
+
+    runner.handleProbe(payloadFor(id(1)));
+    runner.handleProbe(payloadFor(id(1))); // dup — must not replace/run
+    expect(runner.inFlightCount()).toBe(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    runner.cancel(id(1));
+    await vi.waitFor(() => expect(runner.inFlightCount()).toBe(0));
+    expect(tx.frames.filter((f) => f.payload.probeId === id(1))).toHaveLength(
+      1,
+    );
   });
 
   it("is a safe no-op for unknown or already-settled probeIds", async () => {
@@ -333,9 +363,7 @@ describe("probe runner cancellation (spec 052)", () => {
 
     runner.abortAll();
     await vi.waitFor(() => expect(runner.inFlightCount()).toBe(0));
-    const aborted = tx.frames.filter(
-      (f) => f.payload.errorType === "ABORTED",
-    );
+    const aborted = tx.frames.filter((f) => f.payload.errorType === "ABORTED");
     expect(aborted).toHaveLength(3);
   });
 });

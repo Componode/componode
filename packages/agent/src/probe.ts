@@ -8,7 +8,11 @@ import {
   SecretRefError,
   SecretResolutionError,
 } from "@componode/core/secrets";
-import { createAgentResolver, resolveRefMap, type AgentLog } from "./secrets.js";
+import {
+  createAgentResolver,
+  resolveRefMap,
+  type AgentLog,
+} from "./secrets.js";
 import type { AgentOpsMetrics } from "./metrics.js";
 
 // Agent-side url_check.probe handling (spec 051, contracts/agent-frames.md):
@@ -30,10 +34,7 @@ export interface UrlCheckProbeDeps {
   /** Ops counters (spec 052 US3) — probe in-flight gauge + result counter. */
   ops?: AgentOpsMetrics;
   /** Called with each result before it is sent — feeds ops metrics. */
-  onResult?: (result: {
-    outcome: string;
-    errorType?: string | null;
-  }) => void;
+  onResult?: (result: { outcome: string; errorType?: string | null }) => void;
 }
 
 // Key name the frame asked for is absent from the resolved bundle — a
@@ -80,9 +81,7 @@ export async function handleUrlCheckProbe(
   payload: UrlCheckProbePayload,
   deps: UrlCheckProbeDeps,
 ): Promise<void> {
-  const reply = (
-    result: Omit<UrlCheckProbeResultPayload, "probeId">,
-  ): void => {
+  const reply = (result: Omit<UrlCheckProbeResultPayload, "probeId">): void => {
     deps.onResult?.(result);
     deps.send("url_check.probe.result", {
       probeId: payload.probeId,
@@ -123,7 +122,10 @@ export async function handleUrlCheckProbe(
     // masked against the resolved bundle before logging. The wire only
     // ever sees an errorType.
     if (err instanceof SecretResolutionError || err instanceof SecretRefError) {
-      deps.log.warn({ err: err.message }, "url check probe secret resolution failed");
+      deps.log.warn(
+        { err: err.message },
+        "url check probe secret resolution failed",
+      );
       return reply({ outcome: "FAILURE", errorType: "OTHER" });
     }
     deps.log.warn(
@@ -161,6 +163,15 @@ export function createProbeRunner(
   const controllers = new Map<string, AbortController>();
 
   const handleProbe = (payload: UrlCheckProbePayload): void => {
+    // A repeated probeId must not overwrite the in-flight controller —
+    // it would bypass the cap and lose the original's cancel handle.
+    if (controllers.has(payload.probeId)) {
+      deps.log.warn(
+        { probeId: payload.probeId },
+        "duplicate url check probe frame ignored",
+      );
+      return;
+    }
     if (controllers.size >= deps.maxProbes) {
       deps.ops?.urlCheckProbeRefused();
       deps.send("url_check.probe.result", {
