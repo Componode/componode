@@ -1,3 +1,8 @@
+---
+title: GitHub importer
+description: What the GitHub importer discovers and how to configure it.
+---
+
 # GitHub importer
 
 Imports a GitHub organization — its profile, repositories, environments,
@@ -37,22 +42,29 @@ endpoint, the smallest authenticated request available.
 
 ## Configuration
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `org` | string | — | Organization login to import (required) |
-| `baseUrl` | URL | github.com | GitHub Enterprise API base URL |
-| `repos` | string[] | all | Restrict to named repositories |
-| `includeForks` | bool | `false` | Include forked repositories |
-| `includeArchived` | bool | `false` | Include archived repositories |
-| `includeOrganization` | bool | `true` | Emit the organization component |
-| `includeBilling` | bool | `true` | Fetch billing usage (needs `admin:org`) |
-| `billingPeriod` | `current`/`previous` | `current` | Which billing month to read |
-| `includeEnvironments` | bool | `true` | Import deployment environments |
-| `includeReleases` | bool | `true` | Import latest release per repo |
-| `includeWorkflows` | bool | `false` | Import Actions workflows per repo |
-| `includeRunners` | bool | `false` | Import org self-hosted runners (needs `admin:org`) |
-| `includePackages` | bool | `false` | Import org packages (needs `admin:org`) |
-| `environmentMapping` | record | unset | Map GitHub environment names → `DEV`/`TEST`/`STAGING`/`DEMO`/`PRODUCTION`/`OTHER` |
+<!-- GENERATED:contract -->
+**Secrets:** `token` (required)
+**Execution:** hub or Import Agent
+**Source identity:** `context.reportSourceIdentity()`
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `org` | string | yes | — | Organization login to import |
+| `baseUrl` | URL | no | — | GitHub Enterprise API base URL (github.com when unset) |
+| `repos` | string[] | no | — | Restrict to named repositories (all when unset) |
+| `includeForks` | bool | no | `false` | Include forked repositories |
+| `includeArchived` | bool | no | `false` | Include archived repositories |
+| `includeOrganization` | bool | no | `true` | Emit the organization component |
+| `includeBilling` | bool | no | `true` | Fetch billing usage (needs `admin:org`) |
+| `billingPeriod` | enum | no | `current` | Which billing month to read |
+| `includeEnvironments` | bool | no | `true` | Import deployment environments |
+| `includeReleases` | bool | no | `true` | Import latest release per repo |
+| `includeWorkflows` | bool | no | `false` | Import Actions workflows per repo |
+| `includeRunners` | bool | no | `false` | Import org self-hosted runners (needs `admin:org`) |
+| `includePackages` | bool | no | `false` | Import org packages (needs `admin:org`) |
+| `environmentMapping` | record | no | — | Map GitHub environment names to DEV/TEST/STAGING/DEMO/PRODUCTION/OTHER |
+<!-- /GENERATED:contract -->
+
 
 ## Behavior notes
 

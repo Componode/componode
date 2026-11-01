@@ -1,3 +1,8 @@
+---
+title: Importer development
+description: "How to write a pull-only importer: manifest, config, generator contract."
+---
+
 # Importer Development Guide
 
 This document is the contributor contract for adding new importers to Componode. It applies to all packages under `packages/importer-*`.

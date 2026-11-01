@@ -90,6 +90,10 @@ ComponentInstance membership tables join the schema inventory, and
 
 ---
 
+**Amended by ADR-122**: schema gains `docker_targets` and `import_runs.cancelReason` (spec 049).
+
+---
+
 ## Amendment 3 — URL Check monitoring records (2026-11-01, ADR-123)
 
 **Context**: [ADR-123](./ADR-123-http-url-check-monitoring.md) establishes

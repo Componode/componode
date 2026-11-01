@@ -1,3 +1,8 @@
+---
+title: MCP Server importer
+description: "Scaffold importer for MCP servers: what it will discover and how to configure it."
+---
+
 # MCP Server importer
 
 > **Status: scaffold.** This importer registers the MCP Server provider and
@@ -23,11 +28,18 @@ None.
 
 ## Configuration
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `resourceTypes` | string[] | `["tools/list"]` | MCP method labels; one placeholder component each |
-| `endpoint` | URL | unset | Recorded on the asset's details/url; reserved for the server's transport URL |
-| `sourceKey` | string | unset | Fallback source identity when `endpoint` is absent — one of the two is required (ADR-120) |
+<!-- GENERATED:contract -->
+**Secrets:** none
+**Execution:** hub or Import Agent
+**Source identity:** `context.reportSourceIdentity()`
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `resourceTypes` | string[] | no | `["tools/list"]` | MCP method labels; one placeholder component each |
+| `endpoint` | URL | no | — | Recorded on the asset's details/url; reserved for the server's transport URL |
+| `sourceKey` | string | no | — | Fallback source identity when `endpoint` is absent — one of the two is required (ADR-120) |
+<!-- /GENERATED:contract -->
+
 
 ## Source identity
 

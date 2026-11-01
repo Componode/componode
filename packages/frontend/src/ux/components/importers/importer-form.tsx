@@ -6,7 +6,7 @@ import {
   useUpdateImporterConfig,
 } from "@/api/hooks/importers"
 import { fieldErrors, type ApiError } from "@/api/client"
-import type { Credential, ImporterConfig, ImporterManifest } from "@/api/types"
+import type { Credential, DockerTarget, ImporterConfig, ImporterManifest } from "@/api/types"
 import type { ImportAgent } from "@componode/core"
 import { FormPage, FormSection } from "@/ux/components/forms/form-shell"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
@@ -87,9 +87,10 @@ interface ImporterFormProps {
   manifests: ImporterManifest[]
   credentials: Credential[]
   agents: Pick<ImportAgent, "id" | "name" | "status">[]
+  dockerTargets?: Pick<DockerTarget, "id" | "targetId" | "label" | "enabled" | "profile">[]
 }
 
-export function ImporterForm({ config, manifests, credentials, agents }: ImporterFormProps) {
+export function ImporterForm({ config, manifests, credentials, agents, dockerTargets = [] }: ImporterFormProps) {
   const navigate = useNavigate()
   const createConfig = useCreateImporterConfig()
   const updateConfig = useUpdateImporterConfig()
@@ -125,7 +126,15 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
   const schema = manifest?.configSchema
   const scopeFields = React.useMemo(() => fieldsForSchema(schema), [schema])
   const renderable = schemaRenderable(schema)
-  const scopeRequired = scopeFields.filter((f) => f.required).map((f) => f.key)
+  const targetRefKey = manifest?.targetRefKey
+  // Hub-bound targetRefKey importers pick from the Hub target registry;
+  // agent-bound keep free-text because the Hub can't enumerate agent-local
+  // registries (spec 049).
+  const hubTargetPicker = Boolean(targetRefKey) && !boundToAgent
+  const renderedScopeFields = hubTargetPicker
+    ? scopeFields.filter((f) => f.key !== targetRefKey)
+    : scopeFields
+  const scopeRequired = renderedScopeFields.filter((f) => f.required).map((f) => f.key)
 
   // Seed scope state once per (config, importer) pair — the seededFor ref
   // means a manifest refetch (new array identity) can never wipe entered
@@ -375,7 +384,11 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
         next.scope = "Scope must be valid JSON."
       }
     } else {
+      if (hubTargetPicker && !scopeValues[targetRefKey!]) {
+        fieldErrs[targetRefKey!] = "Docker target is required."
+      }
       for (const f of scopeFields) {
+        if (hubTargetPicker && f.key === targetRefKey) continue
         const v = scopeValues[f.key]
         const missing =
           v === undefined ||
@@ -521,6 +534,9 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
                 onValueChange={(v) => {
                   setAgentId(v)
                   setCredentialId(NONE)
+                  // Executor-local registries: the same targetId text can
+                  // mean a different route on the other executor.
+                  if (targetRefKey) setScopeValue(targetRefKey, undefined)
                 }}
               >
                 <SelectTrigger id="i-agent" className="w-full">
@@ -614,13 +630,39 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
             </FieldGroup>
           ) : (
             <>
-              {scopeFields.length === 0 && (
+              {hubTargetPicker && (
+                <Field data-invalid={scopeFieldErrors[targetRefKey!] ? true : undefined}>
+                  <FieldLabel htmlFor="i-target">Docker target <span className="text-destructive"> *</span></FieldLabel>
+                  <Select
+                    value={typeof scopeValues[targetRefKey!] === "string" ? String(scopeValues[targetRefKey!]) : ""}
+                    onValueChange={(v) => setScopeValue(targetRefKey!, v)}
+                  >
+                    <SelectTrigger id="i-target" className="w-full" aria-invalid={scopeFieldErrors[targetRefKey!] ? true : undefined}>
+                      <SelectValue placeholder={"Select a Docker target"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(dockerTargets ?? [])
+                        .filter((t) => t.enabled || t.targetId === scopeValues[targetRefKey!])
+                        .map((t) => (
+                          <SelectItem key={t.id} value={t.targetId} disabled={!t.enabled}>
+                            {t.label} — {String(t.profile.transport)}{t.enabled ? "" : " (disabled)"}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldDescription>
+                    Hub-managed access route. Manage targets under Administration → Docker targets.
+                  </FieldDescription>
+                  {scopeFieldErrors[targetRefKey!] && <FieldError>{scopeFieldErrors[targetRefKey!]}</FieldError>}
+                </Field>
+              )}
+              {renderedScopeFields.length === 0 && !hubTargetPicker && (
                 <p className="text-sm text-muted-foreground">
                   This importer has no configurable scope options.
                 </p>
               )}
               <ScopeFields
-                fields={scopeFields}
+                fields={renderedScopeFields}
                 values={scopeValues}
                 jsonTexts={jsonTexts}
                 fieldErrors={scopeFieldErrors}

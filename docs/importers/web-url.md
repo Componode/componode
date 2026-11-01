@@ -1,3 +1,8 @@
+---
+title: Web URL importer
+description: What the Web URL importer discovers and how to configure it.
+---
+
 # Web URL importer
 
 Imports a single web page or endpoint as a component. On each run it
@@ -24,9 +29,16 @@ None.
 
 ## Configuration
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `url` | URL | — | The web page/endpoint to probe (required) |
+<!-- GENERATED:contract -->
+**Secrets:** none
+**Execution:** hub or Import Agent
+**Source identity:** `context.reportSourceIdentity()`
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `url` | URL | yes | — | The web page/endpoint to probe |
+<!-- /GENERATED:contract -->
+
 
 ## Troubleshooting
 

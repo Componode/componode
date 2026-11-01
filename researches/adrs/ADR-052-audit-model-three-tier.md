@@ -49,3 +49,7 @@ agent-originated events). High-frequency connection events are recorded
 in the operational `agent_sessions` table instead of append-only audit —
 the same "consequential transitions audited, routine noise is not"
 asymmetry. Rejected connection attempts write no audit rows.
+
+---
+
+**Amended by ADR-122**: audit gains the `docker_target` entity type — `created`/`updated`/`enabled`/`disabled`/`deleted`/`tested` with non-secret route snapshots (spec 049).

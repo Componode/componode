@@ -1,3 +1,8 @@
+---
+title: Importers
+description: "Pull-only importers: what they discover and how an import works."
+---
+
 # Importers
 
 Importers pull assets from external systems into the Componode catalog. Each
@@ -8,19 +13,23 @@ source system.
 
 ## Available importers
 
-| Importer | What it imports | Credentials required | Status |
+<!-- GENERATED:importers-table -->
+| Importer | What it imports | Required secrets | Execution |
 |---|---|---|---|
-| [GitHub](./github) | Organization, repositories, environments, releases, workflows, runners, packages, billing usage | Personal access token | Full |
-| [Alibaba Cloud](./alibaba-cloud) | Account inventory via Resource Center (ECS, OSS, RDS, VPC, …), optional per-resource config and costs | RAM AccessKey pair | Full |
-| [Docker](./docker) | Docker Engine container workloads via an Import Agent | Agent-side target profile + optional TLS/SSH key refs | Full (agent-only) |
-| [API URL](./api-url) | A single API endpoint, probed over HTTP | None | Full |
-| [Web URL](./web-url) | A single web page/endpoint, probed over HTTP | None | Full |
-| [AWS](./aws) | Placeholder asset scaffold | None | Scaffold — no live discovery yet |
-| [Azure](./azure) | Placeholder asset scaffold | None | Scaffold — no live discovery yet |
-| [Kubernetes](./kubernetes) | Placeholder asset scaffold | None | Scaffold — no live discovery yet |
-| [MCP Server](./mcp-server) | Placeholder asset scaffold | None | Scaffold — no live discovery yet |
+| [Alibaba Cloud](./alibaba-cloud) | Import Alibaba Cloud account resources via Resource Center. | `accessKeyId`, `accessKeySecret` | hub or Import Agent |
+| [API URL](./api-url) | Import an API URL endpoint as a component instance. | none required | hub or Import Agent |
+| [AWS](./aws) | Import AWS cloud assets as components and instances. | none required | hub or Import Agent |
+| [Azure](./azure) | Import Azure cloud assets as components and instances. | none required | hub or Import Agent |
+| [Docker](./docker) | Import Docker Engine workloads from the Hub or an Import Agent. | none required | hub or Import Agent · target profiles |
+| [GitHub](./github) | Import GitHub organizations, repositories, environments, billing usage, workflows, runners, and packages as components and instances. | `token` | hub or Import Agent |
+| [Kubernetes](./kubernetes) | Import Kubernetes workloads and namespaces as components and instances. | none required | hub or Import Agent |
+| [MCP Server](./mcp-server) | Import MCP server tools and resources as components and instances. | none required | hub or Import Agent |
+| [Web URL](./web-url) | Import a web URL endpoint as a component instance. | none required | hub or Import Agent |
+<!-- /GENERATED:importers-table -->
 
-Scaffold importers register the provider and emit a placeholder component so
+**Status:** GitHub, Alibaba Cloud, Docker, API URL, and Web URL run live
+discovery. AWS, Azure, Kubernetes, and MCP Server are **scaffolds** — they
+register the provider and emit a placeholder component so
 configurations and runs work end-to-end, but they do not call the external
 API yet. Their pages describe what a real connection will require.
 

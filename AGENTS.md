@@ -198,6 +198,31 @@ constitution.
   `requireRole`, and `security: []` vs `verifySession` are enforced by a
   backend contract test — drift fails CI. See `ADR-104`.
 
+### Documentation
+
+- User-facing changes update `docs/` in the same change: a new capability
+  updates the relevant guide page (`quickstart`, `using-the-catalog`,
+  `credentials-and-access`, the importer's own page); a new or renamed doc
+  goes into the sidebar in `docs-site/.vitepress/config.ts`. A page that
+  isn't in the sidebar is an orphan — it ships but can't be found.
+- Keep one source of truth per fact: link or `@include` shared content
+  (e.g. `vocabulary.md` renders `CONTEXT.md`) instead of copying prose
+  between pages.
+- `<!-- GENERATED -->` regions are output, not source — never hand-edit
+  them. Change the underlying truth (`docs/openapi.yaml`, an importer
+  manifest, `DB` in `types.ts`) and re-run the owning `docs:*` script
+  (`docs:api`, `docs:importers`, `docs:schema`). The `*:check` variants
+  run in CI; a stale generated region fails the build.
+- Importer setup guides remain required by the importer contract above;
+  that rule is unchanged — and importer changes (manifest fields,
+  secrets, config schema, capability behavior) regenerate the importer
+  docs via `docs:importers`.
+- Enumerable facts must appear in the docs that cover them:
+  `docs:oracle:check` fails on `.env.example` vars or Compose services
+  missing from `deployment.md`, importer labels missing from
+  `architecture.md`, or core error codes missing from `api.md`;
+  `docs:sidebar:check` fails on pages missing from the site chrome.
+
 ### Dependency & supply chain
 
 - Add dependencies with `pnpm add` inside the owning workspace package; use

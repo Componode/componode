@@ -40,6 +40,21 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Check generated API docs are in sync
+        run: pnpm --filter @componode/backend docs:api:check
+
+      - name: Check generated importer docs are in sync
+        run: pnpm --filter @componode/backend docs:importers:check
+
+      - name: Check generated schema docs are in sync
+        run: pnpm --filter @componode/backend docs:schema:check
+
+      - name: Check docs sidebar coverage
+        run: pnpm --filter @componode/backend docs:sidebar:check
+
+      - name: Check docs oracle (env vars, services, importers, error codes)
+        run: pnpm --filter @componode/backend docs:oracle:check
+
       - name: Build docs site
         run: pnpm docs:build
 

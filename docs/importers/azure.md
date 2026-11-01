@@ -1,3 +1,8 @@
+---
+title: Azure importer
+description: "Scaffold importer for Azure: what it will discover and how to configure it."
+---
+
 # Azure importer
 
 > **Status: scaffold.** This importer registers the Azure provider and emits
@@ -23,12 +28,19 @@ None.
 
 ## Configuration
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `subscriptionId` | string | unset | Subscription label recorded on the placeholder asset |
-| `resourceTypes` | string[] | `["Microsoft.Compute/virtualMachines"]` | ARM resource type labels; one placeholder component each |
-| `endpoint` | URL | unset | Recorded on the asset's details/url; reserved for a future real connection |
-| `sourceKey` | string | unset | Fallback source identity when `subscriptionId` is absent — one of the two is required (ADR-120) |
+<!-- GENERATED:contract -->
+**Secrets:** none
+**Execution:** hub or Import Agent
+**Source identity:** `context.reportSourceIdentity()`
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `subscriptionId` | string | no | — | Subscription label recorded on the placeholder asset |
+| `sourceKey` | string | no | — | Fallback source identity when `subscriptionId` is absent — one of the two is required (ADR-120) |
+| `resourceTypes` | string[] | no | `["Microsoft.Compute/virtualMachines"]` | ARM resource type labels; one placeholder component each |
+| `endpoint` | URL | no | — | Recorded on the asset's details/url; reserved for a future real connection |
+<!-- /GENERATED:contract -->
+
 
 ## Source identity
 

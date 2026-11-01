@@ -35,10 +35,14 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
     // configSchema is a live zod schema — serialize to JSON Schema so the
     // client can read required/properties for the scope editor.
     return reply.status(200).send({
-      importers: manifests.map((m) => ({
-        ...m,
-        configSchema: m.configSchema ? z.toJSONSchema(m.configSchema as z.ZodType) : m.configSchema,
-      })),
+      importers: manifests.map((m) => {
+        const out: Record<string, unknown> = {
+          ...m,
+          configSchema: m.configSchema ? z.toJSONSchema(m.configSchema as z.ZodType) : m.configSchema,
+        };
+        delete out.targetProfileSchema;
+        return out;
+      }),
     });
   });
 

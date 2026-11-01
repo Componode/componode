@@ -257,9 +257,9 @@ describe("config agent binding (spec 027 US1)", () => {
     expect(res2.json().config.agentId).toBeNull();
   });
 
-  it("requiresAgent importers reject agentId-less configs and accept bound ones (ADR-121)", async () => {
-    // docker is the only requiresAgent importer — a hub-bound config is
-    // rejected at save; an agent-bound one succeeds (no secrets required).
+  it("docker accepts Hub-bound configs when a managed target exists (ADR-122)", async () => {
+    // Unknown hub targetId fails save-time resolution; agent-bound configs
+    // skip hub registry checks entirely.
     const unbound = await app.inject({
       method: "POST",
       url: "/api/v1/importer-configs",
@@ -269,8 +269,27 @@ describe("config agent binding (spec 027 US1)", () => {
         scope: { targetId: "t1" },
       }),
     });
-    expect(unbound.statusCode).toBe(400);
-    expect(unbound.json().code).toBe("VALIDATION_FAILED");
+    expect(unbound.statusCode).toBe(404);
+    expect(unbound.json().code).toBe("TARGET_NOT_FOUND");
+
+    // Seed a managed hub target — the same targetId now saves hub-bound.
+    await testDb!.db.insertInto("docker_targets").values({
+      id: randomUUID(), targetId: "t1", label: "t1",
+      description: null,
+      profile: { transport: "socket", path: "/var/run/docker.sock" },
+      enabled: true, createdBy: null, updatedBy: null,
+    }).execute();
+    const hubBound = await app.inject({
+      method: "POST",
+      url: "/api/v1/importer-configs",
+      ...authed({
+        importerName: "docker",
+        label: "docker-hub",
+        scope: { targetId: "t1" },
+      }),
+    });
+    expect(hubBound.statusCode).toBe(201);
+    expect(hubBound.json().config.agentId).toBeNull();
 
     const agentId = await insertAgent("docker-agent");
     const bound = await app.inject({
@@ -279,22 +298,29 @@ describe("config agent binding (spec 027 US1)", () => {
       ...authed({
         importerName: "docker",
         label: "docker-bound",
-        scope: { targetId: "t1" },
+        scope: { targetId: "agent-local" },
         agentId,
       }),
     });
     expect(bound.statusCode).toBe(201);
     expect(bound.json().config.agentId).toBe(agentId);
 
-    // Unbinding a docker config is likewise rejected.
+    // Unbinding to hub now resolves the scope's targetId hub-side — an
+    // unknown targetId is rejected.
     const configId = bound.json().config.id;
     const unbind = await app.inject({
       method: "PATCH",
       url: `/api/v1/importer-configs/${configId}`,
       ...authed({ agentId: null }),
     });
-    expect(unbind.statusCode).toBe(400);
-    expect(unbind.json().code).toBe("VALIDATION_FAILED");
+    expect(unbind.statusCode).toBe(404);
+    expect(unbind.json().code).toBe("TARGET_NOT_FOUND");
+    const unbindOk = await app.inject({
+      method: "PATCH",
+      url: `/api/v1/importer-configs/${configId}`,
+      ...authed({ agentId: null, scope: { targetId: "t1" } }),
+    });
+    expect(unbindOk.statusCode).toBe(200);
   });
 
   it("list and detail responses carry agent + agentIncompatible", async () => {

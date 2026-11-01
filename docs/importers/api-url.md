@@ -1,3 +1,8 @@
+---
+title: API URL importer
+description: What the API URL importer discovers and how to configure it.
+---
+
 # API URL importer
 
 Imports a single API endpoint as a component. On each run it performs one
@@ -26,9 +31,16 @@ None.
 
 ## Configuration
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `url` | URL | — | The API endpoint to probe (required) |
+<!-- GENERATED:contract -->
+**Secrets:** none
+**Execution:** hub or Import Agent
+**Source identity:** `context.reportSourceIdentity()`
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `url` | URL | yes | — | The API endpoint to probe |
+<!-- /GENERATED:contract -->
+
 
 ## Troubleshooting
 

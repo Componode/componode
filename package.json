@@ -24,6 +24,7 @@
     "@types/node": "^26.6.5",
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
+    "mermaid": "^11.17.2",
     "prettier": "^3.9.10",
     "turbo": "^2.11.10",
     "typescript": "^6.0.3",
@@ -31,12 +32,19 @@
     "vite": "^7.3.7",
     "vitepress": "^1.6.4",
     "vitepress-openapi": "^0.2.5",
+    "vitepress-plugin-mermaid": "^2.0.17",
     "vitest": "^5.0.5"
   },
   "packageManager": "pnpm@9.15.2",
   "pnpm": {
     "overrides": {
-      "archiver-utils>glob": "^13.0.6",
+      "archiver-utils>glob": "^14.0.2",
+      "@fastify/static>glob": "^14.0.2",
+      "@eslint/config-array>minimatch": "^11.0.1",
+      "@typescript-eslint/typescript-estree>minimatch": "^11.0.1",
+      "eslint>minimatch": "^11.0.1",
+      "readdir-glob>minimatch": "^11.0.1",
+      "katex": ">=0.18.2",
       "brace-expansion@<1.1.21": "^1.1.21",
       "fast-uri@^3": "^3.1.7",
       "fast-uri@^4": "^4.1.4",

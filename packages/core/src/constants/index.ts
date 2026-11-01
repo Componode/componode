@@ -46,6 +46,8 @@ export type { CredentialStatus } from "./credential-status.js";
 export { CRITICALITIES, CRITICALITY_META } from "./criticality.js";
 export type { ProductCriticality } from "./criticality.js";
 
+export { IMPORT_RUN_CANCEL_REASONS } from "./import-run-cancel-reason.js";
+export type { ImportRunCancelReason } from "./import-run-cancel-reason.js";
 export { ERROR_CODES } from "./error-codes.js";
 export type { ErrorCode } from "./error-codes.js";
 

@@ -13,6 +13,7 @@ import * as cron from "node-cron";
 import { scheduleConfig, rescheduleConfig, unscheduleConfig } from "./scheduler-service.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { unmonitorSourcesForConfig } from "./importer-source-service.js";
+import { assertHubDockerConfig } from "./docker-target-service.js";
 
 function assertValidSchedule(schedule: string | null | undefined): void {
   if (!schedule) return;
@@ -336,6 +337,9 @@ export async function createImporterConfig(
       trx,
       input.agentId ?? null,
     );
+    if (input.importerName === "docker" && !input.agentId) {
+      await assertHubDockerConfig(input.scope, input.credentialIds ?? [], trx);
+    }
 
     await trx
       .insertInto("importer_configs")
@@ -440,11 +444,10 @@ export async function updateImporterConfig(
     // Executor changes re-validate credentials even when the junction did
     // not change — binding a hub config holding STORED credentials to an
     // agent must fail here, not at dispatch.
+    const effectiveCredentialIds = input.credentialIds ?? (existing.credentialIds ?? []);
     if (junctionChanged || agentIdChanged) {
       const effectiveRefs =
         input.secretRefs ?? (existing.secretRefs ?? []);
-      const effectiveCredentialIds =
-        input.credentialIds ?? (existing.credentialIds ?? []);
       await validateSecretSources(
         importerName,
         effectiveRefs,
@@ -452,6 +455,17 @@ export async function updateImporterConfig(
         trx,
         effectiveAgentId,
       );
+    }
+    const targetIdChanged =
+      input.scope !== undefined &&
+      (input.scope as Record<string, unknown> | undefined)?.targetId !==
+        (existing.scope as Record<string, unknown> | undefined)?.targetId;
+    if (
+      importerName === "docker" &&
+      !effectiveAgentId &&
+      (targetIdChanged || credentialIdsChanged || agentIdChanged || input.importerName !== undefined)
+    ) {
+      await assertHubDockerConfig(scope, effectiveCredentialIds, trx);
     }
 
     if (Object.keys(updates).length > 0) {

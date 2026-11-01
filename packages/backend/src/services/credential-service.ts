@@ -19,6 +19,7 @@ import {
   type Keyring,
 } from "../utils/credential-crypto.js";
 import { getImporter, getManifest } from "./importer-registry.js";
+import { resolveHubTargetProfile } from "./docker-target-service.js";
 import { assertSecretCoverage } from "../utils/secret-resolver.js";
 import { logger as appLogger } from "../plugins/logging.js";
 import type { AgentSessionService } from "./agent-session-service.js";
@@ -438,7 +439,15 @@ export async function testCredential(
 
   const keyring = await requireKeyring();
   const secrets = decryptSecrets(row.encryptedPayload!, keyring);
-  const result = await importer.testSecrets(secrets, input.scope);
+  let resolvedTarget: unknown;
+  if (testManifest?.targetRefKey) {
+    const targetId = input.scope?.[testManifest.targetRefKey];
+    if (typeof targetId !== "string" || !targetId) {
+      throw codedError(400, "TARGET_RESOLUTION_FAILED", `scope key "${testManifest.targetRefKey}" must carry a targetId`);
+    }
+    resolvedTarget = (await resolveHubTargetProfile(targetId)).profile;
+  }
+  const result = await importer.testSecrets(secrets, input.scope, resolvedTarget);
 
   await writeEntityChange({
     entityType: "credential",

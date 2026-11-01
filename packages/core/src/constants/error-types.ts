@@ -62,6 +62,10 @@ export const ERROR_TYPES: Record<ErrorCode, ErrorType> = {
   AGENT_UNAVAILABLE: { code: "AGENT_UNAVAILABLE", status: 503, title: "Import Agent is unavailable" },
   AGENT_INCOMPATIBLE: { code: "AGENT_INCOMPATIBLE", status: 400, title: "Import Agent cannot execute this importer" },
   ASSET_TOO_LARGE: { code: "ASSET_TOO_LARGE", status: 413, title: "Discovered asset exceeds the frame size limit" },
+  TARGET_NOT_FOUND: { code: "TARGET_NOT_FOUND", status: 404, title: "Target not found" },
+  TARGET_DISABLED: { code: "TARGET_DISABLED", status: 409, title: "Target is disabled" },
+  TARGET_IN_USE: { code: "TARGET_IN_USE", status: 409, title: "Target is in use" },
+  TARGET_RESOLUTION_FAILED: { code: "TARGET_RESOLUTION_FAILED", status: 400, title: "Target resolution failed" },
 };
 
 export function getErrorType(code: ErrorCode): ErrorType {

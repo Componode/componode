@@ -1,3 +1,8 @@
+---
+title: Alibaba Cloud importer
+description: What the Alibaba Cloud importer discovers and how to configure it.
+---
+
 # Alibaba Cloud importer
 
 Imports an Alibaba Cloud account's resource inventory via **Resource Center**
@@ -50,16 +55,23 @@ smallest authenticated call.
 
 ## Configuration
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `regionIds` | string[] | all regions | Restrict discovery to these regions |
-| `resourceTypes` | string[] | all types | Restrict to `ACS::*::*` types (e.g. `ACS::OSS::Bucket`) |
-| `resourceGroupId` | string | all groups | Restrict to a resource group |
-| `environment` | enum | `PRODUCTION` | Environment tag on every instance (`DEV`/`TEST`/`STAGING`/`DEMO`/`PRODUCTION`/`OTHER`) |
-| `enrichResources` | bool | `false` | One `GetResourceConfiguration` call per resource — adds full config + status. Costs ~1 call per resource |
-| `includeCosts` | bool | `false` | Attach `details.billing` per resource (needs BSS read) |
-| `billingPeriod` | `YYYY-MM` | latest closed month | Billing cycle to read |
-| `endpoint` | URL | Alibaba default | Resource Center endpoint override (VPC/private gateway). Applies to Resource Center **only** — Alibaba endpoints are per-product; STS/BSS use default resolution |
+<!-- GENERATED:contract -->
+**Secrets:** `accessKeyId` (required), `accessKeySecret` (required), `securityToken`
+**Execution:** hub or Import Agent
+**Source identity:** `context.reportSourceIdentity()`
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `regionIds` | string[] | no | `[]` | Restrict discovery to these regions (all when empty) |
+| `resourceTypes` | string[] | no | `[]` | Restrict to ACS::*::* types, e.g. ACS::OSS::Bucket (all when empty) |
+| `resourceGroupId` | string | no | — | Restrict to a resource group |
+| `environment` | enum | no | `PRODUCTION` | Environment tag on every instance |
+| `enrichResources` | bool | no | `false` | One GetResourceConfiguration call per resource — adds full config + status (~1 call per resource) |
+| `includeCosts` | bool | no | `false` | Attach details.billing per resource (needs BSS read) |
+| `billingPeriod` | string | no | — | Billing cycle to read (latest closed month when unset) |
+| `endpoint` | URL | no | — | Resource Center endpoint override (VPC/private gateway) — Resource Center only; STS/BSS use default resolution |
+<!-- /GENERATED:contract -->
+
 
 ## Behavior notes
 

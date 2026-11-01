@@ -26,5 +26,7 @@ change (ADR-104).
 
 ---
 
+**Amended by ADR-122**: the error enum gains `TARGET_NOT_FOUND` (404), `TARGET_DISABLED` (409), `TARGET_IN_USE` (409) (spec 049).
+
 **Amended by ADR-124**: the error-code set gains `URL_CHECK_NOT_FOUND`
 and `MONITORING_SETUP_NOT_FOUND`; see Amendment 1.

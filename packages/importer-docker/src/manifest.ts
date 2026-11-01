@@ -1,4 +1,5 @@
 import { dockerConfigSchema } from "./config.js";
+import { dockerTargetProfileSchema } from "./target-profile.js";
 
 // All keys are transport-dependent: which are required is decided by the
 // resolved target profile's transport, so coverage validation cannot
@@ -7,13 +8,13 @@ export const manifest = {
   name: "docker",
   label: "Docker",
   description:
-    "Import Docker Engine container workloads through an Import Agent.",
+    "Import Docker Engine workloads from the Hub or an Import Agent.",
   version: "1.0.0",
   implPath: "@componode/importer-docker/importer",
   reportsSourceIdentity: true,
   targetRefKey: "targetId",
-  requiresAgent: true,
   configSchema: dockerConfigSchema,
+  targetProfileSchema: dockerTargetProfileSchema,
   secrets: [
     { key: "caCert", label: "CA certificate (private CA, PEM)", required: false },
     { key: "clientCert", label: "Client certificate (mTLS, PEM)", required: false },

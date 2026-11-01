@@ -63,5 +63,7 @@ routes stay authenticated-any (`verifySession`), per the read convention.
 
 ---
 
+**Amended by ADR-122**: the matrix gains `importer:target:read|create|update|delete|test` → ADMIN for `/api/v1/docker-targets` (spec 049).
+
 **Amended by ADR-124**: the matrix gains `urlCheck:create|update|delete`
 and `monitoringSetup:update` (all EDITOR); see Amendment 3.

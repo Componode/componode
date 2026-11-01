@@ -1,3 +1,8 @@
+---
+title: Architecture overview
+description: "Runtime architecture: deployment topology, data flow, auth, importer pipeline, persistence."
+---
+
 # Architecture Overview
 
 This document describes the runtime architecture of Componode: the deployment
@@ -36,10 +41,12 @@ flowchart LR
 
     subgraph Sources["External sources"]
         GH["GitHub"]
+        Ali["Alibaba Cloud"]
         AWS["AWS"]
         AZ["Azure"]
         K8s["Kubernetes"]
-        Web["Web / API / MCP endpoints"]
+        Web["Web URL / API URL /<br/>MCP Server endpoints"]
+        Dkr["Docker Engine<br/>(hub or agent target)"]
     end
 
     subgraph Remote["Remote network (private VPC / on-prem / egress-only)"]
@@ -114,7 +121,7 @@ flowchart TD
         S -.->|"logs / metrics / spans"| OBS
     end
 
-    K --> PG[("PostgreSQL<br/>28 tables")]
+    K --> PG[("PostgreSQL")]
     S --> AUD["append-only audit<br/>entity_changes / edge_changes"]
     AUD --> PG
 ```
@@ -283,7 +290,7 @@ flowchart LR
   and exposed on `GET /agents`/`GET /agents/{id}` alongside
   `lastHeartbeatAt`/`lastDisconnectReason`; the agent-local listener
   mirrors the hub `/metrics` posture (unauthenticated, GET-only, no secret
-  material). Full reference: `docs/agents.md`, `docs/agent-protocol.md`.
+  material). Full reference: `docs/import-agents.md`, `docs/agent-protocol.md`.
 
 ## Credential store
 
@@ -309,9 +316,50 @@ plus the master key together form the backup unit.
 
 ## Persistence model
 
-PostgreSQL holds 28 tables (migrations `001`–`019`). Entity IDs are UUID v7
-generated application-side; enum-like fields use `CHECK` constraints driven by
-`packages/core` constants rather than native ENUMs.
+<!-- GENERATED:persistence-tables -->
+PostgreSQL holds **34 tables** (see `DB` in `packages/backend/src/db/types.ts`):
+
+| Table | Row interface |
+|---|---|
+| `persons` | `PersonRow` |
+| `sessions` | `SessionRow` |
+| `password_reset_tokens` | `PasswordResetTokenRow` |
+| `oidc_config` | `OidcConfigRow` |
+| `app_settings` | `AppSettingsRow` |
+| `digital_products` | `DigitalProductRow` |
+| `components` | `ComponentRow` |
+| `component_instances` | `ComponentInstanceRow` |
+| `component_groups` | `ComponentGroupRow` |
+| `line_of_businesses` | `LineOfBusinessRow` |
+| `teams` | `TeamRow` |
+| `product_composes` | `JunctionRow` |
+| `product_consumes_from` | `JunctionRow` |
+| `product_depends_on_component` | `JunctionRow` |
+| `product_depends_on_component_group` | `JunctionRow` |
+| `component_depends_on_component` | `JunctionRow` |
+| `component_sources_from` | `JunctionRow` |
+| `component_exposes` | `JunctionRow` |
+| `importer_configs` | `ImporterConfigRow` |
+| `docker_targets` | `DockerTargetRow` |
+| `importer_config_credentials` | `ImporterConfigCredentialRow` |
+| `credentials` | `CredentialRow` |
+| `import_agents` | `ImportAgentRow` |
+| `agent_sessions` | `AgentSessionRow` |
+| `import_runs` | `ImportRunRow` |
+| `import_run_errors` | `ImportRunErrorRow` |
+| `importer_sources` | `ImporterSourceRow` |
+| `source_component_memberships` | `SourceComponentMembershipRow` |
+| `source_instance_memberships` | `SourceInstanceMembershipRow` |
+| `entity_changes` | `EntityChangeRow` |
+| `edge_changes` | `EdgeChangeRow` |
+| `edge_suggestions` | `EdgeSuggestionRow` |
+| `kysely_migration` | `KyselyMigrationRow` |
+| `kysely_migration_lock` | `KyselyMigrationLockRow` |
+<!-- /GENERATED:persistence-tables -->
+
+Entity IDs are UUID v7 generated application-side; enum-like fields use
+`CHECK` constraints driven by `packages/core` constants rather than native
+ENUMs.
 
 ```mermaid
 erDiagram
@@ -402,7 +450,7 @@ other; `core` never imports anything `@componode/*`.
 | Decision rationale | `researches/architecture-decisions.md`, `researches/adrs/` |
 | API surface | `docs/api.md`, `docs/openapi.yaml` |
 | Deployment & ops | `docs/deployment.md` |
-| Import Agents | `docs/agents.md`, `docs/agent-protocol.md` |
+| Import Agents | `docs/import-agents.md`, `docs/agent-protocol.md` |
 | Building an importer | `docs/importer-development.md` |
 | UI conventions | `docs/ux.md` |
-| Security posture | `docs/security/` (dated assessments) |
+| Security posture | `docs/security.md`; dated assessments in `researches/security/` |

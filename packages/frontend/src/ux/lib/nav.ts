@@ -1,5 +1,6 @@
 import {
   ActivityIcon,
+  ContainerIcon,
   BoxesIcon,
   Building2Icon,
   DatabaseIcon,
@@ -68,6 +69,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { title: "Users", href: ux("/users"), icon: UsersIcon, minRole: "ADMIN" },
       { title: "Sessions", href: ux("/sessions"), icon: MonitorSmartphoneIcon },
       { title: "Credentials", href: ux("/credentials"), icon: KeyRoundIcon, minRole: "ADMIN" },
+      { title: "Docker targets", href: ux("/docker-targets"), icon: ContainerIcon, minRole: "ADMIN" },
       { title: "Activity", href: ux("/activity"), icon: ActivityIcon, minRole: "ADMIN" },
       { title: "Settings", href: ux("/settings"), icon: SettingsIcon },
     ],

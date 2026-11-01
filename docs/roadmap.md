@@ -1,3 +1,8 @@
+---
+title: Roadmap
+description: Shipped features and what is next.
+---
+
 # Componode Roadmap
 
 Development proceeds as sequential spec-kit features under `specs/`. This
@@ -235,6 +240,17 @@ file tracks shipped and upcoming work — update it when a spec completes.
   `COMPUTE` nodes (`swarmNodeObservation`), metadata-only `SECRET`
   secrets + bounded secret/config references; ADR-121 Amendment 2.
 
+- `049-docker-hub-execution` — Docker importer runs on the Hub or an
+  Import Agent: database-backed `docker_targets` registry (immutable
+  `targetId`, strict transport profiles, no secrets), ADMIN target
+  CRUD/enable/disable/test APIs + management screens, Hub target picker
+  in the importer form, `importer:target:*` permissions, `TARGET_*`
+  errors, `cancelReason` on runs, `docker_target` audit events, and
+  deployment docs for opt-in socket/context access — the default Compose
+  stack still mounts no Docker socket; ADR-122.
+- `050-bugfix-codeql-sanitize` — CodeQL `js/incomplete-sanitization`
+  findings on the importer-docs generator: shared `mdCell()` escape
+  (backslash-first ordering) plus a unit regression test.
 - `051-url-check-monitoring` — unified HTTP(S) URL Check monitoring
   (ADR-123, ADR-124): per-ComponentInstance checks with independent probe
   history on a shared per-Component monitoring setup (default 5-minute
@@ -255,19 +271,18 @@ file tracks shipped and upcoming work — update it when a spec completes.
 
 ## Next — post-v1.1
 
-The Docker importer program's mapped waves (A–E) are complete and URL
-Check monitoring (051) has shipped; `049-docker-hub-execution` is in
-flight on its own branch and `052` is the next open spec slot — see
-`researches/` and the roadmap candidates below for the next initiative
-(e.g. remaining importer-source migrations, UX gap follow-through, or a
-new importer wave).
+The Docker importer program's mapped waves (A–E) plus Hub execution
+(049) are complete and URL Check monitoring (051) has shipped; `052` is
+the next open spec slot — see `researches/` and the deferred queues
+below for the next initiative (e.g. remaining importer-source
+migrations, UX gap follow-through, or a new importer wave).
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and
 the gap specs `030`–`034` + `037` (G14, G1, G2, G7/G8/G9/G11, G12, G13)
 are shipped on `release/1.1.0`. The gap program's grouped backend specs
-closed with `039`/`040`, and the three feature-spec gaps shipped as
-`042-catalog-authoring` — what remains are the deferred entries (see
+closed with `039`/`040`, and the three feature-spec gaps shipped as the
+catalog-authoring spec (042) — what remains are the deferred entries (see
 `researches/ux-rewrite-gaps.md` spec-queue block):
 
 Deferred unscheduled — kept here as the standing reference so future
@@ -297,7 +312,8 @@ inventory. Alongside:
 - Per-environment blast-radius traversal
 - Kubernetes/Helm packaging
 - Remaining providers
-- Range filters (multi-value enum filters shipped in 015)
+- Range filters — the range-type subset; multi-value enum filters already
+  shipped in spec 015
 
 Deferred UI work includes interactive graph authoring (the read-only
 canvas shipped in 038 under ADR-118) and custom importer-form widgets

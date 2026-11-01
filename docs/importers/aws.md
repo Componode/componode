@@ -1,3 +1,8 @@
+---
+title: AWS importer
+description: "Scaffold importer for AWS: what it will discover and how to configure it."
+---
+
 # AWS importer
 
 > **Status: scaffold.** This importer registers the AWS provider and emits a
@@ -22,12 +27,19 @@ None.
 
 ## Configuration
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `region` | string | `us-east-1` | Region label recorded on the placeholder asset |
-| `resourceTypes` | string[] | `["ec2:instance"]` | Resource type labels; one placeholder component each |
-| `endpoint` | URL | unset | Recorded on the asset's details/url; reserved for a future real connection |
-| `sourceKey` | string | **required** | Stable non-secret key identifying the AWS account — the source identity (ADR-120) |
+<!-- GENERATED:contract -->
+**Secrets:** none
+**Execution:** hub or Import Agent
+**Source identity:** `context.reportSourceIdentity()`
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `region` | string | no | `us-east-1` | Region label recorded on the placeholder asset |
+| `resourceTypes` | string[] | no | `["ec2:instance"]` | Resource type labels; one placeholder component each |
+| `endpoint` | URL | no | — | Recorded on the asset's details/url; reserved for a future real connection |
+| `sourceKey` | string | yes | — | Stable non-secret key identifying the AWS account — the source identity (ADR-120) |
+<!-- /GENERATED:contract -->
+
 
 ## Source identity
 

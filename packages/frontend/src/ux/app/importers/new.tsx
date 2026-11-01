@@ -1,6 +1,7 @@
 import { useAgents } from "@/api/hooks/agents";
 import { useCredentials } from "@/api/hooks/credentials";
 import { useImporters } from "@/api/hooks/importers";
+import { useDockerTargets } from "@/api/hooks/docker-targets";
 import { ImporterForm } from "@/ux/components/importers/importer-form";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
@@ -11,8 +12,9 @@ export function UxImporterNewPage() {
   const manifests = useImporters();
   const credentials = useCredentials();
   const agents = useAgents();
+  const dockerTargets = useDockerTargets();
 
-  if (manifests.isPending || credentials.isPending || agents.isPending) {
+  if (manifests.isPending || credentials.isPending || agents.isPending || dockerTargets.isPending) {
     return (
       <PageContainer width="narrow">
         <Card className="py-0">
@@ -21,7 +23,7 @@ export function UxImporterNewPage() {
       </PageContainer>
     );
   }
-  const err = manifests.error ?? credentials.error ?? agents.error;
+  const err = manifests.error ?? credentials.error ?? agents.error ?? dockerTargets.error;
   if (err) {
     return (
       <PageContainer>
@@ -34,6 +36,7 @@ export function UxImporterNewPage() {
       manifests={manifests.data?.importers ?? []}
       credentials={credentials.data?.credentials ?? []}
       agents={agents.data?.agents ?? []}
+      dockerTargets={dockerTargets.data?.targets ?? []}
     />
   );
 }
