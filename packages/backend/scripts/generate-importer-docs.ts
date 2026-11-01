@@ -20,6 +20,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { IMPORTER_PACKAGES } from "@componode/core";
+import { mdCell } from "./md-escape.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, "..", "..", "..");
@@ -137,7 +138,7 @@ function descriptionOf(schema: AnySchema): string {
     schema?.meta?.description ??
     defOf(schema).description ??
     "";
-  return String(d).replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+  return mdCell(String(d));
 }
 
 // --- Rendering ------------------------------------------------------------
@@ -158,7 +159,7 @@ function executionCell(manifest: Manifest): string {
 function renderIndexTable(manifests: Manifest[]): string {
   const rows = manifests.map(
     (m) =>
-      `| [${m.label}](./${m.name}) | ${m.description.replace(/\|/g, "\\|")} | ${secretsCell(m)} | ${executionCell(m)} |`,
+      `| [${mdCell(m.label)}](./${m.name}) | ${mdCell(m.description)} | ${secretsCell(m)} | ${executionCell(m)} |`,
   );
   return [
     "| Importer | What it imports | Required secrets | Execution |",
