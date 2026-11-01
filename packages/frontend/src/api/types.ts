@@ -77,6 +77,7 @@ export interface ImporterManifest {
   description: string;
   configSchema: Record<string, unknown>;
   secrets?: Array<{ key: string; label: string; required: boolean }>;
+  requiresAgent?: boolean;
 }
 
 export interface ImporterConfig {

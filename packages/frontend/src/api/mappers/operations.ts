@@ -50,6 +50,7 @@ const IMPORTER_PROVIDERS: Record<string, Provider> = {
   "web-url": "WEB_URL",
   "api-url": "API_URL",
   "mcp-server": "MCP_SERVER",
+  docker: "DOCKER",
 };
 
 export function importerProvider(name: string): Provider {

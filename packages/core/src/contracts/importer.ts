@@ -45,9 +45,14 @@ export interface Importer {
   ): AsyncGenerator<DiscoveredAsset>;
   // Optional credential probe used by the credential test action. Performs a
   // minimal authenticated request against the target system. Never returns
-  // secret material in `error`.
+  // secret material in `error`. `resolvedTarget` carries the
+  // preflight-resolved `TargetProfile` — populated only on Import Agents
+  // when the manifest declares `targetRefKey` and the scope's named key
+  // holds an allowlisted `targetId` (ADR-121); `undefined` in-process and
+  // for importers without `targetRefKey`.
   testSecrets?(
     secrets: Record<string, string>,
     config?: Record<string, unknown>,
+    resolvedTarget?: unknown,
   ): Promise<CredentialTestResult>;
 }

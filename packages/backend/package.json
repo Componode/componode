@@ -23,6 +23,7 @@
     "@componode/importer-api-url": "workspace:*",
     "@componode/importer-aws": "workspace:*",
     "@componode/importer-azure": "workspace:*",
+    "@componode/importer-docker": "workspace:*",
     "@componode/importer-github": "workspace:*",
     "@componode/importer-kubernetes": "workspace:*",
     "@componode/importer-mcp-server": "workspace:*",

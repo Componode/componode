@@ -68,3 +68,11 @@ unattributed path until their named wave). `ImporterContext`'s new
 members are required; the in-process `resolveTarget` is a stub that
 always throws — target profiles resolve only on Import Agents
 (ADR-116 Amendment 5/6).
+
+---
+
+**Amended by ADR-121**: `Importer.testSecrets` gains an optional third
+parameter `resolvedTarget?: unknown` carrying the preflight-resolved
+`TargetProfile` on agents (ADR-121 item 3); `ImporterManifest` gains
+`requiresAgent?: boolean` — configs for such importers must bind an
+Import Agent.

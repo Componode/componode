@@ -1,7 +1,8 @@
 # Importers
 
 Importers pull assets from external systems into the Componode catalog. Each
-importer runs inside the backend, reads from one provider, and produces
+importer runs inside the backend (or, when the config is bound to an Import
+Agent, on that agent), reads from one provider, and produces
 **Components** with **Component Instances** — it never writes back to the
 source system.
 
@@ -11,6 +12,7 @@ source system.
 |---|---|---|---|
 | [GitHub](./github) | Organization, repositories, environments, releases, workflows, runners, packages, billing usage | Personal access token | Full |
 | [Alibaba Cloud](./alibaba-cloud) | Account inventory via Resource Center (ECS, OSS, RDS, VPC, …), optional per-resource config and costs | RAM AccessKey pair | Full |
+| [Docker](./docker) | Docker Engine container workloads via an Import Agent | Agent-side target profile + optional TLS/SSH key refs | Full (agent-only) |
 | [API URL](./api-url) | A single API endpoint, probed over HTTP | None | Full |
 | [Web URL](./web-url) | A single web page/endpoint, probed over HTTP | None | Full |
 | [AWS](./aws) | Placeholder asset scaffold | None | Scaffold — no live discovery yet |

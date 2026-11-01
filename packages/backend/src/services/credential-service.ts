@@ -419,6 +419,16 @@ export async function testCredential(
       `Importer ${input.importerName} does not support credential testing`,
     );
   }
+  // requiresAgent importers probe only on agents (ADR-121) — the
+  // resolved target profile exists agent-side, never hub-side.
+  const testManifest = await getManifest(input.importerName);
+  if (testManifest?.requiresAgent) {
+    throw codedError(
+      400,
+      "AGENT_INCOMPATIBLE",
+      `Importer ${input.importerName} requires an Import Agent for credential testing`,
+    );
+  }
 
   const keyring = await requireKeyring();
   const secrets = decryptSecrets(row.encryptedPayload!, keyring);

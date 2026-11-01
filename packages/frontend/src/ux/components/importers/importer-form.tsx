@@ -120,6 +120,7 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
 
   const boundToAgent = agentId !== HUB
   const manifest = manifests.find((m) => m.name === importerName)
+  const requiresAgent = Boolean(manifest?.requiresAgent)
   const requiresSecrets = Boolean(manifest?.secrets?.length)
   const schema = manifest?.configSchema
   const scopeFields = React.useMemo(() => fieldsForSchema(schema), [schema])
@@ -469,7 +470,22 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="i-provider">Importer</FieldLabel>
-              <Select value={importerName} disabled={editing} onValueChange={setImporterName}>
+              <Select
+                value={importerName}
+                disabled={editing}
+                onValueChange={(v) => {
+                  setImporterName(v)
+                  // requiresAgent importers can never run on the hub —
+                  // pre-select an agent when the picker had Hub selected.
+                  if (
+                    manifests.find((m) => m.name === v)?.requiresAgent &&
+                    agentId === HUB
+                  ) {
+                    const first = agents.find((a) => a.status === "CONNECTED") ?? agents[0]
+                    if (first) setAgentId(first.id)
+                  }
+                }}
+              >
                 <SelectTrigger id="i-provider" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -511,7 +527,9 @@ export function ImporterForm({ config, manifests, credentials, agents }: Importe
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={HUB}>Hub (in-process)</SelectItem>
+                  <SelectItem value={HUB} disabled={requiresAgent}>
+                    Hub (in-process){requiresAgent ? " — not supported" : ""}
+                  </SelectItem>
                   {agents.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       {a.name}

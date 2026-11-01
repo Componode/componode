@@ -65,6 +65,7 @@ describe("agent credential.test handling", () => {
       expect(probe).toHaveBeenCalledWith(
         { token: "secret-token-value" },
         undefined,
+        undefined,
       );
       const frame = tx.last();
       expect(frame.type).toBe("credential.test.result");
@@ -320,6 +321,82 @@ describe("agent credential.test handling", () => {
       expect(after.token).toBe("new-value");
     } finally {
       delete process.env.AGENT_ROTATE;
+    }
+  });
+
+  // ADR-121: manifests declaring targetRefKey get allowlist resolution on
+  // the credential-test path too — the resolved profile is handed to
+  // testSecrets as its third argument.
+  it("resolves the target profile for targetRefKey importers and passes it to testSecrets", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "cred-target-"));
+    try {
+      writeFileSync(
+        join(dir, "docker-targets.json"),
+        JSON.stringify({
+          version: 1,
+          targets: { t1: { transport: "socket", path: "/var/run/docker.sock" } },
+        }),
+      );
+      const { log } = makeLog();
+      const probe = vi.fn(async () => ({ ok: true }));
+      const registry = makeRegistry({ name: "docker", testSecrets: probe });
+      (registry.getManifest as ReturnType<typeof vi.fn>) = vi.fn(async () => ({
+        name: "docker",
+        targetRefKey: "targetId",
+      }));
+      const tx = captureSend();
+      await handleCredentialTest(
+        {
+          testId,
+          credentialId: "018c5e60-0000-7000-8000-000000000003",
+          importerName: "docker",
+          scope: { targetId: "t1" },
+          secretRefMap: {},
+        },
+        { registry, log, send: tx.send, secretsDir: dir },
+      );
+      expect(probe).toHaveBeenCalledWith(
+        {},
+        { targetId: "t1" },
+        { transport: "socket", path: "/var/run/docker.sock" },
+      );
+      expect(tx.last().payload.ok).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("fails TARGET_RESOLUTION_FAILED for an unallowlisted targetId before invoking the importer", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "cred-target-"));
+    try {
+      writeFileSync(
+        join(dir, "docker-targets.json"),
+        JSON.stringify({ version: 1, targets: {} }),
+      );
+      const { log } = makeLog();
+      const probe = vi.fn(async () => ({ ok: true }));
+      const registry = makeRegistry({ name: "docker", testSecrets: probe });
+      (registry.getManifest as ReturnType<typeof vi.fn>) = vi.fn(async () => ({
+        name: "docker",
+        targetRefKey: "targetId",
+      }));
+      const tx = captureSend();
+      await handleCredentialTest(
+        {
+          testId,
+          credentialId: "018c5e60-0000-7000-8000-000000000004",
+          importerName: "docker",
+          scope: { targetId: "nope" },
+          secretRefMap: {},
+        },
+        { registry, log, send: tx.send, secretsDir: dir },
+      );
+      expect(probe).not.toHaveBeenCalled();
+      const frame = tx.last();
+      expect(frame.payload.ok).toBe(false);
+      expect(frame.payload.error).toContain("TARGET_RESOLUTION_FAILED");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });

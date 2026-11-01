@@ -257,6 +257,46 @@ describe("config agent binding (spec 027 US1)", () => {
     expect(res2.json().config.agentId).toBeNull();
   });
 
+  it("requiresAgent importers reject agentId-less configs and accept bound ones (ADR-121)", async () => {
+    // docker is the only requiresAgent importer — a hub-bound config is
+    // rejected at save; an agent-bound one succeeds (no secrets required).
+    const unbound = await app.inject({
+      method: "POST",
+      url: "/api/v1/importer-configs",
+      ...authed({
+        importerName: "docker",
+        label: "docker-unbound",
+        scope: { targetId: "t1" },
+      }),
+    });
+    expect(unbound.statusCode).toBe(400);
+    expect(unbound.json().code).toBe("VALIDATION_FAILED");
+
+    const agentId = await insertAgent("docker-agent");
+    const bound = await app.inject({
+      method: "POST",
+      url: "/api/v1/importer-configs",
+      ...authed({
+        importerName: "docker",
+        label: "docker-bound",
+        scope: { targetId: "t1" },
+        agentId,
+      }),
+    });
+    expect(bound.statusCode).toBe(201);
+    expect(bound.json().config.agentId).toBe(agentId);
+
+    // Unbinding a docker config is likewise rejected.
+    const configId = bound.json().config.id;
+    const unbind = await app.inject({
+      method: "PATCH",
+      url: `/api/v1/importer-configs/${configId}`,
+      ...authed({ agentId: null }),
+    });
+    expect(unbind.statusCode).toBe(400);
+    expect(unbind.json().code).toBe("VALIDATION_FAILED");
+  });
+
   it("list and detail responses carry agent + agentIncompatible", async () => {
     const narrow = await insertAgent("narrow", { allowedImporters: ["web-url"] });
     const created = await createConfig({ secretRefs: hubRefs });

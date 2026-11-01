@@ -487,3 +487,8 @@ assets), and the target-preflight refusal needed a named wire reason.
   "TARGET_RESOLUTION_FAILED"` — maps to run `FAILED` with that
   `errorType` (not `AGENT_INCOMPATIBLE`). The hub `jobGate` mirrors the
   scope-shape check fail-fast before enqueue.
+
+**Amended by ADR-121**: first `targetRefKey`/`resolveTarget` adopter
+(`@componode/importer-docker`) landed; the typed `docker-targets.json`
+profile schema is ratified in ADR-121 item 4, and the credential-test
+path now performs the same target preflight as `job.assign`.

@@ -1116,7 +1116,7 @@ export async function startRun(
 
   const config = await db
     .selectFrom("importer_configs")
-    .select(["id", "agentId"])
+    .select(["id", "agentId", "importerName"])
     .where("id", "=", configId)
     .executeTakeFirst();
   const agentId = config?.agentId ?? null;
@@ -1161,6 +1161,26 @@ export async function startRun(
   // keeps the in-process worker path unchanged. Fail closed when the
   // dispatcher isn't wired — a bound run must never execute in-process
   // (AGENT_MANAGED refs can't resolve hub-side).
+  // Dispatch-time requiresAgent gate (ADR-121, FR-003): a config that
+  // drifted to agentId-less (e.g. bound before the flag landed) fails
+  // fast here instead of dying in the worker on resolveTarget refs.
+  if (!agentId && config) {
+    const manifest = await getManifest(config.importerName);
+    if (manifest?.requiresAgent) {
+      await updateRun(runId, {
+        status: "FAILED",
+        completedAt: new Date().toISOString(),
+        currentPhase: "Failed",
+        errorType: "AGENT_INCOMPATIBLE",
+        errorMessage: `Importer "${config.importerName}" requires an Import Agent`,
+      });
+      throw Object.assign(
+        new Error(`Importer "${config.importerName}" requires an Import Agent`),
+        { statusCode: 400, code: "AGENT_INCOMPATIBLE" },
+      );
+    }
+  }
+
   if (agentId) {
     if (!remoteDispatcher) {
       // Finalize the committed row — a PENDING orphan would block every
