@@ -20,7 +20,7 @@ source system.
 | [API URL](./api-url) | Import an API URL endpoint as a component instance. | none required | hub or Import Agent |
 | [AWS](./aws) | Import AWS cloud assets as components and instances. | none required | hub or Import Agent |
 | [Azure](./azure) | Import Azure cloud assets as components and instances. | none required | hub or Import Agent |
-| [Docker](./docker) | Import Docker Engine container workloads through an Import Agent. | none required | Import Agent only · target profiles |
+| [Docker](./docker) | Import Docker Engine workloads from the Hub or an Import Agent. | none required | hub or Import Agent · target profiles |
 | [GitHub](./github) | Import GitHub organizations, repositories, environments, billing usage, workflows, runners, and packages as components and instances. | `token` | hub or Import Agent |
 | [Kubernetes](./kubernetes) | Import Kubernetes workloads and namespaces as components and instances. | none required | hub or Import Agent |
 | [MCP Server](./mcp-server) | Import MCP server tools and resources as components and instances. | none required | hub or Import Agent |

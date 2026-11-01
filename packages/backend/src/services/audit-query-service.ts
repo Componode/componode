@@ -18,7 +18,8 @@ type NameTable =
   | "component_groups"
   | "teams"
   | "line_of_businesses"
-  | "import_agents";
+  | "import_agents"
+  | "docker_targets";
 
 async function fetchNames(
   table: NameTable | "importer_configs" | "credentials",
@@ -52,6 +53,8 @@ async function namesFor(
       return fetchNames("line_of_businesses", ids);
     case "import_agent":
       return fetchNames("import_agents", ids);
+    case "docker_target":
+      return fetchNames("docker_targets", ids, "label");
     case "importer_source": {
       const rows = await db
         .selectFrom("importer_sources")

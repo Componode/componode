@@ -130,6 +130,7 @@ export interface ImportRun {
   componentsRetired: number;
   currentPhase: string | null;
   cancelRequestedAt?: string | null;
+  cancelReason?: "USER_REQUESTED" | "TARGET_DISABLED" | null;
   errorMessage: string | null;
   /** Failure classification from the hub (e.g. AGENT_LOST, AGENT_UNAVAILABLE). */
   errorType: string | null;

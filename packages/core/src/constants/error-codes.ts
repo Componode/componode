@@ -52,6 +52,10 @@ export const ERROR_CODES = [
   "ASSET_TOO_LARGE",
   "CREDENTIAL_NO_BOUND_AGENT",
   "CREDENTIAL_KIND_MISMATCH",
+  "TARGET_NOT_FOUND",
+  "TARGET_DISABLED",
+  "TARGET_IN_USE",
+  "TARGET_RESOLUTION_FAILED",
 ] as const;
 
 export type ErrorCode = typeof ERROR_CODES[number];

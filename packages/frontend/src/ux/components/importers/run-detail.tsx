@@ -115,6 +115,17 @@ export function RunDetail({ importer, run, errors, changes, credential }: RunDet
         }
       />
 
+      {run.status === "CANCELLED" && !run.errorMessage && (
+        <Alert>
+          <CircleAlertIcon />
+          <AlertTitle>This run was cancelled</AlertTitle>
+          <AlertDescription>
+            {run.cancelReason === "TARGET_DISABLED"
+              ? "Cancelled because its Docker target was disabled. Re-enable the target or point the importer at another target to run it again."
+              : "Cancelled by request. Assets already processed were kept."}
+          </AlertDescription>
+        </Alert>
+      )}
       {run.errorMessage && (
         <Alert variant="destructive">
           <CircleAlertIcon />

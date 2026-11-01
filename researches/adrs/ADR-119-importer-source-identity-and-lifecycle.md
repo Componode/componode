@@ -172,3 +172,7 @@ represented.
 `externalId` qualification + adopt-on-report rekey rules, `sourceDetails`
 → membership `details` population (item 4's deferred wave), and the
 derivable-only backfill contract are ratified in ADR-120 (spec 045).
+
+---
+
+**Amended by ADR-122**: item 8 — target profiles are no longer Agent-local only; the Hub resolves `targetId` through `docker_targets` with identical fail-before-network semantics (spec 049).

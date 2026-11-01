@@ -1942,6 +1942,187 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /docker-targets:
+    get:
+      tags: [Importers]
+      summary: List Hub-managed Docker targets
+      x-permission: "importer:target:read"
+      responses:
+        '200':
+          description: All Docker targets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  targets:
+                    type: array
+                    items: { $ref: '#/components/schemas/DockerTarget' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Importers]
+      summary: Create a Docker target
+      x-permission: "importer:target:create"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetId, label, profile]
+              properties:
+                targetId:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: Immutable selector referenced by importer configs
+                label: { type: string, minLength: 1, maxLength: 100 }
+                description: { type: string, maxLength: 1000 }
+                profile:
+                  type: object
+                  description: Non-secret transport profile (socket/tcp/ssh/context); *Key fields name credential keys
+      responses:
+        '201':
+          description: Created target
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  target: { $ref: '#/components/schemas/DockerTarget' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /docker-targets/{id}:
+    get:
+      tags: [Importers]
+      summary: Get a Docker target
+      x-permission: "importer:target:read"
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Target detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  target: { $ref: '#/components/schemas/DockerTarget' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Importers]
+      summary: Update a Docker target's display metadata
+      x-permission: "importer:target:update"
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label: { type: string, minLength: 1, maxLength: 100 }
+                description: { type: string, maxLength: 1000, nullable: true }
+      responses:
+        '200':
+          description: Updated target
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  target: { $ref: '#/components/schemas/DockerTarget' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Importers]
+      summary: Delete a Docker target (blocked while referenced)
+      x-permission: "importer:target:delete"
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '204': { description: Target deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /docker-targets/{id}/enable:
+    post:
+      tags: [Importers]
+      summary: Re-enable a Docker target
+      x-permission: "importer:target:update"
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Enabled target
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  target: { $ref: '#/components/schemas/DockerTarget' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /docker-targets/{id}/disable:
+    post:
+      tags: [Importers]
+      summary: Disable a Docker target and request cancellation of active Hub work
+      x-permission: "importer:target:update"
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Disabled target
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  target: { $ref: '#/components/schemas/DockerTarget' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /docker-targets/{id}/test:
+    post:
+      tags: [Importers]
+      summary: Test a Docker target's connectivity (Docker /version only)
+      x-permission: "importer:target:test"
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                configId:
+                  type: string
+                  format: uuid
+                  description: Hub-bound Docker config supplying STORED credentials; required when the profile references *Key names
+      responses:
+        '200':
+          description: Test result — ok:false carries a non-secret reason
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  error: { type: string }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /lobs:
     get:
       tags: [Organization]
@@ -3144,6 +3325,10 @@ components:
             - ASSET_TOO_LARGE
             - CREDENTIAL_NO_BOUND_AGENT
             - CREDENTIAL_KIND_MISMATCH
+            - TARGET_NOT_FOUND
+            - TARGET_DISABLED
+            - TARGET_IN_USE
+            - TARGET_RESOLUTION_FAILED
         message: { type: string }
         details: { type: object, nullable: true, description: Optional machine-readable context (e.g. Zod issues, retryAfter). }
         invalid-params:
@@ -4003,9 +4188,28 @@ components:
         componentsRetired: { type: integer }
         currentPhase: { type: string, nullable: true }
         cancelRequestedAt: { type: string, format: date-time, nullable: true }
+        cancelReason:
+          type: string
+          nullable: true
+          enum: [USER_REQUESTED, TARGET_DISABLED]
+          description: Why the run was cancelled; null unless cancelRequestedAt is set
         errorMessage: { type: string, nullable: true }
         errorType: { type: string, nullable: true }
         createdAt: { type: string, format: date-time }
+    DockerTarget:
+      type: object
+      description: Hub-managed Docker Engine access route; profile carries no secret values
+      properties:
+        id: { type: string, format: uuid }
+        targetId: { type: string, minLength: 1, maxLength: 200 }
+        label: { type: string }
+        description: { type: string, nullable: true }
+        profile:
+          type: object
+          description: Transport-discriminated profile — socket {path}, tcp {host,port,caCertKey?,clientCertKey,clientKeyKey}, ssh {host,port?,user,hostKeySha256,privateKeyKey,passphraseKey?}, context {name}
+        enabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     ImportRunError:
       type: object
       properties:

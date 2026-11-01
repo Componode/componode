@@ -7,7 +7,11 @@ export const dockerConfigSchema = z
   .object({
     // Names an allowlisted profile in the agent's docker-targets.json
     // (manifest.targetRefKey = "targetId", ADR-116 A5/A6).
-    targetId: z.string().min(1).max(200).describe("Names a profile in the agent's docker-targets.json"),
+    targetId: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe("Hub: a managed Docker target; Agent: a profile in docker-targets.json"),
     // Label key read for environment mapping — container labels first,
     // then Compose service labels; unmapped/absent → OTHER (ADR-121).
     environmentLabel: z

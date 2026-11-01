@@ -52,3 +52,7 @@ audit event with `toActor` attribution, enforces unique kebab-case slugs
 **Refinement**: `importer:source:retire` and `importer:source:reactivate`
 map to ADMIN. Source reads (`GET /importer-sources*`) are
 authenticated-any, consistent with `GET /importer-configs`.
+
+---
+
+**Amended by ADR-122**: the matrix gains `importer:target:read|create|update|delete|test` → ADMIN for `/api/v1/docker-targets` (spec 049).

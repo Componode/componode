@@ -101,6 +101,10 @@ exception is `GET /metrics`, which is served at the root.
 | `ASSET_TOO_LARGE` | Discovered asset exceeded the per-frame size limit (413) |
 | `CREDENTIAL_NO_BOUND_AGENT` | No agent-bound config references this credential (400) |
 | `CREDENTIAL_KIND_MISMATCH` | Credential kind does not match the execution mode (400) |
+| `TARGET_NOT_FOUND` | Docker target not found (404) |
+| `TARGET_DISABLED` | Docker target is disabled — blocked for new configs, runs, and tests (409) |
+| `TARGET_IN_USE` | Docker target delete blocked by referencing importer configs (409) |
+| `TARGET_RESOLUTION_FAILED` | Target profile could not be resolved or is malformed (400) |
 <!-- /GENERATED:error-codes -->
 
 ---
@@ -297,6 +301,14 @@ same fields plus `lifecycle`.
 | GET | `/api/v1/importer-sources/:id/memberships` | List a source's component and instance memberships with per-source details | Authenticated |
 | POST | `/api/v1/importer-sources/:id/retire` | Explicitly retire an importer source | `importer:source:retire` |
 | POST | `/api/v1/importer-sources/:id/reactivate` | Reverse source retirement | `importer:source:reactivate` |
+| GET | `/api/v1/docker-targets` | List Hub-managed Docker targets | `importer:target:read` |
+| POST | `/api/v1/docker-targets` | Create a Docker target | `importer:target:create` |
+| GET | `/api/v1/docker-targets/:id` | Get a Docker target | `importer:target:read` |
+| PATCH | `/api/v1/docker-targets/:id` | Update a Docker target's display metadata | `importer:target:update` |
+| DELETE | `/api/v1/docker-targets/:id` | Delete a Docker target (blocked while referenced) | `importer:target:delete` |
+| POST | `/api/v1/docker-targets/:id/enable` | Re-enable a Docker target | `importer:target:update` |
+| POST | `/api/v1/docker-targets/:id/disable` | Disable a Docker target and request cancellation of active Hub work | `importer:target:update` |
+| POST | `/api/v1/docker-targets/:id/test` | Test a Docker target's connectivity (Docker /version only) | `importer:target:test` |
 | GET | `/api/v1/importer-configs/:configId/runs/:runId/changes` | Import-run consequential changes | Authenticated |
 <!-- /GENERATED:table:Importers -->
 

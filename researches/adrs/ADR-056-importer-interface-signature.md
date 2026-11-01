@@ -76,3 +76,7 @@ parameter `resolvedTarget?: unknown` carrying the preflight-resolved
 `TargetProfile` on agents (ADR-121 item 3); `ImporterManifest` gains
 `requiresAgent?: boolean` — configs for such importers must bind an
 Import Agent.
+
+---
+
+**Amended by ADR-122**: `resolveTarget` is no longer Agent-only — the Hub supplies the same preflight-resolved profile; `ImporterManifest` gains optional `targetProfileSchema` (spec 049).

@@ -255,6 +255,36 @@ credential persists in the `agent_state` volume across restarts; the ops
 listener is reachable to other containers as `app:9464` but cannot be
 published to the host from the shared namespace.
 
+## Docker importer on the Hub (optional)
+
+The Docker importer can run **in-process on the Hub** (Execution = "Hub
+(in-process)" on the importer config) as an alternative to an Import
+Agent. Hub-managed connection routes live under **Administration → Docker
+targets** — non-secret transport profiles (socket, mTLS TCP, pinned-key
+SSH, named Docker context) whose `*Key` fields reference `STORED`
+credential keys. Agent-local `docker-targets.json` registries are
+unchanged and never synced to the Hub.
+
+The default Compose stack deliberately does **not** mount the host
+Docker socket. To let the Hub reach a Docker Engine:
+
+- **Local socket** — mount the daemon socket read-write into `app`
+  (`/var/run/docker.sock:/var/run/docker.sock`) and ensure the backend
+  user has socket access. Opt-in only; treat it as granting root-equivalent
+  access on that host.
+- **mTLS TCP / pinned SSH** — no mounts needed; create the target over
+  the API and link a `STORED` credential supplying the profile's
+  `*Key` names.
+- **Named Docker context** — provision a Docker context store readable
+  by the backend process (`DOCKER_CONFIG`, or `~/.docker` inside the
+  container) — e.g. mount a read-only context directory built with
+  `docker context create`. `default`, `SkipTLSVerify`, and `ssh://`
+  endpoints are rejected.
+
+The **Test connection** action on a target probes `/version` only. A
+disabled target blocks new runs/tests and asks active Hub work using it
+to cancel (`cancelReason: TARGET_DISABLED`).
+
 ## Troubleshooting
 
 - **Port conflict**: ensure `PORT` in `.env` is free, or change it.

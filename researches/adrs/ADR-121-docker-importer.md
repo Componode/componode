@@ -151,3 +151,7 @@ Wave E extends the importer's emitted surfaces on Swarm managers:
    resource `ID` so they survive rename. Compose-to-Swarm transitions
    produce distinct components — no automatic product-edge transfer.
 6. Item 9's deferred list now stands at `ssh://` context endpoints only.
+
+---
+
+**Amended by ADR-122**: item 2 — Docker is no longer `requiresAgent`; Hub execution resolves managed `docker_targets` profiles (spec 049).

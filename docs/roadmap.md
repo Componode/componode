@@ -240,12 +240,22 @@ file tracks shipped and upcoming work — update it when a spec completes.
   `COMPUTE` nodes (`swarmNodeObservation`), metadata-only `SECRET`
   secrets + bounded secret/config references; ADR-121 Amendment 2.
 
+- `049-docker-hub-execution` — Docker importer runs on the Hub or an
+  Import Agent: database-backed `docker_targets` registry (immutable
+  `targetId`, strict transport profiles, no secrets), ADMIN target
+  CRUD/enable/disable/test APIs + management screens, Hub target picker
+  in the importer form, `importer:target:*` permissions, `TARGET_*`
+  errors, `cancelReason` on runs, `docker_target` audit events, and
+  deployment docs for opt-in socket/context access — the default Compose
+  stack still mounts no Docker socket; ADR-122.
+
 ## Next — post-v1.1
 
-The Docker importer program's mapped waves (A–E) are complete;
-`049` is open — see `researches/` and `docs/roadmap.md` candidates
-for the next initiative (e.g. remaining importer-source migrations,
-UX gap follow-through, or a new importer wave).
+The Docker importer program's mapped waves (A–E) plus Hub execution
+(049) are complete; `050` is open — see `researches/` and
+`docs/roadmap.md` candidates for the next initiative (e.g. remaining
+importer-source migrations, UX gap follow-through, or a new importer
+wave).
 
 See `.specify/memory/constitution.md` § v1.1 Roadmap for the authoritative
 list — the Import Agents program (025–028), the UX baseline (029), and
