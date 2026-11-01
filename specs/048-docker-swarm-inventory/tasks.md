@@ -47,3 +47,11 @@
 ## MVP scope
 
 US1+US2 (T001–T008) — Swarm services with replica-derived status.
+
+## Phase 7: Review
+
+- [x] T017 Require `Availability === "active"` for node RUNNING so missing/unknown availability fails closed to ERROR per contracts/swarm-inventory.md (code-review: standards)
+- [x] T018 Derive service `desired` from `ServiceStatus.DesiredTasks` (manager counts) with Spec.Replicas as fallback only per contracts/swarm-inventory.md (code-review: standards)
+- [x] T019 Rename the `secrets` destructure to `swarmSecrets` and fail the API floor closed on unparseable `ApiVersion` (code-review: standards)
+- [x] T020 Remove the unread `Endpoint.Ports` declaration from `SwarmService` and `publishedPorts` from data-model.md (code-review: spec)
+- [x] T021 Expand docker.md's observation summaries to list the complete shipped allowlists per FR-009 (code-review: spec)

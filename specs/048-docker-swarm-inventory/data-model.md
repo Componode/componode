@@ -12,7 +12,7 @@ existing `docker-engine:{info.ID}` ImporterSource.
 | `provider` / `resourceType` | `DOCKER` / `swarm-service` |
 | `name` / `slug` | `Spec.Name` (stack-prefixed: `stack_svc`) |
 | `externalId` | `qualifyExternalId(src, "swarm-service:"+Spec.Name)` |
-| `details` | `mode`, `image`, `publishedPorts` (bounded), `stack` (namespace label or null), `secretRefs`/`configRefs` (`{id,name}` pairs), `updateState` |
+| `details` | `mode`, `image`, `stack` (namespace label or null), `secretRefs`/`configRefs` (`{id,name}` pairs), `updateState` |
 | `sourceDetails` | `stack`, `serviceId` |
 
 **Aggregate Instance** (one per resolved environment via

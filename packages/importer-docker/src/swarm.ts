@@ -30,9 +30,6 @@ export interface SwarmService {
     CompletedTasks?: number;
   };
   UpdateStatus?: { State?: string };
-  Endpoint?: {
-    Ports?: { Protocol?: string; TargetPort?: number; PublishedPort?: number }[];
-  };
   CreatedAt?: string;
 }
 
@@ -66,8 +63,9 @@ export function swarmNodeStatus(node: SwarmNode): InstanceStatus {
   const availability = node.Spec?.Availability;
   if (availability === "drain" || availability === "pause") return "STOPPED";
   const ready = node.Status?.State === "ready";
+  const active = availability === "active";
   const reachable = node.ManagerStatus?.Reachability !== "unreachable";
-  return ready && reachable ? "RUNNING" : "ERROR";
+  return ready && active && reachable ? "RUNNING" : "ERROR";
 }
 
 export function mapSwarmService(
@@ -80,10 +78,13 @@ export function mapSwarmService(
   const labels = svc.Spec?.Labels ?? {};
   const stack = labels["com.docker.stack.namespace"] ?? null;
   const mode = svc.Spec?.Mode?.Global !== undefined ? "global" : "replicated";
+  // Manager-reported ServiceStatus counts are the contract's source of
+  // truth for both modes; Spec.Replicas is only a fallback when the
+  // manager didn't report (never during normal `status=1` listing).
   const desired =
-    mode === "replicated"
-      ? svc.Spec?.Mode?.Replicated?.Replicas ?? svc.ServiceStatus?.DesiredTasks ?? 0
-      : svc.ServiceStatus?.DesiredTasks ?? 0;
+    svc.ServiceStatus?.DesiredTasks ??
+    svc.Spec?.Mode?.Replicated?.Replicas ??
+    0;
   const running = svc.ServiceStatus?.RunningTasks ?? 0;
   const completed = svc.ServiceStatus?.CompletedTasks;
   const updateState = svc.UpdateStatus?.State;

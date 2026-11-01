@@ -43,13 +43,14 @@ below the floor the run fails rather than emit a partial inventory):
   manager-reported replica counts only: full replication → `RUNNING`,
   partial or zero-of-N → `ERROR`, scaled-to-zero → `STOPPED`, absent →
   `GONE`. Per-task health is never inferred. Each Instance carries an
-  allowlisted `swarmObservation` (mode, desired/running counts,
-  update state) — never task lists, task inspect, or logs.
+  allowlisted `swarmObservation` (`mode`, `desired`, `running`,
+  optional `completed` and `updateState`, `observedAt`) — never task
+  lists, task inspect, or logs.
 - One **COMPUTE** Component per node (`swarm-node`) with a
   status-bearing Instance — `ready`+`active` → `RUNNING`,
-  `drain`/`pause` → `STOPPED`, `down`/`disconnected`/unreachable →
-  `ERROR` — and a bounded `swarmNodeObservation` (role, availability,
-  reachability, state).
+  `drain`/`pause` → `STOPPED`, `down`/`disconnected`/unreachable/
+  unknown-or-undefined → `ERROR` — and a bounded `swarmNodeObservation`
+  (`role`, `availability`, `reachability`, `leader`, `state`, `addr`).
 - One metadata-only **SECRET** Component per Swarm secret
   (`swarm-secret`) — name + revision, no Instances, contents never
   read. Secret/config *references* appear on service details as

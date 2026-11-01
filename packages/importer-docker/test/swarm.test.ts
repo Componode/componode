@@ -188,6 +188,16 @@ describe("mapSwarmService", () => {
     expect(obs).toMatchObject({ mode: "replicated", desired: 3, running: 2, updateState: "updating" });
   });
 
+  it("prefers manager DesiredTasks over Spec.Replicas (contract)", () => {
+    const a = mapSwarmService(
+      service({ ServiceStatus: { RunningTasks: 2, DesiredTasks: 2 } }),
+      "src:e1", undefined, undefined,
+    );
+    // Spec says 3 replicas; manager reports desired=2 → 2/2 = RUNNING.
+    expect(a.instances[0]!.status).toBe("RUNNING");
+    expect((a.instances[0]!.rawConfig!.swarmObservation as { desired: number }).desired).toBe(2);
+  });
+
   it("maps global-mode via manager counts only", () => {
     const a = mapSwarmService(
       service({ Spec: { Name: "monitor_agent", Mode: { Global: {} } }, ServiceStatus: { RunningTasks: 4, DesiredTasks: 5 } }),
@@ -213,6 +223,9 @@ describe("node status table", () => {
     expect(swarmNodeStatus(node({ Spec: { ...node().Spec, Availability: "pause" } }))).toBe("STOPPED");
     expect(swarmNodeStatus(node({ Status: { State: "down" } }))).toBe("ERROR");
     expect(swarmNodeStatus(node({ ManagerStatus: { Reachability: "unreachable" } }))).toBe("ERROR");
+    // Missing/unknown availability is not "active" — fails closed per contract.
+    expect(swarmNodeStatus(node({ Spec: { ...node().Spec, Availability: undefined } }))).toBe("ERROR");
+    expect(swarmNodeStatus(node({ Spec: { ...node().Spec, Availability: "unknown" } }))).toBe("ERROR");
     expect(swarmNodeStatus({} as SwarmNode)).toBe("ERROR");
   });
 });

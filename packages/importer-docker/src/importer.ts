@@ -96,13 +96,19 @@ export class DockerImporter implements Importer {
       const [apiMajor = 0, apiMinor = 0] = (version?.ApiVersion ?? "0.0")
         .split(".")
         .map(Number);
-      if (apiMajor * 100 + apiMinor < 141) {
+      // Fail closed on a malformed version string — NaN comparisons
+      // are false, which would silently skip the floor.
+      if (
+        !Number.isFinite(apiMajor) ||
+        !Number.isFinite(apiMinor) ||
+        apiMajor * 100 + apiMinor < 141
+      ) {
         throw new Error(
           `Swarm inventory requires Docker Engine API >= 1.41 (got ${version?.ApiVersion ?? "unknown"})`,
         );
       }
       if (context.signal.aborted) return;
-      const [services, nodes, secrets] = (await Promise.all([
+      const [services, nodes, swarmSecrets] = (await Promise.all([
         docker.listServices({ status: true }),
         docker.listNodes(),
         docker.listSecrets(),
@@ -128,7 +134,7 @@ export class DockerImporter implements Importer {
         }
         yield asset;
       }
-      for (const secret of secrets) {
+      for (const secret of swarmSecrets) {
         if (context.signal.aborted) return;
         const asset = mapSwarmSecret(secret, sourceIdentity);
         if (!validateDiscoveredAsset(asset)) {
