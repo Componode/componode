@@ -87,3 +87,7 @@ Amendment 1).
 **Amended by ADR-119**: `importer_sources` + Source→Component/
 ComponentInstance membership tables join the schema inventory, and
 `import_runs` gains `sourceId` + nullable `configId` — see Amendment 2.
+
+---
+
+**Amended by ADR-122**: schema gains `docker_targets` and `import_runs.cancelReason` (spec 049).

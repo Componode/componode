@@ -131,6 +131,7 @@ export function mapImportRun(r: ApiImportRun): ImportRun {
     componentsRetired: r.componentsRetired,
     currentPhase: r.currentPhase,
     cancelRequestedAt: r.cancelRequestedAt,
+    cancelReason: r.cancelReason ?? null,
     errorMessage: r.errorMessage,
     errorType: r.errorType ?? null,
     agentId: r.agentId,

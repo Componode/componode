@@ -50,6 +50,9 @@ import { UxAgentsPage } from "@/ux/app/agents/index";
 import { UxAgentDetailPage } from "@/ux/app/agents/$id";
 import { UxSourcesPage } from "@/ux/app/sources/index";
 import { UxSourceDetailPage } from "@/ux/app/sources/$id";
+import { UxDockerTargetsPage } from "@/ux/app/docker-targets";
+import { UxDockerTargetNewPage } from "@/ux/app/docker-targets/new";
+import { UxDockerTargetDetailPage } from "@/ux/app/docker-targets/$id";
 
 // Auth pages render outside the shell (no sidebar/top bar/palette).
 const authed = (element: React.ReactNode, requiredRole?: string) => (
@@ -101,6 +104,9 @@ export const routes: RouteObject[] = [
       { path: "credentials/new", element: authed(<UxCredentialNewPage />, "ADMIN") },
       { path: "credentials/:id", element: authed(<UxCredentialDetailPage />, "ADMIN") },
       { path: "credentials/:id/edit", element: authed(<UxCredentialEditPage />, "ADMIN") },
+      { path: "docker-targets", element: authed(<UxDockerTargetsPage />, "ADMIN") },
+      { path: "docker-targets/new", element: authed(<UxDockerTargetNewPage />, "ADMIN") },
+      { path: "docker-targets/:id", element: authed(<UxDockerTargetDetailPage />, "ADMIN") },
       { path: "teams", element: authed(<UxTeamsPage />) },
       { path: "teams/:slug", element: authed(<UxTeamDetailPage />) },
       { path: "lobs", element: authed(<UxLobsPage />) },

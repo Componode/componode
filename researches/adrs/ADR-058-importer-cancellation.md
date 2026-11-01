@@ -27,3 +27,7 @@ X" are different operational events.
 — the hub sets `cancelRequestedAt` and sends a `cancel` frame that fires
 the agent's `AbortController`. `cancelRequestedAt` remains the source of
 truth.
+
+---
+
+**Amended by ADR-122**: `import_runs` gains `cancelReason` (`USER_REQUESTED`|`TARGET_DISABLED`), stamped at cancel time and preserved through recovery (spec 049).

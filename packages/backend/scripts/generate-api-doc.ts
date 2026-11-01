@@ -89,6 +89,13 @@ const CODE_MEANINGS: Record<string, string> = {
     "Agent session lost mid-run, or hub restarted while a remote run was live (503)",
   ASSET_TOO_LARGE:
     "Discovered asset exceeded the per-frame size limit (413)",
+  TARGET_NOT_FOUND: "Docker target not found (404)",
+  TARGET_DISABLED:
+    "Docker target is disabled — blocked for new configs, runs, and tests (409)",
+  TARGET_IN_USE:
+    "Docker target delete blocked by referencing importer configs (409)",
+  TARGET_RESOLUTION_FAILED:
+    "Target profile could not be resolved or is malformed (400)",
 };
 
 interface Operation {

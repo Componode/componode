@@ -265,11 +265,25 @@ export interface ImportRunRow {
   componentsRetired: number;
   currentPhase: string | null;
   cancelRequestedAt: string | null;
+  cancelReason: string | null;
   credentialIds: string[] | null;
   errorMessage: string | null;
   errorStack: string | null;
   errorType: string | null;
   createdAt: Generated<string>;
+}
+
+export interface DockerTargetRow {
+  id: string;
+  targetId: string;
+  label: string;
+  description: string | null;
+  profile: Record<string, unknown>;
+  enabled: boolean;
+  createdBy: string | null;
+  updatedBy: string | null;
+  createdAt: Generated<string>;
+  updatedAt: Generated<string>;
 }
 
 export interface CredentialRow {
@@ -387,6 +401,7 @@ export interface DB {
   component_sources_from: JunctionRow;
   component_exposes: JunctionRow;
   importer_configs: ImporterConfigRow;
+  docker_targets: DockerTargetRow;
   importer_config_credentials: ImporterConfigCredentialRow;
   credentials: CredentialRow;
   import_agents: ImportAgentRow;

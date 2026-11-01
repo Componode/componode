@@ -492,3 +492,7 @@ assets), and the target-preflight refusal needed a named wire reason.
 (`@componode/importer-docker`) landed; the typed `docker-targets.json`
 profile schema is ratified in ADR-121 item 4, and the credential-test
 path now performs the same target preflight as `job.assign`.
+
+---
+
+**Amended by ADR-122**: the Hub now owns a database-backed `docker_targets` registry for its own executor; Agent-local registries and the wire protocol are unchanged (spec 049).

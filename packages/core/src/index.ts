@@ -47,8 +47,12 @@ export {
   CREDENTIAL_KIND_META,
 } from "./constants/credential-kind.js";
 export type { CredentialKind } from "./constants/credential-kind.js";
+export { IMPORT_RUN_CANCEL_REASONS } from "./constants/import-run-cancel-reason.js";
+export type { ImportRunCancelReason } from "./constants/import-run-cancel-reason.js";
 export { ERROR_CODES } from "./constants/error-codes.js";
 export type { ErrorCode } from "./constants/error-codes.js";
+export { createDockerTargetSchema, updateDockerTargetSchema, testDockerTargetSchema } from "./schemas/docker-target.js";
+export type { CreateDockerTargetInput, UpdateDockerTargetInput, TestDockerTargetInput, DockerTarget } from "./schemas/docker-target.js";
 export {
   EDGE_SUGGESTION_REASON,
   EDGE_SUGGESTION_REASON_META,

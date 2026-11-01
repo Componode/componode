@@ -22,6 +22,10 @@ export interface ImporterManifest {
   // (ADR-056 A1, ADR-116 A5). Presence means remote execution with
   // agent-registry preflight; absent = no target resolution.
   targetRefKey?: string;
+  // Optional executor-local profile validator for manifests that declare
+  // targetRefKey. Hub-managed targets use it for save/preflight; Agents
+  // keep provider-agnostic file-registry envelopes.
+  targetProfileSchema?: unknown;
   // Declares this importer calls `context.reportSourceIdentity` before
   // its first asset yield (ADR-056 A2). Absent/false = legacy
   // unattributed provenance until the importer's migration wave.

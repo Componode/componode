@@ -2,6 +2,7 @@ import { useParams } from "react-router-dom";
 import { useAgents } from "@/api/hooks/agents";
 import { useCredentials } from "@/api/hooks/credentials";
 import { useImporterConfig, useImporters } from "@/api/hooks/importers";
+import { useDockerTargets } from "@/api/hooks/docker-targets";
 import { ImporterForm } from "@/ux/components/importers/importer-form";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, ForbiddenState, NotFoundState, TableSkeleton } from "@/ux/components/patterns/states";
@@ -15,8 +16,9 @@ export function UxImporterEditPage() {
   const manifests = useImporters();
   const credentials = useCredentials();
   const agents = useAgents();
+  const dockerTargets = useDockerTargets();
 
-  if (config.isPending || manifests.isPending || credentials.isPending || agents.isPending) {
+  if (config.isPending || manifests.isPending || credentials.isPending || agents.isPending || dockerTargets.isPending) {
     return (
       <PageContainer width="narrow">
         <Card className="py-0">
@@ -26,7 +28,7 @@ export function UxImporterEditPage() {
     );
   }
 
-  const err = config.error ?? manifests.error ?? credentials.error ?? agents.error;
+  const err = config.error ?? manifests.error ?? credentials.error ?? agents.error ?? dockerTargets.error;
   if (err || !config.data) {
     if (err && isForbidden(err)) {
       return (
@@ -60,6 +62,7 @@ export function UxImporterEditPage() {
       manifests={manifests.data?.importers ?? []}
       credentials={credentials.data?.credentials ?? []}
       agents={agents.data?.agents ?? []}
+      dockerTargets={dockerTargets.data?.targets ?? []}
     />
   );
 }
