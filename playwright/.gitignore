@@ -1,0 +1,13 @@
+node_modules/
+.pnpm-store/
+.env.test
+.env-private/
+.local/
+.auth/
+test-results/
+playwright-report/
+blob-report/
+coverage/
+*.webm
+*.zip
+junit-results.xml
