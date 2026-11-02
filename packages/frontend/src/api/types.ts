@@ -454,6 +454,7 @@ export type {
   UrlCheckLatest,
   UrlCheckListItem,
   UrlCheckMetrics,
+  UrlCheckSummary,
   UpdateMonitoringSetupInput,
   CreateUrlCheckInput,
   UpdateUrlCheckInput,

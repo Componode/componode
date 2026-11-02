@@ -119,6 +119,25 @@ Every display labels its window and vantage. Detailed observations are
 retained for **30 days** and then purged; all metrics are computed from
 the stored observations, not pre-aggregated.
 
+### Compact summary on the Component card
+
+The **URL checks** table on the Component detail page shows an
+at-a-glance rollup per row — **Availability (24h)** and **p95 (24h)** —
+computed over the rolling 24-hour window with the same formulas as the
+detail metrics (missed slots count against availability; p95 covers
+successful probes only). The window is fixed for the table; the check
+detail page still carries the full 24h/7d/30d windows and observation
+history.
+
+- A check with no observations in the window shows **No data yet** —
+  never a fabricated 0% or 100%.
+- When the window contains scheduled-but-missed probes, the availability
+  figure carries a **· N missed** annotation so monitor-side downtime
+  stays distinguishable from endpoint failure.
+- The whole table — every row's summary and the recent-outcome strip —
+  loads through a single bounded list request; the card never issues a
+  per-check observations request.
+
 ## Authenticated checks (API Components only)
 
 Checks on an `API`-category Component may authenticate per check —

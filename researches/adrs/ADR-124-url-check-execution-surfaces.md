@@ -238,3 +238,41 @@ to agent execution before the `p-queue`, the agent ran every
 **Unchanged**: one observation per scheduled slot under every finalize
 path — a result arriving after finalization is discarded; cancellation
 is prompt-resource-freeing, not a new outcome.
+
+## Amendment 2 — Bounded summary read-path (2026-11-02, spec 053)
+
+**Context**: the G2 gap analysis showed the Component checks table
+fetched the observations endpoint once per row to draw its
+recent-outcome strip, and carried no windowed summary — the ratified
+metrics were reachable only on the per-check detail read.
+
+**Refinements**:
+
+- **List read-path (item 2 surfaces)** —
+  `GET /components/:componentId/url-checks` items gain two embedded
+  fields: `summary` (the compact 24h rollup: `availability`, `p95`,
+  `coverageGap`, `counts` — identical formulas to the per-check metrics
+  read) and `recent` (the ≤12 latest observations, `scheduledAt` desc —
+  the outcome-strip payload). The route, method, and `verifySession`-only
+  read permission are unchanged; the response extension is additive and
+  documented in `docs/openapi.yaml` (`UrlCheckListItem.summary`/`recent`,
+  new `UrlCheckSummary` schema).
+- **Bounded query shape** — the handler executes a constant number of
+  queries regardless of check count: one `GROUP BY urlCheckId` windowed
+  aggregate (percentiles over `SUCCESS` durations via
+  `percentile_cont(0.95)` with a `CASE`-scoped ordering, since `FILTER`
+  is unavailable for ordered-set aggregates) and one
+  `row_number() over (partition by urlCheckId)` recent-observations read.
+  Per-check observations/metrics requests from the table are eliminated;
+  the detail page's metrics and cursor-paginated observations reads are
+  unchanged.
+- **Presentation contract** — the compact summary is fixed at the
+  24-hour window and the p95 percentile (clarified in spec 053);
+  `availability: null`/`p95: null` are the no-data signals (never
+  fabricated), and `counts.missed > 0` surfaces the coverage-gap
+  annotation so monitor-side downtime stays distinguishable from
+  endpoint failure (item 5 semantics).
+
+**Unchanged**: metric formulas (item 5), the three rolling windows and
+30-day retention on the detail read, and the no-pre-aggregated-rollups
+decision — the summary is computed from observations at read time.

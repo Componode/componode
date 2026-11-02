@@ -39,9 +39,7 @@ export interface CustomHeadersAuthConfig {
   headers: Array<{ name: string; key: string }>;
 }
 export type UrlCheckAuthConfig =
-  | BasicAuthConfig
-  | BearerAuthConfig
-  | CustomHeadersAuthConfig;
+  BasicAuthConfig | BearerAuthConfig | CustomHeadersAuthConfig;
 
 export interface UrlCheck {
   id: string;
@@ -89,8 +87,26 @@ export interface UrlCheckLatest {
   vantage: UrlCheckVantage;
 }
 
+// Compact 24h rollup embedded in the Component checks list (spec 053) —
+// same formula semantics as UrlCheckMetrics so the surfaces cannot drift.
+export interface UrlCheckSummary {
+  // Fixed rolling window for the compact summary.
+  window: "24h";
+  // SUCCESS / (SUCCESS + FAILURE + MISSED); null when nothing scheduled.
+  availability: number | null;
+  // percentile_cont(0.95) over SUCCESS durations; null when none.
+  p95: number | null;
+  // Share of scheduled slots that never ran (monitor-side downtime).
+  coverageGap: number;
+  counts: { success: number; failure: number; missed: number };
+}
+
 export interface UrlCheckListItem extends UrlCheck {
   latest: UrlCheckLatest | null;
+  // Always present; null inner fields are the no-data signal.
+  summary: UrlCheckSummary;
+  // ≤12 most recent observations, scheduledAt desc — the dot-strip payload.
+  recent: UrlCheckObservation[];
 }
 
 export interface UrlCheckMetrics {

@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–048, 051–052)
+## Shipped (features 001–048, 051–053)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -278,14 +278,25 @@ file tracks shipped and upcoming work — update it when a spec completes.
   fetches on dispatch deadline and session close, one-observation-per-
   slot integrity under timeout/disconnect/restart, and bounded-label
   telemetry on both ends.
+- `053-component-check-summary` — at-a-glance monitoring summary on the
+  Component checks table (gap-analysis G2; ADR-124 Amendment 2): each
+  row carries a compact 24-hour availability figure and p95 latency
+  labeled with window and "reachable from" vantage, coverage gaps stay
+  distinguishable via the missed-slots annotation, no-observation checks
+  show an explicit no-data state, and the whole table — summaries plus
+  the recent-outcome strip — loads through a single bounded list request
+  (`summary`/`recent` embedded in `GET
+/components/:componentId/url-checks`; the per-row observations fan-out
+  is gone).
 
 ## Next — post-v1.1
 
 The Docker importer program's mapped waves (A–E) plus Hub execution
-(049) are complete and URL Check monitoring (051) plus its operational
-bounds (052) have shipped; `053` is the next open spec slot — see
-`researches/` and the deferred queues below for the next initiative
-(e.g. remaining url-check gap work G2/G3 — see
+(049) are complete and URL Check monitoring (051), its operational
+bounds (052), and the Component-level summary (053) have shipped; `054`
+is the next open spec slot — see `researches/` and the deferred queues
+below for the next initiative (e.g. the remaining url-check gap G3
+onboarding work — see
 `researches/url_check_monitoring_gap_analysis.md` — importer-source
 migrations, UX gap follow-through, or a new importer wave).
 
