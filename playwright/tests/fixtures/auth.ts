@@ -105,7 +105,7 @@ export async function apiLogin(
     const r = await fetch(`${baseURL}${path}`, {
       method,
       headers: {
-        'content-type': 'application/json',
+        ...(data !== undefined ? { 'content-type': 'application/json' } : {}),
         cookie: `componode_session=${s.session}; componode_csrf=${s.csrf}`,
         'x-csrf-token': s.csrf,
       },
@@ -118,7 +118,7 @@ export async function apiLogin(
       const retry = await fetch(`${baseURL}${path}`, {
         method,
         headers: {
-          'content-type': 'application/json',
+          ...(data !== undefined ? { 'content-type': 'application/json' } : {}),
           cookie: `componode_session=${fresh.session}; componode_csrf=${fresh.csrf}`,
           'x-csrf-token': fresh.csrf,
         },
@@ -151,17 +151,33 @@ export async function loginPage(page: Page, role: Role): Promise<void> {
   await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 });
 }
 
-/** Anonymous POST helper — primes a CSRF cookie for public endpoints. */
-export async function anonPost(request: APIRequestContext, path: string, data?: unknown) {
+/**
+ * Anonymous POST helper — primes a CSRF cookie for public endpoints. Uses a
+ * bare fetch (not a request context) so no session cookies from an earlier
+ * page context leak in and split the double-submit pair.
+ */
+export async function anonPost(
+  _request: APIRequestContext,
+  path: string,
+  data?: unknown,
+): Promise<{ status: () => number; headers: () => Record<string, string>; text: () => Promise<string>; json: () => Promise<any> }> {
   const pre = await fetch(`${BASE}/api/v1/auth/session`, { redirect: 'manual' });
   const jar = parseCookies(pre.headers.get('set-cookie') ?? undefined);
   const csrf = jar.get('componode_csrf') ?? '';
-  return request.fetch(`${BASE}${path}`, {
+  const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
-    data,
+    redirect: 'manual',
     headers: {
+      ...(data !== undefined ? { 'content-type': 'application/json' } : {}),
       cookie: `componode_csrf=${csrf}`,
       'x-csrf-token': csrf,
     },
+    body: data === undefined ? undefined : JSON.stringify(data),
   });
+  return {
+    status: () => res.status,
+    headers: () => Object.fromEntries(res.headers.entries()),
+    text: () => res.clone().text(),
+    json: () => res.clone().json(),
+  };
 }

@@ -25,7 +25,7 @@ test.describe('runtime network isolation', () => {
       fetch('https://api.github.com/rate_limit', { signal: AbortSignal.timeout(8000) }),
     ).rejects.toThrow();
     await expect(
-      fetch('https://resourcecenter.aliyuncs.com/', { signal: AbortSignal.timeout(8000) }),
+      fetch('https://ecs.aliyuncs.com/', { signal: AbortSignal.timeout(8000) }),
     ).rejects.toThrow();
   });
 });

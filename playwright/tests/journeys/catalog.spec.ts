@@ -40,7 +40,7 @@ test.describe('catalog journeys', () => {
     await api('POST', `/api/v1/products/${aId}/composes`, { childId: bId });
     const cycle = await api('POST', `/api/v1/products/${bId}/composes`, { childId: aId });
     expect(cycle.status).toBe(409);
-    expect(cycle.body?.code).toBe('CYCLE');
+    expect(cycle.body?.code).toBe('CYCLE_DETECTED');
   });
 
   test('component group lifecycle through the API', async ({ request }) => {
@@ -48,7 +48,7 @@ test.describe('catalog journeys', () => {
     const slug = uid();
     const g = await api('POST', '/api/v1/component-groups', { name: `PW G ${slug}`, slug: `pw-g-${slug}` });
     expect(g.status).toBe(201);
-    const id = g.body.id ?? g.body.componentGroup?.id;
+    const id = g.body.group?.id ?? g.body.id;
     const upd = await api('PATCH', `/api/v1/component-groups/${id}`, { description: 'updated' });
     expect(upd.status).toBe(200);
   });

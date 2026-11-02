@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const CTL = 'http://mock-control:9090';
-const ALI = 'https://mock-alibaba:9443';
+const ALI = 'https://mock-alibaba';
 const STS = 'https://sts.aliyuncs.com';
 const BSS = 'https://business.aliyuncs.com';
 

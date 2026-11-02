@@ -9,7 +9,7 @@ test.describe('organization journeys', () => {
     const api = await apiLogin(request, BASE, 'ADMIN');
     const lob = await api('POST', '/api/v1/lobs', { name: `PW LOB ${uid()}`, slug: `${uid()}-lob` });
     expect(lob.status).toBe(201);
-    const team = await api('POST', '/api/v1/teams', { name: `PW Team ${uid()}`, slug: `${uid()}-team`, lobId: lob.body.id });
+    const team = await api('POST', '/api/v1/teams', { name: `PW Team ${uid()}`, slug: `${uid()}-team`, lobId: lob.body.lob?.id ?? lob.body.id });
     expect(team.status).toBe(201);
   });
 

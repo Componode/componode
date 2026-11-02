@@ -14,6 +14,7 @@ RUN npm install -g pnpm@9.15.2
 WORKDIR /work
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.json playwright.config.ts ./
+COPY coverage-matrix.md ./
 RUN pnpm install --frozen-lockfile
 
 COPY scripts ./scripts

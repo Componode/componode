@@ -123,25 +123,25 @@ export async function seedAppFlows(apiBase: string, env: Record<string, string>,
     cadenceSeconds: 60, vantage: 'HUB',
   }), 'monitoring setup');
   await ok(await api.post(`/api/v1/components/${idOf(comp)}/url-checks`, {
-    name: 'pw-none', url: 'http://probe.target.test/none',
+    name: 'pw-none', url: 'http://probe.target.test:9080/none',
     componentInstanceId: instanceId, method: 'GET', enabled: true,
     successPolicy: { codes: [200], ranges: [] }, authMode: 'NONE',
   }), 'check NONE');
   await ok(await api.post(`/api/v1/components/${idOf(comp)}/url-checks`, {
-    name: 'pw-basic', url: 'http://auth.target.test/basic',
+    name: 'pw-basic', url: 'http://auth.target.test:9080/basic',
     componentInstanceId: instanceId, method: 'GET', enabled: true,
     successPolicy: { codes: [200], ranges: [] }, authMode: 'BASIC',
     credentialId: idOf(urlCheckCred),
     authConfig: { usernameKey: 'basicUser', passwordKey: 'basicPassword' },
   }), 'check BASIC');
   await ok(await api.post(`/api/v1/components/${idOf(comp)}/url-checks`, {
-    name: 'pw-bearer', url: 'http://auth.target.test/bearer',
+    name: 'pw-bearer', url: 'http://auth.target.test:9080/bearer',
     componentInstanceId: instanceId, method: 'GET', enabled: true,
     successPolicy: { codes: [200], ranges: [] }, authMode: 'BEARER',
     credentialId: idOf(urlCheckCred), authConfig: { tokenKey: 'bearerToken' },
   }), 'check BEARER');
   await ok(await api.post(`/api/v1/components/${idOf(comp)}/url-checks`, {
-    name: 'pw-custom', url: 'http://auth.target.test/custom',
+    name: 'pw-custom', url: 'http://auth.target.test:9080/custom',
     componentInstanceId: instanceId, method: 'GET', enabled: true,
     successPolicy: { codes: [200], ranges: [] }, authMode: 'CUSTOM_HEADERS',
     credentialId: idOf(urlCheckCred),

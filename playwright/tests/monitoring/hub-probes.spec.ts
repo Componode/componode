@@ -9,7 +9,7 @@ test.describe('hub probe observations (four auth modes)', () => {
   test('mock target records matching auth for BASIC, BEARER, CUSTOM_HEADERS', async ({ request }) => {
     test.setTimeout(90_000);
     const api = await apiLogin(request, BASE, 'ADMIN');
-    await api('POST', 'http://mock-control:9090/reset/mock-url-check-target');
+    await fetch(`${CTL}/reset/mock-url-check-target`, { method: 'POST' });
 
     const deadline = Date.now() + 60_000;
     let probes: any[] = [];

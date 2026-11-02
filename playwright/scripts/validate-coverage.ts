@@ -3,7 +3,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const REPO_ROOT = join(ROOT, '..');
+const REPO_ROOT = process.env.PW_REPO_ROOT ?? join(ROOT, '..');
 
 export interface CoverageResult {
   implemented: string[];

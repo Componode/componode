@@ -10,7 +10,7 @@ test.describe('OIDC journeys (local Dex)', () => {
     // NOTE: the UI's "Continue with SSO" anchor issues GET on a POST-only
     // route (404) — a product inconsistency surfaced by this suite. Drive
     // the documented POST initiator so the full Dex journey is exercised.
-    const res = await anonPost(page.request, '/api/v1/auth/oidc/login');
+    const res = await anonPost(page.request, '/api/v1/auth/oidc/login', {});
     expect(res.status()).toBe(302);
     const authUrl = res.headers()['location'];
     expect(authUrl).toContain('dex.componode-pw.test');

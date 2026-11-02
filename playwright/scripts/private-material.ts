@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import * as x509 from '@peculiar/x509';
@@ -95,6 +95,7 @@ export const CERT_PLAN: Record<string, { cn: string; sans: string[]; client?: bo
     sans: [
       'mock-alibaba',
       'sts.aliyuncs.com',
+      'sts.cn-hangzhou.aliyuncs.com',
       'business.aliyuncs.com',
       'resourcecenter.aliyuncs.com',
       'resourcecenter-intl.aliyuncs.com',
@@ -146,6 +147,38 @@ export async function generatePrivateMaterial(dir = PRIVATE_DIR): Promise<Privat
   ];
   writeFileSync(envPath, lines.join('\n') + '\n', { mode: 0o600 });
   return { caCrtPath: join(dir, 'ca.crt'), envPath, certDir };
+}
+
+/** Load the existing CA pair and re-issue a single leaf from CERT_PLAN —
+ *  used when a SAN list changes and a full CA rotation is unnecessary. */
+export async function reissueLeaf(
+  name: keyof typeof CERT_PLAN,
+  dir = PRIVATE_DIR,
+): Promise<void> {
+  const caCertPem = readFileSync(join(dir, 'ca.crt'), 'utf8');
+  const caKeyPem = readFileSync(join(dir, 'ca.key'), 'utf8');
+  const caCert = new x509.X509Certificate(caCertPem);
+  const der = Buffer.from(
+    caKeyPem.replace(/-----[^-]+-----/g, '').replace(/\s/g, ''),
+    'base64',
+  );
+  const caKey = await crypto.subtle.importKey(
+    'pkcs8',
+    der,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const plan = CERT_PLAN[name];
+  const leaf = await issueLeaf({
+    cn: plan.cn,
+    sans: plan.sans,
+    ca: { cert: caCert!, keys: { privateKey: caKey, publicKey: caKey } },
+    client: plan.client,
+  });
+  const certDir = join(dir, 'certs');
+  writeFileSync(join(certDir, `${name}.crt`), leaf.certPem, { mode: 0o644 });
+  writeFileSync(join(certDir, `${name}.key`), leaf.keyPem, { mode: 0o644 });
 }
 
 export function privateMaterialExists(dir = PRIVATE_DIR): boolean {

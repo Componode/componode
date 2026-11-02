@@ -18,10 +18,31 @@ const RESOURCES = [
 ];
 
 function parseRpc(reqBody: string): URLSearchParams {
-  return new URLSearchParams(reqBody);
+  const form = new URLSearchParams(reqBody);
+  if (form.get('Action')) return form;
+  // Darabonba SDKs may send a JSON body — normalize it into the same lookup.
+  try {
+    const parsed = JSON.parse(reqBody) as Record<string, unknown>;
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(parsed)) {
+      if (v !== null && v !== undefined) params.set(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
+    }
+    return params;
+  } catch {
+    return form;
+  }
 }
 
-function missingAuth(params: URLSearchParams): string | null {
+function missingAuth(params: URLSearchParams, headers: import('node:http').IncomingHttpHeaders): string | null {
+  // ACS3 header-signing scheme (newer Darabonba SDKs): authorization carries
+  // Credential/SignedHeaders/Signature; nonce+date are x-acs-* headers.
+  const auth = headers['authorization'];
+  if (typeof auth === 'string' && auth.startsWith('ACS')) {
+    if (!headers['x-acs-signature-nonce']) return 'x-acs-signature-nonce';
+    if (!headers['x-acs-date']) return 'x-acs-date';
+    if (!auth.includes('Credential=')) return 'Credential';
+    return null;
+  }
   for (const k of ['AccessKeyId', 'Signature', 'SignatureMethod', 'SignatureNonce', 'Timestamp', 'SignatureVersion']) {
     if (!params.get(k)) return k;
   }
@@ -38,17 +59,18 @@ const server = startDataServer({
   handler: (req, body, res) => {
     const url = new URL(req.url ?? '/', 'https://x');
     const params = url.search ? url.searchParams : parseRpc(body);
-    const action = params.get('Action') ?? '';
+    const action = params.get('Action') ?? (req.headers['x-acs-action'] as string | undefined) ?? '';
+    const version = params.get('Version') ?? (req.headers['x-acs-version'] as string | undefined) ?? '';
     log.add({ method: req.method ?? 'POST', path: url.pathname, action, scenario: store.current });
     const s: Scenario = store.current;
 
-    const miss = missingAuth(params);
+    const miss = missingAuth(params, req.headers);
     if (miss) return acsError(res, 400, 'IncompleteSignature', `missing ${miss}`);
     if (s === 'error') return acsError(res, 500, 'InternalError', 'mock provider error');
 
     switch (action) {
       case 'GetCallerIdentity':
-        if (params.get('Version') !== '2015-04-01') return acsError(res, 400, 'InvalidVersion', 'expected 2015-04-01');
+        if (version !== '2015-04-01') return acsError(res, 400, 'InvalidVersion', 'expected 2015-04-01');
         return json(res, 200, {
           AccountId: '123456789012', Arn: 'acs:ram::123456789012:user/pw',
           IdentityType: 'RAMUser', PrincipalId: 'pw-principal', RequestId: 'pw-req', UserId: 'pw-user',

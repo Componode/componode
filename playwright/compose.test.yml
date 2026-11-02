@@ -138,8 +138,11 @@ services:
       context: .
       dockerfile: Dockerfile.mocks
     command: ["node", "--import", "tsx", "mocks/alibaba/server.ts"]
+    # The Alibaba SDK hits fixed hostnames on :443 — this mock binds the
+    # privileged port as root inside the test container.
+    user: root
     environment:
-      MOCK_PORT: "9443"
+      MOCK_PORT: "443"
       MOCK_TLS_CERT: /pw-private/certs/mock-alibaba.crt
       MOCK_TLS_KEY: /pw-private/certs/mock-alibaba.key
       MOCK_CONTROL_PORT: "9444"
@@ -150,6 +153,7 @@ services:
         aliases:
           - mock-alibaba
           - sts.aliyuncs.com
+          - sts.cn-hangzhou.aliyuncs.com
           - business.aliyuncs.com
           - resourcecenter.aliyuncs.com
           - resourcecenter-intl.aliyuncs.com
@@ -287,6 +291,7 @@ services:
       PW_BASE_URL: https://app.componode-pw.test
       PW_APP_INTERNAL_URL: http://app:3000
       PW_CONTROL_URL: http://mock-control:9090
+      PW_REPO_ROOT: /repo
       PW_RUN_ID: ${PWP_RUN_ID:-local}
     volumes:
       - ./.env-private:/pw-private:ro
@@ -294,6 +299,7 @@ services:
       - ./test-results:/work/test-results
       - ./playwright-report:/work/playwright-report
       - ./.auth:/work/.auth
+      - ../packages:/repo/packages:ro
     networks: [pwnet]
     depends_on:
       caddy:

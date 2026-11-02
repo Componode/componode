@@ -38,6 +38,15 @@ export async function seedBulk(pgUrl: string): Promise<{ componentIds: string[] 
         );
       }
     }
+    // A RETIRED component — specs that exercise lifecycle denial need one
+    // since retirement is reconciliation-driven, not a manual API action.
+    const retiredId = uuid7();
+    componentIds.push(retiredId);
+    await client.query(
+      `INSERT INTO components (id, name, slug, category, provider, "resourceType", lifecycle)
+       VALUES ($1,$2,$3,'API','OTHER','pw-type-retired','RETIRED')`,
+      [retiredId, `PW Retired ${RUN_PREFIX}`, `pw-${RUN_PREFIX}-retired`],
+    );
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');

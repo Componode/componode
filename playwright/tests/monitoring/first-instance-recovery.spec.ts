@@ -40,18 +40,24 @@ test.describe('first-instance recovery (054)', () => {
     expect((await api('POST', `/api/v1/components/00000000-0000-0000-0000-000000000000/instances`, { environment: 'DEV' })).status).toBe(404);
     expect((await viewer('POST', `/api/v1/components/${id}/instances`, { environment: 'DEV' })).status).toBe(403);
 
-    const anon = await request.fetch(`${BASE}/api/v1/components/${id}/instances`, { method: 'POST', data: { environment: 'DEV' } });
+    const anonNoCsrf = await request.fetch(`${BASE}/api/v1/components/${id}/instances`, { method: 'POST', data: { environment: 'DEV' } });
+    expect([401, 403]).toContain(anonNoCsrf.status());
+    const pre = await request.get(`${BASE}/api/v1/auth/session`);
+    const csrf = ((pre.headers()['set-cookie'] ?? '') + '').match(/componode_csrf=([^;]+)/)?.[1] ?? '';
+    const anon = await request.fetch(`${BASE}/api/v1/components/${id}/instances`, {
+      method: 'POST', data: { environment: 'DEV' },
+      headers: { 'x-csrf-token': csrf },
+    });
     expect(anon.status()).toBe(401);
   });
 
   test('retired component is denied', async ({ request }) => {
     const api = await apiLogin(request, BASE, 'EDITOR');
-    const id = await makeComponent(api, uid());
-    await api('PATCH', `/api/v1/components/${id}`, { sunsetAt: new Date(Date.now() - 86400e3).toISOString() });
-    // Retire via dedicated lifecycle operation if PATCH doesn't retire.
-    const retired = await api('POST', `/api/v1/components/${id}/retire`, {});
-    const res = await api('POST', `/api/v1/components/${id}/instances`, { environment: 'DEV' });
+    // Retirement is reconciliation-driven — use the seeded RETIRED fixture.
+    const list = await api('GET', '/api/v1/components?lifecycle=RETIRED&includeRetired=true&pageSize=1');
+    const retired = (list.body.data ?? list.body.components ?? list.body.items ?? list.body)[0];
+    expect(retired).toBeTruthy();
+    const res = await api('POST', `/api/v1/components/${retired.id}/instances`, { environment: 'DEV' });
     expect([403, 404]).toContain(res.status);
-    void retired;
   });
 });
