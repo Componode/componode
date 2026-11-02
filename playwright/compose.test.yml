@@ -11,8 +11,14 @@
 name: componode-pw
 
 networks:
+  # Isolated runtime LAN — no route off it. All app/agent/importer/mock/test
+  # traffic stays here; published ports are impossible by construction.
   pwnet:
     internal: true
+  # Front-door network. Only caddy attaches so its debug ports can publish;
+  # caddy proxies strictly to configured internal backends, so nothing else
+  # gains an egress route.
+  pwedge: {}
 
 volumes:
   postgres_data:
@@ -28,8 +34,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks: [pwnet]
-    ports:
-      - "127.0.0.1:${PW_PG_PORT:-5544}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d componode_pw"]
       interval: 5s
@@ -44,6 +48,7 @@ services:
       DATABASE_URL: postgres://postgres:${PWP_POSTGRES_PASSWORD}@postgres:5432/componode_pw
       DATABASE_SSL_MODE: disable
       COOKIE_SECRET: ${PWP_COOKIE_SECRET}
+      COMPONODE_SECRETS_KEY: ${PWP_SECRETS_KEY}
       BOOTSTRAP_ADMIN_USERNAME: ${PWP_ADMIN_USERNAME}
       BOOTSTRAP_ADMIN_PASSWORD: ${PWP_ADMIN_PASSWORD}
       NODE_ENV: production
@@ -58,8 +63,6 @@ services:
     volumes:
       - ./.env-private:/pw-private:ro
     networks: [pwnet]
-    ports:
-      - "127.0.0.1:${PW_APP_PORT:-3300}:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,6 +82,8 @@ services:
         aliases:
           - app.componode-pw.test
           - hub
+          - dex.componode-pw.test
+      pwedge: {}
     ports:
       - "127.0.0.1:${PW_HTTP_PORT:-8080}:80"
       - "127.0.0.1:${PW_HTTPS_PORT:-8443}:443"
@@ -86,7 +91,7 @@ services:
       app:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q --no-check-certificate https://localhost:443/ || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q --no-check-certificate https://app.componode-pw.test/api/v1/health || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -99,7 +104,7 @@ services:
     networks:
       pwnet:
         aliases:
-          - dex.componode-pw.test
+          - dex
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:5556/healthz || exit 1"]
       interval: 5s
@@ -146,6 +151,8 @@ services:
           - mock-alibaba
           - sts.aliyuncs.com
           - business.aliyuncs.com
+          - resourcecenter.aliyuncs.com
+          - resourcecenter-intl.aliyuncs.com
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:9444/__control/health || exit 1"]
       interval: 5s
@@ -255,8 +262,11 @@ services:
       dockerfile: Dockerfile.agent
     environment:
       HUB_URL: https://hub
-      CA_BUNDLE: /pw-private/ca.crt
-      AGENT_ENROLLMENT_TOKEN_FILE: /pw-private/agent-token
+      # Trust the workload CA via the Node default store — passing CA_BUNDLE
+      # makes the agent build a packaged-undici dispatcher that is
+      # incompatible with the bundled fetch in this runtime.
+      NODE_EXTRA_CA_CERTS: /pw-private/ca.crt
+      AGENT_ENROLLMENT_TOKEN_FILE: /pw-private/out/agent-token
       AGENT_STATE_DIR: /state
       AGENT_OPS_PORT: "9464"
     volumes:
@@ -280,6 +290,7 @@ services:
       PW_RUN_ID: ${PWP_RUN_ID:-local}
     volumes:
       - ./.env-private:/pw-private:ro
+      - ./.env-private/out:/pw-private/out
       - ./test-results:/work/test-results
       - ./playwright-report:/work/playwright-report
       - ./.auth:/work/.auth

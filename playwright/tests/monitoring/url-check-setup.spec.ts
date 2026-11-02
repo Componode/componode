@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 const BASE = 'https://app.componode-pw.test';
 
 function seeded() {
-  return JSON.parse(readFileSync('/pw-private/seed-result.json', 'utf8'));
+  return JSON.parse(readFileSync('/pw-private/out/seed-result.json', 'utf8'));
 }
 
 test.describe('url check setup and preserve-versus-reconfigure rules', () => {

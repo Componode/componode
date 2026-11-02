@@ -1,18 +1,23 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { seedBulk } from '../data/seed-bulk.js';
 import { seedAppFlows } from '../data/seed-app-flows.js';
 import { PRIVATE_DIR } from './env.js';
 
 async function main() {
-  const pgUrl = process.env.PW_PG_URL!;
-  const appHttp = process.env.PW_APP_HTTP_URL!;
-  const privateDir = process.env.PW_PRIVATE_DIR ?? PRIVATE_DIR;
+  const privateDir =
+    process.env.PW_PRIVATE_DIR ??
+    (existsSync('/pw-private/env') ? '/pw-private' : PRIVATE_DIR);
   const env = Object.fromEntries(
     readFileSync(join(privateDir, 'env'), 'utf8')
       .split('\n').filter((l) => l.includes('='))
       .map((l) => l.split('=', 2) as [string, string]),
   );
+  // Runs inside the workload network — internal service names by default.
+  const pgUrl =
+    process.env.PW_PG_URL ??
+    `postgres://postgres:${encodeURIComponent(env.PWP_POSTGRES_PASSWORD ?? '')}@postgres:5432/componode_pw`;
+  const appHttp = process.env.PW_APP_HTTP_URL ?? 'http://app:3000';
 
   console.log('[seed] bulk fixtures');
   const bulk = await seedBulk(pgUrl);
@@ -30,13 +35,13 @@ async function main() {
   });
 
   if (result.agentToken) {
-    writeFileSync(join(privateDir, 'agent-token'), result.agentToken, { mode: 0o600 });
+    writeFileSync(join(privateDir, 'out', 'agent-token'), result.agentToken, { mode: 0o644 });
     console.log('[seed] agent enrollment token stored under .env-private/');
   }
   writeFileSync(
-    join(privateDir, 'seed-result.json'),
+    join(privateDir, 'out', 'seed-result.json'),
     JSON.stringify({ ...result, agentToken: undefined, componentIds: bulk.componentIds }, null, 2),
-    { mode: 0o600 },
+    { mode: 0o644 },
   );
   console.log('[seed] complete');
 }

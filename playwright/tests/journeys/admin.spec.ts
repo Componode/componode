@@ -18,9 +18,9 @@ test.describe('admin journeys', () => {
 
   test('admin toggles self-registration setting', async ({ request }) => {
     const api = await apiLogin(request, BASE, 'ADMIN');
-    const on = await api('PUT', '/api/v1/settings', { allowSelfRegistration: true });
+    const on = await api('PATCH', '/api/v1/settings', { allowSelfRegistration: true });
     expect(on.status).toBe(200);
-    const off = await api('PUT', '/api/v1/settings', { allowSelfRegistration: false });
+    const off = await api('PATCH', '/api/v1/settings', { allowSelfRegistration: false });
     expect(off.status).toBe(200);
   });
 

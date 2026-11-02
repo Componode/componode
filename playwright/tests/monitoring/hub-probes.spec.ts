@@ -36,7 +36,7 @@ test.describe('hub probe observations (four auth modes)', () => {
 
   test('observations are visible through the API', async ({ request }) => {
     const api = await apiLogin(request, BASE, 'ADMIN');
-    const compId = JSON.parse(readFileSync('/pw-private/seed-result.json', 'utf8')).probeComponentId;
+    const compId = JSON.parse(readFileSync('/pw-private/out/seed-result.json', 'utf8')).probeComponentId;
     const checks = await api('GET', `/api/v1/components/${compId}/url-checks`);
     const list = checks.body.checks ?? checks.body.items ?? checks.body;
     expect(list.length).toBeGreaterThan(0);

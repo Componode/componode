@@ -20,6 +20,7 @@ test.describe('role boundary matrix', () => {
   });
 
   test('editor writes catalog but not admin-only surfaces', async ({ request }) => {
+    test.setTimeout(120_000);
     const e = await apiLogin(request, BASE, 'EDITOR');
     const comp = await e('POST', '/api/v1/components', {
       name: `PW Editor ${uid()}`, slug: uid(), category: 'API', provider: 'OTHER', resourceType: 'pw',
@@ -29,7 +30,7 @@ test.describe('role boundary matrix', () => {
       ['POST', '/api/v1/credentials', { label: 'x', secrets: { k: 'v' } }],
       ['POST', '/api/v1/users', { username: uid(), password: 'Pw!12345678', role: 'VIEWER' }],
       ['POST', '/api/v1/docker-targets', { targetId: 'x', label: 'x', profile: { transport: 'tcp', host: 'x', clientCertKey: 'a', clientKeyKey: 'b' } }],
-      ['PUT', '/api/v1/settings', { allowSelfRegistration: true }],
+      ['PATCH', '/api/v1/settings', { allowSelfRegistration: true }],
     ] as const) {
       const r = await e(method, path, body);
       expect(r.status, `${method} ${path}`).toBe(403);

@@ -76,7 +76,7 @@ export interface ControlHooks {
 export function startControlServer(port: number, hooks: ControlHooks): http.Server {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://internal');
-    if (req.method === 'GET' && url.pathname === '/__control/health') {
+    if ((req.method === 'GET' || req.method === 'HEAD') && url.pathname === '/__control/health') {
       return json(res, 200, { ok: true });
     }
     if (url.pathname === '/__control/scenario' && req.method === 'GET') {

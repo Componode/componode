@@ -53,14 +53,15 @@ const teams = [
   { id: 502, slug: 'app-team', name: 'App Team', members_count: 6, repos_count: 1, privacy: 'closed', parent: { slug: 'platform' } },
 ];
 
-function paginate(url: URL, items: unknown[], perPage: number): { page: unknown[]; link?: string } {
+function paginate(url: URL, items: unknown[], perPage: number, host: string): { page: unknown[]; link?: string } {
   const page = Number(url.searchParams.get('page') ?? '1');
   const start = (page - 1) * perPage;
   const slice = items.slice(start, start + perPage);
   let link: string | undefined;
   if (start + perPage < items.length) {
-    url.searchParams.set('page', String(page + 1));
-    link = `<${url.toString()}>; rel="next"`;
+    const next = new URL(`https://${host}${url.pathname}${url.search}`);
+    next.searchParams.set('page', String(page + 1));
+    link = `<${next.toString()}>; rel="next"`;
   }
   return { page: slice, link };
 }
@@ -90,12 +91,12 @@ const server = startDataServer({
 
     if (path === `/orgs/${ORG}/teams`) {
       if (s === 'capability-failure') return json(res, 403, { message: 'Forbidden' });
-      const { page, link } = paginate(url, s === 'empty' ? [] : teams, 2);
+      const { page, link } = paginate(url, s === 'empty' ? [] : teams, 2, req.headers.host ?? 'mock-github');
       return json(res, 200, page, link ? { link } : {});
     }
 
     if (path === `/orgs/${ORG}/repos`) {
-      const { page, link } = paginate(url, repos(s).map(repoJson), 1);
+      const { page, link } = paginate(url, repos(s).map(repoJson), 1, req.headers.host ?? 'mock-github');
       return json(res, 200, page, link ? { link } : {});
     }
 
@@ -169,7 +170,7 @@ const server = startDataServer({
         });
       }
       if (sub === '/branches') {
-        const { page, link } = paginate(url, [{ name: 'main', commit: { sha: 'abc123', url: 'https://x/c/abc' }, protected: true }], 100);
+        const { page, link } = paginate(url, [{ name: 'main', commit: { sha: 'abc123', url: 'https://x/c/abc' }, protected: true }], 100, req.headers.host ?? 'mock-github');
         return json(res, 200, page, link ? { link } : {});
       }
       if (sub.startsWith('/branches/')) {

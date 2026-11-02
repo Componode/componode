@@ -7,7 +7,7 @@ import {
 import { runPreflight } from './preflight.js';
 import { generatePrivateMaterial, privateMaterialExists } from './private-material.js';
 import { writeDexConfig } from './dex-config.js';
-import { composeBuild, composeUp, composeDown, waitHttp, compose } from './compose.js';
+import { composeBuild, composeUp, composeDown, compose } from './compose.js';
 import { captureNormalStackState, diffNormalStack } from './normal-stack.js';
 
 const debug = process.argv.includes('--debug');
@@ -18,7 +18,7 @@ async function main() {
   await runPreflight(env, { allowLeftover: false });
 
   mkdirSync(PRIVATE_DIR, { recursive: true });
-  const material = generatePrivateMaterial(PRIVATE_DIR);
+  const material = await generatePrivateMaterial(PRIVATE_DIR);
   writeDexConfig(PRIVATE_DIR);
   const secrets = loadPrivateEnv();
 
@@ -39,22 +39,26 @@ async function main() {
     console.log('[e2e] starting base services');
     composeUp(composeEnv);
     stackUp = true;
+    console.log('[e2e] stack healthy; seeding');
 
-    const appHttp = `http://127.0.0.1:${env.appHostPort}`;
-    await waitHttp(`${appHttp}/api/v1/health`, 180_000);
-    console.log('[e2e] app healthy; seeding');
-
-    const childEnv = {
-      ...process.env, ...secrets,
-      NODE_EXTRA_CA_CERTS: material.caCrtPath,
-      PW_APP_HTTP_URL: appHttp,
-      PW_PG_URL: `postgres://postgres:${encodeURIComponent(secrets.PWP_POSTGRES_PASSWORD ?? '')}@127.0.0.1:${env.pgHostPort}/componode_pw`,
-      PW_PRIVATE_DIR: PRIVATE_DIR,
-    };
-    execFileSync('pnpm', ['exec', 'tsx', 'scripts/seed.ts'], { cwd: PLAYWRIGHT_DIR, env: childEnv, stdio: 'inherit' });
-
+    // Seed runs inside the workload network — app/postgres are not published.
+    const runnerRun = (script: string) =>
+      execFileSync('docker', [
+        'compose', '-f', `${PLAYWRIGHT_DIR}/compose.test.yml`,
+        '--project-name', COMPOSE_PROJECT, '--project-directory', PLAYWRIGHT_DIR,
+        'run', '--rm', 'runner', 'pnpm', 'exec', 'tsx', `scripts/${script}`,
+      ], { env: composeEnv, stdio: 'inherit' });
+    runnerRun('reset-db.ts');
+    // Reset empties persons — restart re-runs the bootstrap admin creation.
+    compose(['restart', 'app'], composeEnv);
+    runnerRun('seed.ts');
     console.log('[e2e] starting Import Agent');
     compose(['up', '-d', '--scale', 'agent=1'], composeEnv);
+    execFileSync('docker', [
+      'compose', '-f', `${PLAYWRIGHT_DIR}/compose.test.yml`,
+      '--project-name', COMPOSE_PROJECT, '--project-directory', PLAYWRIGHT_DIR,
+      'run', '--rm', 'runner', 'pnpm', 'exec', 'tsx', 'scripts/enroll-agent.ts',
+    ], { env: composeEnv, stdio: 'inherit' });
 
     console.log('[e2e] running suite');
     execFileSync('docker', [
@@ -85,7 +89,7 @@ main().catch((err) => {
 export { privateMaterialExists };
 export const reportsDir = join(PLAYWRIGHT_DIR, 'playwright-report');
 export function agentTokenPath(): string {
-  return join(PRIVATE_DIR, 'agent-token');
+  return join(PRIVATE_DIR, 'out', 'agent-token');
 }
 export function writeAgentToken(token: string): void {
   writeFileSync(agentTokenPath(), token, { mode: 0o600 });

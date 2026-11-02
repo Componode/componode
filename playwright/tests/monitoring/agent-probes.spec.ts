@@ -7,7 +7,7 @@ const BASE = 'https://app.componode-pw.test';
 test.describe('import agent probe coverage', () => {
   test('real agent session is established via WSS', async ({ request }) => {
     const api = await apiLogin(request, BASE, 'ADMIN');
-    const { agentId } = JSON.parse(readFileSync('/pw-private/seed-result.json', 'utf8'));
+    const { agentId } = JSON.parse(readFileSync('/pw-private/out/seed-result.json', 'utf8'));
     const sessions = await api('GET', `/api/v1/agents/${agentId}/sessions`);
     expect(sessions.status).toBe(200);
   });

@@ -22,7 +22,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://x');
   const p = url.pathname;
 
-  if (req.method === 'GET' && p === '/__control/health') return json(res, 200, { ok: true });
+  if ((req.method === 'GET' || req.method === 'HEAD') && p === '/__control/health') return json(res, 200, { ok: true });
 
   // GET /scenario/<target> / POST /scenario/<target> {name}
   const m = p.match(/^\/scenario\/([a-z-]+)$/);

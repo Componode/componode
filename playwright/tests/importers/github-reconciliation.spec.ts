@@ -25,7 +25,7 @@ async function runAndWait(api: any, configId: string): Promise<any> {
 test.describe('github source-scoped reconciliation journey', () => {
   test('add → change → omit lifecycle with shared-Source preservation', async ({ request }) => {
     const api = await apiLogin(request, BASE, 'ADMIN');
-    const seedResult = JSON.parse(readFileSync('/pw-private/seed-result.json', 'utf8'));
+    const seedResult = JSON.parse(readFileSync('/pw-private/out/seed-result.json', 'utf8'));
     const configId = seedResult.githubConfigId;
     expect(configId).toBeTruthy();
 
