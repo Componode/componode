@@ -13,7 +13,11 @@ import type {
   UrlCheckObservation,
   UrlCheckSummary,
 } from "@/api/types";
-import type { UrlCheckStatus, UrlCheckVantage } from "@/ux/lib/domain";
+import type {
+  UrlCheckAuthMode,
+  UrlCheckStatus,
+  UrlCheckVantage,
+} from "@/ux/lib/domain";
 import type {
   MonitoringSetupView,
   UrlCheckAuthConfigView,
@@ -153,6 +157,67 @@ function mapLatest(
     errorType: l.errorType ?? null,
     vantage: narrow<UrlCheckVantage>(l.vantage, VANTAGES, "HUB"),
   };
+}
+
+const HEADER_NAME_RE = /^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}$/;
+const CREDENTIAL_KEY_RE = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/;
+
+export interface UrlCheckAuthDraft {
+  isApi: boolean;
+  authMode: UrlCheckAuthMode;
+  credentialId: string;
+  usernameKey: string;
+  passwordKey: string;
+  tokenKey: string;
+  headers: { name: string; key: string }[];
+}
+
+/** Shared create/edit auth + target rules; credential fields carry key names only. */
+export function validateUrlCheckDraft(d: UrlCheckAuthDraft): string | null {
+  if (!d.isApi || d.authMode === "NONE") return null;
+  if (!d.credentialId)
+    return "Select a credential for the chosen auth mode.";
+  if (
+    d.authMode === "BASIC" &&
+    (!CREDENTIAL_KEY_RE.test(d.usernameKey) ||
+      !CREDENTIAL_KEY_RE.test(d.passwordKey))
+  ) {
+    return "Username and password keys must be credential key names.";
+  }
+  if (d.authMode === "BEARER" && !CREDENTIAL_KEY_RE.test(d.tokenKey)) {
+    return "Token key must be a credential key name.";
+  }
+  if (d.authMode === "CUSTOM_HEADERS") {
+    const rows = d.headers.filter((h) => h.name.trim() || h.key.trim());
+    if (rows.length === 0) return "Add at least one custom header row.";
+    for (const h of rows) {
+      if (!HEADER_NAME_RE.test(h.name.trim())) {
+        return `"${h.name}" is not a valid header name.`;
+      }
+      if (h.name.trim().toLowerCase() === "authorization") {
+        return "Authorization is reserved for Basic and Bearer modes.";
+      }
+      if (!CREDENTIAL_KEY_RE.test(h.key.trim())) {
+        return `Credential key "${h.key}" is not a valid key name.`;
+      }
+    }
+  }
+  return null;
+}
+
+export function urlCheckAuthConfigOf(d: UrlCheckAuthDraft) {
+  const mode = d.isApi ? d.authMode : "NONE";
+  return mode === "BASIC"
+    ? { usernameKey: d.usernameKey.trim(), passwordKey: d.passwordKey.trim() }
+    : mode === "BEARER"
+      ? { tokenKey: d.tokenKey.trim() }
+      : mode === "CUSTOM_HEADERS"
+        ? {
+            headers: d.headers
+              .filter((h) => h.name.trim() && h.key.trim())
+              .map((h) => ({ name: h.name.trim(), key: h.key.trim() })),
+          }
+        : null;
 }
 
 const EMPTY_SUMMARY: UrlCheckSummaryView = {

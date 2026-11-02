@@ -1,8 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { CreateComponentInput } from "@componode/core";
+import type {
+  CreateComponentInput,
+  CreateInstanceBlock,
+} from "@componode/core";
 import { api } from "@/api/client";
 import type {
   Component,
+  ComponentInstance,
   ComponentWithInstances,
   ComponentListResponse,
   ComponentDependent,
@@ -75,7 +79,8 @@ export function useAllComponents(
 export function useComponentDetail(id: string | null) {
   return useQuery({
     queryKey: ["components", id],
-    queryFn: () => api<{ component: ComponentWithInstances }>(`/components/${id}`),
+    queryFn: () =>
+      api<{ component: ComponentWithInstances }>(`/components/${id}`),
     enabled: id !== null,
   });
 }
@@ -115,6 +120,22 @@ export function useCreateComponent() {
   });
 }
 
+/** Manual first-instance recovery (spec 054) for a zero-instance component. */
+export function useCreateComponentInstance(componentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateInstanceBlock) =>
+      api<{ instance: ComponentInstance }>(
+        `/components/${componentId}/instances`,
+        { method: "POST", body: JSON.stringify(input) },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["components"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
 /** ADR-017 detection: components depended on by ≥2 active products. */
 export function usePlatformCandidates() {
   return useQuery({
@@ -142,10 +163,13 @@ export function usePromoteComponent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (vars: { id: string; input: PromoteToPlatformInput }) =>
-      api<PromoteToPlatformResult>(`/components/${vars.id}/promote-to-platform`, {
-        method: "POST",
-        body: JSON.stringify(vars.input),
-      }),
+      api<PromoteToPlatformResult>(
+        `/components/${vars.id}/promote-to-platform`,
+        {
+          method: "POST",
+          body: JSON.stringify(vars.input),
+        },
+      ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["platform-candidates"] });
       qc.invalidateQueries({ queryKey: ["component-dependents"] });

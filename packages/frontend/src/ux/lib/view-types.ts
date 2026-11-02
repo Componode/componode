@@ -83,6 +83,8 @@ export interface Component {
   sunsetAt: string | null;
   links: Link[];
   instanceCount: number;
+  /** Detail-only total including GONE rows. */
+  totalInstanceCount?: number;
   instances: ComponentInstance[];
   lastSeenAt: string | null;
   /** Backend rollup (spec 039) — null when the component has no instances. */

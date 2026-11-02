@@ -84,7 +84,7 @@ export const routes: RouteObject[] = [
       { path: "products/:slug/edit", element: authed(<UxProductEditPage />) },
       { path: "products/:slug/history", element: authed(<UxProductHistoryPage />) },
       { path: "components", element: authed(<UxComponentsPage />) },
-      { path: "components/new", element: authed(<UxComponentNewPage />) },
+      { path: "components/new", element: authed(<UxComponentNewPage />, "EDITOR") },
       { path: "components/:slug", element: authed(<UxComponentDetailPage />) },
       { path: "components/:slug/checks/:checkId", element: authed(<UxUrlCheckDetailPage />) },
       { path: "components/:slug/promote", element: authed(<UxComponentPromotePage />) },

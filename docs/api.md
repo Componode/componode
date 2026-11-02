@@ -249,6 +249,7 @@ Notes:
 | POST | `/api/v1/components` | Create a component manually (spec 042, gap G29) | `component:create` |
 | GET | `/api/v1/components/:id` | Get a component by ID | Authenticated |
 | PATCH | `/api/v1/components/:id` | Update component assignment and curated metadata | `component:update` |
+| POST | `/api/v1/components/:id/instances` | Add the first instance to a zero-instance component | `component:update` |
 | GET | `/api/v1/components/platform-candidates` | List platform candidates (ADR-017 detection) | Authenticated |
 | GET | `/api/v1/components/:id/dependents` | List products that directly depend on a component | Authenticated |
 | POST | `/api/v1/components/:id/promote-to-platform` | Promote a component into a PLATFORM product (ADR-017) | `product:create` |

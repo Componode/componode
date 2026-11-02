@@ -106,6 +106,30 @@ export function authKeyNames(
   return [];
 }
 
+function authConfigMatchesMode(
+  authMode: string,
+  authConfig: UrlCheckAuthConfig | null,
+): boolean {
+  if (authMode === "BASIC") {
+    return (
+      authConfig !== null &&
+      "usernameKey" in authConfig &&
+      "passwordKey" in authConfig
+    );
+  }
+  if (authMode === "BEARER") {
+    return authConfig !== null && "tokenKey" in authConfig;
+  }
+  if (authMode === "CUSTOM_HEADERS") {
+    return (
+      authConfig !== null &&
+      "headers" in authConfig &&
+      authConfig.headers.length > 0
+    );
+  }
+  return authConfig === null;
+}
+
 /** Validate URL (ADR-106), instance ownership, and the auth contract. */
 async function validateCheck(
   trx: DbOrTrx,
@@ -159,6 +183,13 @@ async function validateCheck(
     if (!fields.credentialId) {
       throw coded(
         "credentialId is required when authMode is not NONE",
+        400,
+        "VALIDATION_FAILED",
+      );
+    }
+    if (!authConfigMatchesMode(authMode, fields.authConfig ?? null)) {
+      throw coded(
+        "authConfig is required and must match authMode",
         400,
         "VALIDATION_FAILED",
       );

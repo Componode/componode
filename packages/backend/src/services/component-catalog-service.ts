@@ -253,6 +253,12 @@ export async function getComponentById(id: string) {
       "components.lastSeenAt",
       "components.createdAt",
       "components.updatedAt",
+      (eb) =>
+        eb
+          .selectFrom("component_instances")
+          .select((eb2) => eb2.fn.count("component_instances.id").as("count"))
+          .whereRef("component_instances.componentId", "=", "components.id")
+          .as("totalInstanceCount"),
     ])
     .where("components.id", "=", id)
     .executeTakeFirst();
@@ -269,5 +275,9 @@ export async function getComponentById(id: string) {
     .orderBy("environment")
     .execute();
 
-  return { ...component, instances };
+  return {
+    ...component,
+    totalInstanceCount: Number(component.totalInstanceCount ?? 0),
+    instances,
+  };
 }

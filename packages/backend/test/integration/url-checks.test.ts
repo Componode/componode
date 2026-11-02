@@ -73,6 +73,7 @@ describe("url checks (US1)", () => {
   let app: any;
   let adminSession: string;
   let viewerSession: string;
+  let editorSession: string;
 
   beforeAll(async () => {
     process.env.NODE_ENV = "test";
@@ -81,9 +82,8 @@ describe("url checks (US1)", () => {
     process.env.BOOTSTRAP_ADMIN_USERNAME = ADMIN_USERNAME;
     process.env.BOOTSTRAP_ADMIN_PASSWORD = ADMIN_PASSWORD;
 
-    const { bootstrapAdmin } = await import(
-      "../../src/services/bootstrap-service.js"
-    );
+    const { bootstrapAdmin } =
+      await import("../../src/services/bootstrap-service.js");
     await bootstrapAdmin();
 
     const { buildApp } = await import("../../src/app.js");
@@ -99,6 +99,13 @@ describe("url checks (US1)", () => {
       role: "VIEWER",
     });
     viewerSession = (await createSessionInDb(testDb.db as any, viewerId)).token;
+
+    const editorId = await createPersonInDb(testDb.db as any, {
+      username: "editor",
+      passwordHash: null,
+      role: "EDITOR",
+    });
+    editorSession = (await createSessionInDb(testDb.db as any, editorId)).token;
   }, 120000);
 
   afterAll(async () => {
@@ -348,5 +355,240 @@ describe("url checks (US1)", () => {
       },
     });
     expect(res.statusCode).toBe(403);
+  });
+
+  describe("url check onboarding role boundaries (spec 054)", () => {
+    it("lets an EDITOR create ordinary checks but rejects Credential and Agent writes", async () => {
+      const { componentId, instanceId } = await seedComponent(
+        testDb.db,
+        `api-${uuidv7()}`,
+      );
+      const hubCheck = await app.inject({
+        method: "POST",
+        url: `/api/v1/components/${componentId}/url-checks`,
+        ...authed(editorSession),
+        payload: {
+          name: "ordinary",
+          url: "https://example.com/health",
+          componentInstanceId: instanceId,
+        },
+      });
+      expect(hubCheck.statusCode).toBe(201);
+
+      const credentialed = await app.inject({
+        method: "POST",
+        url: `/api/v1/components/${componentId}/url-checks`,
+        ...authed(editorSession),
+        payload: {
+          name: "credential",
+          url: "https://example.com/private",
+          componentInstanceId: instanceId,
+          authMode: "BEARER",
+          credentialId: uuidv7(),
+          authConfig: { tokenKey: "token" },
+        },
+      });
+      expect(credentialed.statusCode).toBe(403);
+      expect(JSON.parse(credentialed.payload).code).toBe("AUTH_FORBIDDEN");
+
+      const agentSetup = await app.inject({
+        method: "PUT",
+        url: `/api/v1/components/${componentId}/monitoring-setup`,
+        ...authed(editorSession),
+        payload: {
+          vantage: "AGENT",
+          agentId: uuidv7(),
+        },
+      });
+      expect(agentSetup.statusCode).toBe(403);
+      expect(JSON.parse(agentSetup.payload).code).toBe("AUTH_FORBIDDEN");
+    });
+
+    it("lets an EDITOR preserve but not reselect an Agent vantage", async () => {
+      const { componentId } = await seedComponent(testDb.db, `api-${uuidv7()}`);
+      const agentId = uuidv7();
+      await testDb.db
+        .insertInto("import_agents")
+        .values({ id: agentId, name: `agent-${uuidv7()}` } as any)
+        .execute();
+      const configured = await app.inject({
+        method: "PUT",
+        url: `/api/v1/components/${componentId}/monitoring-setup`,
+        ...authed(adminSession),
+        payload: { cadenceSeconds: 300, vantage: "AGENT", agentId },
+      });
+      expect(configured.statusCode).toBe(200);
+
+      const preserve = await app.inject({
+        method: "PUT",
+        url: `/api/v1/components/${componentId}/monitoring-setup`,
+        ...authed(editorSession),
+        payload: { cadenceSeconds: 600 },
+      });
+      expect(preserve.statusCode).toBe(200);
+      expect(JSON.parse(preserve.payload).setup).toMatchObject({
+        cadenceSeconds: 600,
+        vantage: "AGENT",
+        agentId,
+      });
+
+      for (const payload of [
+        { vantage: "AGENT", agentId: uuidv7() },
+        { agentId: uuidv7() },
+      ]) {
+        const res = await app.inject({
+          method: "PUT",
+          url: `/api/v1/components/${componentId}/monitoring-setup`,
+          ...authed(editorSession),
+          payload,
+        });
+        expect(res.statusCode).toBe(403);
+        expect(JSON.parse(res.payload).code).toBe("AUTH_FORBIDDEN");
+      }
+
+      const backToHub = await app.inject({
+        method: "PUT",
+        url: `/api/v1/components/${componentId}/monitoring-setup`,
+        ...authed(editorSession),
+        payload: { vantage: "HUB" },
+      });
+      expect(backToHub.statusCode).toBe(200);
+      expect(JSON.parse(backToHub.payload).setup).toMatchObject({
+        vantage: "HUB",
+        agentId: null,
+      });
+    });
+
+    it("lets an EDITOR preserve but not reconfigure an existing credential", async () => {
+      const { componentId, instanceId } = await seedComponent(
+        testDb.db,
+        `api-${uuidv7()}`,
+      );
+      const credentialId = uuidv7();
+      await testDb.db
+        .insertInto("credentials")
+        .values({
+          id: credentialId,
+          slug: `cred-${uuidv7().slice(0, 8)}`,
+          label: "API token",
+          status: "ACTIVE",
+          kind: "STORED",
+          encryptedPayload: { token: "test-only" },
+          secretRefMap: null,
+          keyVersion: 1,
+          keyHints: { token: "test-only" },
+          expiresAt: null,
+          lastUsedAt: null,
+          createdBy: null,
+          updatedBy: null,
+          createdAt: now(),
+          updatedAt: now(),
+        } as any)
+        .execute();
+
+      const created = await app.inject({
+        method: "POST",
+        url: `/api/v1/components/${componentId}/url-checks`,
+        ...authed(adminSession),
+        payload: {
+          name: "private",
+          url: "https://example.com/private",
+          componentInstanceId: instanceId,
+          authMode: "BEARER",
+          credentialId,
+          authConfig: { tokenKey: "token" },
+        },
+      });
+      expect(created.statusCode).toBe(201);
+      const checkId = JSON.parse(created.payload).check.id;
+
+      const preserve = await app.inject({
+        method: "PATCH",
+        url: `/api/v1/url-checks/${checkId}`,
+        ...authed(editorSession),
+        payload: {
+          name: "private renamed",
+          authMode: "BEARER",
+          credentialId,
+          authConfig: { tokenKey: "token" },
+        },
+      });
+      expect(preserve.statusCode).toBe(200);
+      expect(JSON.parse(preserve.payload).check.name).toBe("private renamed");
+
+      for (const payload of [
+        { authConfig: { tokenKey: "other" } },
+        {
+          authMode: "BASIC",
+          authConfig: { usernameKey: "u", passwordKey: "p" },
+        },
+        { credentialId: uuidv7() },
+      ]) {
+        const res = await app.inject({
+          method: "PATCH",
+          url: `/api/v1/url-checks/${checkId}`,
+          ...authed(editorSession),
+          payload,
+        });
+        expect(res.statusCode).toBe(403);
+        expect(JSON.parse(res.payload).code).toBe("AUTH_FORBIDDEN");
+      }
+
+      const row = await testDb.db
+        .selectFrom("url_checks")
+        .select(["credentialId", "authMode", "authConfig"])
+        .where("id", "=", checkId)
+        .executeTakeFirstOrThrow();
+      expect(row.credentialId).toBe(credentialId);
+      expect(row.authMode).toBe("BEARER");
+
+      for (const authConfig of [null, { usernameKey: "u", passwordKey: "p" }]) {
+        const mismatched = await app.inject({
+          method: "PATCH",
+          url: `/api/v1/url-checks/${checkId}`,
+          ...authed(adminSession),
+          payload: { authConfig },
+        });
+        expect(mismatched.statusCode).toBe(400);
+        expect(JSON.parse(mismatched.payload).code).toBe("VALIDATION_FAILED");
+      }
+    });
+
+    it("rejects credential fields on a NONE check before updating it", async () => {
+      const { componentId, instanceId } = await seedComponent(
+        testDb.db,
+        `api-${uuidv7()}`,
+      );
+      const created = await app.inject({
+        method: "POST",
+        url: `/api/v1/components/${componentId}/url-checks`,
+        ...authed(editorSession),
+        payload: {
+          name: "ordinary",
+          url: "https://example.com/public",
+          componentInstanceId: instanceId,
+        },
+      });
+      expect(created.statusCode).toBe(201);
+      const checkId = JSON.parse(created.payload).check.id;
+
+      for (const [session, statusCode] of [
+        [editorSession, 403],
+        [adminSession, 400],
+      ] as const) {
+        for (const payload of [
+          { credentialId: uuidv7() },
+          { authConfig: { tokenKey: "token" } },
+        ]) {
+          const res = await app.inject({
+            method: "PATCH",
+            url: `/api/v1/url-checks/${checkId}`,
+            ...authed(session),
+            payload,
+          });
+          expect(res.statusCode).toBe(statusCode);
+        }
+      }
+    });
   });
 });

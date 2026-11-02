@@ -67,3 +67,8 @@ routes stay authenticated-any (`verifySession`), per the read convention.
 
 **Amended by ADR-124**: the matrix gains `urlCheck:create|update|delete`
 and `monitoringSetup:update` (all EDITOR); see Amendment 3.
+
+**Amended by ADR-125**: URL Check onboarding uses the same permission
+granularity — composite monitoring creation requires `urlCheck:create`;
+Credential references require `credential:read`; Agent vantage/ID requires
+`agent:read`. First-instance recovery uses `component:update` (EDITOR).

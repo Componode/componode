@@ -80,10 +80,10 @@ configs or OIDC, not to monitoring checks.
    - `BASIC`: username and password values.
    - `BEARER`: one token value.
    - `CUSTOM_HEADERS`: multiple request header names and values.
-   `Authorization` is reserved for Basic and Bearer modes and cannot be set
-   through Custom Headers. Header values are secret material; they are never
-   stored in the URL, ordinary monitor configuration, logs, audit payloads, or
-   probe observations.
+     `Authorization` is reserved for Basic and Bearer modes and cannot be set
+     through Custom Headers. Header values are secret material; they are never
+     stored in the URL, ordinary monitor configuration, logs, audit payloads, or
+     probe observations.
 
 8. **Credential handling.** Reuse the Credential domain from ADR-107. Stored
    values remain encrypted at rest and write-only. `STORED` values resolve in
@@ -175,3 +175,10 @@ observes.
 - **Follow redirects or persist response bodies/headers** — rejected for this
   scope. The configured URL is the probe target; only status, timings, and
   normalized errors are needed for the agreed metrics.
+
+---
+
+**Amended by ADR-125**: onboarding completion ratifies the focused
+zero-instance first-`ComponentInstance` endpoint and clarifies that
+ordinary checks/Hub setup are EDITOR while Credential and Import Agent
+selection are ADMIN via existing `credential:read`/`agent:read`.

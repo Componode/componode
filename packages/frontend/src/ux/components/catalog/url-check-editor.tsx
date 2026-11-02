@@ -1,5 +1,5 @@
 import * as React from "react"
-import { PencilIcon, PlusIcon, XIcon } from "lucide-react"
+import { PencilIcon, PlusIcon } from "lucide-react"
 import { toast } from "sonner"
 import {
   URL_CHECK_MAX_CADENCE_SECONDS,
@@ -7,9 +7,13 @@ import {
 } from "@componode/core"
 import { describeApiError, type ApiError } from "@/api/client"
 import type { CreateUrlCheckInput } from "@componode/core"
-import { useCredentials } from "@/api/hooks/credentials"
 import { useCreateUrlCheck, useUpdateUrlCheck } from "@/api/hooks/url-checks"
-import { parseStatusesInput, statusesInputOf } from "@/api/mappers/monitoring"
+import {
+  parseStatusesInput,
+  statusesInputOf,
+  urlCheckAuthConfigOf,
+  validateUrlCheckDraft,
+} from "@/api/mappers/monitoring"
 import { Button } from "@/ux/components/ui/button"
 import {
   Dialog,
@@ -25,191 +29,17 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/u
 import { Input } from "@/ux/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select"
 import { Switch } from "@/ux/components/ui/switch"
-import { CHECK_AUTH_MODE_META, ENVIRONMENT_META, type UrlCheckAuthMode, type UrlCheckMethod } from "@/ux/lib/domain"
+import { ENVIRONMENT_META, type UrlCheckAuthMode, type UrlCheckMethod } from "@/ux/lib/domain"
 import type { Component, MonitoringSetupView, UrlCheckView } from "@/ux/lib/view-types"
+import { UrlCheckAuthFields, type HeaderRow } from "./url-check-auth-fields"
 
-const NO_CREDENTIAL = "__none__"
-const HEADER_NAME_RE = /^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}$/
-const CREDENTIAL_KEY_RE = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/
+
 const URL_RE = /^https?:\/\//i
 
 /** env label + optional region so instance options stay distinguishable. */
 export function instanceLabel(i: Component["instances"][number]): string {
   const env = ENVIRONMENT_META[i.environment]?.label ?? i.environment
   return i.region ? `${env} · ${i.region}` : env
-}
-
-interface HeaderRow {
-  name: string
-  key: string
-}
-
-/**
- * Per-check authentication (spec 051 US4) — rendered only for API-category
- * components. Secret values are never entered here: every mode maps logical
- * fields to credential KEY NAMES resolved where the probe runs.
- */
-function AuthSection({
-  authMode,
-  setAuthMode,
-  credentialId,
-  setCredentialId,
-  usernameKey,
-  setUsernameKey,
-  passwordKey,
-  setPasswordKey,
-  tokenKey,
-  setTokenKey,
-  headers,
-  setHeaders,
-}: {
-  authMode: UrlCheckAuthMode
-  setAuthMode: (m: UrlCheckAuthMode) => void
-  credentialId: string
-  setCredentialId: (id: string) => void
-  usernameKey: string
-  setUsernameKey: (v: string) => void
-  passwordKey: string
-  setPasswordKey: (v: string) => void
-  tokenKey: string
-  setTokenKey: (v: string) => void
-  headers: HeaderRow[]
-  setHeaders: (rows: HeaderRow[]) => void
-}) {
-  const credentials = useCredentials()
-  const list = credentials.data?.credentials ?? []
-  const unavailable = credentials.isError
-  const selected = list.find((c) => c.id === credentialId) ?? null
-  const keyNames = selected ? Object.keys(selected.keyHints ?? {}) : []
-
-  const setHeader = (index: number, patch: Partial<HeaderRow>) =>
-    setHeaders(headers.map((h, i) => (i === index ? { ...h, ...patch } : h)))
-
-  return (
-    <FieldGroup>
-      <Field>
-        <FieldLabel htmlFor="uce-auth-mode">Authentication</FieldLabel>
-        <Select
-          value={authMode}
-          onValueChange={(v) => setAuthMode(v as UrlCheckAuthMode)}
-          disabled={unavailable}
-        >
-          <SelectTrigger id="uce-auth-mode" className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(CHECK_AUTH_MODE_META) as UrlCheckAuthMode[]).map((m) => (
-              <SelectItem key={m} value={m}>
-                {CHECK_AUTH_MODE_META[m].label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {unavailable ? (
-          <FieldDescription>Credential selection requires the Admin role — checks save without authentication.</FieldDescription>
-        ) : (
-          <FieldDescription>{CHECK_AUTH_MODE_META[authMode].description}.</FieldDescription>
-        )}
-      </Field>
-
-      {authMode !== "NONE" && !unavailable && (
-        <>
-          <Field>
-            <FieldLabel htmlFor="uce-credential">Credential</FieldLabel>
-            <Select value={credentialId || NO_CREDENTIAL} onValueChange={(v) => setCredentialId(v === NO_CREDENTIAL ? "" : v)}>
-              <SelectTrigger id="uce-credential" className="w-full">
-                <SelectValue placeholder="Select a credential" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_CREDENTIAL}>Select a credential</SelectItem>
-                {list.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldDescription>
-              {keyNames.length
-                ? `Keys in this credential: ${keyNames.join(", ")}`
-                : "Secret values stay encrypted — the probe resolves key names at run time."}
-            </FieldDescription>
-          </Field>
-
-          {authMode === "BASIC" && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor="uce-username-key">Username key</FieldLabel>
-                <Input id="uce-username-key" value={usernameKey} onChange={(e) => setUsernameKey(e.target.value)} placeholder="username" autoComplete="off" className="font-mono" />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="uce-password-key">Password key</FieldLabel>
-                <Input id="uce-password-key" value={passwordKey} onChange={(e) => setPasswordKey(e.target.value)} placeholder="password" autoComplete="off" className="font-mono" />
-              </Field>
-            </div>
-          )}
-
-          {authMode === "BEARER" && (
-            <Field>
-              <FieldLabel htmlFor="uce-token-key">Token key</FieldLabel>
-              <Input id="uce-token-key" value={tokenKey} onChange={(e) => setTokenKey(e.target.value)} placeholder="token" autoComplete="off" className="font-mono" />
-            </Field>
-          )}
-
-          {authMode === "CUSTOM_HEADERS" && (
-            <Field>
-              <FieldLabel>Custom headers</FieldLabel>
-              <div className="flex flex-col gap-2">
-                {headers.map((h, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <Input
-                      aria-label={`Header name ${i + 1}`}
-                      value={h.name}
-                      onChange={(e) => setHeader(i, { name: e.target.value })}
-                      placeholder="X-Api-Key"
-                      autoComplete="off"
-                      className="font-mono"
-                    />
-                    <Input
-                      aria-label={`Credential key ${i + 1}`}
-                      value={h.key}
-                      onChange={(e) => setHeader(i, { key: e.target.value })}
-                      placeholder="credential key"
-                      autoComplete="off"
-                      className="font-mono"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label={`Remove header ${i + 1}`}
-                      onClick={() => setHeaders(headers.filter((_, j) => j !== i))}
-                    >
-                      <XIcon className="size-3.5" />
-                    </Button>
-                  </div>
-                ))}
-                <div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setHeaders([...headers, { name: "", key: "" }])}
-                  >
-                    <PlusIcon data-icon="inline-start" />
-                    Add header
-                  </Button>
-                </div>
-              </div>
-              <FieldDescription>
-                Header values come from credential key names. <code className="font-mono">Authorization</code> is reserved for Basic and Bearer modes.
-              </FieldDescription>
-            </Field>
-          )}
-        </>
-      )}
-    </FieldGroup>
-  )
 }
 
 export function UrlCheckEditor({
@@ -292,26 +122,16 @@ export function UrlCheckEditor({
       if (!Number.isFinite(t) || t < 0 || t > 100) return { error: "Availability target must be 0–100." }
       availabilityTarget = t
     }
-    if (isApi && authMode !== "NONE") {
-      if (!credentialId) return { error: "Select a credential for the chosen auth mode." }
-      if (authMode === "BASIC" && (!CREDENTIAL_KEY_RE.test(usernameKey) || !CREDENTIAL_KEY_RE.test(passwordKey))) {
-        return { error: "Username and password keys must be credential key names." }
-      }
-      if (authMode === "BEARER" && !CREDENTIAL_KEY_RE.test(tokenKey)) {
-        return { error: "Token key must be a credential key name." }
-      }
-      if (authMode === "CUSTOM_HEADERS") {
-        const rows = headers.filter((h) => h.name.trim() || h.key.trim())
-        if (rows.length === 0) return { error: "Add at least one custom header row." }
-        for (const h of rows) {
-          if (!HEADER_NAME_RE.test(h.name.trim())) return { error: `"${h.name}" is not a valid header name.` }
-          if (h.name.trim().toLowerCase() === "authorization") {
-            return { error: "Authorization is reserved for Basic and Bearer modes." }
-          }
-          if (!CREDENTIAL_KEY_RE.test(h.key.trim())) return { error: `Credential key "${h.key}" is not a valid key name.` }
-        }
-      }
-    }
+    const authError = validateUrlCheckDraft({
+      isApi,
+      authMode,
+      credentialId,
+      usernameKey,
+      passwordKey,
+      tokenKey,
+      headers,
+    })
+    if (authError) return { error: authError }
     return { cadenceSeconds, availabilityTarget }
   }
 
@@ -324,14 +144,15 @@ export function UrlCheckEditor({
     const { cadenceSeconds, availabilityTarget } = v as { cadenceSeconds: number | null; availabilityTarget: number | null }
 
     const effectiveAuth: UrlCheckAuthMode = isApi ? authMode : "NONE"
-    const authConfig =
-      effectiveAuth === "BASIC"
-        ? { usernameKey: usernameKey.trim(), passwordKey: passwordKey.trim() }
-        : effectiveAuth === "BEARER"
-          ? { tokenKey: tokenKey.trim() }
-          : effectiveAuth === "CUSTOM_HEADERS"
-            ? { headers: headers.filter((h) => h.name.trim() && h.key.trim()).map((h) => ({ name: h.name.trim(), key: h.key.trim() })) }
-            : null
+    const authConfig = urlCheckAuthConfigOf({
+      isApi,
+      authMode,
+      credentialId,
+      usernameKey,
+      passwordKey,
+      tokenKey,
+      headers,
+    })
 
     const body: CreateUrlCheckInput = {
       name: name.trim(),
@@ -483,7 +304,7 @@ export function UrlCheckEditor({
               <Switch id="uce-enabled" checked={enabled} onCheckedChange={setEnabled} aria-label="Check enabled" />
             </Field>
             {isApi && (
-              <AuthSection
+              <UrlCheckAuthFields idPrefix="uce"
                 authMode={authMode}
                 setAuthMode={setAuthMode}
                 credentialId={credentialId}

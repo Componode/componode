@@ -63,6 +63,7 @@
 | ADR | Title |
 |---|---|
 | [ADR-123](./adrs/ADR-123-http-url-check-monitoring.md) | Unified HTTP(S) URL Check monitoring: per-ComponentInstance checks, independent probe history, API authentication (amends ADR-014, 077, 107); execution surfaces ratified by ADR-124 |
+| [ADR-125](./adrs/ADR-125-url-check-onboarding-recovery.md) | URL Check onboarding completion (spec 054): composite checks gain auth/target parity, zero-instance Components get focused first-instance recovery, Credential/Agent writes remain ADMIN while ordinary check/setup writes remain EDITOR (amends ADR-054, 123, 124) |
 | [ADR-124](./adrs/ADR-124-url-check-execution-surfaces.md) | URL Check execution surfaces (spec 051): `url_check.probe`/`url_check.probe.result` agent frames correlated by `probeId` + protocol v4, `urlCheck:*`/`monitoringSetup:update` EDITOR permissions, `URL_CHECK_NOT_FOUND`/`MONITORING_SETUP_NOT_FOUND`, three-table schema, `MISSED` observation semantics, AGENT-vantage ⇒ `AGENT_MANAGED` credential rule, `URL_CHECK_*` env tunables, bounded metric labels (amends ADR-054, 069, 071, 077, 107, 116) |
 
 ### Importer Framework

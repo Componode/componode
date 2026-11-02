@@ -1,9 +1,11 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { listComponentsQuerySchema, updateComponentSchema, createComponentSchema } from "@componode/core";
+import { z } from "zod";
+import { listComponentsQuerySchema, updateComponentSchema, createComponentSchema, createInstanceBlockSchema } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole, hasPermission } from "../plugins/rbac.js";
 import { listComponents, getComponentById } from "../services/component-catalog-service.js";
 import { updateComponent, createComponent } from "../services/component-group-service.js";
+import { createComponentInstance } from "../services/component-instance-service.js";
 import { toActor } from "../services/actor.js";
 import {
   listPlatformCandidates,
@@ -11,6 +13,8 @@ import {
   promoteComponentToPlatform,
 } from "../services/platform-promotion-service.js";
 import { sendServiceError } from "./route-helpers.js";
+
+const componentIdParam = z.object({ id: z.string().uuid() });
 
 export async function componentRoutes(app: FastifyInstance): Promise<void> {
   // Static route — find-my-way resolves it ahead of /components/:id.
@@ -32,6 +36,38 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
     return reply.status(200).send({ dependents: await listComponentDependents(id) });
   });
 
+  // Manual first-instance recovery (spec 054): intentionally scoped to the
+  // zero-instance path — checks then use the regular URL Check editor.
+  app.post("/components/:id/instances", {
+    preHandler: [app.verifySession, requireRole("component:update")],
+  }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
+    const params = componentIdParam.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid path parameters",
+      });
+    }
+    const parsed = createInstanceBlockSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid input",
+        details: parsed.error.issues,
+      });
+    }
+    try {
+      const instance = await createComponentInstance(
+        params.data.id,
+        parsed.data,
+        toActor(req),
+      );
+      return reply.status(201).send({ instance });
+    } catch (err) {
+      return sendServiceError(reply, err);
+    }
+  });
+
   // Manual component creation (spec 042, gap G29).
   app.post("/components", {
     preHandler: [app.verifySession, requireRole("component:create")],
@@ -44,13 +80,30 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
         details: parsed.error.issues,
       });
     }
-    if (
-      parsed.data.monitoring &&
-      !hasPermission(req.user?.role ?? "VIEWER", "urlCheck:create")
-    ) {
-      return reply
-        .status(403)
-        .send({ code: "AUTH_FORBIDDEN", message: "Forbidden" });
+    if (parsed.data.monitoring) {
+      const role = req.user?.role ?? "VIEWER";
+      const setup = parsed.data.monitoring.setup;
+      if (!hasPermission(role, "urlCheck:create")) {
+        return reply
+          .status(403)
+          .send({ code: "AUTH_FORBIDDEN", message: "Forbidden" });
+      }
+      if (
+        (setup?.vantage === "AGENT" || setup?.agentId != null) &&
+        !hasPermission(role, "agent:read")
+      ) {
+        return reply
+          .status(403)
+          .send({ code: "AUTH_FORBIDDEN", message: "Forbidden" });
+      }
+      if (
+        parsed.data.monitoring.checks.some((c) => c.credentialId != null) &&
+        !hasPermission(role, "credential:read")
+      ) {
+        return reply
+          .status(403)
+          .send({ code: "AUTH_FORBIDDEN", message: "Forbidden" });
+      }
     }
 
     try {
