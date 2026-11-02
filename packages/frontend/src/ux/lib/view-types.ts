@@ -118,7 +118,12 @@ export interface ImporterConfig {
   agentIncompatible?: boolean;
   /** Still uses legacy env/file secretRefs — eligible for convert-secrets. */
   secretRefsDeprecated?: boolean;
-  lastRun: { status: RunStatus; at: string; processed: number; durationSec: number } | null;
+  lastRun: {
+    status: RunStatus;
+    at: string;
+    processed: number;
+    durationSec: number;
+  } | null;
   history: { day: string; created: number; updated: number; failed: number }[];
 }
 
@@ -171,7 +176,12 @@ export interface AgentReportedStatus {
   receivedAt: string;
   uptimeSeconds: number;
   activeJobs: number;
-  jobs: { assigned: number; completed: number; failed: number; cancelled: number };
+  jobs: {
+    assigned: number;
+    completed: number;
+    failed: number;
+    cancelled: number;
+  };
   assetsStreamed: number;
   credentialTests: { dispatched: number; succeeded: number; failed: number };
   secretResolutionFailures: number;
@@ -253,8 +263,26 @@ export interface AgentSession {
 export interface AuditEvent {
   id: string;
   actor: string;
-  action: "created" | "updated" | "deleted" | "revoked" | "rotated" | "enrolled" | "signed_in" | "ran" | "other";
-  entityKind: "product" | "component" | "importer" | "credential" | "user" | "settings" | "session" | "agent" | "other";
+  action:
+    | "created"
+    | "updated"
+    | "deleted"
+    | "revoked"
+    | "rotated"
+    | "enrolled"
+    | "signed_in"
+    | "ran"
+    | "other";
+  entityKind:
+    | "product"
+    | "component"
+    | "importer"
+    | "credential"
+    | "user"
+    | "settings"
+    | "session"
+    | "agent"
+    | "other";
   entityName: string;
   summary: string;
   at: string;
@@ -349,6 +377,20 @@ export type UrlCheckAuthConfigView =
   | { tokenKey: string }
   | { headers: { name: string; key: string }[] };
 
+/** Compact 24h rollup embedded on list rows (spec 053). */
+export interface UrlCheckSummaryView {
+  window: "24h";
+  /** Human label for the rolling window, e.g. "24 hours". */
+  windowLabel: string;
+  /** 0..1 — successful scheduled probes / all scheduled probes. */
+  availability: number | null;
+  /** Request-start → response-headers p95 over successful probes. */
+  p95: number | null;
+  /** 0..1 — scheduled slots that never ran (monitor-side downtime). */
+  coverageGap: number;
+  counts: { success: number; failure: number; missed: number };
+}
+
 export interface UrlCheckView {
   id: string;
   setupId: string;
@@ -371,6 +413,10 @@ export interface UrlCheckView {
   createdAt: string;
   updatedAt: string;
   latest: UrlCheckLatestView | null;
+  /** Compact 24h summary from the bounded list payload (null fields = no data). */
+  summary: UrlCheckSummaryView;
+  /** ≤12 most recent observations — the outcome-dot strip payload. */
+  recent: UrlCheckObservationView[];
   /** Derived display status — visually distinct from instance health. */
   status: UrlCheckStatus;
 }

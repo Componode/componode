@@ -72,27 +72,27 @@ paths:
                   type: string
                   minLength: 3
                   maxLength: 50
-                  pattern: '^[a-z0-9_-]+$'
+                  pattern: "^[a-z0-9_-]+$"
                 password:
                   type: string
                   minLength: 8
                   maxLength: 128
       responses:
-        '200':
+        "200":
           description: Login successful
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  user: { $ref: '#/components/schemas/Person' }
+                  user: { $ref: "#/components/schemas/Person" }
                   csrfToken: { type: string }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401':
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401":
           description: Invalid credentials
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /auth/logout:
     post:
       tags: [Auth]
@@ -100,7 +100,7 @@ paths:
       security: []
       description: Clears the session and CSRF cookies.
       responses:
-        '204': { description: Logged out }
+        "204": { description: Logged out }
   /auth/register:
     post:
       tags: [Auth]
@@ -122,43 +122,43 @@ paths:
                   type: string
                   minLength: 3
                   maxLength: 50
-                  pattern: '^[a-z0-9_-]+$'
+                  pattern: "^[a-z0-9_-]+$"
                 password:
                   type: string
                   minLength: 8
                   maxLength: 128
                 displayName: { type: string, maxLength: 100 }
       responses:
-        '201':
+        "201":
           description: User created and logged in
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  user: { $ref: '#/components/schemas/Person' }
+                  user: { $ref: "#/components/schemas/Person" }
                   csrfToken: { type: string }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409':
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
           description: Username already taken (`AUTH_USERNAME_TAKEN`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /auth/session:
     get:
       tags: [Auth]
       summary: Get the current authenticated user
       responses:
-        '200':
+        "200":
           description: Current user
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  user: { $ref: '#/components/schemas/Person' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                  user: { $ref: "#/components/schemas/Person" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /auth/password/change:
     post:
       tags: [Auth]
@@ -174,9 +174,9 @@ paths:
                 currentPassword: { type: string, minLength: 8, maxLength: 128 }
                 newPassword: { type: string, minLength: 8, maxLength: 128 }
       responses:
-        '204': { description: Password changed }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        "204": { description: Password changed }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /auth/password/reset:
     post:
       tags: [Auth]
@@ -193,7 +193,7 @@ paths:
               properties:
                 userId: { type: string, format: uuid }
       responses:
-        '200':
+        "200":
           description: Reset token generated
           content:
             application/json:
@@ -201,9 +201,9 @@ paths:
                 type: object
                 properties:
                   token: { type: string }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /auth/password/reset/confirm:
     post:
       tags: [Auth]
@@ -220,19 +220,19 @@ paths:
                 token: { type: string, minLength: 1 }
                 newPassword: { type: string, minLength: 8, maxLength: 128 }
       responses:
-        '204': { description: Password reset }
-        '400':
+        "204": { description: Password reset }
+        "400":
           description: Validation failed or invalid/expired/used token
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /auth/oidc/status:
     get:
       tags: [Auth]
       summary: Check whether OIDC login is enabled
       security: []
       responses:
-        '200':
+        "200":
           description: OIDC status
           content:
             application/json:
@@ -248,15 +248,15 @@ paths:
       parameters:
         - in: query
           name: redirect_uri
-          schema: { type: string, default: '/' }
+          schema: { type: string, default: "/" }
           description: Post-login redirect target
       responses:
-        '302': { description: Redirect to the identity provider }
-        '503':
+        "302": { description: Redirect to the identity provider }
+        "503":
           description: OIDC not configured (`OIDC_NOT_CONFIGURED`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /auth/oidc/callback:
     get:
       tags: [Auth]
@@ -273,13 +273,13 @@ paths:
           name: error
           schema: { type: string }
       responses:
-        '302':
+        "302":
           description: Redirect to the app (session cookie set; `csrf` query param carries the CSRF token)
-        '400':
+        "400":
           description: Missing code/state or OIDC failure
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
 
   # ----------------------------------------------------------------- Users
   /users:
@@ -291,15 +291,15 @@ paths:
       parameters:
         - in: query
           name: role
-          schema: { $ref: '#/components/schemas/Role' }
+          schema: { $ref: "#/components/schemas/Role" }
         - in: query
           name: isActive
-          schema: { type: string, enum: ['true', 'false'] }
+          schema: { type: string, enum: ["true", "false"] }
         - in: query
           name: search
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: User list
           content:
             application/json:
@@ -308,9 +308,9 @@ paths:
                 properties:
                   users:
                     type: array
-                    items: { $ref: '#/components/schemas/Person' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+                    items: { $ref: "#/components/schemas/Person" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
     post:
       tags: [Users]
       summary: Create a user
@@ -328,44 +328,44 @@ paths:
                   type: string
                   minLength: 3
                   maxLength: 50
-                  pattern: '^[a-z0-9_-]+$'
+                  pattern: "^[a-z0-9_-]+$"
                 password: { type: string, minLength: 8, maxLength: 128 }
-                role: { $ref: '#/components/schemas/Role' }
+                role: { $ref: "#/components/schemas/Role" }
                 displayName: { type: string, maxLength: 100 }
                 email: { type: string, format: email }
                 teamId: { type: string, format: uuid }
       responses:
-        '201':
+        "201":
           description: User created
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  user: { $ref: '#/components/schemas/Person' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409':
+                  user: { $ref: "#/components/schemas/Person" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
           description: Username already taken (`AUTH_USERNAME_TAKEN`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /users/me:
     get:
       tags: [Users]
       summary: Get the current user's profile
       responses:
-        '200':
+        "200":
           description: Current user
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  user: { $ref: '#/components/schemas/Person' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  user: { $ref: "#/components/schemas/Person" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [Users]
       summary: Update the current user's profile (display name, email)
@@ -384,17 +384,17 @@ paths:
                 displayName: { type: string, maxLength: 100 }
                 email: { type: string, format: email }
       responses:
-        '200':
+        "200":
           description: Updated user
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  user: { $ref: '#/components/schemas/Person' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  user: { $ref: "#/components/schemas/Person" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /users/{id}:
     get:
       tags: [Users]
@@ -402,26 +402,26 @@ paths:
       x-permission: "user:list"
       description: Requires the `user:list` role (Admin).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: User
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  user: { $ref: '#/components/schemas/Person' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  user: { $ref: "#/components/schemas/Person" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [Users]
       summary: Update a user (role, display name, email, team, active flag)
       x-permission: "user:update"
       description: Requires the `user:update` role (Admin).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
@@ -429,24 +429,24 @@ paths:
             schema:
               type: object
               properties:
-                role: { $ref: '#/components/schemas/Role' }
+                role: { $ref: "#/components/schemas/Role" }
                 displayName: { type: string, maxLength: 100 }
                 email: { type: string, format: email }
                 teamId: { type: string, format: uuid, nullable: true }
                 isActive: { type: boolean }
       responses:
-        '200':
+        "200":
           description: Updated user
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  user: { $ref: '#/components/schemas/Person' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  user: { $ref: "#/components/schemas/Person" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /users/{id}/sessions:
     get:
       tags: [Sessions]
@@ -454,9 +454,9 @@ paths:
       x-permission: "user:listSessions"
       description: Requires the `user:listSessions` role (Admin).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: User sessions
           content:
             application/json:
@@ -465,9 +465,9 @@ paths:
                 properties:
                   sessions:
                     type: array
-                    items: { $ref: '#/components/schemas/Session' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+                    items: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   # -------------------------------------------------------------- Sessions
   /sessions:
@@ -475,7 +475,7 @@ paths:
       tags: [Sessions]
       summary: List the current user's sessions
       responses:
-        '200':
+        "200":
           description: Sessions
           content:
             application/json:
@@ -484,8 +484,8 @@ paths:
                 properties:
                   sessions:
                     type: array
-                    items: { $ref: '#/components/schemas/Session' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                    items: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /sessions/{id}/revoke:
     post:
       tags: [Sessions]
@@ -494,12 +494,12 @@ paths:
         Users may revoke their own sessions; only Admin may revoke another
         user's session. The `id` is the session's non-secret `publicId`.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '204': { description: Session revoked }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "204": { description: Session revoked }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   # -------------------------------------------------------------- Settings
   /settings:
@@ -509,16 +509,16 @@ paths:
       x-permission: "settings:update"
       description: Requires the `settings:update` role (Admin).
       responses:
-        '200':
+        "200":
           description: Settings
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  settings: { $ref: '#/components/schemas/AppSettings' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+                  settings: { $ref: "#/components/schemas/AppSettings" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
     patch:
       tags: [Settings]
       summary: Update application settings
@@ -538,19 +538,19 @@ paths:
                 allowSelfRegistration: { type: boolean }
                 sessionIdleTimeoutMs: { type: integer, minimum: 60000 }
                 sessionAbsoluteTimeoutMs: { type: integer, minimum: 60000 }
-                defaultUserRole: { $ref: '#/components/schemas/Role' }
+                defaultUserRole: { $ref: "#/components/schemas/Role" }
       responses:
-        '200':
+        "200":
           description: Updated settings
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  settings: { $ref: '#/components/schemas/AppSettings' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+                  settings: { $ref: "#/components/schemas/AppSettings" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /settings/oidc:
     get:
       tags: [Settings]
@@ -558,16 +558,16 @@ paths:
       x-permission: "oidc:configure"
       description: Requires the `oidc:configure` role (Admin).
       responses:
-        '200':
+        "200":
           description: OIDC config
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  oidcConfig: { $ref: '#/components/schemas/OidcConfig' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+                  oidcConfig: { $ref: "#/components/schemas/OidcConfig" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
     put:
       tags: [Settings]
       summary: Update OIDC configuration (tests issuer discovery)
@@ -589,25 +589,26 @@ paths:
                   nullable: true
                   deprecated: true
                   description: Legacy environment variable reference — prefer clientSecretCredentialId.
-                clientSecretCredentialId: { type: string, format: uuid, nullable: true }
+                clientSecretCredentialId:
+                  { type: string, format: uuid, nullable: true }
                 roleClaimPath: { type: string, nullable: true }
                 claimValueField: { type: string, nullable: true }
                 roleMapping:
                   type: object
                   nullable: true
-                  additionalProperties: { $ref: '#/components/schemas/Role' }
+                  additionalProperties: { $ref: "#/components/schemas/Role" }
       responses:
-        '200':
+        "200":
           description: Updated OIDC config
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  oidcConfig: { $ref: '#/components/schemas/OidcConfig' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+                  oidcConfig: { $ref: "#/components/schemas/OidcConfig" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   # ---------------------------------------------------------------- Health
   /health:
@@ -616,16 +617,16 @@ paths:
       summary: Health + database connectivity check
       security: []
       responses:
-        '200':
+        "200":
           description: Healthy
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/HealthStatus' }
-        '503':
+              schema: { $ref: "#/components/schemas/HealthStatus" }
+        "503":
           description: Unhealthy (database unreachable)
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/HealthStatus' }
+              schema: { $ref: "#/components/schemas/HealthStatus" }
 
   # --------------------------------------------------------------- Products
   /products:
@@ -639,20 +640,20 @@ paths:
           description: Free-text search
         - in: query
           name: type
-          schema: { $ref: '#/components/schemas/ProductType' }
+          schema: { $ref: "#/components/schemas/ProductType" }
         - in: query
           name: lifecycle
-          schema: { $ref: '#/components/schemas/Lifecycle' }
+          schema: { $ref: "#/components/schemas/Lifecycle" }
         - in: query
           name: tag
           schema: { type: string, maxLength: 32 }
           description: Exact-match filter on a single tag
         - in: query
           name: criticality
-          schema: { $ref: '#/components/schemas/ProductCriticality' }
+          schema: { $ref: "#/components/schemas/ProductCriticality" }
         - in: query
           name: includeRetired
-          schema: { type: string, enum: ['true', 'false'] }
+          schema: { type: string, enum: ["true", "false"] }
         - in: query
           name: missing
           schema: { type: string }
@@ -664,7 +665,7 @@ paths:
             CONSUMES_FROM and no non-RETIRED COMPOSES descendant declaring
             dependencies). Values outside the set return `400`.
       responses:
-        '200':
+        "200":
           description: Product list
           content:
             application/json:
@@ -673,9 +674,9 @@ paths:
                 properties:
                   products:
                     type: array
-                    items: { $ref: '#/components/schemas/DigitalProduct' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                    items: { $ref: "#/components/schemas/DigitalProduct" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       tags: [Products]
       summary: Create a product
@@ -689,21 +690,21 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CreateProduct' }
+            schema: { $ref: "#/components/schemas/CreateProduct" }
       responses:
-        '201':
+        "201":
           description: Product created
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  product: { $ref: '#/components/schemas/DigitalProduct' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                  product: { $ref: "#/components/schemas/DigitalProduct" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /products/bootstrap:
     post:
       tags: [Products]
@@ -725,33 +726,33 @@ paths:
       parameters:
         - in: query
           name: dryRun
-          schema: { type: string, enum: ['true', 'false'] }
+          schema: { type: string, enum: ["true", "false"] }
           description: Preview the report without writing
       requestBody:
         required: true
         content:
           application/yaml:
-            schema: { $ref: '#/components/schemas/BootstrapDocument' }
+            schema: { $ref: "#/components/schemas/BootstrapDocument" }
           application/x-yaml:
-            schema: { $ref: '#/components/schemas/BootstrapDocument' }
+            schema: { $ref: "#/components/schemas/BootstrapDocument" }
           text/yaml:
-            schema: { $ref: '#/components/schemas/BootstrapDocument' }
+            schema: { $ref: "#/components/schemas/BootstrapDocument" }
           application/json:
-            schema: { $ref: '#/components/schemas/BootstrapDocument' }
+            schema: { $ref: "#/components/schemas/BootstrapDocument" }
       responses:
-        '200':
+        "200":
           description: Per-document apply report
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/BootstrapReport' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '413':
+              schema: { $ref: "#/components/schemas/BootstrapReport" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "413":
           description: Document exceeds the 1 MB body limit
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /products/{slug}:
     get:
       tags: [Products]
@@ -762,7 +763,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: |
             Product detail — composition edges, declared/inherited component
             dependencies (each with `sources[]`: DIRECT / GROUP / INHERITED
@@ -772,8 +773,8 @@ paths:
           content:
             application/json:
               schema: { type: object }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /products/{id}:
     patch:
       tags: [Products]
@@ -781,39 +782,39 @@ paths:
       x-permission: "product:update"
       description: Requires the `product:update` role (Editor+).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/UpdateProduct' }
+            schema: { $ref: "#/components/schemas/UpdateProduct" }
       responses:
-        '200':
+        "200":
           description: Updated product
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  product: { $ref: '#/components/schemas/DigitalProduct' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                  product: { $ref: "#/components/schemas/DigitalProduct" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
     delete:
       tags: [Products]
       summary: Delete a product
       x-permission: "product:delete"
       description: Requires the `product:delete` role (Editor+).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '204': { description: Product deleted }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        "204": { description: Product deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /products/{id}/composes:
     post:
       tags: [Products]
@@ -824,7 +825,7 @@ paths:
         edge that creates a cycle returns `409` (`CYCLE_DETECTED`). Any product
         type may be a parent (ADR-109).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
@@ -836,20 +837,20 @@ paths:
               properties:
                 childId: { type: string, format: uuid }
       responses:
-        '204': { description: Edge added }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409':
+        "204": { description: Edge added }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
           description: Edge would create a cycle (`CYCLE_DETECTED`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
-        '422':
+              schema: { $ref: "#/components/schemas/Problem" }
+        "422":
           description: Parent type not allowed (`INVALID_EDGE_TYPE`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /products/{id}/composes/{childId}:
     delete:
       tags: [Products]
@@ -857,16 +858,16 @@ paths:
       x-permission: "product:edge:remove"
       description: Requires the `product:edge:remove` role.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
         - in: path
           name: childId
           required: true
           schema: { type: string, format: uuid }
       responses:
-        '204': { description: Edge removed }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "204": { description: Edge removed }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /products/{id}/consumes-from:
     post:
       tags: [Products]
@@ -876,7 +877,7 @@ paths:
         Requires the `product:edge:add` role. The target must be a product of
         type `PLATFORM` (`INVALID_EDGE_TYPE` on violation).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
@@ -888,15 +889,15 @@ paths:
               properties:
                 platformId: { type: string, format: uuid }
       responses:
-        '204': { description: Edge added }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '422':
+        "204": { description: Edge added }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422":
           description: Target is not a PLATFORM product (`INVALID_EDGE_TYPE`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /products/{id}/consumes-from/{platformId}:
     delete:
       tags: [Products]
@@ -904,16 +905,16 @@ paths:
       x-permission: "product:edge:remove"
       description: Requires the `product:edge:remove` role.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
         - in: path
           name: platformId
           required: true
           schema: { type: string, format: uuid }
       responses:
-        '204': { description: Edge removed }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "204": { description: Edge removed }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /products/{id}/depends-on:
     post:
       tags: [Products]
@@ -930,7 +931,7 @@ paths:
           transaction, one audit entry per edge; any unknown id fails the
           whole request (`404`)
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
@@ -957,16 +958,16 @@ paths:
                       minItems: 1
                       maxItems: 100
       responses:
-        '204': { description: Edge added }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '422':
+        "204": { description: Edge added }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422":
           description: Edge type rule violated (`INVALID_EDGE_TYPE`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /products/{id}/depends-on/{targetId}:
     delete:
       tags: [Products]
@@ -978,7 +979,7 @@ paths:
         concrete component edge, `kind=group` removes a group dependency
         without touching direct edges on the group's members.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
         - in: path
           name: targetId
           required: true
@@ -987,11 +988,11 @@ paths:
           name: kind
           schema: { type: string, enum: [component, group], default: component }
       responses:
-        '204': { description: Edge removed }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "204": { description: Edge removed }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   # -------------------------------------------------------------- Components
   /components:
@@ -1021,8 +1022,11 @@ paths:
           name: lifecycle
           schema:
             oneOf:
-              - { $ref: '#/components/schemas/Lifecycle' }
-              - { type: array, items: { $ref: '#/components/schemas/Lifecycle' } }
+              - { $ref: "#/components/schemas/Lifecycle" }
+              - {
+                  type: array,
+                  items: { $ref: "#/components/schemas/Lifecycle" },
+                }
         - in: query
           name: status
           schema:
@@ -1050,7 +1054,8 @@ paths:
           schema: { type: string, maxLength: 100 }
         - in: query
           name: sort
-          schema: { type: string, enum: [name, lastSeenAt, createdAt], default: name }
+          schema:
+            { type: string, enum: [name, lastSeenAt, createdAt], default: name }
         - in: query
           name: order
           schema: { type: string, enum: [asc, desc], default: asc }
@@ -1072,13 +1077,13 @@ paths:
             edge; `unwired` = its complement. Selecting both returns the
             full population. Values outside the set return `400`.
       responses:
-        '200':
+        "200":
           description: Paginated component list
           content:
             application/json:
               schema: { type: object }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       tags: [Components]
       summary: Create a component manually (spec 042, gap G29)
@@ -1100,7 +1105,13 @@ paths:
               required: [name, slug, category, provider, resourceType]
               properties:
                 name: { type: string, minLength: 1, maxLength: 200 }
-                slug: { type: string, minLength: 1, maxLength: 100, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+                slug:
+                  {
+                    type: string,
+                    minLength: 1,
+                    maxLength: 100,
+                    pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                  }
                 category: { type: string }
                 provider: { type: string }
                 resourceType: { type: string, minLength: 1, maxLength: 100 }
@@ -1109,11 +1120,16 @@ paths:
                 links:
                   type: array
                   maxItems: 20
-                  items: { $ref: '#/components/schemas/Link' }
+                  items: { $ref: "#/components/schemas/Link" }
                 tags:
                   type: array
                   maxItems: 20
-                  items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
+                  items:
+                    {
+                      type: string,
+                      maxLength: 32,
+                      pattern: "^[a-z0-9][a-z0-9._:-]*$",
+                    }
                 sunsetAt: { type: string, format: date-time, nullable: true }
                 instance:
                   type: object
@@ -1140,51 +1156,55 @@ paths:
                     one transaction; any failure persists nothing.
                   required: [checks]
                   properties:
-                    setup: { $ref: '#/components/schemas/UpdateMonitoringSetupInput' }
+                    setup:
+                      {
+                        $ref: "#/components/schemas/UpdateMonitoringSetupInput",
+                      }
                     checks:
                       type: array
                       minItems: 1
-                      items: { $ref: '#/components/schemas/CompositeUrlCheckInput' }
+                      items:
+                        { $ref: "#/components/schemas/CompositeUrlCheckInput" }
       responses:
-        '201':
+        "201":
           description: Component created (plus instance/setup/checks when supplied)
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  component: { $ref: '#/components/schemas/Component' }
-                  instance: { $ref: '#/components/schemas/ComponentInstance' }
-                  setup: { $ref: '#/components/schemas/MonitoringSetup' }
+                  component: { $ref: "#/components/schemas/Component" }
+                  instance: { $ref: "#/components/schemas/ComponentInstance" }
+                  setup: { $ref: "#/components/schemas/MonitoringSetup" }
                   checks:
                     type: array
-                    items: { $ref: '#/components/schemas/UrlCheck' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409':
+                    items: { $ref: "#/components/schemas/UrlCheck" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
           description: Slug already in use (`SLUG_CONFLICT`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /components/{id}:
     get:
       tags: [Components]
       summary: Get a component by ID
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Component
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  component: { $ref: '#/components/schemas/Component' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  component: { $ref: "#/components/schemas/Component" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [Components]
       summary: Update component assignment and curated metadata
@@ -1195,7 +1215,7 @@ paths:
         Importer-owned fields are not writable here; omitted fields are
         left unchanged, `null` clears nullable fields.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
@@ -1209,25 +1229,30 @@ paths:
                 links:
                   type: array
                   maxItems: 20
-                  items: { $ref: '#/components/schemas/Link' }
+                  items: { $ref: "#/components/schemas/Link" }
                 tags:
                   type: array
                   maxItems: 20
-                  items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
+                  items:
+                    {
+                      type: string,
+                      maxLength: 32,
+                      pattern: "^[a-z0-9][a-z0-9._:-]*$",
+                    }
                 sunsetAt: { type: string, format: date-time, nullable: true }
       responses:
-        '200':
+        "200":
           description: Updated component
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  component: { $ref: '#/components/schemas/Component' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  component: { $ref: "#/components/schemas/Component" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /components/platform-candidates:
     get:
       tags: [Components]
@@ -1237,7 +1262,7 @@ paths:
         distinct non-RETIRED products. Group-expanded reach never counts.
         Ordered by dependerCount desc, then component name.
       responses:
-        '200':
+        "200":
           description: Platform candidates
           content:
             application/json:
@@ -1260,8 +1285,9 @@ paths:
                         dependerCount: { type: integer, minimum: 2 }
                         dependents:
                           type: array
-                          items: { $ref: '#/components/schemas/ComponentDependent' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                          items:
+                            { $ref: "#/components/schemas/ComponentDependent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /components/{id}/dependents:
     get:
       tags: [Components]
@@ -1270,9 +1296,9 @@ paths:
         Every non-RETIRED product holding a direct `DEPENDS_ON` edge on the
         component, ordered by name. Group-expanded reach is excluded.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Direct dependents
           content:
             application/json:
@@ -1281,9 +1307,9 @@ paths:
                 properties:
                   dependents:
                     type: array
-                    items: { $ref: '#/components/schemas/ComponentDependent' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                    items: { $ref: "#/components/schemas/ComponentDependent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /components/{id}/promote-to-platform:
     post:
       tags: [Components]
@@ -1297,7 +1323,7 @@ paths:
         direct consumers. Unchecked/omitted consumers keep their direct
         edge. `type` is not accepted — always `PLATFORM`.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
@@ -1307,41 +1333,55 @@ paths:
               additionalProperties: false
               properties:
                 name: { type: string, minLength: 1, maxLength: 200 }
-                slug: { type: string, maxLength: 100, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+                slug:
+                  {
+                    type: string,
+                    maxLength: 100,
+                    pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                  }
                 description: { type: string, maxLength: 2000, nullable: true }
                 lobOwnerId: { type: string, format: uuid, nullable: true }
                 teamOwnerId: { type: string, format: uuid, nullable: true }
                 links:
                   type: array
                   maxItems: 20
-                  items: { $ref: '#/components/schemas/Link' }
+                  items: { $ref: "#/components/schemas/Link" }
                 tags:
                   type: array
                   maxItems: 20
-                  items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
-                criticality: { $ref: '#/components/schemas/ProductCriticality', nullable: true }
+                  items:
+                    {
+                      type: string,
+                      maxLength: 32,
+                      pattern: "^[a-z0-9][a-z0-9._:-]*$",
+                    }
+                criticality:
+                  {
+                    $ref: "#/components/schemas/ProductCriticality",
+                    nullable: true,
+                  }
                 sunsetAt: { type: string, format: date-time, nullable: true }
                 consumerIds:
                   type: array
                   maxItems: 500
                   items: { type: string, format: uuid }
       responses:
-        '201':
+        "201":
           description: Created platform product and rewritten consumers
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  product: { $ref: '#/components/schemas/DigitalProduct' }
+                  product: { $ref: "#/components/schemas/DigitalProduct" }
                   consumers:
                     type: array
-                    items: { $ref: '#/components/schemas/ComponentDependent' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                    items: { $ref: "#/components/schemas/ComponentDependent" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   # ------------------------------------------------- URL Check monitoring
   /components/{componentId}/monitoring-setup:
@@ -1354,16 +1394,16 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        '200':
+        "200":
           description: Monitoring setup
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  setup: { $ref: '#/components/schemas/MonitoringSetup' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  setup: { $ref: "#/components/schemas/MonitoringSetup" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     put:
       tags: [URLChecks]
       summary: Upsert monitoring defaults (cadence, vantage, agent)
@@ -1382,32 +1422,32 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/UpdateMonitoringSetupInput' }
+            schema: { $ref: "#/components/schemas/UpdateMonitoringSetupInput" }
       responses:
-        '200':
+        "200":
           description: Updated monitoring setup
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  setup: { $ref: '#/components/schemas/MonitoringSetup' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  setup: { $ref: "#/components/schemas/MonitoringSetup" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /components/{componentId}/url-checks:
     get:
       tags: [URLChecks]
-      summary: List URL checks for a component (with latest observation)
+      summary: List URL checks for a component (with latest, 24h summary, and recent observations)
       parameters:
         - name: componentId
           in: path
           required: true
           schema: { type: string, format: uuid }
       responses:
-        '200':
-          description: Setup and checks with latest-observation summary
+        "200":
+          description: Setup and checks — each check carries its latest observation, a compact 24h summary (availability/p95/coverageGap/counts), and the <=12 most recent observations
           content:
             application/json:
               schema:
@@ -1415,13 +1455,13 @@ paths:
                 properties:
                   setup:
                     allOf:
-                      - $ref: '#/components/schemas/MonitoringSetup'
+                      - $ref: "#/components/schemas/MonitoringSetup"
                     nullable: true
                   checks:
                     type: array
-                    items: { $ref: '#/components/schemas/UrlCheckListItem' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                    items: { $ref: "#/components/schemas/UrlCheckListItem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     post:
       tags: [URLChecks]
       summary: Create a URL check on a component instance
@@ -1441,37 +1481,37 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CreateUrlCheckInput' }
+            schema: { $ref: "#/components/schemas/CreateUrlCheckInput" }
       responses:
-        '201':
+        "201":
           description: Check created (scheduled from `nextProbeAt`)
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  check: { $ref: '#/components/schemas/UrlCheck' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  check: { $ref: "#/components/schemas/UrlCheck" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /url-checks/{id}:
     get:
       tags: [URLChecks]
       summary: Get a URL check
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: URL check
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  check: { $ref: '#/components/schemas/UrlCheck' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  check: { $ref: "#/components/schemas/UrlCheck" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [URLChecks]
       summary: Update a URL check (incl. enable/disable)
@@ -1481,63 +1521,63 @@ paths:
         history are preserved. `enabled: false` clears `nextProbeAt` (no
         MISSED rows accrue while disabled); enabling reschedules from now.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/UpdateUrlCheckInput' }
+            schema: { $ref: "#/components/schemas/UpdateUrlCheckInput" }
       responses:
-        '200':
+        "200":
           description: Updated check
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  check: { $ref: '#/components/schemas/UrlCheck' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  check: { $ref: "#/components/schemas/UrlCheck" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     delete:
       tags: [URLChecks]
       summary: Delete a URL check and its observations
       x-permission: "urlCheck:delete"
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '204': { description: Check deleted }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "204": { description: Check deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /url-checks/{id}/metrics:
     get:
       tags: [URLChecks]
       summary: Per-check availability, error rate, and latency percentiles
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
         - in: query
           name: window
-          schema: { type: string, enum: ['24h', '7d', '30d'], default: '24h' }
+          schema: { type: string, enum: ["24h", "7d", "30d"], default: "24h" }
       responses:
-        '200':
+        "200":
           description: >-
             Metrics over the rolling window. `availability` counts MISSED
             slots against the check (conservative SLI); `errorRate` covers
             executed attempts only; `coverageGap` is the MISSED share.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/UrlCheckMetrics' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+              schema: { $ref: "#/components/schemas/UrlCheckMetrics" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /url-checks/{id}/observations:
     get:
       tags: [URLChecks]
       summary: Observation history (desc by scheduledAt, cursor-paginated)
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
         - in: query
           name: limit
           schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
@@ -1545,7 +1585,7 @@ paths:
           name: before
           schema: { type: string, format: date-time }
       responses:
-        '200':
+        "200":
           description: Observations page
           content:
             application/json:
@@ -1554,14 +1594,14 @@ paths:
                 properties:
                   observations:
                     type: array
-                    items: { $ref: '#/components/schemas/UrlCheckObservation' }
+                    items: { $ref: "#/components/schemas/UrlCheckObservation" }
                   nextBefore:
                     type: string
                     format: date-time
                     nullable: true
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   # -------------------------------------------------------- Component groups
   /component-groups:
@@ -1571,9 +1611,9 @@ paths:
       parameters:
         - in: query
           name: lifecycle
-          schema: { $ref: '#/components/schemas/Lifecycle' }
+          schema: { $ref: "#/components/schemas/Lifecycle" }
       responses:
-        '200':
+        "200":
           description: Component groups
           content:
             application/json:
@@ -1582,8 +1622,8 @@ paths:
                 properties:
                   groups:
                     type: array
-                    items: { $ref: '#/components/schemas/ComponentGroup' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                    items: { $ref: "#/components/schemas/ComponentGroup" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       tags: [ComponentGroups]
       summary: Create a component group
@@ -1602,47 +1642,47 @@ paths:
                 description: { type: string, maxLength: 500 }
                 teamOwnerId: { type: string, format: uuid }
       responses:
-        '201':
+        "201":
           description: Group created
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  group: { $ref: '#/components/schemas/ComponentGroup' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409':
+                  group: { $ref: "#/components/schemas/ComponentGroup" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
           description: Slug already in use (`SLUG_CONFLICT`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /component-groups/{id}:
     get:
       tags: [ComponentGroups]
       summary: Get a component group by ID or slug
       parameters:
-        - { $ref: '#/components/parameters/IdOrSlug' }
+        - { $ref: "#/components/parameters/IdOrSlug" }
       responses:
-        '200':
+        "200":
           description: Component group
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  group: { $ref: '#/components/schemas/ComponentGroup' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  group: { $ref: "#/components/schemas/ComponentGroup" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [ComponentGroups]
       summary: Update a component group
       x-permission: "componentGroup:update"
       description: Requires the `componentGroup:update` role (Editor+).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
@@ -1654,25 +1694,25 @@ paths:
                 slug: { type: string, minLength: 1, maxLength: 100 }
                 description: { type: string, maxLength: 500 }
                 teamOwnerId: { type: string, format: uuid }
-                lifecycle: { $ref: '#/components/schemas/Lifecycle' }
+                lifecycle: { $ref: "#/components/schemas/Lifecycle" }
       responses:
-        '200':
+        "200":
           description: Updated group
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  group: { $ref: '#/components/schemas/ComponentGroup' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409':
+                  group: { $ref: "#/components/schemas/ComponentGroup" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
           description: Slug already in use (`SLUG_CONFLICT`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
     delete:
       tags: [ComponentGroups]
       summary: Delete a component group
@@ -1682,19 +1722,19 @@ paths:
         blocked while products depend on the group via DEPENDS_ON (spec 019);
         retire the group instead.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '204': { description: Group deleted }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409':
+        "204": { description: Group deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
           description: >-
             Group is depended on by products (`REFERENCED`) —
             `details.products` names the blocking products
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
 
   # -------------------------------------------------------------- Importers
   /importers:
@@ -1702,7 +1742,7 @@ paths:
       tags: [Importers]
       summary: List available importer manifests
       responses:
-        '200':
+        "200":
           description: Importer manifests
           content:
             application/json:
@@ -1712,7 +1752,7 @@ paths:
                   importers:
                     type: array
                     items: { type: object }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /importers/{name}/schema:
     get:
       tags: [Importers]
@@ -1724,7 +1764,7 @@ paths:
           schema: { type: string }
           description: Importer name (e.g. `github`, `aws`, `kubernetes`)
       responses:
-        '200':
+        "200":
           description: Importer config schema
           content:
             application/json:
@@ -1733,13 +1773,13 @@ paths:
                 properties:
                   name: { type: string }
                   configSchema: { type: object }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /importer-configs:
     get:
       tags: [Importers]
       summary: List importer configurations
       responses:
-        '200':
+        "200":
           description: Importer configs
           content:
             application/json:
@@ -1748,8 +1788,8 @@ paths:
                 properties:
                   configs:
                     type: array
-                    items: { $ref: '#/components/schemas/ImporterConfig' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                    items: { $ref: "#/components/schemas/ImporterConfig" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       tags: [Importers]
       summary: Create an importer configuration
@@ -1799,41 +1839,41 @@ paths:
                 schedule: { type: string, description: Cron schedule }
                 enabled: { type: boolean, default: true }
       responses:
-        '201':
+        "201":
           description: Config created
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  config: { $ref: '#/components/schemas/ImporterConfig' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+                  config: { $ref: "#/components/schemas/ImporterConfig" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /importer-configs/{id}:
     get:
       tags: [Importers]
       summary: Get an importer configuration
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Importer config
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  config: { $ref: '#/components/schemas/ImporterConfig' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  config: { $ref: "#/components/schemas/ImporterConfig" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [Importers]
       summary: Update an importer configuration
       x-permission: "importer:config:update"
       description: Requires the `importer:config:update` role (Admin).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
@@ -1868,30 +1908,30 @@ paths:
                 schedule: { type: string }
                 enabled: { type: boolean }
       responses:
-        '200':
+        "200":
           description: Updated config
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  config: { $ref: '#/components/schemas/ImporterConfig' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  config: { $ref: "#/components/schemas/ImporterConfig" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     delete:
       tags: [Importers]
       summary: Delete an importer configuration
       x-permission: "importer:config:delete"
       description: Requires the `importer:config:delete` role (Admin).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '204': { description: Config deleted }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "204": { description: Config deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /importer-configs/{id}/convert-secrets:
     post:
       tags: [Importers]
@@ -1903,30 +1943,30 @@ paths:
         junction-links it to the config, and clears `secretRefs`. Both the
         credential creation and the config update are audited.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '201':
+        "201":
           description: Created credential and updated config
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  credential: { $ref: '#/components/schemas/CredentialDetail' }
-                  config: { $ref: '#/components/schemas/ImporterConfig' }
-        '400':
+                  credential: { $ref: "#/components/schemas/CredentialDetail" }
+                  config: { $ref: "#/components/schemas/ImporterConfig" }
+        "400":
           description: No legacy refs to convert (`CONVERSION_NOTHING_TO_CONVERT`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '502':
+              schema: { $ref: "#/components/schemas/Problem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502":
           description: A referenced env var/file could not be resolved (`LEGACY_SECRET_UNRESOLVABLE`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /importer-configs/{id}/trigger:
     post:
       tags: [Importers]
@@ -1934,9 +1974,9 @@ paths:
       x-permission: "importer:run:trigger"
       description: Requires the `importer:run:trigger` role.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '202':
+        "202":
           description: Run started
           content:
             application/json:
@@ -1944,24 +1984,24 @@ paths:
                 type: object
                 properties:
                   runId: { type: string, format: uuid }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409':
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
           description: A run is already in progress for this config (`RUN_IN_PROGRESS`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /importer-configs/{id}/run-aggregates:
     get:
       tags: [Importers]
       summary: Per-day run aggregates for an importer configuration
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
         - in: query
           name: days
           schema: { type: integer, minimum: 1, maximum: 90, default: 14 }
       responses:
-        '200':
+        "200":
           description: Per-day buckets, ascending, zero-filled
           content:
             application/json:
@@ -1978,15 +2018,15 @@ paths:
                         created: { type: integer }
                         updated: { type: integer }
                         failed: { type: integer }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /importer-configs/{id}/runs:
     get:
       tags: [Importers]
       summary: List runs for an importer configuration
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Runs
           content:
             application/json:
@@ -1995,8 +2035,8 @@ paths:
                 properties:
                   runs:
                     type: array
-                    items: { $ref: '#/components/schemas/ImportRun' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                    items: { $ref: "#/components/schemas/ImportRun" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /importer-configs/{configId}/runs/{runId}:
     get:
       tags: [Importers]
@@ -2011,16 +2051,16 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        '200':
+        "200":
           description: Run detail
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  run: { $ref: '#/components/schemas/ImportRun' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  run: { $ref: "#/components/schemas/ImportRun" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /importer-configs/{configId}/runs/{runId}/errors:
     get:
       tags: [Importers]
@@ -2035,7 +2075,7 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        '200':
+        "200":
           description: Run errors
           content:
             application/json:
@@ -2044,8 +2084,8 @@ paths:
                 properties:
                   errors:
                     type: array
-                    items: { $ref: '#/components/schemas/ImportRunError' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                    items: { $ref: "#/components/schemas/ImportRunError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /importer-configs/{configId}/runs/{runId}/cancel:
     post:
       tags: [Importers]
@@ -2062,15 +2102,15 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        '204': { description: Run cancelled }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409':
+        "204": { description: Run cancelled }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
           description: Run is not active (`RUN_NOT_ACTIVE`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
 
   # ----------------------------------------------------------- Organization
   /importer-sources:
@@ -2085,7 +2125,7 @@ paths:
           in: query
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: All registered importer sources
           content:
             application/json:
@@ -2094,33 +2134,33 @@ paths:
                 properties:
                   sources:
                     type: array
-                    items: { $ref: '#/components/schemas/ImporterSource' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                    items: { $ref: "#/components/schemas/ImporterSource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /importer-sources/{id}:
     get:
       tags: [Importers]
       summary: Get an importer source
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Importer source detail
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  source: { $ref: '#/components/schemas/ImporterSource' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  source: { $ref: "#/components/schemas/ImporterSource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /importer-sources/{id}/runs:
     get:
       tags: [Importers]
       summary: List runs attributed to an importer source
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Run history for the source (survives config deletion)
           content:
             application/json:
@@ -2129,17 +2169,17 @@ paths:
                 properties:
                   runs:
                     type: array
-                    items: { $ref: '#/components/schemas/ImportRun' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                    items: { $ref: "#/components/schemas/ImportRun" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /importer-sources/{id}/memberships:
     get:
       tags: [Importers]
       summary: List a source's component and instance memberships with per-source details
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Component and instance memberships including per-source details
           content:
             application/json:
@@ -2148,63 +2188,65 @@ paths:
                 properties:
                   components:
                     type: array
-                    items: { $ref: '#/components/schemas/SourceComponentMembership' }
+                    items:
+                      { $ref: "#/components/schemas/SourceComponentMembership" }
                   instances:
                     type: array
-                    items: { $ref: '#/components/schemas/SourceInstanceMembership' }
+                    items:
+                      { $ref: "#/components/schemas/SourceInstanceMembership" }
                   truncated:
                     type: boolean
                     description: True when either list hit the 200-row cap
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /importer-sources/{id}/retire:
     post:
       tags: [Importers]
       summary: Explicitly retire an importer source
       x-permission: "importer:source:retire"
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: The retired source
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  source: { $ref: '#/components/schemas/ImporterSource' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                  source: { $ref: "#/components/schemas/ImporterSource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /importer-sources/{id}/reactivate:
     post:
       tags: [Importers]
       summary: Reverse source retirement
       x-permission: "importer:source:reactivate"
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: The reactivated source
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  source: { $ref: '#/components/schemas/ImporterSource' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                  source: { $ref: "#/components/schemas/ImporterSource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /docker-targets:
     get:
       tags: [Importers]
       summary: List Hub-managed Docker targets
       x-permission: "importer:target:read"
       responses:
-        '200':
+        "200":
           description: All Docker targets
           content:
             application/json:
@@ -2213,9 +2255,9 @@ paths:
                 properties:
                   targets:
                     type: array
-                    items: { $ref: '#/components/schemas/DockerTarget' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+                    items: { $ref: "#/components/schemas/DockerTarget" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
     post:
       tags: [Importers]
       summary: Create a Docker target
@@ -2239,43 +2281,43 @@ paths:
                   type: object
                   description: Non-secret transport profile (socket/tcp/ssh/context); *Key fields name credential keys
       responses:
-        '201':
+        "201":
           description: Created target
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  target: { $ref: '#/components/schemas/DockerTarget' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                  target: { $ref: "#/components/schemas/DockerTarget" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /docker-targets/{id}:
     get:
       tags: [Importers]
       summary: Get a Docker target
       x-permission: "importer:target:read"
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Target detail
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  target: { $ref: '#/components/schemas/DockerTarget' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  target: { $ref: "#/components/schemas/DockerTarget" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [Importers]
       summary: Update a Docker target's display metadata
       x-permission: "importer:target:update"
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
@@ -2286,75 +2328,75 @@ paths:
                 label: { type: string, minLength: 1, maxLength: 100 }
                 description: { type: string, maxLength: 1000, nullable: true }
       responses:
-        '200':
+        "200":
           description: Updated target
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  target: { $ref: '#/components/schemas/DockerTarget' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  target: { $ref: "#/components/schemas/DockerTarget" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     delete:
       tags: [Importers]
       summary: Delete a Docker target (blocked while referenced)
       x-permission: "importer:target:delete"
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '204': { description: Target deleted }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        "204": { description: Target deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /docker-targets/{id}/enable:
     post:
       tags: [Importers]
       summary: Re-enable a Docker target
       x-permission: "importer:target:update"
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Enabled target
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  target: { $ref: '#/components/schemas/DockerTarget' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  target: { $ref: "#/components/schemas/DockerTarget" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /docker-targets/{id}/disable:
     post:
       tags: [Importers]
       summary: Disable a Docker target and request cancellation of active Hub work
       x-permission: "importer:target:update"
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Disabled target
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  target: { $ref: '#/components/schemas/DockerTarget' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  target: { $ref: "#/components/schemas/DockerTarget" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /docker-targets/{id}/test:
     post:
       tags: [Importers]
       summary: Test a Docker target's connectivity (Docker /version only)
       x-permission: "importer:target:test"
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         content:
           application/json:
@@ -2366,7 +2408,7 @@ paths:
                   format: uuid
                   description: Hub-bound Docker config supplying STORED credentials; required when the profile references *Key names
       responses:
-        '200':
+        "200":
           description: Test result — ok:false carries a non-secret reason
           content:
             application/json:
@@ -2375,16 +2417,16 @@ paths:
                 properties:
                   ok: { type: boolean }
                   error: { type: string }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /lobs:
     get:
       tags: [Organization]
       summary: List lines of business
       responses:
-        '200':
+        "200":
           description: LoBs
           content:
             application/json:
@@ -2393,8 +2435,8 @@ paths:
                 properties:
                   lobs:
                     type: array
-                    items: { $ref: '#/components/schemas/LineOfBusiness' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                    items: { $ref: "#/components/schemas/LineOfBusiness" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       tags: [Organization]
       summary: Create a line of business
@@ -2404,83 +2446,83 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CreateOrgEntity' }
+            schema: { $ref: "#/components/schemas/CreateOrgEntity" }
       responses:
-        '201':
+        "201":
           description: LoB created
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  lob: { $ref: '#/components/schemas/LineOfBusiness' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                  lob: { $ref: "#/components/schemas/LineOfBusiness" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /lobs/{id}:
     get:
       tags: [Organization]
       summary: Get a line of business by ID or slug
       parameters:
-        - { $ref: '#/components/parameters/IdOrSlug' }
+        - { $ref: "#/components/parameters/IdOrSlug" }
       responses:
-        '200':
+        "200":
           description: LoB
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  lob: { $ref: '#/components/schemas/LineOfBusiness' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  lob: { $ref: "#/components/schemas/LineOfBusiness" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [Organization]
       summary: Update a line of business
       x-permission: "lob:update"
       description: Requires the `lob:update` role (Editor+).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/UpdateOrgEntity' }
+            schema: { $ref: "#/components/schemas/UpdateOrgEntity" }
       responses:
-        '200':
+        "200":
           description: Updated LoB
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  lob: { $ref: '#/components/schemas/LineOfBusiness' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                  lob: { $ref: "#/components/schemas/LineOfBusiness" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
     delete:
       tags: [Organization]
       summary: Delete a line of business
       x-permission: "lob:delete"
       description: Requires the `lob:delete` role (Editor+).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '204': { description: LoB deleted }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        "204": { description: LoB deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /teams:
     get:
       tags: [Organization]
       summary: List teams
       responses:
-        '200':
+        "200":
           description: Teams
           content:
             application/json:
@@ -2489,8 +2531,8 @@ paths:
                 properties:
                   teams:
                     type: array
-                    items: { $ref: '#/components/schemas/Team' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                    items: { $ref: "#/components/schemas/Team" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       tags: [Organization]
       summary: Create a team
@@ -2500,92 +2542,92 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CreateTeam' }
+            schema: { $ref: "#/components/schemas/CreateTeam" }
       responses:
-        '201':
+        "201":
           description: Team created
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  team: { $ref: '#/components/schemas/Team' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                  team: { $ref: "#/components/schemas/Team" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /teams/{id}:
     get:
       tags: [Organization]
       summary: Get a team by ID or slug
       parameters:
-        - { $ref: '#/components/parameters/IdOrSlug' }
+        - { $ref: "#/components/parameters/IdOrSlug" }
       responses:
-        '200':
+        "200":
           description: Team
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  team: { $ref: '#/components/schemas/Team' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  team: { $ref: "#/components/schemas/Team" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [Organization]
       summary: Update a team
       x-permission: "team:update"
       description: Requires the `team:update` role (Editor+).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/UpdateTeam' }
+            schema: { $ref: "#/components/schemas/UpdateTeam" }
       responses:
-        '200':
+        "200":
           description: Updated team
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  team: { $ref: '#/components/schemas/Team' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                  team: { $ref: "#/components/schemas/Team" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
     delete:
       tags: [Organization]
       summary: Delete a team
       x-permission: "team:delete"
       description: Requires the `team:delete` role (Editor+).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '204': { description: Team deleted }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        "204": { description: Team deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /teams/{id}/members:
     get:
       tags: [Organization]
       summary: List members of a team
       parameters:
-        - { $ref: '#/components/parameters/IdOrSlug' }
+        - { $ref: "#/components/parameters/IdOrSlug" }
       responses:
-        '200':
+        "200":
           description: Team members
           content:
             application/json:
               schema: { type: object }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   # -------------------------------------------------------------- Dashboard
   /dashboard/summary:
@@ -2593,7 +2635,7 @@ paths:
       tags: [Dashboard]
       summary: Dashboard summary aggregates (health & attention view)
       responses:
-        '200':
+        "200":
           description: Dashboard summary
           content:
             application/json:
@@ -2618,15 +2660,16 @@ paths:
                       (FAILED_RUN, OFFLINE_AGENT) in the full queue — the
                       `attention` array is capped, so this count is computed
                       before truncation.
-                  lastImportAt: { type: string, format: date-time, nullable: true }
+                  lastImportAt:
+                    { type: string, format: date-time, nullable: true }
                   attention:
                     type: array
-                    items: { $ref: '#/components/schemas/AttentionItem' }
+                    items: { $ref: "#/components/schemas/AttentionItem" }
                   lastRuns:
                     type: array
                     items: { type: object }
-                  coverage: { $ref: '#/components/schemas/CatalogCoverage' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                  coverage: { $ref: "#/components/schemas/CatalogCoverage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
 
   # ----------------------------------------------------------------- Search
   /search:
@@ -2642,13 +2685,13 @@ paths:
           name: limit
           schema: { type: integer, minimum: 1, maximum: 20, default: 8 }
       responses:
-        '200':
+        "200":
           description: Search results grouped by entity type
           content:
             application/json:
               schema: { type: object }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
 
   # ------------------------------------------------------------------ Audit
   /audit/activity:
@@ -2682,7 +2725,7 @@ paths:
           name: offset
           schema: { type: integer, minimum: 0, default: 0 }
       responses:
-        '200':
+        "200":
           description: Paginated activity feed
           content:
             application/json:
@@ -2691,10 +2734,10 @@ paths:
                 properties:
                   items:
                     type: array
-                    items: { $ref: '#/components/schemas/ActivityFeedItem' }
+                    items: { $ref: "#/components/schemas/ActivityFeedItem" }
                   total: { type: integer }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   /audit/entities/{entityType}/{entityId}:
     get:
@@ -2731,7 +2774,7 @@ paths:
           name: offset
           schema: { type: integer, minimum: 0, default: 0 }
       responses:
-        '200':
+        "200":
           description: Paginated entity history
           content:
             application/json:
@@ -2740,9 +2783,9 @@ paths:
                 properties:
                   items:
                     type: array
-                    items: { $ref: '#/components/schemas/ActivityFeedItem' }
+                    items: { $ref: "#/components/schemas/ActivityFeedItem" }
                   total: { type: integer }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        "401": { $ref: "#/components/responses/Unauthorized" }
 
   /audit/corrections:
     post:
@@ -2767,7 +2810,7 @@ paths:
                   minLength: 1
                   maxLength: 2000
       responses:
-        '201':
+        "201":
           description: Correction created
           content:
             application/json:
@@ -2775,8 +2818,8 @@ paths:
                 type: object
                 properties:
                   id: { type: string }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   /importer-configs/{configId}/runs/{runId}/changes:
     get:
@@ -2792,17 +2835,21 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        '200':
+        "200":
           description: Changes and errors for the run
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  changes: { type: array, items: { $ref: '#/components/schemas/EntityChange' } }
+                  changes:
+                    {
+                      type: array,
+                      items: { $ref: "#/components/schemas/EntityChange" },
+                    }
                   errors: { type: array, items: { type: object } }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   # ------------------------------------------------- Credentials
   /credentials:
@@ -2815,7 +2862,7 @@ paths:
         never exposed by any endpoint — `keyHints` carries the last 4
         characters of each stored key for identification.
       responses:
-        '200':
+        "200":
           description: Credentials
           content:
             application/json:
@@ -2824,9 +2871,9 @@ paths:
                 properties:
                   credentials:
                     type: array
-                    items: { $ref: '#/components/schemas/Credential' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+                    items: { $ref: "#/components/schemas/Credential" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
     post:
       tags: [Credentials]
       summary: Create a credential
@@ -2869,22 +2916,22 @@ paths:
                   minProperties: 1
                   description: 'AGENT_MANAGED only — e.g. `{ "token": { "env": "GH_TOKEN" } }`'
       responses:
-        '201':
+        "201":
           description: Credential created
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  credential: { $ref: '#/components/schemas/CredentialDetail' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '503':
+                  credential: { $ref: "#/components/schemas/CredentialDetail" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
           description: Credential store key unavailable (`CREDENTIAL_KEY_UNAVAILABLE`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /credentials/{id}:
     get:
       tags: [Credentials]
@@ -2892,20 +2939,21 @@ paths:
       x-permission: "credential:read"
       description: Returns credential metadata plus its dependents (referencing importer configs, OIDC usage).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Credential detail
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  credential: { $ref: '#/components/schemas/CredentialDetail' }
-                  dependents: { $ref: '#/components/schemas/CredentialDependents' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  credential: { $ref: "#/components/schemas/CredentialDetail" }
+                  dependents:
+                    { $ref: "#/components/schemas/CredentialDependents" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [Credentials]
       summary: Update, rotate, or revoke a credential
@@ -2917,7 +2965,7 @@ paths:
         `status: "REVOKED"` revokes permanently (one-way; re-activation
         requires a new credential).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
@@ -2948,18 +2996,18 @@ paths:
                   type: string
                   enum: [REVOKED]
       responses:
-        '200':
+        "200":
           description: Updated credential metadata
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  credential: { $ref: '#/components/schemas/CredentialDetail' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  credential: { $ref: "#/components/schemas/CredentialDetail" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     delete:
       tags: [Credentials]
       summary: Delete a credential
@@ -2970,17 +3018,17 @@ paths:
         configuration references it — the problem `details` lists the
         dependents.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '204': { description: Credential deleted }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409':
+        "204": { description: Credential deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
           description: Credential is referenced (`CREDENTIAL_IN_USE`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
   /credentials/{id}/test:
     post:
       tags: [Credentials]
@@ -3001,7 +3049,7 @@ paths:
         map edited to drop a required key fails here naming the key). An
         upstream auth failure is reported in the body, never as a 4xx.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
@@ -3020,25 +3068,25 @@ paths:
                   additionalProperties: true
                   description: Optional importer config overrides for the probe
       responses:
-        '200':
+        "200":
           description: Probe result — never carries secret material
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/CredentialTestResult' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '503':
+              schema: { $ref: "#/components/schemas/CredentialTestResult" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503":
           description: Key unavailable (`CREDENTIAL_KEY_UNAVAILABLE`) or bound agent offline (`AGENT_OFFLINE`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
-        '504':
+              schema: { $ref: "#/components/schemas/Problem" }
+        "504":
           description: Bound agent did not answer in time (`AGENT_TEST_TIMEOUT`)
           content:
             application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
+              schema: { $ref: "#/components/schemas/Problem" }
 
   # ------------------------------------------------------------ Suggestions
   /suggestions:
@@ -3056,7 +3104,12 @@ paths:
       parameters:
         - in: query
           name: status
-          schema: { type: string, enum: [PENDING, DISMISSED, DECIDED], default: PENDING }
+          schema:
+            {
+              type: string,
+              enum: [PENDING, DISMISSED, DECIDED],
+              default: PENDING,
+            }
         - in: query
           name: limit
           schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
@@ -3064,13 +3117,13 @@ paths:
           name: offset
           schema: { type: integer, minimum: 0, default: 0 }
       responses:
-        '200':
+        "200":
           description: Queue page
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/SuggestionListResult' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+              schema: { $ref: "#/components/schemas/SuggestionListResult" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /suggestions/{id}/accept:
     post:
       tags: [Suggestions]
@@ -3083,20 +3136,20 @@ paths:
         atomically. `404` when the suggestion (or an endpoint) is gone,
         `409` when it is already decided.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: The accepted suggestion
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  suggestion: { $ref: '#/components/schemas/EdgeSuggestion' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                  suggestion: { $ref: "#/components/schemas/EdgeSuggestion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /suggestions/{id}/dismiss:
     post:
       tags: [Suggestions]
@@ -3107,20 +3160,20 @@ paths:
         `decidedAt`/`decidedBy` — there is no un-dismiss transition and the
         pair is never suggested again.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: The dismissed suggestion
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  suggestion: { $ref: '#/components/schemas/EdgeSuggestion' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                  suggestion: { $ref: "#/components/schemas/EdgeSuggestion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /suggestions/rescan:
     post:
       tags: [Suggestions]
@@ -3132,13 +3185,13 @@ paths:
         existing catalogs. Stages new `PENDING` rows, rescores existing ones,
         and tombstones newly covered pairs; terminal rows are never touched.
       responses:
-        '200':
+        "200":
           description: Pass report
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/SuggestionRescanReport' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+              schema: { $ref: "#/components/schemas/SuggestionRescanReport" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   # ------------------------------------------------- Metrics (outside v1)
   /agents:
@@ -3148,7 +3201,7 @@ paths:
       x-permission: "agent:read"
       description: Requires the `agent:read` role (Admin). Credential and enrollment-token material is never returned.
       responses:
-        '200':
+        "200":
           description: Import agents
           content:
             application/json:
@@ -3157,9 +3210,9 @@ paths:
                 properties:
                   agents:
                     type: array
-                    items: { $ref: '#/components/schemas/ImportAgent' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+                    items: { $ref: "#/components/schemas/ImportAgent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
     post:
       tags: [Agents]
       summary: Create an import agent
@@ -3180,50 +3233,50 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 63
-                  pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'
+                  pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
                 allowedImporters:
                   type: array
                   items: { type: string }
                   description: Empty/omitted = all compiled importers. Unknown names are rejected.
       responses:
-        '201':
+        "201":
           description: Agent created with enrollment material
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  agent: { $ref: '#/components/schemas/ImportAgent' }
-                  enrollment: { $ref: '#/components/schemas/AgentEnrollment' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                  agent: { $ref: "#/components/schemas/ImportAgent" }
+                  enrollment: { $ref: "#/components/schemas/AgentEnrollment" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /agents/{id}:
     get:
       tags: [Agents]
       summary: Get an import agent
       x-permission: "agent:read"
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Agent detail
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  agent: { $ref: '#/components/schemas/AgentDetail' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  agent: { $ref: "#/components/schemas/AgentDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [Agents]
       summary: Update an import agent
       x-permission: "agent:update"
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       requestBody:
         required: true
         content:
@@ -3235,24 +3288,24 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 63
-                  pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'
+                  pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
                 allowedImporters:
                   type: array
                   items: { type: string }
       responses:
-        '200':
+        "200":
           description: Agent updated
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  agent: { $ref: '#/components/schemas/ImportAgent' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+                  agent: { $ref: "#/components/schemas/ImportAgent" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
     delete:
       tags: [Agents]
       summary: Delete an import agent
@@ -3262,13 +3315,13 @@ paths:
         (`agent_sessions`). Blocked with `AGENT_IN_USE` while importer
         configs are bound to the agent.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '204': { description: Agent deleted }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        "204": { description: Agent deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /agents/{id}/configs:
     get:
       tags: [Agents]
@@ -3279,9 +3332,9 @@ paths:
         (spec 027) — true when the agent is revoked or its non-empty
         `allowedImporters` policy no longer covers the config's importer.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Bound configs
           content:
             application/json:
@@ -3290,10 +3343,10 @@ paths:
                 properties:
                   configs:
                     type: array
-                    items: { $ref: '#/components/schemas/AgentBoundConfig' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                    items: { $ref: "#/components/schemas/AgentBoundConfig" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /agents/{id}/runs:
     get:
       tags: [Agents]
@@ -3303,12 +3356,12 @@ paths:
         Recent `import_runs` stamped with this agent, newest first. Run rows
         are durable history — `import_runs.agentId` is not a foreign key.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
         - in: query
           name: limit
           schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
       responses:
-        '200':
+        "200":
           description: Agent runs
           content:
             application/json:
@@ -3317,10 +3370,10 @@ paths:
                 properties:
                   runs:
                     type: array
-                    items: { $ref: '#/components/schemas/AgentRun' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                    items: { $ref: "#/components/schemas/AgentRun" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /agents/{id}/sessions:
     get:
       tags: [Agents]
@@ -3330,12 +3383,12 @@ paths:
         Operational session episodes (not append-only audit), newest first.
         Includes remote address, reported versions, and disconnect reason.
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
         - in: query
           name: limit
           schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
       responses:
-        '200':
+        "200":
           description: Session episodes
           content:
             application/json:
@@ -3344,10 +3397,10 @@ paths:
                 properties:
                   sessions:
                     type: array
-                    items: { $ref: '#/components/schemas/AgentSession' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                    items: { $ref: "#/components/schemas/AgentSession" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /agents/{id}/enroll:
     post:
       tags: [Agents]
@@ -3359,20 +3412,20 @@ paths:
         then the old credential and its live session are superseded. Rotating
         a revoked agent clears the revocation (re-enablement path).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Fresh enrollment material
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  agent: { $ref: '#/components/schemas/ImportAgent' }
-                  enrollment: { $ref: '#/components/schemas/AgentEnrollment' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  agent: { $ref: "#/components/schemas/ImportAgent" }
+                  enrollment: { $ref: "#/components/schemas/AgentEnrollment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /agents/{id}/revoke:
     post:
       tags: [Agents]
@@ -3383,19 +3436,19 @@ paths:
         agent identity is preserved; re-enablement requires rotation
         (`POST /agents/{id}/enroll`).
       parameters:
-        - { $ref: '#/components/parameters/Id' }
+        - { $ref: "#/components/parameters/Id" }
       responses:
-        '200':
+        "200":
           description: Agent revoked
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  agent: { $ref: '#/components/schemas/ImportAgent' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  agent: { $ref: "#/components/schemas/ImportAgent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /agent/enroll:
     post:
       tags: [Agents]
@@ -3416,7 +3469,7 @@ paths:
               properties:
                 token: { type: string, minLength: 1 }
       responses:
-        '200':
+        "200":
           description: Durable credential issued (shown once)
           content:
             application/json:
@@ -3424,9 +3477,9 @@ paths:
                 type: object
                 properties:
                   agentToken: { type: string }
-                  agent: { $ref: '#/components/schemas/ImportAgent' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                  agent: { $ref: "#/components/schemas/ImportAgent" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /agent/stream:
     get:
       tags: [Agents]
@@ -3440,9 +3493,9 @@ paths:
       security:
         - agentBearer: []
       responses:
-        '101':
+        "101":
           description: WebSocket upgrade accepted
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /metrics:
     get:
       tags: [Health]
@@ -3455,7 +3508,7 @@ paths:
         - url: /
       security: []
       responses:
-        '200':
+        "200":
           description: Prometheus exposition format
           content:
             text/plain:
@@ -3480,27 +3533,27 @@ components:
       description: Input validation failed (`VALIDATION_FAILED`)
       content:
         application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
+          schema: { $ref: "#/components/schemas/Problem" }
     Unauthorized:
       description: Not authenticated (`AUTH_NO_SESSION`)
       content:
         application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
+          schema: { $ref: "#/components/schemas/Problem" }
     Forbidden:
       description: Insufficient role (`AUTH_FORBIDDEN`)
       content:
         application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
+          schema: { $ref: "#/components/schemas/Problem" }
     NotFound:
       description: Resource not found (`NOT_FOUND`)
       content:
         application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
+          schema: { $ref: "#/components/schemas/Problem" }
     Conflict:
       description: Conflict (e.g. `CONFLICT`, `CYCLE_DETECTED`, `SLUG_TAKEN`, `REFERENCED`)
       content:
         application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
+          schema: { $ref: "#/components/schemas/Problem" }
   schemas:
     Problem:
       type: object
@@ -3588,7 +3641,13 @@ components:
             - URL_CHECK_NOT_FOUND
             - MONITORING_SETUP_NOT_FOUND
         message: { type: string }
-        details: { type: object, nullable: true, description: Optional machine-readable context (e.g. Zod issues, retryAfter). }
+        details:
+          {
+            type: object,
+            nullable: true,
+            description: Optional machine-readable context (e.g. Zod issues,
+            retryAfter).,
+          }
         invalid-params:
           type: array
           nullable: true
@@ -3668,7 +3727,7 @@ components:
         id: { type: string, format: uuid }
         username: { type: string }
         oidcSubject: { type: string, nullable: true }
-        role: { $ref: '#/components/schemas/Role' }
+        role: { $ref: "#/components/schemas/Role" }
         displayName: { type: string, nullable: true }
         email: { type: string, format: email, nullable: true }
         teamId: { type: string, format: uuid, nullable: true }
@@ -3708,7 +3767,7 @@ components:
         allowSelfRegistration: { type: boolean }
         sessionIdleTimeoutMs: { type: integer }
         sessionAbsoluteTimeoutMs: { type: integer }
-        defaultUserRole: { $ref: '#/components/schemas/Role' }
+        defaultUserRole: { $ref: "#/components/schemas/Role" }
     OidcConfig:
       type: object
       properties:
@@ -3740,7 +3799,7 @@ components:
       additionalProperties: false
       properties:
         title: { type: string, minLength: 1, maxLength: 80 }
-        url: { type: string, format: uri, description: 'http(s) URLs only' }
+        url: { type: string, format: uri, description: "http(s) URLs only" }
     ProductCriticality:
       type: string
       enum: [CRITICAL, HIGH, MEDIUM, LOW]
@@ -3751,26 +3810,27 @@ components:
         name: { type: string }
         slug: { type: string }
         description: { type: string, nullable: true }
-        type: { $ref: '#/components/schemas/ProductType' }
-        lifecycle: { $ref: '#/components/schemas/Lifecycle' }
+        type: { $ref: "#/components/schemas/ProductType" }
+        lifecycle: { $ref: "#/components/schemas/Lifecycle" }
         lobOwnerId: { type: string, format: uuid, nullable: true }
         teamOwnerId: { type: string, format: uuid, nullable: true }
         links:
           type: array
-          items: { $ref: '#/components/schemas/Link' }
+          items: { $ref: "#/components/schemas/Link" }
         tags:
           type: array
           items: { type: string }
-        criticality: { $ref: '#/components/schemas/ProductCriticality', nullable: true }
+        criticality:
+          { $ref: "#/components/schemas/ProductCriticality", nullable: true }
         sunsetAt: { type: string, format: date-time, nullable: true }
         status:
           type: string
-          enum: [RUNNING, STOPPED, 'ERROR']
+          enum: [RUNNING, STOPPED, "ERROR"]
           nullable: true
           description: >-
             Derived product health headline (ADR-112), present on list
             responses — `null` when there are no contributing instances
-        completeness: { $ref: '#/components/schemas/ProductCompleteness' }
+        completeness: { $ref: "#/components/schemas/ProductCompleteness" }
         consumedByCount:
           type: integer
           description: >-
@@ -3862,7 +3922,7 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         slug: { type: string }
-        type: { $ref: '#/components/schemas/ProductType' }
+        type: { $ref: "#/components/schemas/ProductType" }
     CreateProduct:
       type: object
       required: [name, type]
@@ -3872,21 +3932,23 @@ components:
         slug:
           type: string
           maxLength: 100
-          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
           description: Auto-derived from name when omitted
-        type: { $ref: '#/components/schemas/ProductType' }
+        type: { $ref: "#/components/schemas/ProductType" }
         description: { type: string, maxLength: 2000, nullable: true }
         lobOwnerId: { type: string, format: uuid, nullable: true }
         teamOwnerId: { type: string, format: uuid, nullable: true }
         links:
           type: array
           maxItems: 20
-          items: { $ref: '#/components/schemas/Link' }
+          items: { $ref: "#/components/schemas/Link" }
         tags:
           type: array
           maxItems: 20
-          items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
-        criticality: { $ref: '#/components/schemas/ProductCriticality', nullable: true }
+          items:
+            { type: string, maxLength: 32, pattern: "^[a-z0-9][a-z0-9._:-]*$" }
+        criticality:
+          { $ref: "#/components/schemas/ProductCriticality", nullable: true }
         sunsetAt: { type: string, format: date-time, nullable: true }
         componentIds:
           type: array
@@ -3904,21 +3966,23 @@ components:
         slug:
           type: string
           maxLength: 100
-          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
         description: { type: string, maxLength: 2000, nullable: true }
-        type: { $ref: '#/components/schemas/ProductType' }
-        lifecycle: { $ref: '#/components/schemas/Lifecycle' }
+        type: { $ref: "#/components/schemas/ProductType" }
+        lifecycle: { $ref: "#/components/schemas/Lifecycle" }
         lobOwnerId: { type: string, format: uuid, nullable: true }
         teamOwnerId: { type: string, format: uuid, nullable: true }
         links:
           type: array
           maxItems: 20
-          items: { $ref: '#/components/schemas/Link' }
+          items: { $ref: "#/components/schemas/Link" }
         tags:
           type: array
           maxItems: 20
-          items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
-        criticality: { $ref: '#/components/schemas/ProductCriticality', nullable: true }
+          items:
+            { type: string, maxLength: 32, pattern: "^[a-z0-9][a-z0-9._:-]*$" }
+        criticality:
+          { $ref: "#/components/schemas/ProductCriticality", nullable: true }
         sunsetAt: { type: string, format: date-time, nullable: true }
     BootstrapDocument:
       type: object
@@ -3928,7 +3992,7 @@ components:
         version: { type: integer, enum: [1] }
         products:
           type: array
-          items: { $ref: '#/components/schemas/BootstrapProductItem' }
+          items: { $ref: "#/components/schemas/BootstrapProductItem" }
     BootstrapProductItem:
       type: object
       required: [name, type]
@@ -3938,7 +4002,7 @@ components:
         fields preserve the current value; explicit `null`/`[]` clears.
       properties:
         name: { type: string, minLength: 1, maxLength: 200 }
-        type: { $ref: '#/components/schemas/ProductType' }
+        type: { $ref: "#/components/schemas/ProductType" }
         description: { type: string, maxLength: 2000, nullable: true }
         owner:
           type: object
@@ -3950,8 +4014,10 @@ components:
         tags:
           type: array
           maxItems: 20
-          items: { type: string, maxLength: 32, pattern: '^[a-z0-9][a-z0-9._:-]*$' }
-        criticality: { $ref: '#/components/schemas/ProductCriticality', nullable: true }
+          items:
+            { type: string, maxLength: 32, pattern: "^[a-z0-9][a-z0-9._:-]*$" }
+        criticality:
+          { $ref: "#/components/schemas/ProductCriticality", nullable: true }
         sunsetAt: { type: string, format: date-time, nullable: true }
         dependsOn:
           type: array
@@ -3971,20 +4037,20 @@ components:
         componentId: { type: string, format: uuid }
         reason:
           allOf:
-            - { $ref: '#/components/schemas/EdgeSuggestionReason' }
+            - { $ref: "#/components/schemas/EdgeSuggestionReason" }
           nullable: true
           description: NULL on coverage tombstones
         score:
           type: number
           nullable: true
           description: Signal score (e.g. 1.05); NULL on tombstones
-        status: { $ref: '#/components/schemas/EdgeSuggestionStatus' }
+        status: { $ref: "#/components/schemas/EdgeSuggestionStatus" }
         createdAt: { type: string, format: date-time }
         decidedAt: { type: string, format: date-time, nullable: true }
         decidedBy: { type: string, format: uuid, nullable: true }
     SuggestionQueueItem:
       allOf:
-        - { $ref: '#/components/schemas/EdgeSuggestion' }
+        - { $ref: "#/components/schemas/EdgeSuggestion" }
         - type: object
           properties:
             product:
@@ -4006,7 +4072,7 @@ components:
       properties:
         items:
           type: array
-          items: { $ref: '#/components/schemas/SuggestionQueueItem' }
+          items: { $ref: "#/components/schemas/SuggestionQueueItem" }
         total: { type: integer }
     SuggestionRescanReport:
       type: object
@@ -4039,14 +4105,14 @@ components:
         category: { type: string }
         provider: { type: string }
         resourceType: { type: string }
-        lifecycle: { $ref: '#/components/schemas/Lifecycle' }
+        lifecycle: { $ref: "#/components/schemas/Lifecycle" }
         teamOwnerId: { type: string, format: uuid, nullable: true }
         componentGroupId: { type: string, format: uuid, nullable: true }
         externalId: { type: string, nullable: true }
         details: { type: object, nullable: true }
         links:
           type: array
-          items: { $ref: '#/components/schemas/Link' }
+          items: { $ref: "#/components/schemas/Link" }
         tags:
           type: array
           items: { type: string }
@@ -4069,7 +4135,7 @@ components:
             Embedded on the detail response only — non-GONE instances
             observed for this component (spec 047). Absent on list
             responses.
-          items: { $ref: '#/components/schemas/ComponentInstance' }
+          items: { $ref: "#/components/schemas/ComponentInstance" }
         lastSeenInRunId: { type: string, format: uuid, nullable: true }
         createdBy: { type: string, format: uuid, nullable: true }
         updatedBy: { type: string, format: uuid, nullable: true }
@@ -4117,7 +4183,7 @@ components:
         name: { type: string }
         slug: { type: string }
         description: { type: string, nullable: true }
-        lifecycle: { $ref: '#/components/schemas/Lifecycle' }
+        lifecycle: { $ref: "#/components/schemas/Lifecycle" }
         teamOwnerId: { type: string, format: uuid, nullable: true }
         memberCount:
           type: integer
@@ -4258,7 +4324,7 @@ components:
         maxConcurrentJobs: { type: integer, nullable: true }
         lastSeenAt: { type: string, format: date-time, nullable: true }
         reportedStatus:
-          $ref: '#/components/schemas/AgentReportedStatus'
+          $ref: "#/components/schemas/AgentReportedStatus"
           nullable: true
           description: >-
             Latest agent-reported ops snapshot (spec 028); null = not
@@ -4273,7 +4339,15 @@ components:
         lastDisconnectReason:
           type: string
           nullable: true
-          enum: [client_close, heartbeat_timeout, revoked, shutdown, superseded, replaced]
+          enum:
+            [
+              client_close,
+              heartbeat_timeout,
+              revoked,
+              shutdown,
+              superseded,
+              replaced,
+            ]
           description: >-
             disconnectReason of the most recent closed session; null when
             the agent has no session history
@@ -4340,12 +4414,12 @@ components:
         reconnects: { type: integer }
     AgentDetail:
       allOf:
-        - $ref: '#/components/schemas/ImportAgent'
+        - $ref: "#/components/schemas/ImportAgent"
         - type: object
           properties:
             activeRuns:
               type: array
-              items: { $ref: '#/components/schemas/AgentActiveRun' }
+              items: { $ref: "#/components/schemas/AgentActiveRun" }
               description: In-flight remote jobs on this agent (spec 027)
     AgentActiveRun:
       type: object
@@ -4403,7 +4477,15 @@ components:
         disconnectReason:
           type: string
           nullable: true
-          enum: [client_close, heartbeat_timeout, revoked, shutdown, superseded, replaced]
+          enum:
+            [
+              client_close,
+              heartbeat_timeout,
+              revoked,
+              shutdown,
+              superseded,
+              replaced,
+            ]
         remoteAddress: { type: string, nullable: true }
         agentVersion: { type: string, nullable: true }
         protocolVersion: { type: integer, nullable: true }
@@ -4519,7 +4601,7 @@ components:
         `GET /credentials/{id}` and by create/update responses. Reference
         names (env vars, file paths) are detail-only data (ADR-117).
       allOf:
-        - $ref: '#/components/schemas/Credential'
+        - $ref: "#/components/schemas/Credential"
         - type: object
           properties:
             secretRefMap:
@@ -4629,13 +4711,13 @@ components:
           maximum: 86400
           nullable: true
           description: null → inherit the monitoring setup's cadence
-        successPolicy: { $ref: '#/components/schemas/SuccessPolicy' }
+        successPolicy: { $ref: "#/components/schemas/SuccessPolicy" }
         authMode:
           type: string
           enum: [NONE, BASIC, BEARER, CUSTOM_HEADERS]
         authConfig:
           allOf:
-            - $ref: '#/components/schemas/UrlCheckAuthConfig'
+            - $ref: "#/components/schemas/UrlCheckAuthConfig"
           nullable: true
         availabilityTarget:
           type: number
@@ -4645,7 +4727,7 @@ components:
           description: Percent; paired with `targetWindow`
         targetWindow:
           type: string
-          enum: ['24H', '7D', '30D']
+          enum: ["24H", "7D", "30D"]
           nullable: true
         nextProbeAt: { type: string, format: date-time, nullable: true }
         createdBy: { type: string, nullable: true }
@@ -4661,18 +4743,59 @@ components:
         durationMs: { type: integer, nullable: true }
         errorType:
           type: string
-          enum: [DNS, CONNECT, TLS, TIMEOUT, HTTP_STATUS, POLICY_BLOCKED, AGENT_OFFLINE, ABORTED, OTHER]
+          enum:
+            [
+              DNS,
+              CONNECT,
+              TLS,
+              TIMEOUT,
+              HTTP_STATUS,
+              POLICY_BLOCKED,
+              AGENT_OFFLINE,
+              SATURATED,
+              ABORTED,
+              OTHER,
+            ]
           nullable: true
         vantage: { type: string, enum: [HUB, AGENT] }
     UrlCheckListItem:
       allOf:
-        - $ref: '#/components/schemas/UrlCheck'
+        - $ref: "#/components/schemas/UrlCheck"
         - type: object
           properties:
             latest:
               allOf:
-                - $ref: '#/components/schemas/UrlCheckLatest'
+                - $ref: "#/components/schemas/UrlCheckLatest"
               nullable: true
+            summary:
+              $ref: "#/components/schemas/UrlCheckSummary"
+            recent:
+              type: array
+              maxItems: 12
+              description: Last <=12 observations, scheduledAt desc — the outcome-strip payload
+              items: { $ref: "#/components/schemas/UrlCheckObservation" }
+    UrlCheckSummary:
+      type: object
+      description: Compact 24h rollup embedded in the component checks list — same formulas as UrlCheckMetrics
+      properties:
+        window: { type: string, enum: ["24h"] }
+        availability:
+          type: number
+          nullable: true
+          description: SUCCESS / (SUCCESS + FAILURE + MISSED); null when nothing scheduled
+        p95:
+          type: number
+          nullable: true
+          description: percentile_cont(0.95) over SUCCESS durations; null when none
+        coverageGap:
+          type: number
+          description: MISSED share of scheduled slots
+        counts:
+          type: object
+          properties:
+            success: { type: integer }
+            failure: { type: integer }
+            missed: { type: integer }
     UrlCheckObservation:
       type: object
       properties:
@@ -4684,7 +4807,19 @@ components:
         durationMs: { type: integer, nullable: true }
         errorType:
           type: string
-          enum: [DNS, CONNECT, TLS, TIMEOUT, HTTP_STATUS, POLICY_BLOCKED, AGENT_OFFLINE, ABORTED, OTHER]
+          enum:
+            [
+              DNS,
+              CONNECT,
+              TLS,
+              TIMEOUT,
+              HTTP_STATUS,
+              POLICY_BLOCKED,
+              AGENT_OFFLINE,
+              SATURATED,
+              ABORTED,
+              OTHER,
+            ]
           nullable: true
         vantage: { type: string, enum: [HUB, AGENT] }
         agentId: { type: string, format: uuid, nullable: true }
@@ -4692,7 +4827,7 @@ components:
     UrlCheckMetrics:
       type: object
       properties:
-        window: { type: string, enum: ['24h', '7d', '30d'] }
+        window: { type: string, enum: ["24h", "7d", "30d"] }
         availability:
           type: number
           nullable: true
@@ -4715,7 +4850,7 @@ components:
             missed: { type: integer }
         latest:
           allOf:
-            - $ref: '#/components/schemas/UrlCheckLatest'
+            - $ref: "#/components/schemas/UrlCheckLatest"
           nullable: true
         vantage: { type: string, enum: [HUB, AGENT] }
         agentName: { type: string, nullable: true }
@@ -4724,7 +4859,7 @@ components:
           nullable: true
           properties:
             availability: { type: number }
-            window: { type: string, enum: ['24H', '7D', '30D'] }
+            window: { type: string, enum: ["24H", "7D", "30D"] }
     CreateUrlCheckInput:
       type: object
       additionalProperties: false
@@ -4735,10 +4870,13 @@ components:
         componentInstanceId: { type: string, format: uuid }
         method: { type: string, enum: [GET, HEAD], default: GET }
         enabled: { type: boolean, default: true }
-        cadenceSeconds: { type: integer, minimum: 60, maximum: 86400, nullable: true }
-        successPolicy: { $ref: '#/components/schemas/SuccessPolicy' }
-        availabilityTarget: { type: number, minimum: 0, maximum: 100, nullable: true }
-        targetWindow: { type: string, enum: ['24H', '7D', '30D'], nullable: true }
+        cadenceSeconds:
+          { type: integer, minimum: 60, maximum: 86400, nullable: true }
+        successPolicy: { $ref: "#/components/schemas/SuccessPolicy" }
+        availabilityTarget:
+          { type: number, minimum: 0, maximum: 100, nullable: true }
+        targetWindow:
+          { type: string, enum: ["24H", "7D", "30D"], nullable: true }
         authMode:
           type: string
           enum: [NONE, BASIC, BEARER, CUSTOM_HEADERS]
@@ -4746,7 +4884,7 @@ components:
         credentialId: { type: string, format: uuid, nullable: true }
         authConfig:
           allOf:
-            - $ref: '#/components/schemas/UrlCheckAuthConfig'
+            - $ref: "#/components/schemas/UrlCheckAuthConfig"
           nullable: true
     CompositeUrlCheckInput:
       type: object
@@ -4761,10 +4899,13 @@ components:
         url: { type: string, minLength: 1, maxLength: 2048 }
         method: { type: string, enum: [GET, HEAD], default: GET }
         enabled: { type: boolean, default: true }
-        cadenceSeconds: { type: integer, minimum: 60, maximum: 86400, nullable: true }
-        successPolicy: { $ref: '#/components/schemas/SuccessPolicy' }
-        availabilityTarget: { type: number, minimum: 0, maximum: 100, nullable: true }
-        targetWindow: { type: string, enum: ['24H', '7D', '30D'], nullable: true }
+        cadenceSeconds:
+          { type: integer, minimum: 60, maximum: 86400, nullable: true }
+        successPolicy: { $ref: "#/components/schemas/SuccessPolicy" }
+        availabilityTarget:
+          { type: number, minimum: 0, maximum: 100, nullable: true }
+        targetWindow:
+          { type: string, enum: ["24H", "7D", "30D"], nullable: true }
         authMode:
           type: string
           enum: [NONE, BASIC, BEARER, CUSTOM_HEADERS]
@@ -4772,7 +4913,7 @@ components:
         credentialId: { type: string, format: uuid, nullable: true }
         authConfig:
           allOf:
-            - $ref: '#/components/schemas/UrlCheckAuthConfig'
+            - $ref: "#/components/schemas/UrlCheckAuthConfig"
           nullable: true
     UpdateUrlCheckInput:
       type: object
@@ -4783,20 +4924,23 @@ components:
         componentInstanceId: { type: string, format: uuid }
         method: { type: string, enum: [GET, HEAD] }
         enabled: { type: boolean }
-        cadenceSeconds: { type: integer, minimum: 60, maximum: 86400, nullable: true }
+        cadenceSeconds:
+          { type: integer, minimum: 60, maximum: 86400, nullable: true }
         successPolicy:
           allOf:
-            - $ref: '#/components/schemas/SuccessPolicy'
+            - $ref: "#/components/schemas/SuccessPolicy"
           nullable: true
-        availabilityTarget: { type: number, minimum: 0, maximum: 100, nullable: true }
-        targetWindow: { type: string, enum: ['24H', '7D', '30D'], nullable: true }
+        availabilityTarget:
+          { type: number, minimum: 0, maximum: 100, nullable: true }
+        targetWindow:
+          { type: string, enum: ["24H", "7D", "30D"], nullable: true }
         authMode:
           type: string
           enum: [NONE, BASIC, BEARER, CUSTOM_HEADERS]
         credentialId: { type: string, format: uuid, nullable: true }
         authConfig:
           allOf:
-            - $ref: '#/components/schemas/UrlCheckAuthConfig'
+            - $ref: "#/components/schemas/UrlCheckAuthConfig"
           nullable: true
     CredentialTestResult:
       type: object
@@ -4861,7 +5005,7 @@ components:
         slug:
           type: string
           maxLength: 100
-          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
         description: { type: string, maxLength: 2000, nullable: true }
     UpdateOrgEntity:
       type: object
@@ -4871,7 +5015,7 @@ components:
         slug:
           type: string
           maxLength: 100
-          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
         description: { type: string, maxLength: 2000, nullable: true }
     CreateTeam:
       type: object
@@ -4882,7 +5026,7 @@ components:
         slug:
           type: string
           maxLength: 100
-          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
         description: { type: string, maxLength: 2000, nullable: true }
         lobId:
           type: string
@@ -4897,7 +5041,7 @@ components:
         slug:
           type: string
           maxLength: 100
-          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
         description: { type: string, maxLength: 2000, nullable: true }
         lobId:
           type: string

@@ -57,7 +57,9 @@ function toApi(row: Selectable<UrlCheckRow>): UrlCheck {
   };
 }
 
-function observationToApi(row: Selectable<UrlCheckObservationRow>): UrlCheckObservation {
+function observationToApi(
+  row: Selectable<UrlCheckObservationRow>,
+): UrlCheckObservation {
   return {
     id: row.id,
     urlCheckId: row.urlCheckId,
@@ -208,7 +210,36 @@ export interface CheckListResult {
   checks: UrlCheckListItem[];
 }
 
-export async function listChecks(componentId: string): Promise<CheckListResult> {
+const RECENT_OBSERVATIONS_PER_CHECK = 12;
+const SUMMARY_WINDOW_MS = 864e5; // rolling 24h — the fixed compact window
+
+/** Shared windowed-rollup formula — listChecks summary and getMetrics must
+ *  never drift (ADR-124 item 5: MISSED counts against availability only). */
+function summarizeOutcomeCounts(
+  success: number,
+  failure: number,
+  missed: number,
+) {
+  const scheduled = success + failure + missed;
+  return {
+    availability: scheduled > 0 ? success / scheduled : null,
+    errorRate: success + failure > 0 ? failure / (success + failure) : null,
+    coverageGap: scheduled > 0 ? missed / scheduled : 0,
+  };
+}
+
+export async function listChecks(
+  componentId: string,
+): Promise<CheckListResult> {
+  const component = await db
+    .selectFrom("components")
+    .select("id")
+    .where("id", "=", componentId)
+    .executeTakeFirst();
+  if (!component) {
+    throw coded("Component not found", 404, "NOT_FOUND");
+  }
+
   const setup = await getSetup(componentId);
 
   const checks = await db
@@ -223,28 +254,94 @@ export async function listChecks(componentId: string): Promise<CheckListResult> 
     .orderBy("url_checks.name")
     .execute();
 
+  const checkIds = checks.map((c) => c.id);
+
   // Latest observation per check in one query (Postgres DISTINCT ON) —
   // no per-check round trips.
   const latestRows =
-    checks.length === 0
+    checkIds.length === 0
       ? []
       : await db
           .selectFrom("url_check_observations")
           .selectAll()
-          .where(
-            "urlCheckId",
-            "in",
-            checks.map((c) => c.id),
-          )
+          .where("urlCheckId", "in", checkIds)
           .distinctOn("urlCheckId")
           .orderBy("urlCheckId")
           .orderBy("scheduledAt", "desc")
           .execute();
   const latestByCheck = new Map(latestRows.map((r) => [r.urlCheckId, r]));
 
+  // Compact 24h summary per check in one GROUP BY (spec 053 US1/US2):
+  // same formulas as getMetrics — MISSED counts as unsuccessful, and
+  // percentiles cover SUCCESS durations only (the CASE evaluates to null
+  // for other outcomes and percentile_cont ignores nulls).
+  const cutoff = new Date(Date.now() - SUMMARY_WINDOW_MS).toISOString();
+  const summaryRows =
+    checkIds.length === 0
+      ? []
+      : await db
+          .selectFrom("url_check_observations")
+          .select((eb) => [
+            "urlCheckId",
+            eb.fn
+              .countAll()
+              .filterWhere("outcome", "=", "SUCCESS")
+              .as("success"),
+            eb.fn
+              .countAll()
+              .filterWhere("outcome", "=", "FAILURE")
+              .as("failure"),
+            eb.fn.countAll().filterWhere("outcome", "=", "MISSED").as("missed"),
+            sql<
+              number | null
+            >`percentile_cont(0.95) within group (order by case when outcome = 'SUCCESS' then "durationMs" end)`.as(
+              "p95",
+            ),
+          ])
+          .where("urlCheckId", "in", checkIds)
+          .where("scheduledAt", ">=", cutoff)
+          .groupBy("urlCheckId")
+          .execute();
+  const summaryByCheck = new Map(summaryRows.map((r) => [r.urlCheckId, r]));
+
+  // Last N observations per check in one windowed query — the payload
+  // the table's outcome-dot strip renders without per-row requests.
+  const recentRows =
+    checkIds.length === 0
+      ? []
+      : await db
+          .selectFrom((qb) =>
+            qb
+              .selectFrom("url_check_observations")
+              .selectAll()
+              .select(
+                sql<number>`row_number() over (partition by "urlCheckId" order by "scheduledAt" desc)`.as(
+                  "rn",
+                ),
+              )
+              .where("urlCheckId", "in", checkIds)
+              .as("ranked"),
+          )
+          .selectAll()
+          .where("rn", "<=", RECENT_OBSERVATIONS_PER_CHECK)
+          .orderBy("urlCheckId")
+          .orderBy("scheduledAt", "desc")
+          .execute();
+  const recentByCheck = new Map<string, typeof recentRows>();
+  for (const row of recentRows) {
+    const list = recentByCheck.get(row.urlCheckId) ?? [];
+    list.push(row);
+    recentByCheck.set(row.urlCheckId, list);
+  }
+
   const items: UrlCheckListItem[] = [];
   for (const row of checks) {
     const latest = latestByCheck.get(row.id);
+    const agg = summaryByCheck.get(row.id);
+    const success = Number(agg?.success ?? 0);
+    const failure = Number(agg?.failure ?? 0);
+    const missed = Number(agg?.missed ?? 0);
+    const rollup = summarizeOutcomeCounts(success, failure, missed);
     items.push({
       ...toApi(row),
       latest: latest
@@ -253,11 +350,19 @@ export async function listChecks(componentId: string): Promise<CheckListResult> 
             outcome: latest.outcome as UrlCheckObservation["outcome"],
             httpStatus: latest.httpStatus,
             durationMs: latest.durationMs,
-            errorType:
-              latest.errorType as UrlCheckObservation["errorType"],
+            errorType: latest.errorType as UrlCheckObservation["errorType"],
             vantage: latest.vantage as UrlCheckObservation["vantage"],
           }
         : null,
+      summary: {
+        window: "24h",
+        availability: rollup.availability,
+        p95:
+          agg?.p95 === null || agg?.p95 === undefined ? null : Number(agg.p95),
+        coverageGap: rollup.coverageGap,
+        counts: { success, failure, missed },
+      },
+      recent: (recentByCheck.get(row.id) ?? []).map(observationToApi),
     });
   }
   return { setup, checks: items };
@@ -333,8 +438,7 @@ export async function insertCheck(
       successPolicy: parsed.successPolicy ?? DEFAULT_POLICY,
       authMode: parsed.authMode,
       authConfig: parsed.authConfig ?? null,
-      availabilityTarget:
-        parsed.availabilityTarget?.toString() ?? null,
+      availabilityTarget: parsed.availabilityTarget?.toString() ?? null,
       targetWindow: parsed.targetWindow ?? null,
       nextProbeAt: parsed.enabled ? now : null,
       createdBy: actor.id,
@@ -354,8 +458,7 @@ export async function insertCheck(
         url: parsed.url,
         method: parsed.method,
         authMode: parsed.authMode,
-        credentialId:
-          parsed.authMode === "NONE" ? null : parsed.credentialId,
+        credentialId: parsed.authMode === "NONE" ? null : parsed.credentialId,
       },
       actor,
     },
@@ -434,14 +537,16 @@ export async function updateCheck(
           ? parsed.componentInstanceId
           : undefined,
       authMode: effectiveAuthMode,
-      credentialId:
-        effectiveAuthMode === "NONE" ? null : effectiveCredentialId,
+      credentialId: effectiveAuthMode === "NONE" ? null : effectiveCredentialId,
       authConfig: effectiveAuthMode === "NONE" ? null : effectiveAuthConfig,
       vantage: setup.vantage,
     });
 
     const now = new Date().toISOString();
-    const fields: Record<string, unknown> = { updatedAt: now, updatedBy: actor.id };
+    const fields: Record<string, unknown> = {
+      updatedAt: now,
+      updatedBy: actor.id,
+    };
     const changes: Record<string, unknown> = {};
     const set = (col: string, val: unknown) => {
       fields[col] = val;
@@ -458,10 +563,7 @@ export async function updateCheck(
     if (parsed.successPolicy !== undefined)
       set("successPolicy", parsed.successPolicy ?? DEFAULT_POLICY);
     if (parsed.availabilityTarget !== undefined)
-      set(
-        "availabilityTarget",
-        parsed.availabilityTarget?.toString() ?? null,
-      );
+      set("availabilityTarget", parsed.availabilityTarget?.toString() ?? null);
     if (parsed.targetWindow !== undefined)
       set("targetWindow", parsed.targetWindow);
     if (parsed.authMode !== undefined) {
@@ -551,25 +653,14 @@ export async function getMetrics(
     .where("component_monitoring_setups.id", "=", check.setupId)
     .executeTakeFirstOrThrow();
 
-  const windowMs = { "24h": 864e5, "7d": 7 * 864e5, "30d": 30 * 864e5 }[
-    window
-  ];
+  const windowMs = { "24h": 864e5, "7d": 7 * 864e5, "30d": 30 * 864e5 }[window];
   const cutoff = new Date(Date.now() - windowMs).toISOString();
   const counts = await db
     .selectFrom("url_check_observations")
     .select((eb) => [
-      eb
-        .fn.countAll()
-        .filterWhere("outcome", "=", "SUCCESS")
-        .as("success"),
-      eb
-        .fn.countAll()
-        .filterWhere("outcome", "=", "FAILURE")
-        .as("failure"),
-      eb
-        .fn.countAll()
-        .filterWhere("outcome", "=", "MISSED")
-        .as("missed"),
+      eb.fn.countAll().filterWhere("outcome", "=", "SUCCESS").as("success"),
+      eb.fn.countAll().filterWhere("outcome", "=", "FAILURE").as("failure"),
+      eb.fn.countAll().filterWhere("outcome", "=", "MISSED").as("missed"),
     ])
     .where("urlCheckId", "=", checkId)
     .where("scheduledAt", ">=", cutoff)
@@ -578,9 +669,15 @@ export async function getMetrics(
   const percentiles = await db
     .selectFrom("url_check_observations")
     .select([
-      sql<number | null>`percentile_cont(0.5) within group (order by "durationMs")`.as("p50"),
-      sql<number | null>`percentile_cont(0.95) within group (order by "durationMs")`.as("p95"),
-      sql<number | null>`percentile_cont(0.99) within group (order by "durationMs")`.as("p99"),
+      sql<
+        number | null
+      >`percentile_cont(0.5) within group (order by "durationMs")`.as("p50"),
+      sql<
+        number | null
+      >`percentile_cont(0.95) within group (order by "durationMs")`.as("p95"),
+      sql<
+        number | null
+      >`percentile_cont(0.99) within group (order by "durationMs")`.as("p99"),
     ])
     .where("urlCheckId", "=", checkId)
     .where("outcome", "=", "SUCCESS")
@@ -599,13 +696,10 @@ export async function getMetrics(
   const success = Number(counts.success);
   const failure = Number(counts.failure);
   const missed = Number(counts.missed);
-  const scheduled = success + failure + missed;
 
   return {
     window,
-    availability: scheduled > 0 ? success / scheduled : null,
-    errorRate: success + failure > 0 ? failure / (success + failure) : null,
-    coverageGap: scheduled > 0 ? missed / scheduled : 0,
+    ...summarizeOutcomeCounts(success, failure, missed),
     p50: percentiles.p50 === null ? null : Number(percentiles.p50),
     p95: percentiles.p95 === null ? null : Number(percentiles.p95),
     p99: percentiles.p99 === null ? null : Number(percentiles.p99),

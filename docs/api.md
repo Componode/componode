@@ -458,7 +458,7 @@ the URL check permissions. Observation history is retained for 30 days.
 |---|---|---|---|
 | GET | `/api/v1/components/:componentId/monitoring-setup` | Get the component's URL check monitoring setup | Authenticated |
 | PUT | `/api/v1/components/:componentId/monitoring-setup` | Upsert monitoring defaults (cadence, vantage, agent) | `monitoringSetup:update` |
-| GET | `/api/v1/components/:componentId/url-checks` | List URL checks for a component (with latest observation) | Authenticated |
+| GET | `/api/v1/components/:componentId/url-checks` | List URL checks for a component (with latest, 24h summary, and recent observations) | Authenticated |
 | POST | `/api/v1/components/:componentId/url-checks` | Create a URL check on a component instance | `urlCheck:create` |
 | GET | `/api/v1/url-checks/:id` | Get a URL check | Authenticated |
 | PATCH | `/api/v1/url-checks/:id` | Update a URL check (incl. enable/disable) | `urlCheck:update` |

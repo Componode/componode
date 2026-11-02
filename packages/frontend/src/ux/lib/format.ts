@@ -1,5 +1,7 @@
-
-const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto", style: "short" })
+const rtf = new Intl.RelativeTimeFormat("en", {
+  numeric: "auto",
+  style: "short",
+});
 
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ["year", 31536000],
@@ -9,20 +11,25 @@ const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ["hour", 3600],
   ["minute", 60],
   ["second", 1],
-]
+];
 
 /** Relative time against a fixed "now" so the prototype renders deterministically. */
 export function relativeTime(iso: string, now: Date = new Date()): string {
-  const diff = (new Date(iso).getTime() - now.getTime()) / 1000
+  const diff = (new Date(iso).getTime() - now.getTime()) / 1000;
   for (const [unit, secs] of UNITS) {
     if (Math.abs(diff) >= secs || unit === "second") {
-      return rtf.format(Math.round(diff / secs), unit)
+      return rtf.format(Math.round(diff / secs), unit);
     }
   }
-  return ""
+  return "";
 }
 
-const dateFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+const dateFmt = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
 const dateTimeFmt = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
@@ -31,19 +38,29 @@ const dateTimeFmt = new Intl.DateTimeFormat("en-GB", {
   minute: "2-digit",
   timeZone: "UTC",
   timeZoneName: "short",
-})
+});
 
-export const formatDate = (iso: string) => dateFmt.format(new Date(iso))
-export const formatDateTime = (iso: string) => dateTimeFmt.format(new Date(iso))
-export const formatNumber = (n: number) => new Intl.NumberFormat("en").format(n)
+export const formatDate = (iso: string) => dateFmt.format(new Date(iso));
+export const formatDateTime = (iso: string) =>
+  dateTimeFmt.format(new Date(iso));
+export const formatNumber = (n: number) =>
+  new Intl.NumberFormat("en").format(n);
 
 export function formatDuration(sec: number | null): string {
-  if (sec == null) return "—"
-  if (sec < 60) return `${sec}s`
-  const m = Math.floor(sec / 60)
-  const s = sec % 60
-  return s ? `${m}m ${s}s` : `${m}m`
+  if (sec == null) return "—";
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return s ? `${m}m ${s}s` : `${m}m`;
 }
+
+/** 0..1 ratio → "97.50%" ("100%" when whole); null → "—". */
+export const formatPct = (v: number | null) =>
+  v == null ? "—" : `${(v * 100).toFixed(v === 1 ? 0 : 2)}%`;
+
+/** Milliseconds → "340 ms"; null → "—". */
+export const formatMs = (v: number | null) =>
+  v == null ? "—" : `${Math.round(v)} ms`;
 
 export function initials(name: string): string {
   return name
@@ -51,5 +68,5 @@ export function initials(name: string): string {
     .filter(Boolean)
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase())
-    .join("")
+    .join("");
 }
