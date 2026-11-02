@@ -40,7 +40,9 @@ export default defineConfig({
       name: 'firefox-smoke',
       use: {
         ...devices['Desktop Firefox'],
-        firefoxUserPrefs: { 'security.enterprise_roots.enabled': true },
+        launchOptions: {
+          firefoxUserPrefs: { 'security.enterprise_roots.enabled': true },
+        },
       },
       grep: /@smoke/,
     },

@@ -65,7 +65,7 @@ export interface ControlHooks {
   getScenario(): string;
   setScenario(name: string): boolean;
   scenarios(): string[];
-  log: RequestLog;
+  log: { list(): unknown[]; clear(): void };
 }
 
 /**

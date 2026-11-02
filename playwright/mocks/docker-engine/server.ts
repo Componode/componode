@@ -79,12 +79,16 @@ const server = startDataServer({
 
     if (s === 'malformed') {
       res.writeHead(200, { 'content-type': 'application/json' });
-      return res.end('{"broken": ');
+      res.end('{"broken": ');
+      return;
     }
     if (s === 'error') return json(res, 500, { message: 'mock engine error' });
 
     const p = url.pathname;
-    if (p === '/_ping') return res.writeHead(200).end('OK');
+    if (p === '/_ping') {
+      res.writeHead(200).end('OK');
+      return;
+    }
     if (p === '/info') return json(res, 200, s === 'swarm' ? INFO_SWARM : INFO);
     if (p === '/version') {
       return json(res, 200, {

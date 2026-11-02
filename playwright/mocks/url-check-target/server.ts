@@ -76,10 +76,9 @@ const control = startControlServer(Number(env('MOCK_CONTROL_PORT', '9444')), {
   },
   scenarios: () => [...SCENARIOS],
   log: {
-    list: () => probes,
+    list: () => probes as unknown[],
     clear: () => { probes.length = 0; log.clear(); },
-    add: (e) => log.add(e),
-  } as RequestLog,
+  },
 });
 
 console.log(`url-check-target mock :${env('MOCK_PORT', '9080')} control :${env('MOCK_CONTROL_PORT', '9444')}`);

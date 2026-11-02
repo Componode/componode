@@ -1,0 +1,46 @@
+import { test, expect } from '@playwright/test';
+import { apiLogin } from '../fixtures/auth.js';
+import { readFileSync } from 'node:fs';
+
+const BASE = 'https://app.componode-pw.test';
+const CTL = 'http://mock-control:9090';
+
+test.describe('hub probe observations (four auth modes)', () => {
+  test('mock target records matching auth for BASIC, BEARER, CUSTOM_HEADERS', async ({ request }) => {
+    test.setTimeout(90_000);
+    const api = await apiLogin(request, BASE, 'ADMIN');
+    await api('POST', 'http://mock-control:9090/reset/mock-url-check-target');
+
+    const deadline = Date.now() + 60_000;
+    let probes: any[] = [];
+    while (Date.now() < deadline) {
+      const res = await fetch(`${CTL}/requests/mock-url-check-target`);
+      const body = await res.json();
+      probes = body.requests ?? [];
+      const paths = probes.map((p: any) => p.path);
+      if (['/none', '/basic', '/bearer', '/custom'].every((p) => paths.includes(p))) break;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+
+    const byPath = (p: string) => probes.filter((r: any) => r.path === p);
+    expect(byPath('/none').length).toBeGreaterThan(0);
+    expect(byPath('/basic').some((r: any) => r.authMatch === true)).toBeTruthy();
+    expect(byPath('/bearer').some((r: any) => r.authMatch === true)).toBeTruthy();
+    expect(byPath('/custom').some((r: any) => r.authMatch === true)).toBeTruthy();
+
+    // Recorded headers never include raw credential values — only names.
+    for (const r of probes) {
+      expect(JSON.stringify(r)).not.toMatch(/PWP_|Bearer pw-t|Basic [A-Za-z0-9+/=]{8,}/);
+    }
+  });
+
+  test('observations are visible through the API', async ({ request }) => {
+    const api = await apiLogin(request, BASE, 'ADMIN');
+    const compId = JSON.parse(readFileSync('/pw-private/seed-result.json', 'utf8')).probeComponentId;
+    const checks = await api('GET', `/api/v1/components/${compId}/url-checks`);
+    const list = checks.body.checks ?? checks.body.items ?? checks.body;
+    expect(list.length).toBeGreaterThan(0);
+    const obs = await api('GET', `/api/v1/url-checks/${list[0].id}/observations`);
+    expect(obs.status).toBe(200);
+  });
+});
