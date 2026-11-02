@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-31
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: Gap-registry entries G29, G31, G32 (`researches/ux-rewrite-gaps.md`) — the three remaining feature-spec gaps of the UX rewrite. Bundled like specs 039/040 bundled related gaps.
 

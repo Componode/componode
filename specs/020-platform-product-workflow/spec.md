@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-18
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: Implement Phase 0 items 0.3 and 0.4 of the ratified practical-DPAM
 improvement plan (`researches/digital_product_concepts_review_research.md`,

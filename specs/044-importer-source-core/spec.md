@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-31
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: Phase 1 / Wave A of the Docker importer program (`researches/docker-importer-implementation-tracking.md`, `researches/docker-importer-spec-waves.md`), implementing the contracts ratified in spec 043 (ADR-119 plus amendments to ADR-035/036/037/047/056/065/077/116): the generic `ImporterSource` core — durable `ImporterSource` entity, source-identification callback before asset yield, one-config-per-Source binding, `ImportRun.sourceId` + nullable `configId`, durable Source→Component/ComponentInstance memberships, source-scoped reconciliation and retirement, generic Agent target resolver/preflight contract, and best-effort legacy handling for not-yet-migrated importers.
 

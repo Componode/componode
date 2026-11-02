@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-15
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: Triggering a saved GitHub importer via the Run button returned
 `400 INTERNAL_ERROR` — `"Body cannot be empty when content-type is set to

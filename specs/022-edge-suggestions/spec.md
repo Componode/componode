@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-19
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: `022-edge-suggestions` — implement the ratified Phase-1
 edge-suggestions item of the practical-DPAM improvement plan

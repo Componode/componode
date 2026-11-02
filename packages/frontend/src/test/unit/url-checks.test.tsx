@@ -186,6 +186,9 @@ const apiCheck = {
   availabilityTarget: null,
   targetWindow: null,
   nextProbeAt: "2026-11-01T10:05:00Z",
+  autoDisableAfter: null,
+  consecutiveFailures: 0,
+  autoDisabledAt: null,
   createdBy: null,
   updatedBy: null,
   createdAt: "2026-11-01T09:00:00Z",
@@ -617,6 +620,32 @@ describe("UrlChecksCard (spec 051 US1/US3)", () => {
     wrap(<UrlChecksCard component={component} />);
     expect(screen.getByText("Disabled")).toBeTruthy();
     expect(screen.getByText("97.50%")).toBeTruthy();
+  });
+
+  it("renders the Auto-disabled badge distinct from a manual Disabled (spec 056)", () => {
+    urlChecksImpl.fn = () => ({
+      data: {
+        setup: null,
+        checks: [
+          {
+            ...apiCheck,
+            enabled: false,
+            autoDisabledAt: "2026-11-01T10:12:00Z",
+            consecutiveFailures: 12,
+            latest: latestOk,
+            summary: summaryOf(),
+            recent: recentOf(2),
+          },
+        ],
+      },
+      isPending: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    wrap(<UrlChecksCard component={component} />);
+    expect(screen.getByText("Auto-disabled")).toBeTruthy();
+    expect(screen.queryByText("Disabled")).toBeNull();
   });
 });
 

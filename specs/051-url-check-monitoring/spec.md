@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-01
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Unified HTTP(S) URL Check monitoring per ADR-123 (`researches/adrs/ADR-123-http-url-check-monitoring.md`) and `researches/url_importer_multi_endpoint_research.md`: administrators manage multiple HTTP(S) checks per Component from the Component detail page (or create a Component and its first checks together); each check attaches to a ComponentInstance; probes run on a schedule from the Hub or a selected Import Agent; the system collects availability, HTTP status, request-to-response-headers latency (p50/p95/p99), TTFB, and error rate with 24h/7d/30d rolling windows and 30-day observation retention; API-type checks support Basic Auth, Bearer Token, and custom headers via reusable Credentials; ADR-106 destination restrictions are unchanged; monitoring state never overwrites importer-reported ComponentInstance status or product health."
 

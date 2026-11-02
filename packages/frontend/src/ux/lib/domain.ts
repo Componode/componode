@@ -21,7 +21,7 @@ export type DisconnectReason = "client_close" | "heartbeat_timeout" | "revoked" 
 export type CredentialKind = "STORED" | "AGENT_MANAGED"
 export type UrlCheckVantage = "HUB" | "AGENT"
 /** Derived client-side: enabled + latest observation outcome (spec 051). */
-export type UrlCheckStatus = "UP" | "DOWN" | "NO_DATA" | "DISABLED"
+export type UrlCheckStatus = "UP" | "DOWN" | "NO_DATA" | "DISABLED" | "AUTO_DISABLED"
 export type UrlCheckOutcome = "SUCCESS" | "FAILURE" | "MISSED"
 export type UrlCheckMethod = "GET" | "HEAD"
 export type UrlCheckAuthMode = "NONE" | "BASIC" | "BEARER" | "CUSTOM_HEADERS"
@@ -141,6 +141,7 @@ export const CHECK_STATUS_META: Record<UrlCheckStatus, Meta> = {
   DOWN: { label: "Down", description: "Latest probe failed under the check's success policy", tone: "destructive" },
   NO_DATA: { label: "No data", description: "No probe observations recorded yet", tone: "neutral" },
   DISABLED: { label: "Disabled", description: "Probes are not scheduled; history is retained", tone: "neutral" },
+  AUTO_DISABLED: { label: "Auto-disabled", description: "Stopped after reaching its consecutive-failure threshold — re-enable resumes probing", tone: "warning" },
 }
 
 /** Observation outcome — MISSED means the monitor itself did not run a scheduled slot (coverage gap). */

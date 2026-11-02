@@ -2,6 +2,7 @@ import * as React from "react"
 import { PencilIcon, PlusIcon } from "lucide-react"
 import { toast } from "sonner"
 import {
+  URL_CHECK_AUTO_DISABLE_AFTER_MAX,
   URL_CHECK_MAX_CADENCE_SECONDS,
   URL_CHECK_MIN_CADENCE_SECONDS,
 } from "@componode/core"
@@ -70,6 +71,7 @@ export function UrlCheckEditor({
   const [statusesInput, setStatusesInput] = React.useState("200-299")
   const [targetInput, setTargetInput] = React.useState("")
   const [targetWindow, setTargetWindow] = React.useState<"24H" | "7D" | "30D">("24H")
+  const [autoDisableInput, setAutoDisableInput] = React.useState("")
   const [authMode, setAuthMode] = React.useState<UrlCheckAuthMode>("NONE")
   const [credentialId, setCredentialId] = React.useState("")
   const [usernameKey, setUsernameKey] = React.useState("username")
@@ -89,6 +91,7 @@ export function UrlCheckEditor({
     setStatusesInput(check ? statusesInputOf(check.successPolicy) : "200-299")
     setTargetInput(check?.availabilityTarget != null ? String(check.availabilityTarget) : "")
     setTargetWindow(check?.targetWindow ?? "24H")
+    setAutoDisableInput(check?.autoDisableAfter != null ? String(check.autoDisableAfter) : "")
     setAuthMode(check?.authMode ?? "NONE")
     setCredentialId(check?.credentialId ?? "")
     const cfg = check?.authConfig as Record<string, unknown> | null
@@ -103,7 +106,7 @@ export function UrlCheckEditor({
     // Re-seeds the form from `check`/`component.instances` each time the dialog opens.
   }, [open])
 
-  function validate(): { error?: string; cadenceSeconds: number | null; availabilityTarget: number | null } | { error: string } {
+  function validate(): { error?: string; cadenceSeconds: number | null; availabilityTarget: number | null; autoDisableAfter: number | null } | { error: string } {
     if (!name.trim()) return { error: "Name is required." }
     if (!url.trim()) return { error: "URL is required." }
     if (!URL_RE.test(url.trim())) return { error: "URL must start with http:// or https://." }
@@ -122,6 +125,14 @@ export function UrlCheckEditor({
       if (!Number.isFinite(t) || t < 0 || t > 100) return { error: "Availability target must be 0–100." }
       availabilityTarget = t
     }
+    let autoDisableAfter: number | null = null
+    if (autoDisableInput.trim() !== "") {
+      const n = Number(autoDisableInput)
+      if (!Number.isInteger(n) || n < 0 || n > URL_CHECK_AUTO_DISABLE_AFTER_MAX) {
+        return { error: `Auto-disable must be a whole number 0–${URL_CHECK_AUTO_DISABLE_AFTER_MAX}, or empty to inherit.` }
+      }
+      autoDisableAfter = n
+    }
     const authError = validateUrlCheckDraft({
       isApi,
       authMode,
@@ -132,7 +143,7 @@ export function UrlCheckEditor({
       headers,
     })
     if (authError) return { error: authError }
-    return { cadenceSeconds, availabilityTarget }
+    return { cadenceSeconds, availabilityTarget, autoDisableAfter }
   }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -141,7 +152,7 @@ export function UrlCheckEditor({
     if (policy.error || !policy.policy) return setError(policy.error ?? "Invalid accepted statuses.")
     const v = validate()
     if ("error" in v && v.error) return setError(v.error)
-    const { cadenceSeconds, availabilityTarget } = v as { cadenceSeconds: number | null; availabilityTarget: number | null }
+    const { cadenceSeconds, availabilityTarget, autoDisableAfter } = v as { cadenceSeconds: number | null; availabilityTarget: number | null; autoDisableAfter: number | null }
 
     const effectiveAuth: UrlCheckAuthMode = isApi ? authMode : "NONE"
     const authConfig = urlCheckAuthConfigOf({
@@ -164,6 +175,7 @@ export function UrlCheckEditor({
       successPolicy: policy.policy,
       availabilityTarget,
       targetWindow: availabilityTarget != null ? targetWindow : null,
+      autoDisableAfter,
       authMode: effectiveAuth,
       credentialId: effectiveAuth === "NONE" ? null : credentialId || null,
       authConfig,
@@ -302,6 +314,19 @@ export function UrlCheckEditor({
             <Field orientation="horizontal" className="items-center justify-between">
               <FieldLabel htmlFor="uce-enabled">Enabled</FieldLabel>
               <Switch id="uce-enabled" checked={enabled} onCheckedChange={setEnabled} aria-label="Check enabled" />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="uce-auto-disable">Auto-disable after consecutive failures</FieldLabel>
+              <Input
+                id="uce-auto-disable"
+                inputMode="numeric"
+                placeholder="12 (global default)"
+                value={autoDisableInput}
+                onChange={(e) => setAutoDisableInput(e.target.value)}
+              />
+              <FieldDescription>
+                Consecutive failed or missed probes before the check disables itself. Empty inherits the global default (12); 0 never auto-disables.
+              </FieldDescription>
             </Field>
             {isApi && (
               <UrlCheckAuthFields idPrefix="uce"

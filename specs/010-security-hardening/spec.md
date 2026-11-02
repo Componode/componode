@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-13
 
-**Status**: Implemented
+**Status**: Shipped
 
 **Input**: Remediate all critical, high, and medium findings of the 2026-09-10
 security assessment (`docs/security/2026-09-10-security-assessment.md`,

@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-31
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: Gap-registry items G23, G24, and G25 (`researches/ux-rewrite-gaps.md`). The UX conformance pass (spec 038) shipped flag-gated dashboard surfaces — a `+N this week` line on the stat grid, a `detail` sub-line on attention rows plus a `CREDENTIAL_EXPIRING` kind the card copy already promises, and an "Enrolled by" agent-detail header — that render nothing because the backend payloads omit the underlying data. This spec ships the backend capability so the flags can flip ON and the fallback copy comes down.
 

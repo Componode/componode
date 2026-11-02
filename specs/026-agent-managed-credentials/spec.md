@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-21
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "026-agent-managed-credentials — second spec of
 the remote Import Agents work. Decisions ratified in

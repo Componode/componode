@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-31
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: Add practical, all-optional metadata to Digital Products and Components — links, tags, criticality, and a planned sunset date — per the practical-DPAM grilling session ratified in [ADR-111](../../researches/adrs/ADR-111-practical-catalog-metadata.md).
 

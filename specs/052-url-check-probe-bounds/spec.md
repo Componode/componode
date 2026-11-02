@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-01
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Operational bounds (G1) · P1 — from `researches/url_check_monitoring_gap_analysis.md`: add Agent-vantage concurrency/rate limiting, cancellation, and timeout/disconnect/late-result semantics so scheduled URL Check probes on Import Agents are admission-controlled and promptly cancellable, closing the FR-011 gap where configured system bounds only apply to Hub-vantage probes; amend ADR-124 if execution contract surfaces change."
 

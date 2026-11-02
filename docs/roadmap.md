@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–048, 051–054)
+## Shipped (features 001–056)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -296,13 +296,27 @@ file tracks shipped and upcoming work — update it when a spec completes.
   Credential/Import Agent selector boundaries are enforced server-side —
   ordinary checks and Hub setup remain EDITOR while `credential:read` and
   `agent:read` stay ADMIN.
+- `055-playwright-workload` — Playwright workload suite hardening:
+  test branches raise GitHub issues rather than patch app source,
+  hub-probe re-arm ordering and product-detail navigation fixes.
+- `056-url-check-failure-policy` — repeated-failure policy for URL
+  checks (gap-analysis Phase 4; ADR-124 Amendment 3): a check probes at
+  cadence with one observation per slot and **auto-disables** after a
+  configurable consecutive non-success streak (`FAILURE` + `MISSED`
+  count, `SUCCESS` resets) — global `URL_CHECK_AUTO_DISABLE_AFTER`
+  default (12) with a per-check override and `0` = never. The disable is
+  audited under the system actor, shows an Auto-disabled state distinct
+  from manual disable, and resumes only via manual re-enable; alerting
+  stays out of scope. Also normalizes every shipped spec's `Status` to
+  `Shipped` and records the `Draft`→`Shipped` convention in AGENTS.md.
 
 ## Next — post-v1.1
 
 The Docker importer program's mapped waves (A–E) plus Hub execution
-(049) are complete and URL Check monitoring (051), its operational
-bounds (052), the Component-level summary (053), and onboarding
-completion (054) have shipped; `055` is the next open spec slot — see
+(049) are complete and the URL Check monitoring program — monitoring
+(051), operational bounds (052), the Component-level summary (053),
+onboarding completion (054), and the repeated-failure auto-disable
+policy (056) — has shipped; `057` is the next open spec slot — see
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new
 importer wave).

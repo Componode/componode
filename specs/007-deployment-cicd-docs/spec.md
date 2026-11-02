@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-08
 
-**Status**: Ratified
+**Status**: Shipped
 
 **Input**: User description: "the next step" (inferred from constitution v1.0.2: Docker Compose packaging, CI/CD changesets, and generated docs)
 

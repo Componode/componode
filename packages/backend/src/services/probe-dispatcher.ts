@@ -26,6 +26,7 @@ import {
 } from "@componode/core";
 import { db } from "../db/connection.js";
 import { envInt } from "../utils/env.js";
+import { evaluateAutoDisable } from "./url-check-auto-disable.js";
 import { metrics } from "../plugins/metrics.js";
 import { logger } from "../plugins/logging.js";
 import { decryptSecrets, loadKeyring } from "../utils/credential-crypto.js";
@@ -190,8 +191,9 @@ interface ObservationInput {
   agentId?: string | null;
 }
 
-// One observation + the nextProbeAt advance, atomically. Metrics and the
-// finalize log follow the same finalize-point convention as agent jobs.
+// One observation + the nextProbeAt advance + the consecutive-failure
+// streak step, atomically (spec 056). Metrics and the finalize log follow
+// the same finalize-point convention as agent jobs.
 async function recordObservation(
   checkId: string,
   scheduledAt: string,
@@ -213,18 +215,34 @@ async function recordObservation(
         agentId: obs.agentId ?? null,
       })
       .execute();
-    await trx
+    const updated = await trx
       .updateTable("url_checks")
       .set({
         nextProbeAt: nextSlotSql(scheduledAt, cadenceSeconds),
         updatedAt: new Date().toISOString(),
+        // Spec 056: FAILURE and MISSED advance the streak; SUCCESS resets.
+        consecutiveFailures:
+          obs.outcome === "SUCCESS"
+            ? 0
+            : sql<number>`"consecutiveFailures" + 1`,
       })
       .where("id", "=", checkId)
       // A check disabled mid-flight keeps its cleared schedule (spec 052
       // US2): the in-flight slot still records its outcome, but nothing
-      // new is armed for a disabled check.
+      // new is armed for a disabled check — and a late result never
+      // mutates the streak.
       .where("enabled", "=", true)
-      .execute();
+      .returning(["consecutiveFailures", "autoDisableAfter"])
+      .executeTakeFirst();
+    if (updated) {
+      await evaluateAutoDisable(
+        trx,
+        checkId,
+        updated.consecutiveFailures,
+        updated.autoDisableAfter,
+        obs.vantage,
+      );
+    }
   });
   metrics.urlCheckProbesTotal.inc({
     vantage: obs.vantage,

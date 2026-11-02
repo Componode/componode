@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-18
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: Verified browser audit in `researches/app_shell_layout_research.md`
 (§5, defects D1/D3/D4). Three app-shell defects were reproduced at real

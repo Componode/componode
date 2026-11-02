@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-24
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Resolve ux-rewrite gap G2 — session
 metadata. Sessions need `device` (user-agent parse), `location` (client

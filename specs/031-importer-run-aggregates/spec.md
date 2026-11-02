@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-24
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Resolve ux-rewrite gap G1 — per-day importer
 run aggregates. The importer card sparkline and importer-detail history

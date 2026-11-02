@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-02
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Deliver the generic importer framework and the first concrete GitHub importer so an admin can configure and schedule a run, an editor/admin can trigger it, and every authenticated user can watch live run progress. The backend must upsert and reconcile components and instances per ADR-035/036/037/056/057/058/059/060/061/062/063."
 

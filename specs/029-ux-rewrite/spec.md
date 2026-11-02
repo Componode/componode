@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-23
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Rewrite `packages/frontend` so the Componode dashboard matches the v0 design prototype (github.com/Componode/v0-componode-dpam). The prototype is the source of truth for layout, copy, states, and interaction; the Componode backend is the source of truth for data and rules. Stage the new UX alongside the existing UI until it is functional; on approval, documented, mapped, and a UX/UI baseline is established, it merges to main as version 1.1.0. Follow the prototype's own rewrite instructions (`docs/ux-rewrite-instructions.md`), data-model diff (`docs/ux-data-model.md`), and per-route wiring contract (`lib/wiring.ts`)."
 

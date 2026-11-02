@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-08
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "RFC 7807 error wrapping" (selected from the v1.1 roadmap; standardize API error responses to the RFC 7807 `problem+json` format while preserving Componode's existing machine-readable error codes).
 

@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-30
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Correct the UX non-conformities found by the 1.1.0-vs-v0 conformance review. The review compared `packages/frontend/src/ux` (plus `src/pages` auth pages) against the `v0-componode-dpam` design prototype, `docs/ux.md` (ratified baseline), spec-029 FRs, and the `flags.ts`/`ux-rewrite-gaps.md` gap registry. A grilling session ratified every disposition: defects get regression-tested fixes, silently-vanished prototype elements get restored or gap-registered, fakes get deleted, and the shipped product-map canvas is ratified via an ADR amendment instead of removed."
 

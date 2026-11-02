@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-18
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "The GitHub importer does not save the PAT (API key/secret) in the database for reuse. Grill the architecture and set good practices for storing integration keys in the database with security, tracking, storage resilience, and lifecycle management. Scope: in-app integration secrets only (importer credentials, OIDC client secrets, outbound API auth) — infrastructure/deployment secrets (database passwords, container registries, monitoring) stay external."
 

@@ -58,6 +58,14 @@ export interface UrlCheck {
   availabilityTarget: number | null;
   targetWindow: "24H" | "7D" | "30D" | null;
   nextProbeAt: string | null;
+  // null → inherit URL_CHECK_AUTO_DISABLE_AFTER; 0 → never auto-disable
+  // (spec 056, ADR-124 Amendment 3).
+  autoDisableAfter: number | null;
+  // Server-managed: consecutive non-SUCCESS observations (FAILURE|MISSED).
+  consecutiveFailures: number;
+  // Set only by the auto-disable transition; distinguishes auto-disable
+  // from a manual disable. Cleared on re-enable.
+  autoDisabledAt: string | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: string;

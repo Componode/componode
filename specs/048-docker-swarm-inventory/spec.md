@@ -2,7 +2,7 @@
 
 **Feature Branch**: `048-docker-swarm-inventory`  
 **Created**: 2026-11-01  
-**Status**: Draft  
+**Status**: Shipped  
 **Input**: Docker importer program Wave E — auto-discover Swarm endpoints and inventory services, nodes, and secret references through the same agent-bound importer (`researches/docker-importer-spec-waves.md`, `researches/docker-importer-implementation-tracking.md` Phase 5).
 
 ## Clarifications

@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-02
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Component overview (G2) · P2 — from `researches/url_check_monitoring_gap_analysis.md`: add compact availability/latency metrics to the Component checks table, label window/vantage/coverage, and eliminate the one-observations-request-per-row fan-out."
 

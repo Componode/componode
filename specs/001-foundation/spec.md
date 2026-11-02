@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-16
 
-**Status**: Complete
+**Status**: Shipped
 
 **Input**: User description: "001-foundation — the irreducible core: shared contracts (DiscoveredAsset, Importer interface, entity types), database schema (24 tables per ADR-077, see data-model.md for count reconciliation), migrations, backend skeleton (Fastify, Kysely, auth middleware, error handling, session storage, RBAC enforcement, bootstrap admin, local auth, optional OIDC), and an empty dashboard frontend. Milestone: deploy Componode, log in, see an empty dashboard."
 

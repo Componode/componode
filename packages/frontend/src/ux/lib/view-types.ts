@@ -412,6 +412,12 @@ export interface UrlCheckView {
   availabilityTarget: number | null;
   targetWindow: UrlCheckTargetWindow | null;
   nextProbeAt: string | null;
+  /** null = inherit the global URL_CHECK_AUTO_DISABLE_AFTER; 0 = never auto-disable. */
+  autoDisableAfter: number | null;
+  /** Current non-SUCCESS streak — resets on SUCCESS and manual re-enable. */
+  consecutiveFailures: number;
+  /** Set only when the check disabled itself at its streak threshold. */
+  autoDisabledAt: string | null;
   createdAt: string;
   updatedAt: string;
   latest: UrlCheckLatestView | null;

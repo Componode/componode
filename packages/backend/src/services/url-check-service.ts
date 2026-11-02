@@ -50,6 +50,9 @@ function toApi(row: Selectable<UrlCheckRow>): UrlCheck {
       row.availabilityTarget === null ? null : Number(row.availabilityTarget),
     targetWindow: row.targetWindow as UrlCheck["targetWindow"],
     nextProbeAt: row.nextProbeAt,
+    autoDisableAfter: row.autoDisableAfter,
+    consecutiveFailures: row.consecutiveFailures,
+    autoDisabledAt: row.autoDisabledAt,
     createdBy: row.createdBy,
     updatedBy: row.updatedBy,
     createdAt: row.createdAt,
@@ -471,6 +474,7 @@ export async function insertCheck(
       authConfig: parsed.authConfig ?? null,
       availabilityTarget: parsed.availabilityTarget?.toString() ?? null,
       targetWindow: parsed.targetWindow ?? null,
+      autoDisableAfter: parsed.autoDisableAfter ?? null,
       nextProbeAt: parsed.enabled ? now : null,
       createdBy: actor.id,
       updatedBy: null,
@@ -611,7 +615,15 @@ export async function updateCheck(
     if (parsed.enabled !== undefined && parsed.enabled !== existing.enabled) {
       set("enabled", parsed.enabled);
       set("nextProbeAt", parsed.enabled ? now : null);
+      // Spec 056: manual re-enable is the only streak reset — clear the
+      // marker so a previously auto-disabled check starts a fresh run.
+      if (parsed.enabled) {
+        set("consecutiveFailures", 0);
+        set("autoDisabledAt", null);
+      }
     }
+    if (parsed.autoDisableAfter !== undefined)
+      set("autoDisableAfter", parsed.autoDisableAfter);
     // Schedule changes take effect on the next slot.
     if (parsed.cadenceSeconds !== undefined && existing.enabled) {
       fields.nextProbeAt = now;

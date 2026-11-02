@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-21
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "A new importer for Alibaba Cloud is required. We need to research the ways the importer can work and build a detailed plan to develop and test the importer." — decisions ratified in `researches/adrs/ADR-115-alibaba-cloud-importer.md` and `researches/alibaba-cloud-importer_research.md`.
 
