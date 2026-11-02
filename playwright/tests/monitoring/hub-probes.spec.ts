@@ -22,6 +22,9 @@ test.describe('hub probe observations (four auth modes)', () => {
     for (const check of checksRes.body.checks ?? []) {
       await api('PATCH', `/api/v1/url-checks/${check.id}`, { enabled: true });
     }
+    // Let any probes triggered by the re-arm land, THEN reset — ordering
+    // otherwise races (a probe landing between PATCH and reset is wiped).
+    await new Promise((r) => setTimeout(r, 15_000));
     await fetch(`${CTL}/reset/mock-url-check-target`, { method: 'POST' });
 
     const deadline = Date.now() + 75_000;

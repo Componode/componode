@@ -14,7 +14,8 @@ test.describe('catalog journeys', () => {
     expect(created.status).toBe(201);
 
     await loginPage(page, 'EDITOR');
-    await page.goto('/products');
+    // The list paginates client-side — navigate to the detail route directly.
+    await page.goto(`/products/${slug}-p`);
     await expect(page.getByText(`PW Journey Product ${slug}`)).toBeVisible({ timeout: 15_000 });
 
     // Retire via API (UI retire affordance varies); verify list hides it by default.
