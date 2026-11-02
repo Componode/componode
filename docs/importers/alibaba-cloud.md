@@ -69,7 +69,10 @@ smallest authenticated call.
 | `enrichResources` | bool | no | `false` | One GetResourceConfiguration call per resource — adds full config + status (~1 call per resource) |
 | `includeCosts` | bool | no | `false` | Attach details.billing per resource (needs BSS read) |
 | `billingPeriod` | string | no | — | Billing cycle to read (latest closed month when unset) |
-| `endpoint` | URL | no | — | Resource Center endpoint override (VPC/private gateway) — Resource Center only; STS/BSS use default resolution |
+| `region` | string | no | — | Pin all Alibaba SDK clients to this region (e.g. cn-hangzhou) — connectivity, not a discovery filter (that's regionIds); SDK default resolution when unset |
+| `endpoint` | URL | no | — | Resource Center endpoint override (VPC/private gateway) — Resource Center only; use stsEndpoint/bssEndpoint for STS/BSS |
+| `stsEndpoint` | URL | no | — | STS endpoint override (VPC gateway/mock) — wins over region for STS; default resolution when unset |
+| `bssEndpoint` | URL | no | — | BSS endpoint override (VPC gateway/mock) — wins over region for BSS; default resolution when unset |
 <!-- /GENERATED:contract -->
 
 
@@ -86,6 +89,16 @@ smallest authenticated call.
 - `component_instances.status` is non-nullable in the platform schema; an
   importer-emitted `null` status persists as `RUNNING` (see
   `specs/024-alibaba-cloud-importer/data-model.md` platform note).
+- `region` pins every Alibaba SDK client (Resource Center, STS, BSS) to a
+  region for connectivity — it is unrelated to `regionIds`, which only
+  filters which regions' resources get discovered.
+- Endpoint precedence per client: explicit endpoint (`endpoint`,
+  `stsEndpoint`, `bssEndpoint`) > `region` > SDK default resolution. With
+  nothing configured, STS and BSS use their documented global endpoints
+  (`sts.aliyuncs.com`, `business.aliyuncs.com`); Resource Center resolves
+  `resourcecenter.aliyuncs.com`.
+- Endpoint overrides take a URL (`https://host:port`); the scheme selects
+  the wire protocol and paths are ignored.
 
 ## Troubleshooting
 

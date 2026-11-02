@@ -1,6 +1,6 @@
-import ResourceCenter20221201, * as $ResourceCenter20221201 from "@alicloud/resourcecenter20221201";
-import Sts20150401 from "@alicloud/sts20150401";
-import BssOpenApi20171214, * as $BssOpenApi20171214 from "@alicloud/bssopenapi20171214";
+import * as $ResourceCenter20221201 from "@alicloud/resourcecenter20221201";
+import * as $Sts20150401 from "@alicloud/sts20150401";
+import * as $BssOpenApi20171214 from "@alicloud/bssopenapi20171214";
 import { $OpenApiUtil } from "@alicloud/openapi-core";
 import type { AlibabaCloudConfig } from "./config.js";
 import type { SearchFilter } from "./filters.js";
@@ -86,30 +86,92 @@ export interface AlibabaClients {
   }): Promise<BillPage>;
 }
 
-function buildSdkConfig(
+// Alibaba SDK packages are CJS-only: each dist/client.js marks __esModule
+// and exports the client class on `default`. Interop differs by runtime —
+// Node's ESM namespace exposes `default = module.exports` (the exports
+// object, itself carrying `.default = Client`), while bundled CJS runtimes
+// can bind a default import to that namespace directly. Either way `new X()`
+// on the wrapper throws "X is not a constructor", so unwrap `.default`
+// until a callable constructor surfaces.
+type CtorOf<M> = M extends { default: infer C } ? (C extends { default: infer D } ? D : C) : M;
+
+export function sdkCtor<M>(mod: M): CtorOf<M> {
+  let current: unknown = mod;
+  while (typeof current !== "function" && current !== null && typeof current === "object" && "default" in current) {
+    current = (current as { default: unknown }).default;
+  }
+  return current as CtorOf<M>;
+}
+
+const ResourceCenterClient = sdkCtor($ResourceCenter20221201);
+const StsClient = sdkCtor($Sts20150401);
+const BssClient = sdkCtor($BssOpenApi20171214);
+
+// Config endpoint fields arrive as validated URLs ("https://host:port")
+// while the SDK wants host[:port] plus a `protocol` field — the wire URL is
+// `${protocol}://${endpoint}`, so a scheme-bearing endpoint would double it.
+// Bare hosts (the global defaults below) pass through untouched.
+function normalizeEndpoint(value: string): { endpoint: string; protocol?: string } {
+  const url = value.includes("://") ? new URL(value) : undefined;
+  return { endpoint: url?.host ?? value, protocol: url?.protocol.replace(":", "") };
+}
+
+interface ClientOpts {
+  endpoint?: string;
+  regionId?: string;
+}
+
+export function buildSdkConfig(
   secrets: Record<string, string>,
-  endpoint: string | undefined,
+  opts: ClientOpts,
 ): $OpenApiUtil.Config {
+  const normalized = opts.endpoint ? normalizeEndpoint(opts.endpoint) : undefined;
   return new $OpenApiUtil.Config({
     accessKeyId: secrets.accessKeyId,
     accessKeySecret: secrets.accessKeySecret,
     securityToken: secrets.securityToken,
-    ...(endpoint ? { endpoint } : {}),
+    ...(normalized?.endpoint ? { endpoint: normalized.endpoint } : {}),
+    ...(normalized?.protocol ? { protocol: normalized.protocol } : {}),
+    ...(opts.regionId ? { regionId: opts.regionId } : {}),
   });
+}
+
+// Alibaba endpoints are per-product — each service keeps its own override
+// (`endpoint` scopes to Resource Center; `stsEndpoint`/`bssEndpoint` to STS
+// and BSS). `region` pins Config.regionId on all three; an explicit
+// endpoint wins for its client. STS and BSS resolve endpoints with a
+// *regional* rule and throw at construction when neither regionId nor
+// endpoint is set — hence the documented global-endpoint fallbacks below.
+// Resource Center's rule resolves its global endpoint on its own.
+const DEFAULT_STS_ENDPOINT = "sts.aliyuncs.com";
+const DEFAULT_BSS_ENDPOINT = "business.aliyuncs.com";
+
+export function buildClientOpts(config: AlibabaCloudConfig): {
+  rc: ClientOpts;
+  sts: ClientOpts;
+  bss: ClientOpts;
+} {
+  return {
+    rc: { endpoint: config.endpoint, regionId: config.region },
+    sts: {
+      endpoint: config.stsEndpoint ?? (config.region ? undefined : DEFAULT_STS_ENDPOINT),
+      regionId: config.region,
+    },
+    bss: {
+      endpoint: config.bssEndpoint ?? (config.region ? undefined : DEFAULT_BSS_ENDPOINT),
+      regionId: config.region,
+    },
+  };
 }
 
 export function buildClients(
   secrets: Record<string, string>,
   config: AlibabaCloudConfig,
 ): AlibabaClients {
-  // Alibaba endpoints are per-product — a single override can only target
-  // one service, so `config.endpoint` scopes to Resource Center (the
-  // discovery backbone where VPC/private routing actually varies). STS and
-  // BSS keep default endpoint resolution, which already handles
-  // international vs. China; BSS is a global endpoint anyway.
-  const rc = new ResourceCenter20221201(buildSdkConfig(secrets, config.endpoint));
-  const sts = new Sts20150401(buildSdkConfig(secrets, undefined));
-  const bss = new BssOpenApi20171214(buildSdkConfig(secrets, undefined));
+  const opts = buildClientOpts(config);
+  const rc = new ResourceCenterClient(buildSdkConfig(secrets, opts.rc));
+  const sts = new StsClient(buildSdkConfig(secrets, opts.sts));
+  const bss = new BssClient(buildSdkConfig(secrets, opts.bss));
 
   return {
     async getCallerIdentity() {
