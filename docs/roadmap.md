@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–056)
+## Shipped (features 001–057)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -309,6 +309,13 @@ file tracks shipped and upcoming work — update it when a spec completes.
   from manual disable, and resumes only via manual re-enable; alerting
   stays out of scope. Also normalizes every shipped spec's `Status` to
   `Shipped` and records the `Draft`→`Shipped` convention in AGENTS.md.
+- `057-bugfix-alibaba-sdk-clients` — Alibaba Cloud importer SDK client
+  fixes (GitHub issues #231/#232): SDK client constructors resolve
+  through a `.default`-unwrapping interop fallback (CJS `__esModule` namespace
+  binding broke `new Client()` under bundled runtimes); new `region`,
+  `stsEndpoint`, `bssEndpoint` config fields pin/redirect all three
+  clients — STS/BSS fall back to their documented global endpoints, and
+  endpoint URLs normalize to host[:port] + protocol at the SDK boundary.
 
 ## Next — post-v1.1
 
@@ -316,7 +323,7 @@ The Docker importer program's mapped waves (A–E) plus Hub execution
 (049) are complete and the URL Check monitoring program — monitoring
 (051), operational bounds (052), the Component-level summary (053),
 onboarding completion (054), and the repeated-failure auto-disable
-policy (056) — has shipped; `057` is the next open spec slot — see
+policy (056) — has shipped; `058` is the next open spec slot — see
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new
 importer wave).

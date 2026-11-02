@@ -75,3 +75,34 @@ rejected (younger ecosystem, weaker docs for read-only inventory).
 Stub-parity with AWS/Azure — rejected (a placeholder yields no user value).
 Curated default allowlist — rejected (discover-all + visible skips serves
 catalog completeness without hiding coverage gaps).
+
+## Amendment 1 — SDK client construction and connectivity contract (2026-11-02, spec 057)
+
+Bugfix follow-up ratifying how the importer builds its three SDK clients
+(GitHub issues #231/#232, found by the spec-055 workload):
+
+- **Interop**: SDK packages ship CJS with `__esModule` + `exports.default =
+  Client`; default imports can bind the module namespace under bundled
+  runtimes. `sdkCtor()` unwraps `.default` until a callable constructor
+  surfaces — Node ESM namespaces nest `default = module.exports`, which
+  itself carries `.default = Client`, so a single-level `??` is
+  insufficient.
+- **Region pinning**: the `region` config field sets `Config.regionId` on
+  all three clients. `regionIds` remains exclusively the Resource Center
+  `SearchResources` filter — connectivity and discovery stay independent.
+- **Endpoint overrides**: per-service fields — `endpoint` (Resource
+  Center), `stsEndpoint`, `bssEndpoint` — all URL-typed and
+  `urlSafetyError`-validated; an explicit endpoint wins over `region` for
+  its client. Values normalize to `host[:port]` + `protocol` at the SDK
+  boundary (the wire URL is `${protocol}://${endpoint}` — a scheme-bearing
+  endpoint would double it).
+- **Global fallbacks**: STS and BSS resolve endpoints with a *regional*
+  rule and throw `RegionId is empty` at construction when neither
+  `regionId` nor `endpoint` is set, so they default to the documented
+  global endpoints (`sts.aliyuncs.com`, `business.aliyuncs.com`).
+  Resource Center's non-regional rule resolves
+  `resourcecenter.aliyuncs.com` unchanged.
+
+**Consequences**: `AlibabaCloudConfig` gains three optional fields;
+`buildClientOpts`/`buildSdkConfig`/`sdkCtor` are exported seams for tests;
+the importer guide regenerates from the schema plus precedence prose.
