@@ -89,13 +89,11 @@ export interface AlibabaClients {
 function buildSdkConfig(
   secrets: Record<string, string>,
   endpoint: string | undefined,
-  regionId: string | undefined,
 ): $OpenApiUtil.Config {
   return new $OpenApiUtil.Config({
     accessKeyId: secrets.accessKeyId,
     accessKeySecret: secrets.accessKeySecret,
     securityToken: secrets.securityToken,
-    regionId: regionId ?? "cn-hangzhou",
     ...(endpoint ? { endpoint } : {}),
   });
 }
@@ -109,14 +107,9 @@ export function buildClients(
   // discovery backbone where VPC/private routing actually varies). STS and
   // BSS keep default endpoint resolution, which already handles
   // international vs. China; BSS is a global endpoint anyway.
-  // CJS interop: under the bundled runtime the "default" import can resolve
-  // to the module namespace rather than the client constructor.
-  const RC = (ResourceCenter20221201 as unknown as { default?: typeof ResourceCenter20221201 }).default ?? ResourceCenter20221201;
-  const Sts = (Sts20150401 as unknown as { default?: typeof Sts20150401 }).default ?? Sts20150401;
-  const Bss = (BssOpenApi20171214 as unknown as { default?: typeof BssOpenApi20171214 }).default ?? BssOpenApi20171214;
-  const rc = new RC(buildSdkConfig(secrets, config.endpoint, config.regionIds[0]));
-  const sts = new Sts(buildSdkConfig(secrets, undefined, config.regionIds[0]));
-  const bss = new Bss(buildSdkConfig(secrets, undefined, config.regionIds[0]));
+  const rc = new ResourceCenter20221201(buildSdkConfig(secrets, config.endpoint));
+  const sts = new Sts20150401(buildSdkConfig(secrets, undefined));
+  const bss = new BssOpenApi20171214(buildSdkConfig(secrets, undefined));
 
   return {
     async getCallerIdentity() {
