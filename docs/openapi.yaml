@@ -1253,6 +1253,47 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /components/{id}/instances:
+    post:
+      tags: [Components]
+      summary: Add the first instance to a zero-instance component
+      x-permission: "component:update"
+      description: >-
+        Requires the `component:update` role (Editor+). Focused URL Check
+        onboarding recovery: the parent component must be ACTIVE and have no
+        ComponentInstance rows. This endpoint is not general instance CRUD;
+        creating a second instance returns `409 CONFLICT`.
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [environment]
+              properties:
+                environment:
+                  type: string
+                  enum: [DEV, TEST, STAGING, DEMO, PRODUCTION, OTHER]
+                url: { type: string, minLength: 1, maxLength: 2048 }
+                version: { type: string, maxLength: 100 }
+                region: { type: string, maxLength: 100 }
+      responses:
+        "201":
+          description: First component instance created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instance: { $ref: "#/components/schemas/ComponentInstance" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /components/platform-candidates:
     get:
       tags: [Components]
@@ -4129,6 +4170,12 @@ components:
         instanceCount:
           type: integer
           description: Instance count (present on list responses)
+        totalInstanceCount:
+          type: integer
+          description: >-
+            Detail-response count of all ComponentInstance rows, including
+            GONE rows. Used to distinguish a truly empty Component from one
+            whose visible instances are all GONE.
         instances:
           type: array
           description: >-

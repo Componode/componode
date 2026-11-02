@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import {
@@ -8,15 +9,13 @@ import {
   urlCheckObservationsQuerySchema,
 } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
-import { requireRole } from "../plugins/rbac.js";
+import { requireRole, hasPermission } from "../plugins/rbac.js";
 import { toActor } from "../services/actor.js";
 import { sendServiceError } from "./route-helpers.js";
-import {
-  getSetup,
-  upsertSetup,
-} from "../services/monitoring-setup-service.js";
+import { getSetup, upsertSetup } from "../services/monitoring-setup-service.js";
 import {
   listChecks,
+  getCheck,
   getCheckDetail,
   createCheck,
   updateCheck,
@@ -42,6 +41,11 @@ const validationFailed = (reply: FastifyReply, issues: unknown) =>
     message: "Invalid input",
     details: issues,
   });
+
+const forbidden = (reply: FastifyReply) =>
+  reply.status(403).send({ code: "AUTH_FORBIDDEN", message: "Forbidden" });
+const can = (req: AuthenticatedRequest, permission: string) =>
+  hasPermission(req.user?.role ?? "VIEWER", permission);
 
 export async function urlCheckRoutes(app: FastifyInstance): Promise<void> {
   app.get(
@@ -72,6 +76,19 @@ export async function urlCheckRoutes(app: FastifyInstance): Promise<void> {
       const parsed = updateMonitoringSetupSchema.safeParse(req.body);
       if (!parsed.success) return validationFailed(reply, parsed.error.issues);
       try {
+        const existing = await getSetup(params.data.componentId);
+        const existingAgentId = existing?.agentId ?? null;
+        const effectiveVantage =
+          parsed.data.vantage ?? existing?.vantage ?? "HUB";
+        const agentSelectionChanged =
+          (parsed.data.vantage === "AGENT" &&
+            parsed.data.vantage !== existing?.vantage) ||
+          (parsed.data.agentId !== undefined &&
+            parsed.data.agentId !== existingAgentId &&
+            (effectiveVantage === "AGENT" || parsed.data.agentId !== null));
+        if (agentSelectionChanged && !can(req, "agent:read")) {
+          return forbidden(reply);
+        }
         const setup = await upsertSetup(
           params.data.componentId,
           parsed.data,
@@ -107,6 +124,9 @@ export async function urlCheckRoutes(app: FastifyInstance): Promise<void> {
       if (!params.success) return badParams(reply);
       const parsed = createUrlCheckSchema.safeParse(req.body);
       if (!parsed.success) return validationFailed(reply, parsed.error.issues);
+      if (parsed.data.credentialId != null && !can(req, "credential:read")) {
+        return forbidden(reply);
+      }
       try {
         const check = await createCheck(
           params.data.componentId,
@@ -144,6 +164,33 @@ export async function urlCheckRoutes(app: FastifyInstance): Promise<void> {
       const parsed = updateUrlCheckSchema.safeParse(req.body);
       if (!parsed.success) return validationFailed(reply, parsed.error.issues);
       try {
+        const existing = await getCheck(params.data.id);
+        const effectiveAuthMode = parsed.data.authMode ?? existing.authMode;
+        const credentialChanged =
+          (parsed.data.credentialId !== undefined &&
+            parsed.data.credentialId !== existing.credentialId &&
+            (parsed.data.credentialId !== null ||
+              effectiveAuthMode !== "NONE")) ||
+          (parsed.data.authMode !== undefined &&
+            parsed.data.authMode !== existing.authMode &&
+            parsed.data.authMode !== "NONE") ||
+          (parsed.data.authConfig !== undefined &&
+            !isDeepStrictEqual(parsed.data.authConfig, existing.authConfig) &&
+            (parsed.data.authConfig !== null || effectiveAuthMode !== "NONE"));
+        if (credentialChanged && !can(req, "credential:read")) {
+          return forbidden(reply);
+        }
+        if (
+          effectiveAuthMode === "NONE" &&
+          (parsed.data.credentialId != null || parsed.data.authConfig != null)
+        ) {
+          return validationFailed(reply, [
+            {
+              message:
+                "credentialId and authConfig are only allowed with an auth mode",
+            },
+          ]);
+        }
         const check = await updateCheck(
           params.data.id,
           parsed.data,

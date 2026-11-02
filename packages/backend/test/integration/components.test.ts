@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
+import { uuidv7 } from "uuidv7";
 import { startTestDb, type TestDb } from "../helpers/testcontainers.js";
 import { loginAs, createPersonInDb, createSessionInDb, SESSION_COOKIE_NAME, csrfCookie, csrfHeader, truncateImportTables } from "../helpers/api.js";
 
@@ -54,6 +55,7 @@ describe("components catalog", () => {
   let app: any;
   let adminSession: string;
   let viewerSession: string;
+  let editorSession: string;
   let originalDbUrl: string | undefined;
   let originalNodeEnv: string | undefined;
   let originalBootstrapUsername: string | undefined;
@@ -86,6 +88,13 @@ describe("components catalog", () => {
       role: "VIEWER",
     });
     viewerSession = (await createSessionInDb(testDb.db as any, viewerId)).token;
+
+    const editorId = await createPersonInDb(testDb.db as any, {
+      username: "editor",
+      passwordHash: null,
+      role: "EDITOR",
+    });
+    editorSession = (await createSessionInDb(testDb.db as any, editorId)).token;
   });
 
   beforeEach(async () => {
@@ -504,6 +513,174 @@ describe("POST /components — manual creation (spec 042, G29)", () => {
       resourceType: "service",
     });
     expect(res.statusCode).toBe(403);
+  });
+
+  it("carries complete check fields and enforces Credential/Agent boundaries", async () => {
+    const monitoring = (slug: string, over: Record<string, unknown> = {}) => ({
+      name: `Monitored ${slug}`,
+      slug,
+      category: "API",
+      provider: "OTHER",
+      resourceType: "service",
+      instance: { environment: "PRODUCTION" },
+      monitoring: {
+        setup: { cadenceSeconds: 300, vantage: "HUB", agentId: null },
+        checks: [
+          {
+            name: "Readiness",
+            url: "https://api.example.com/ready",
+            method: "GET",
+            enabled: false,
+            authMode: "NONE",
+            cadenceSeconds: 120,
+            successPolicy: { codes: [200, 204], ranges: [] },
+            availabilityTarget: 99.5,
+            targetWindow: "7D",
+            ...over,
+          },
+        ],
+      },
+    });
+
+    const created = await create(editorSession, monitoring(`composite-${uuidv7().slice(0, 8)}`));
+    expect(created.statusCode).toBe(201);
+    const body = JSON.parse(created.payload);
+    expect(body.checks[0]).toMatchObject({
+      enabled: false,
+      authMode: "NONE",
+      cadenceSeconds: 120,
+      availabilityTarget: 99.5,
+      targetWindow: "7D",
+    });
+
+    const credentialSlug = `cred-${uuidv7().slice(0, 8)}`;
+    const credentialed = await create(
+      editorSession,
+      monitoring(credentialSlug, {
+        authMode: "BEARER",
+        credentialId: uuidv7(),
+        authConfig: { tokenKey: "token" },
+      }),
+    );
+    expect(credentialed.statusCode).toBe(403);
+    expect(JSON.parse(credentialed.payload).code).toBe("AUTH_FORBIDDEN");
+
+    const agentSlug = `agent-${uuidv7().slice(0, 8)}`;
+    const agentPayload = monitoring(agentSlug);
+    (agentPayload.monitoring.setup as Record<string, unknown>).vantage = "AGENT";
+    (agentPayload.monitoring.setup as Record<string, unknown>).agentId = uuidv7();
+    const agentVantage = await create(editorSession, agentPayload);
+    expect(agentVantage.statusCode).toBe(403);
+    expect(JSON.parse(agentVantage.payload).code).toBe("AUTH_FORBIDDEN");
+
+    const leaked = await testDb.db
+      .selectFrom("components")
+      .select("id")
+      .where("slug", "in", [credentialSlug, agentSlug])
+      .execute();
+    expect(leaked).toHaveLength(0);
+  });
+});
+
+describe("POST /components/:id/instances — first-instance recovery (spec 054)", () => {
+  const componentId = uuidv7();
+  const post = (session: string = editorSession, payload: unknown = {
+    environment: "PRODUCTION",
+    url: "https://api.example.com",
+    version: "1.2.3",
+    region: "us-east-1",
+  }) =>
+    app.inject({
+      method: "POST",
+      url: `/api/v1/components/${componentId}/instances`,
+      cookies: { [SESSION_COOKIE_NAME]: session, ...csrfCookie },
+      headers: csrfHeader,
+      payload,
+    });
+
+  beforeEach(async () => {
+    await insertComponent(testDb.db, {
+      id: componentId,
+      name: "Recovered API",
+      slug: "recovered-api",
+      category: "API",
+      provider: "OTHER",
+      resourceType: "service",
+    });
+  });
+
+  it("creates the first manual instance for an EDITOR and audits it", async () => {
+    const res = await post();
+    expect(res.statusCode).toBe(201);
+    const { instance } = JSON.parse(res.payload);
+    expect(instance.componentId).toBe(componentId);
+    expect(instance.environment).toBe("PRODUCTION");
+    expect(instance.status).toBe("RUNNING");
+    expect(instance.externalId).toBe("manual:recovered-api");
+
+    const audit = await testDb.db
+      .selectFrom("entity_changes")
+      .selectAll()
+      .where("entityType", "=", "component_instance")
+      .where("entityId", "=", instance.id)
+      .where("action", "=", "created")
+      .execute();
+    expect(audit).toHaveLength(1);
+  });
+
+  it("returns 400 on invalid input and 409 once an instance exists", async () => {
+    const bad = await post(editorSession, { environment: "BAD" });
+    expect(bad.statusCode).toBe(400);
+    expect(JSON.parse(bad.payload).code).toBe("VALIDATION_FAILED");
+
+    expect((await post()).statusCode).toBe(201);
+    const conflict = await post();
+    expect(conflict.statusCode).toBe(409);
+    expect(JSON.parse(conflict.payload).code).toBe("CONFLICT");
+  });
+
+  it("requires authentication and returns 404 for a nonexistent component", async () => {
+    const unauthenticated = await app.inject({
+      method: "POST",
+      url: `/api/v1/components/${componentId}/instances`,
+      cookies: csrfCookie,
+      headers: csrfHeader,
+      payload: { environment: "PRODUCTION" },
+    });
+    expect(unauthenticated.statusCode).toBe(401);
+
+    const missing = await app.inject({
+      method: "POST",
+      url: `/api/v1/components/${uuidv7()}/instances`,
+      cookies: { [SESSION_COOKIE_NAME]: editorSession, ...csrfCookie },
+      headers: csrfHeader,
+      payload: { environment: "PRODUCTION" },
+    });
+    expect(missing.statusCode).toBe(404);
+    expect(JSON.parse(missing.payload).code).toBe("NOT_FOUND");
+  });
+
+  it("forbids VIEWER sessions and hides unavailable components", async () => {
+    expect((await post(viewerSession)).statusCode).toBe(403);
+    const retiredId = uuidv7();
+    await insertComponent(testDb.db, {
+      id: retiredId,
+      name: "Retired API",
+      slug: "retired-api",
+      category: "API",
+      provider: "OTHER",
+      resourceType: "service",
+      lifecycle: "RETIRED",
+    });
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/v1/components/${retiredId}/instances`,
+      cookies: { [SESSION_COOKIE_NAME]: editorSession, ...csrfCookie },
+      headers: csrfHeader,
+      payload: { environment: "PRODUCTION" },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(JSON.parse(res.payload).code).toBe("NOT_FOUND");
   });
 });
 });

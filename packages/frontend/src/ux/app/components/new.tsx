@@ -17,7 +17,11 @@ import { useAgents } from "@/api/hooks/agents"
 import { useComponentGroups } from "@/api/hooks/component-groups"
 import { useTeams } from "@/api/hooks/org"
 import { useCreateComponentWithMonitoring } from "@/api/hooks/url-checks"
-import { parseStatusesInput } from "@/api/mappers/monitoring"
+import {
+  parseStatusesInput,
+  urlCheckAuthConfigOf,
+  validateUrlCheckDraft,
+} from "@/api/mappers/monitoring"
 import { FormPage, FormSection } from "@/ux/components/forms/form-shell"
 import { emptyCheckRow, UrlCheckRows, type UrlCheckRowDraft } from "@/ux/components/forms/url-check-rows"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
@@ -127,14 +131,32 @@ export function UxComponentNewPage() {
         }
         checkCadence = n
       }
+      let availabilityTarget: number | null = null
+      if (row.target.trim() !== "") {
+        const target = Number(row.target)
+        if (!Number.isFinite(target) || target < 0 || target > 100) {
+          return setError(`Check ${index + 1}: availability target must be 0-100.`)
+        }
+        availabilityTarget = target
+      }
+      const isApi = category === "API"
+      const authDraft = { isApi, ...row }
+      const authMode = isApi ? row.authMode : "NONE"
+      const authConfig = urlCheckAuthConfigOf(authDraft)
+      const authError = validateUrlCheckDraft(authDraft)
+      if (authError) return setError(`Check ${index + 1}: ${authError}`)
       checks.push({
         name: row.name.trim(),
         url: row.url.trim(),
         method: row.method,
-        enabled: true,
-        authMode: "NONE",
+        enabled: row.enabled,
+        authMode,
+        credentialId: authMode === "NONE" ? null : row.credentialId || null,
+        authConfig,
         cadenceSeconds: checkCadence,
         successPolicy: policy.policy,
+        availabilityTarget,
+        targetWindow: availabilityTarget != null ? row.targetWindow : null,
       })
     }
     if (checks.length === 0) return setError("Add at least one URL check.")
@@ -386,7 +408,7 @@ export function UxComponentNewPage() {
         </FormSection>
 
         <FormSection title="URL checks" description="Each check probes one URL on the new instance on the shared schedule.">
-          <UrlCheckRows rows={rows} onChange={setRows} />
+          <UrlCheckRows rows={rows} onChange={setRows} isApi={category === "API"} />
         </FormSection>
 
         {error && <FieldError>{error}</FieldError>}

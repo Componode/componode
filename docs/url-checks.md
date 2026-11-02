@@ -61,12 +61,23 @@ it. A `RETIRED` Component's checks stop probing but remain readable.
 
 For endpoints with no catalog entry yet, the create flow (Components →
 _New component_) can create the Component, its first Component Instance,
-and its first checks in one pass — the new Component's page opens with
-checks already listed and probing.
+and its first checks in one pass — including the same API-authentication
+and availability-target fields as the regular editor. A validation failure
+creates nothing.
+
+For a manually created ACTIVE Component that has no instances yet, the URL
+checks card offers **Add first instance**. Save the environment (plus
+optional URL, version, and region), then use the regular **Add check**
+dialog on the same Component. That two-step path does not create a second
+Component; a valid first instance remains if a later check save fails.
 
 Check management requires the `EDITOR` role (create, update, delete, and
-monitoring-setup changes); viewing checks and metrics only requires a
-signed-in session.
+Hub monitoring-setup changes). Credential and Import Agent selectors are
+`ADMIN` actions: Editors can create ordinary checks and Hub checks, while
+only Admins can attach a reusable Credential or choose an Import Agent.
+Editors may preserve an already configured Credential or Agent vantage while
+editing ordinary fields, but cannot select or reconfigure either one.
+Viewing checks and metrics only requires a signed-in session.
 
 ## How a probe works
 

@@ -202,6 +202,8 @@ export interface ComponentWithInstances extends Component {
   lastSeenAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Detail-only total including GONE rows (used by first-instance recovery). */
+  totalInstanceCount?: number;
   instances: ComponentInstance[];
 }
 

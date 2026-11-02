@@ -14,11 +14,11 @@ examples.
 
 Everything in Componode belongs to one of two layers:
 
-- **Factual layer** — what *exists*, imported by importers: Components and
+- **Factual layer** — what _exists_, imported by importers: Components and
   their Instances. Importers report; the core upserts, deduplicates, and
-  reconciles. You mostly *read* this layer.
-- **Meaning layer** — what it *means*, curated by humans: Digital Products,
-  composition edges, ownership, groups. You mostly *write* this layer.
+  reconciles. You mostly _read_ this layer.
+- **Meaning layer** — what it _means_, curated by humans: Digital Products,
+  composition edges, ownership, groups. You mostly _write_ this layer.
 
 The app mirrors this split: **Sources** (importers, runs, agents, sources)
 feeds the factual layer, and **Catalog** (products, components, groups,
@@ -46,7 +46,11 @@ hidden by default; use the filters to include them.
 **Component Instances** — inside a component's detail page. One component
 has many instances, one per environment (`DEV` … `PRODUCTION`), each with
 operational status (`RUNNING`/`STOPPED`/`ERROR`/`GONE`). A resource that
-disappears from the source becomes `GONE` — it's marked, not deleted.
+disappears from the source becomes `GONE` — it's marked, not deleted. For
+URL Check onboarding, a manually created `ACTIVE` Component with no
+instances offers **Add first instance** from its URL checks card; that
+focused recovery path saves one environment and then returns to the
+normal check editor without creating a second Component.
 
 **Component Groups** (`/component-groups`) — human-declared equivalences:
 "these three imported things are the same logical component." Products can

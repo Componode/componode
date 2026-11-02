@@ -276,3 +276,10 @@ metrics were reachable only on the per-check detail read.
 **Unchanged**: metric formulas (item 5), the three rolling windows and
 30-day retention on the detail read, and the no-pre-aggregated-rollups
 decision — the summary is computed from observations at read time.
+
+---
+
+**Amended by ADR-125**: the onboarding role boundary is explicit —
+`urlCheck:*` and Hub `monitoringSetup:update` remain EDITOR, while
+non-null `credentialId` writes require `credential:read` and AGENT
+vantage/`agentId` writes require `agent:read`.

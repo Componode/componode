@@ -127,7 +127,7 @@ export function mapComponentInstance(i: ApiInstance): ComponentInstance {
 export function mapComponent(
   c: ApiComponent | (ApiComponent & { instances?: ApiInstance[]; lastSeenAt?: string | null; details?: Record<string, unknown> | null }),
 ): Component {
-  const detail = c as ApiComponent & { instances?: ApiInstance[]; lastSeenAt?: string | null; details?: Record<string, unknown> | null };
+  const detail = c as ApiComponent & { instances?: ApiInstance[]; lastSeenAt?: string | null; details?: Record<string, unknown> | null; totalInstanceCount?: number };
   return {
     id: c.id,
     name: c.name,
@@ -144,6 +144,7 @@ export function mapComponent(
     links: c.links ?? [],
     sunsetAt: c.sunsetAt ?? null,
     instanceCount: c.instanceCount,
+    totalInstanceCount: detail.totalInstanceCount,
     instances: (detail.instances ?? []).map(mapComponentInstance),
     lastSeenAt: detail.lastSeenAt ?? null,
     worstStatus: narrowOrNull<InstanceStatus>(detail.worstStatus, INSTANCE_STATUSES),

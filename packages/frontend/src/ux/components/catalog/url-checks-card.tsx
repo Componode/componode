@@ -55,6 +55,7 @@ import type {
   UrlCheckView,
 } from "@/ux/lib/view-types";
 import { cn } from "@/ux/lib/utils";
+import { ComponentInstanceCreateDialog } from "./component-instance-create-dialog";
 import { MonitoringSetupEditor } from "./monitoring-setup-editor";
 import { UrlCheckEditor } from "./url-check-editor";
 
@@ -295,7 +296,11 @@ export function UrlChecksCard({ component }: { component: Component }) {
 
   const setup = query.data?.setup ? mapMonitoringSetup(query.data.setup) : null;
   const checks = (query.data?.checks ?? []).map(mapUrlCheckListItem);
+  const totalInstances =
+    component.totalInstanceCount ?? component.instances.length;
   const canAdd = canEdit && hasInstances;
+  const canRecover =
+    canEdit && totalInstances === 0 && component.lifecycle === "ACTIVE";
 
   return (
     <Card className="lg:col-span-3 overflow-hidden pb-0">
@@ -313,7 +318,11 @@ export function UrlChecksCard({ component }: { component: Component }) {
           {canEdit && (
             <MonitoringSetupEditor componentId={component.id} setup={setup} />
           )}
-          {canAdd && <UrlCheckEditor component={component} setup={setup} />}
+          {canAdd ? (
+            <UrlCheckEditor component={component} setup={setup} />
+          ) : canRecover ? (
+            <ComponentInstanceCreateDialog component={component} />
+          ) : null}
         </CardAction>
       </CardHeader>
       {query.isPending ? (
@@ -338,6 +347,8 @@ export function UrlChecksCard({ component }: { component: Component }) {
             action={
               canAdd ? (
                 <UrlCheckEditor component={component} setup={setup} />
+              ) : canRecover ? (
+                <ComponentInstanceCreateDialog component={component} />
               ) : undefined
             }
           />
