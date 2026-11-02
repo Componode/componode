@@ -283,3 +283,50 @@ decision — the summary is computed from observations at read time.
 `urlCheck:*` and Hub `monitoringSetup:update` remain EDITOR, while
 non-null `credentialId` writes require `credential:read` and AGENT
 vantage/`agentId` writes require `agent:read`.
+
+## Amendment 3 — Repeated-failure auto-disable (2026-11-02, spec 056)
+
+**Context**: the original research follow-up asked for an explicit failure
+policy for repeated probe errors, and the shipped behavior — probe at
+cadence, record one observation per slot, never stop — was never written
+down as a contract. Spec 056 ratifies the policy: probing is bounded by a
+consecutive-failure auto-disable threshold.
+
+**Refinements**:
+
+- **Streak semantics** — `url_checks.consecutiveFailures` increments once
+  per non-`SUCCESS` observation (`FAILURE` _and_ `MISSED` — a
+  monitor-side gap advances the streak the same as an endpoint failure,
+  bounding work while a vantage is down) and resets to zero on `SUCCESS`.
+  The counter is a maintained column updated in the same transaction that
+  writes the observation — the single funnel `recordObservation` for
+  executed/dispatch-time outcomes and the scheduler's bulk-MISSED writer.
+- **Threshold resolution** — the effective threshold is
+  `COALESCE(autoDisableAfter, URL_CHECK_AUTO_DISABLE_AFTER)`: a per-check
+  integer override (`0`–`1000`, `NULL` = inherit, `0` = never) over a
+  global env tunable (default **12**, `0` = never). Both write paths
+  evaluate after updating the counter; the guarded disable update
+  (`enabled = true`) makes the transition single-writer. The transition
+  increments `url_check_auto_disabled_total{vantage}` — a bounded-label
+  counter ratified under the ADR-069 inventory convention.
+- **Disable semantics** — reaching the threshold sets `enabled = false`,
+  `nextProbeAt = null`, `autoDisabledAt = now` in the same transaction and
+  writes a `url_check` `disabled` audit event with
+  `changes.reason = "auto_disable"` under the null (system) actor.
+  Disabled-check semantics are unchanged: no observations accrue,
+  including no post-disable `MISSED` inflation — a check disabled
+  mid-sweep never dispatches its live slot. `autoDisabledAt` is set only
+  by this transition and cleared on re-enable, distinguishing
+  auto-disable from a manual disable to operators.
+- **Re-enable** — manual only (`PATCH enabled: true`), and it resets
+  `consecutiveFailures` to `0` and clears `autoDisabledAt`. A late-arriving
+  result for a disabled check still records its observation (item
+  mid-flight semantics) but never mutates the streak or re-arms the
+  schedule.
+- **Existing checks** — migration 027 backfills `consecutiveFailures = 0`:
+  streaks start clean when the policy ships.
+
+**Unchanged**: one observation per scheduled slot, no in-slot retries or
+backoff, `MISSED` coverage-gap display semantics, no alerting or
+notification on failure (out of scope), and the agent protocol — the
+disable is hub-side scheduling state only.

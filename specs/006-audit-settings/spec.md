@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-07
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "the next spec" (resolved interactively to "Audit & settings" — the remaining v1 feature per the project roadmap: audit trail surface, complete audit coverage, and the admin settings area)
 

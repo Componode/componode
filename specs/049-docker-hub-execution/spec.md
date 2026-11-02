@@ -2,7 +2,7 @@
 
 **Feature Branch**: `049-docker-hub-execution`  
 **Created**: 2026-11-01  
-**Status**: Draft  
+**Status**: Shipped  
 **Input**: Enable the existing Docker importer to execute on either the Hub or an Import Agent, with Hub-managed Docker target records, ADMIN-only target management, executor-appropriate credentials, target lifecycle controls, safe cancellation, auditing, and preserved Agent behavior (`researches/docker-importer-hub-execution_research.md`, `researches/docker-importer-implementation-tracking.md` Phase 6).
 
 ## Clarifications

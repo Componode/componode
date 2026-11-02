@@ -117,6 +117,7 @@ its purpose.
 | `URL_CHECK_AGENT_CONCURRENCY`       | no       | `4`                                                         | Maximum concurrent in-flight probes per Import Agent (integer ≥ 1).                                                                                                                                              |
 | `URL_CHECK_AGENT_RATE_LIMIT`        | no       | `20`                                                        | Max agent-vantage dispatches per sweep interval per agent (integer ≥ 1).                                                                                                                                         |
 | `URL_CHECK_AGENT_QUEUE_MAX`         | no       | `100`                                                       | Max deferred probe slots per agent before slots record `MISSED`/`SATURATED` (integer ≥ 1).                                                                                                                       |
+| `URL_CHECK_AUTO_DISABLE_AFTER`      | no       | `12`                                                        | Consecutive non-success (`FAILURE`/`MISSED`) probes before a check auto-disables; `0` never auto-disables (integer ≥ 0).                                                                                         |
 
 ## TLS and reverse proxy
 

@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-31
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: Gap-registry entry G20 (`researches/ux-rewrite-gaps.md`). `/ux/settings/appearance` persists three display preferences to `localStorage["ux.prefs"]` — table `density`, `reduceMotion`, `relativeTime` — but no component consumes them, so the toggles are disabled behind `flags.displayPrefs`. Client-side only: make the prefs actually drive rendering app-wide, remove the flag, mark G20 resolved. No backend, no new UX surface.
 

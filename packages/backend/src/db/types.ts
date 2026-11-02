@@ -398,6 +398,9 @@ export interface UrlCheckRow {
   availabilityTarget: string | null; // numeric(5,2) arrives as string
   targetWindow: string | null;
   nextProbeAt: string | null;
+  autoDisableAfter: number | null;
+  consecutiveFailures: Generated<number>;
+  autoDisabledAt: string | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: Generated<string>;

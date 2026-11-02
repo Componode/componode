@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-30
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "037 — schema-driven importer forms (G13).
 Resolve ux-rewrite gap G13: the importer create/edit form edits `scope` as

@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-26
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "034 — team↔LOB (G12). Resolve ux-rewrite gap
 G12: teams carry no LOB association today, so the product form shows every

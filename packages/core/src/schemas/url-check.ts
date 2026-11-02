@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   URL_CHECK_AUTH_MODES,
+  URL_CHECK_AUTO_DISABLE_AFTER_MAX,
   URL_CHECK_MAX_CADENCE_SECONDS,
   URL_CHECK_METHODS,
   URL_CHECK_MIN_CADENCE_SECONDS,
@@ -83,6 +84,15 @@ const urlCheckFields = {
   successPolicy: successPolicySchema.optional(),
   availabilityTarget: z.number().min(0).max(100).nullable().optional(),
   targetWindow: enumOf(URL_CHECK_WINDOWS).nullable().optional(),
+  // null/omitted → inherit URL_CHECK_AUTO_DISABLE_AFTER; 0 → never
+  // auto-disable (spec 056).
+  autoDisableAfter: z
+    .number()
+    .int()
+    .min(0)
+    .max(URL_CHECK_AUTO_DISABLE_AFTER_MAX)
+    .nullable()
+    .optional(),
   authMode: enumOf(URL_CHECK_AUTH_MODES).default("NONE"),
   credentialId: z.string().uuid().nullable().optional(),
   authConfig: authConfigSchema.nullable().optional(),
@@ -125,6 +135,13 @@ export const updateUrlCheckSchema = z
     successPolicy: successPolicySchema.nullable().optional(),
     availabilityTarget: z.number().min(0).max(100).nullable().optional(),
     targetWindow: enumOf(URL_CHECK_WINDOWS).nullable().optional(),
+    autoDisableAfter: z
+      .number()
+      .int()
+      .min(0)
+      .max(URL_CHECK_AUTO_DISABLE_AFTER_MAX)
+      .nullable()
+      .optional(),
     authMode: enumOf(URL_CHECK_AUTH_MODES).optional(),
     credentialId: z.string().uuid().nullable().optional(),
     authConfig: authConfigSchema.nullable().optional(),

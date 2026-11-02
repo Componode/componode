@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-31
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: Gap-registry items G21 and G22 (`researches/ux-rewrite-gaps.md`). The UX conformance pass (spec 038) shipped flag-gated columns that render nothing because the list endpoints omit the underlying data. This spec ships the backend capability so the flags can flip ON and the fallback copy comes down.
 

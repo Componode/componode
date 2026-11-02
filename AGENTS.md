@@ -306,6 +306,13 @@ when switching features); it is ignored by git on purpose.
 and revise the **Next** entry so the roadmap always reflects the current
 state.
 
+**Spec status convention**: `spec.md` carries a `Status` line with two
+values — `Draft` while the feature is in flight and `Shipped` once it has
+shipped. When a feature's PR merges, flip its spec's `Status` from `Draft`
+to `Shipped` in the ship commit. A shipped spec must never read `Draft`,
+and `Shipped` is the only terminal value (earlier `Implemented`/`Complete`
+labels were normalized in spec 056).
+
 **UX gap governance** (docs/ux.md §7): when the UX needs a backend
 capability that does not exist, add a detailed entry to
 `researches/ux-rewrite-gaps.md` (flagged surface, missing capability,

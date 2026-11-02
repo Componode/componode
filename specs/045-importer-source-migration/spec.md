@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-31
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: Phase 2 / Wave B of the Docker importer program (`researches/docker-importer-implementation-tracking.md`, `researches/docker-importer-spec-waves.md`): staged migration of the eight existing in-tree importers onto the `ImporterSource` provenance model shipped in spec 044 — per-importer provider-native source-identity keys via `context.reportSourceIdentity()`, source-qualified external IDs where provider-native asset identifiers are not already globally unique, the Wave A follow-up splitting asset-supplied details into canonical vs per-source fields and populating membership `details`, defensible backfill of Source memberships with `LEGACY_UNATTRIBUTED` preservation (no auto-split/merge/rekey), and documented per-importer identity keys, scope boundaries, and legacy cleanup.
 

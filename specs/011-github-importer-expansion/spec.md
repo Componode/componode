@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-13
 
-**Status**: Implemented
+**Status**: Shipped
 
 **Input**: User description: "Expand the GitHub importer to collect more information from a GitHub Organisation, Repositories, and other important information (e.g. costs, limits) using the GitHub REST API."
 

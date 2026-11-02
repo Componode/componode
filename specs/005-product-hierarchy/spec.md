@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-07
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "the next spec for this project." — per the README
 roadmap and `docs/ux.md` §5, the next feature is the product hierarchy:

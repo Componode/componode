@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-09
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: During first-use smoke testing, the deployed Docker Compose stack returned 404 for direct browser access to `/login` and the first login attempt failed with `CSRF_TOKEN_MISMATCH` because the frontend had no CSRF cookie.
 

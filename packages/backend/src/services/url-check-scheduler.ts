@@ -1,11 +1,14 @@
 import { uuidv7 } from "uuidv7";
+import { sql } from "kysely";
 import {
   URL_CHECK_RETENTION_DAYS,
   URL_CHECK_SWEEP_INTERVAL_MS_DEFAULT,
+  type UrlCheckVantage,
 } from "@componode/core";
 import { db } from "../db/connection.js";
 import { envInt } from "../utils/env.js";
 import { logger } from "../plugins/logging.js";
+import { evaluateAutoDisable } from "./url-check-auto-disable.js";
 import {
   dispatchProbe,
   isAgentSlotClaimed,
@@ -40,10 +43,15 @@ export type SweepDeps = DispatchProbeDeps;
 async function writeMissedSlots(
   checkId: string,
   slots: number[],
-  vantage: string,
+  vantage: UrlCheckVantage,
   agentId: string | null,
-): Promise<{ lastCovered: number | null; remaining: boolean }> {
-  if (slots.length === 0) return { lastCovered: null, remaining: false };
+): Promise<{
+  lastCovered: number | null;
+  remaining: boolean;
+  disabled: boolean;
+}> {
+  if (slots.length === 0)
+    return { lastCovered: null, remaining: false, disabled: false };
   // Dedupe: a slot already observed (e.g. a previous partial sweep) must
   // not gain a second MISSED row.
   const existing = await db
@@ -61,29 +69,57 @@ async function writeMissedSlots(
   // Oldest-first: everything at or before the last written slot is covered,
   // so nextProbeAt can safely advance past it.
   const missed = pending.slice(0, MAX_MISSED_PER_SWEEP);
+  let disabled = false;
   if (missed.length > 0) {
-    await db
-      .insertInto("url_check_observations")
-      .values(
-        missed.map((t) => ({
-          id: uuidv7(),
-          urlCheckId: checkId,
-          scheduledAt: new Date(t).toISOString(),
-          outcome: "MISSED",
-          httpStatus: null,
-          durationMs: null,
-          // Monitor-side gap (hub downtime/backlog) — not attributable to the
-          // checked endpoint or the agent.
-          errorType: "OTHER",
-          vantage,
-          agentId,
-        })),
-      )
-      .execute();
+    // One transaction for the whole slot write (spec 056): the guarded
+    // streak bump runs first so a check disabled before this write is
+    // committed accrues nothing at all, then MISSED rows, then any
+    // auto-disable + audit — same atomicity recordObservation holds.
+    disabled = await db.transaction().execute(async (trx) => {
+      // Spec 056: MISSED slots advance the streak by the batch size; a
+      // check crossing its threshold mid-sweep disables here and the
+      // live slot below never dispatches.
+      const streak = await trx
+        .updateTable("url_checks")
+        .set({
+          consecutiveFailures: sql<number>`"consecutiveFailures" + ${missed.length}`,
+        })
+        .where("id", "=", checkId)
+        .where("enabled", "=", true)
+        .returning(["consecutiveFailures", "autoDisableAfter"])
+        .executeTakeFirst();
+      if (!streak) return false;
+      await trx
+        .insertInto("url_check_observations")
+        .values(
+          missed.map((t) => ({
+            id: uuidv7(),
+            urlCheckId: checkId,
+            scheduledAt: new Date(t).toISOString(),
+            outcome: "MISSED",
+            httpStatus: null,
+            durationMs: null,
+            // Monitor-side gap (hub downtime/backlog) — not attributable
+            // to the checked endpoint or the agent.
+            errorType: "OTHER",
+            vantage,
+            agentId,
+          })),
+        )
+        .execute();
+      return evaluateAutoDisable(
+        trx,
+        checkId,
+        streak.consecutiveFailures,
+        streak.autoDisableAfter,
+        vantage,
+      );
+    });
   }
   return {
     lastCovered: missed.length > 0 ? missed[missed.length - 1]! : null,
     remaining: pending.length > missed.length,
+    disabled,
   };
 }
 
@@ -135,12 +171,15 @@ export async function sweepOnce(deps: SweepDeps = {}): Promise<void> {
       slots.push(t);
     }
     if (slots.length === 0) continue;
-    const { lastCovered, remaining } = await writeMissedSlots(
+    const { lastCovered, remaining, disabled } = await writeMissedSlots(
       row.id,
       slots.slice(0, -1),
-      row.vantage,
+      row.vantage as UrlCheckVantage,
       row.agentId,
     );
+    // Auto-disabled mid-sweep (spec 056): the live slot and any further
+    // backlog produce no rows — disabled checks accrue nothing.
+    if (disabled) continue;
     if (remaining) {
       // Backlog beyond the per-sweep cap: advance nextProbeAt only past
       // covered slots — the rest lands as MISSED on subsequent sweeps,

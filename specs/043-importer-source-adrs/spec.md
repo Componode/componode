@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-31
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Phase 0" of `researches/docker-importer-implementation-tracking.md` — ratify the architecture decisions required before any ImporterSource or Docker importer implementation. Design inputs: `researches/docker-importer-research.md`, `researches/docker-importer-plan.md`, `researches/docker-importer-scenarios.md`, `researches/docker-importer-spec-waves.md` (all merged via PR #201).
 

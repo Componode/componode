@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-01
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: Phase 4 / Wave D of the Docker importer program (`researches/docker-importer-implementation-tracking.md`, `researches/docker-importer-spec-waves.md`): persist allowlisted Docker state and latest health-check facts under `ComponentInstance.rawConfig.dockerObservation`; map source status into the existing `InstanceStatus` enum with health-aware behavior (health, no health check, starting, exited, restarting, OOM, GONE) and verify the ADR-112 rollup on human-wired Products; reuse the existing Component Instance status badge and last-seen view — no Docker-specific monitoring page; add a generic ImporterSource list/detail and lifecycle controls in the Importers operations area (identity, bound config, last complete run, `UNMONITORED`/`RETIRED` state, reattach, explicit retire); and surface Compose project/service values as optional, user-confirmed `compose:`/`service:` tag suggestions in the Component edit flow (invalid/overlong suggestions omitted, never truncated or auto-written).
 

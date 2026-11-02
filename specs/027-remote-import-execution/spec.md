@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-22
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "remote-import-execution — third spec of the
 remote Import Agents work. Decisions ratified in

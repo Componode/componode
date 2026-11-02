@@ -200,7 +200,11 @@ export function UrlCheckDetail({
   const latest = metrics24?.latest ?? null;
   const vantageLabel = metrics24?.vantageLabel ?? setup?.vantageLabel ?? "Hub";
   const check = mapUrlCheck(apiCheck, latest);
-  const status = checkStatusOf({ enabled: check.enabled, latest });
+  const status = checkStatusOf({
+    enabled: check.enabled,
+    autoDisabledAt: check.autoDisabledAt,
+    latest,
+  });
   const instance = component.instances.find(
     (i) => i.id === check.componentInstanceId,
   );
@@ -235,6 +239,12 @@ export function UrlCheckDetail({
             {check.availabilityTarget != null && check.targetWindow != null && (
               <Badge variant="secondary">
                 target {check.availabilityTarget}% / {check.targetWindow}
+              </Badge>
+            )}
+            {check.autoDisabledAt && (
+              <Badge variant="secondary">
+                auto-disabled after {check.consecutiveFailures} consecutive
+                failures · <RelativeTime iso={check.autoDisabledAt} />
               </Badge>
             )}
           </>

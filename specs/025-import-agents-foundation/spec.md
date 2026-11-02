@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-21
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Remote Import Agents — foundation spec (first
 of four). Decisions ratified in

@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-01
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: Phase 3 / Wave C of the Docker importer program (`researches/docker-importer-implementation-tracking.md`, `researches/docker-importer-spec-waves.md`): a new `@componode/importer-docker` package registered in lockstep across core, backend, and agent; agent-only execution against allowlisted target profiles resolved from a versioned, read-only `${SECRETS_DIR}/docker-targets.json` registry; a `targetId` in the importer scope declared by a manifest target-reference key and resolved through `context.resolveTarget()`; four secure transports (local socket/named pipe, verified mutual-TLS TCP, pinned-host-key SSH, allowlisted named Docker Context); discovery of running and stopped containers with opt-in local image inventory; one `CONTAINER` Component per logical containerized workload with one Component Instance per concrete container; redacted bind mounts, safe network/volume references, image reference/digest, and allowlisted source observations; and a user guide at `docs/importers/docker.md`.
 

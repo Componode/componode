@@ -66,3 +66,12 @@ export const URL_CHECK_AGENT_CONCURRENCY_DEFAULT = 4;
 export const URL_CHECK_AGENT_RATE_LIMIT_DEFAULT = 20;
 export const URL_CHECK_AGENT_QUEUE_MAX_DEFAULT = 100;
 export const URL_CHECK_MAX_PROBES_DEFAULT = 8;
+
+// Repeated-failure policy (spec 056, ADR-124 Amendment 3): a check
+// auto-disables after this many consecutive non-SUCCESS observations —
+// FAILURE and MISSED both count; SUCCESS resets the streak. The env
+// tunable URL_CHECK_AUTO_DISABLE_AFTER supplies the global default and a
+// per-check autoDisableAfter overrides it; 0 means never auto-disable.
+// ~1 hour of unbroken failure at the default 300s cadence.
+export const URL_CHECK_AUTO_DISABLE_AFTER_DEFAULT = 12;
+export const URL_CHECK_AUTO_DISABLE_AFTER_MAX = 1000;

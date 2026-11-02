@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-24
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Resolve ux-rewrite gap G14 — self-service
 profile update. Non-admin users currently cannot save their own profile:

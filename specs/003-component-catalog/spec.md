@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-03
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "003-component-catalog"
 

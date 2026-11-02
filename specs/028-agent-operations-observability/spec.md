@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-22
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "agent-operations-observability"
 

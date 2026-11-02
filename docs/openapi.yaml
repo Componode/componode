@@ -4777,6 +4777,23 @@ components:
           enum: ["24H", "7D", "30D"]
           nullable: true
         nextProbeAt: { type: string, format: date-time, nullable: true }
+        autoDisableAfter:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          nullable: true
+          description: >-
+            Consecutive-failure auto-disable threshold override —
+            null inherits `URL_CHECK_AUTO_DISABLE_AFTER` (default 12), 0 never
+            auto-disables
+        consecutiveFailures:
+          type: integer
+          description: Current non-SUCCESS streak (FAILURE + MISSED); server-managed
+        autoDisabledAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set only by the auto-disable transition; distinguishes auto-disable from manual disable
         createdBy: { type: string, nullable: true }
         updatedBy: { type: string, nullable: true }
         createdAt: { type: string, format: date-time }
@@ -4933,6 +4950,14 @@ components:
           allOf:
             - $ref: "#/components/schemas/UrlCheckAuthConfig"
           nullable: true
+        autoDisableAfter:
+          {
+            type: integer,
+            minimum: 0,
+            maximum: 1000,
+            nullable: true,
+            description: "Consecutive-failure auto-disable override — null inherits URL_CHECK_AUTO_DISABLE_AFTER, 0 never disables",
+          }
     CompositeUrlCheckInput:
       type: object
       additionalProperties: false
@@ -4962,6 +4987,14 @@ components:
           allOf:
             - $ref: "#/components/schemas/UrlCheckAuthConfig"
           nullable: true
+        autoDisableAfter:
+          {
+            type: integer,
+            minimum: 0,
+            maximum: 1000,
+            nullable: true,
+            description: "Consecutive-failure auto-disable override — null inherits URL_CHECK_AUTO_DISABLE_AFTER, 0 never disables",
+          }
     UpdateUrlCheckInput:
       type: object
       additionalProperties: false
@@ -4989,6 +5022,14 @@ components:
           allOf:
             - $ref: "#/components/schemas/UrlCheckAuthConfig"
           nullable: true
+        autoDisableAfter:
+          {
+            type: integer,
+            minimum: 0,
+            maximum: 1000,
+            nullable: true,
+            description: "Consecutive-failure auto-disable override — null inherits URL_CHECK_AUTO_DISABLE_AFTER, 0 never disables",
+          }
     CredentialTestResult:
       type: object
       required: [ok]

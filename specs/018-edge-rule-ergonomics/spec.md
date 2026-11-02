@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-31
 
-**Status**: Implemented
+**Status**: Shipped
 
 **Input**: Implement ratified [ADR-109](../../researches/adrs/ADR-109-composes-parent-restriction-removed.md) — remove the `COMPOSES` parent-type restriction so any Digital Product type may compose children; `COMPOSES` becomes a fully general DAG guarded only by self-edge rejection and cycle detection. `CONSUMES_FROM` target-must-be-`PLATFORM` is unchanged. Deferred from earlier work; the ratified decision is documented but not yet enforced.
 

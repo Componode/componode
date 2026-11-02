@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-26
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Resolve ux-rewrite gaps G7, G8, G9, and G11
 — detail reads + feed names. Team and LOB detail endpoints do not exist

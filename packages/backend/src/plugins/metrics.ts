@@ -224,6 +224,12 @@ const urlCheckAgentProbeQueueDepth = getOrCreateGauge(
   "Agent-vantage URL check probes deferred in bounded pools (sum across agents)",
 );
 
+const urlCheckAutoDisabledTotal = getOrCreateCounter(
+  "url_check_auto_disabled_total",
+  "URL checks auto-disabled after reaching their consecutive-failure threshold",
+  ["vantage"],
+);
+
 const agentLastContactTimestampSeconds = getOrCreateGauge(
   "agent_last_contact_timestamp_seconds",
   "Unix timestamp of the last accepted frame from the agent",
@@ -269,6 +275,7 @@ export const metrics = {
   urlCheckProbeDurationSeconds,
   urlCheckAgentProbesInFlight,
   urlCheckAgentProbeQueueDepth,
+  urlCheckAutoDisabledTotal,
 };
 
 export async function metricsPlugin(app: FastifyInstance): Promise<void> {

@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-02
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Complete the G3/P2 URL Check onboarding gaps: make create-with-checks support API authentication and optional availability targets like the regular URL Check editor; provide a supported path for an existing Component with no ComponentInstances to add its first instance and create checks without duplicating the Component; and make Editor/Admin permission boundaries clear for check setup, credential selection, and Import Agent selection."
 

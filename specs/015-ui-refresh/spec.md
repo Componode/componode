@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-18
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: Ratified design decisions D1–D11 in
 `researches/app_shell_layout_research.md` (SaaS shell audit + grilling

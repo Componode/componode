@@ -59,6 +59,27 @@ Deleting a Component Instance removes its checks and observations;
 deleting a Component removes its monitoring setup and every check under
 it. A `RETIRED` Component's checks stop probing but remain readable.
 
+### Repeated failures and auto-disable
+
+A failing check keeps probing on its configured cadence — every scheduled
+slot records exactly one observation; there are no in-slot retries and no
+backoff. To bound wasted work, the check **disables itself** after a run
+of consecutive non-success observations:
+
+- `FAILURE` and `MISSED` both advance the streak — a check can
+  auto-disable while its monitor vantage is down — and `SUCCESS` resets
+  it to zero.
+- The threshold defaults to **12** consecutive failures fleet-wide
+  (`URL_CHECK_AUTO_DISABLE_AFTER`, roughly an hour at the default
+  five-minute cadence). Each check can override it in the editor; `0`
+  means never auto-disable.
+- An auto-disabled check shows **Auto-disabled** (distinct from a manual
+  Disabled), stops accruing observations, and records the transition in
+  the activity feed. Re-enabling is manual — toggle the check back on to
+  reset the streak and resume probing.
+- No notifications are sent on failure or auto-disable; alerting is a
+  separate, future capability.
+
 For endpoints with no catalog entry yet, the create flow (Components →
 _New component_) can create the Component, its first Component Instance,
 and its first checks in one pass — including the same API-authentication
@@ -222,6 +243,7 @@ Defaults are the supported values; override only for tests or tuning.
 | `URL_CHECK_AGENT_CONCURRENCY`       | `4`     | Maximum concurrent in-flight probes per Import Agent (integer ≥ 1)             |
 | `URL_CHECK_AGENT_RATE_LIMIT`        | `20`    | Max agent-vantage dispatches per sweep-interval window per agent (integer ≥ 1) |
 | `URL_CHECK_AGENT_QUEUE_MAX`         | `100`   | Max deferred (queued) probe slots per agent before MISSED (integer ≥ 1)        |
+| `URL_CHECK_AUTO_DISABLE_AFTER`      | `12`    | Consecutive non-success probes before a check auto-disables; `0` = never       |
 
 ## Agent-vantage bounds and cancellation
 

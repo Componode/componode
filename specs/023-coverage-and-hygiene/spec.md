@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-20
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: `023-coverage-and-hygiene` — implement the ratified Phase-2
 coverage items and Phase-3 stewardship-lite items of the practical-DPAM

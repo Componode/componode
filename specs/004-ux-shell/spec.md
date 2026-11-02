@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-07
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Implement the UX/UI foundation ratified by ADR-103 and defined in docs/ux.md: sidebar layout shell, state conventions, theming (dark mode + accent + density), health-and-attention dashboard, and Ctrl+K global search across the existing pages."
 

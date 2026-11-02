@@ -54,9 +54,11 @@ export function vantageLabel(
 /** Derived card/badge status — never the importer-reported instance status. */
 export function checkStatusOf(check: {
   enabled: boolean;
+  autoDisabledAt?: string | null;
   latest: { outcome: string } | null;
 }): UrlCheckStatus {
-  if (!check.enabled) return "DISABLED";
+  if (!check.enabled)
+    return check.autoDisabledAt != null ? "AUTO_DISABLED" : "DISABLED";
   if (!check.latest) return "NO_DATA";
   return check.latest.outcome === "SUCCESS" ? "UP" : "DOWN";
 }
@@ -273,6 +275,9 @@ function mapCheckBase(c: UrlCheck): Omit<UrlCheckView, "latest" | "status"> {
             "24H",
           ),
     nextProbeAt: c.nextProbeAt ?? null,
+    autoDisableAfter: c.autoDisableAfter ?? null,
+    consecutiveFailures: c.consecutiveFailures ?? 0,
+    autoDisabledAt: c.autoDisabledAt ?? null,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     // Overridden by mapUrlCheckListItem; the detail path has no list summary.
@@ -283,7 +288,11 @@ function mapCheckBase(c: UrlCheck): Omit<UrlCheckView, "latest" | "status"> {
 
 export function mapUrlCheckListItem(c: UrlCheckListItem): UrlCheckView {
   const latest = mapLatest(c.latest);
-  const status = checkStatusOf({ enabled: c.enabled, latest });
+  const status = checkStatusOf({
+    enabled: c.enabled,
+    autoDisabledAt: c.autoDisabledAt,
+    latest,
+  });
   return {
     ...mapCheckBase(c),
     latest,
@@ -298,7 +307,11 @@ export function mapUrlCheck(
   c: UrlCheck,
   latest: UrlCheckLatestView | null = null,
 ): UrlCheckView {
-  const status = checkStatusOf({ enabled: c.enabled, latest });
+  const status = checkStatusOf({
+    enabled: c.enabled,
+    autoDisabledAt: c.autoDisabledAt,
+    latest,
+  });
   return { ...mapCheckBase(c), latest, status };
 }
 
