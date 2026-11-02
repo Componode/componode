@@ -1,0 +1,28 @@
+# Playwright runner image — official browsers image pinned to the same
+# version as @playwright/test in package.json, plus the workload's baked
+# test sources and dependencies.
+
+FROM mcr.microsoft.com/playwright:v1.64.1-noble
+
+# NSS tooling lets the entrypoint install the workload CA into the shared
+# NSS database read by Chromium (and by Firefox enterprise_roots).
+RUN apt-get update && apt-get install -y --no-install-recommends libnss3-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable pnpm
+
+WORKDIR /work
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.json playwright.config.ts ./
+RUN pnpm install --frozen-lockfile
+
+COPY scripts ./scripts
+COPY tests ./tests
+COPY mocks ./mocks
+COPY fixtures ./fixtures
+COPY data ./data
+COPY docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["pnpm", "exec", "playwright", "test"]

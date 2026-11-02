@@ -1,0 +1,5 @@
+# Standalone workspace anchor for the Playwright workload. This file keeps
+# pnpm scoped to this directory so the workload gets its own lockfile and
+# never modifies the root workspace or root pnpm-lock.yaml.
+packages:
+  - '.'
