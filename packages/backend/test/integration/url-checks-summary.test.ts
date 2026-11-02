@@ -194,6 +194,16 @@ describe("url checks list summary (spec 053)", () => {
     return JSON.parse(res.payload);
   };
 
+  it("returns 404 for a component that does not exist", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/v1/components/${uuidv7()}/url-checks`,
+      ...authed(adminSession),
+    });
+    expect(res.statusCode).toBe(404);
+    expect(JSON.parse(res.payload).code).toBe("NOT_FOUND");
+  });
+
   it("embeds a 24h summary per check with the metric-endpoint formulas", async () => {
     const { componentId, checkIds } = await seedChecks(testDb.db, "sum-1", [
       { name: "watched", url: "https://example.com/health" },

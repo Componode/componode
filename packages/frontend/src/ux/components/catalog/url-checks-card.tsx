@@ -46,6 +46,7 @@ import {
   TooltipTrigger,
 } from "@/ux/components/ui/tooltip";
 import { CHECK_ERROR_TYPE_LABELS } from "@/ux/lib/domain";
+import { formatMs, formatPct } from "@/ux/lib/format";
 import { canAccess } from "@/ux/lib/nav";
 import { ux } from "@/ux/lib/paths";
 import type {
@@ -63,9 +64,8 @@ const OUTCOME_DOT: Record<UrlCheckObservationView["outcome"], string> = {
   MISSED: "bg-warning",
 };
 
-const pct = (v: number | null) =>
-  v == null ? "—" : `${(v * 100).toFixed(v === 1 ? 0 : 2)}%`;
-const ms = (v: number | null) => (v == null ? "—" : `${Math.round(v)} ms`);
+const pct = formatPct;
+const ms = formatMs;
 
 /**
  * One dot per observation, oldest → newest. Shared by the card rows and the

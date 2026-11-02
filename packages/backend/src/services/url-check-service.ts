@@ -211,10 +211,35 @@ export interface CheckListResult {
 }
 
 const RECENT_OBSERVATIONS_PER_CHECK = 12;
+const SUMMARY_WINDOW_MS = 864e5; // rolling 24h — the fixed compact window
+
+/** Shared windowed-rollup formula — listChecks summary and getMetrics must
+ *  never drift (ADR-124 item 5: MISSED counts against availability only). */
+function summarizeOutcomeCounts(
+  success: number,
+  failure: number,
+  missed: number,
+) {
+  const scheduled = success + failure + missed;
+  return {
+    availability: scheduled > 0 ? success / scheduled : null,
+    errorRate: success + failure > 0 ? failure / (success + failure) : null,
+    coverageGap: scheduled > 0 ? missed / scheduled : 0,
+  };
+}
 
 export async function listChecks(
   componentId: string,
 ): Promise<CheckListResult> {
+  const component = await db
+    .selectFrom("components")
+    .select("id")
+    .where("id", "=", componentId)
+    .executeTakeFirst();
+  if (!component) {
+    throw coded("Component not found", 404, "NOT_FOUND");
+  }
+
   const setup = await getSetup(componentId);
 
   const checks = await db
@@ -250,7 +275,7 @@ export async function listChecks(
   // same formulas as getMetrics — MISSED counts as unsuccessful, and
   // percentiles cover SUCCESS durations only (the CASE evaluates to null
   // for other outcomes and percentile_cont ignores nulls).
-  const cutoff = new Date(Date.now() - 864e5).toISOString();
+  const cutoff = new Date(Date.now() - SUMMARY_WINDOW_MS).toISOString();
   const summaryRows =
     checkIds.length === 0
       ? []
@@ -316,7 +341,7 @@ export async function listChecks(
     const success = Number(agg?.success ?? 0);
     const failure = Number(agg?.failure ?? 0);
     const missed = Number(agg?.missed ?? 0);
-    const scheduled = success + failure + missed;
+    const rollup = summarizeOutcomeCounts(success, failure, missed);
     items.push({
       ...toApi(row),
       latest: latest
@@ -331,10 +356,10 @@ export async function listChecks(
         : null,
       summary: {
         window: "24h",
-        availability: scheduled > 0 ? success / scheduled : null,
+        availability: rollup.availability,
         p95:
           agg?.p95 === null || agg?.p95 === undefined ? null : Number(agg.p95),
-        coverageGap: scheduled > 0 ? missed / scheduled : 0,
+        coverageGap: rollup.coverageGap,
         counts: { success, failure, missed },
       },
       recent: (recentByCheck.get(row.id) ?? []).map(observationToApi),
@@ -671,13 +696,10 @@ export async function getMetrics(
   const success = Number(counts.success);
   const failure = Number(counts.failure);
   const missed = Number(counts.missed);
-  const scheduled = success + failure + missed;
 
   return {
     window,
-    availability: scheduled > 0 ? success / scheduled : null,
-    errorRate: success + failure > 0 ? failure / (success + failure) : null,
-    coverageGap: scheduled > 0 ? missed / scheduled : 0,
+    ...summarizeOutcomeCounts(success, failure, missed),
     p50: percentiles.p50 === null ? null : Number(percentiles.p50),
     p95: percentiles.p95 === null ? null : Number(percentiles.p95),
     p99: percentiles.p99 === null ? null : Number(percentiles.p99),

@@ -1439,7 +1439,7 @@ paths:
   /components/{componentId}/url-checks:
     get:
       tags: [URLChecks]
-      summary: List URL checks for a component (with latest observation)
+      summary: List URL checks for a component (with latest, 24h summary, and recent observations)
       parameters:
         - name: componentId
           in: path
@@ -1447,7 +1447,7 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         "200":
-          description: Setup and checks with latest-observation summary
+          description: Setup and checks — each check carries its latest observation, a compact 24h summary (availability/p95/coverageGap/counts), and the <=12 most recent observations
           content:
             application/json:
               schema:

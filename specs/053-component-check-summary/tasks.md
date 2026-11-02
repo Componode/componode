@@ -75,6 +75,13 @@ all-failure windows — each renders its specified presentation.
 
 - [x] T017 Add `SATURATED` to the `errorType` enums on `UrlCheckLatest` and `UrlCheckObservation` in `docs/openapi.yaml` — spec 052's error type is observable through `latest`, `recent`, and the observations read but undocumented per FR-011 (partial)
 
+## Phase 8: Review
+
+- [x] T018 Update the stale `summary`/`description` on `GET /components/{componentId}/url-checks` in `docs/openapi.yaml` — it still reads "List URL checks for a component (with latest observation)" / "Setup and checks with latest-observation summary"; describe the `summary` + `recent` payload and regenerate `docs/api.md` (code-review: standards + spec)
+- [x] T019 Make `listChecks` in `packages/backend/src/services/url-check-service.ts` return 404 `NOT_FOUND` ("Component not found") when `componentId` does not exist — the documented contract already advertises 404 but the handler returns `200 {setup:null, checks:[]}`; add an integration assertion in `url-checks-summary.test.ts` (code-review: spec)
+- [x] T020 [P] Extract the shared `pct`/`ms` formatters into `packages/frontend/src/ux/lib/format.ts` and use them in both `url-checks-card.tsx` and `url-check-detail.tsx` so compact and detailed figures cannot drift (code-review: standards)
+- [x] T021 [P] Extract the shared availability/coverageGap formula used by `listChecks` and `getMetrics` in `packages/backend/src/services/url-check-service.ts` into one helper so the "same formulas" invariant is enforced by code rather than comments (code-review: standards)
+
 ## Dependencies
 
 - Phase 1 (T001) blocks Phase 2 — backend maps the contract type.
