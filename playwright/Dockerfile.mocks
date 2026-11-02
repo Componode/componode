@@ -1,0 +1,19 @@
+# Mock service image — provider API fakes and the scenario control plane.
+# Bakes the standalone workspace dependencies and mock sources; per-run
+# certificates arrive through the read-only /pw-private mount.
+
+FROM node:24.22.2-alpine
+
+RUN apk add --no-cache wget && corepack enable pnpm
+
+WORKDIR /work
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.json ./
+RUN pnpm install --frozen-lockfile
+
+COPY mocks ./mocks
+COPY fixtures ./fixtures
+
+USER node
+
+CMD ["node", "--import", "tsx", "mocks/control/server.ts"]

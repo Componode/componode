@@ -1,0 +1,16 @@
+# Playwright workload Caddy front end.
+#
+# TLS is terminated with leaf certificates issued by the per-run workload CA
+# (playwright/.env-private/), mounted read-only at /certs. The workload CA
+# root is trusted explicitly by the runner, app, and Import Agent — nothing
+# disables certificate verification.
+
+app.componode-pw.test, hub {
+	tls /certs/app-hub.crt /certs/app-hub.key
+	reverse_proxy app:3000
+}
+
+dex.componode-pw.test {
+	tls /certs/dex.crt /certs/dex.key
+	reverse_proxy dex:5556
+}

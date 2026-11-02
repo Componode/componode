@@ -251,6 +251,10 @@ constitution.
   `constitution.md` VI.
 - `validateDiscoveredAsset` in `packages/core` is the enforceable importer
   contract. Every importer unit test MUST exercise it.
+- Test/workload branches never modify application source (`packages/**`).
+  Defects surfaced by tests are raised as GitHub issues — revert any
+  test-branch app change and link the filed issue instead of patching the
+  app in the test branch.
 
 ---
 
