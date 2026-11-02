@@ -100,9 +100,8 @@ export async function apiLogin(
   baseURL: string,
   role: Role,
 ): Promise<ApiCall> {
-  const call = async (method: string, path: string, data?: unknown): Promise<{ status: number; body: any }> => {
-    const s = await sessionFor(role);
-    const r = await fetch(`${baseURL}${path}`, {
+  const doFetch = async (method: string, path: string, data: unknown, s: Session): Promise<Response> =>
+    fetch(`${baseURL}${path}`, {
       method,
       headers: {
         ...(data !== undefined ? { 'content-type': 'application/json' } : {}),
@@ -111,6 +110,18 @@ export async function apiLogin(
       },
       body: data === undefined ? undefined : JSON.stringify(data),
     });
+
+  const call = async (method: string, path: string, data?: unknown): Promise<{ status: number; body: any }> => {
+    let s = await sessionFor(role);
+    let r: Response | undefined;
+    // The app rate-limits writes under sustained load — bounded retry keeps
+    // specs deterministic when many projects share the same run.
+    for (let attempt = 0; attempt < 6; attempt++) {
+      if (attempt > 0) await new Promise((res) => setTimeout(res, 2000 * attempt));
+      r = await doFetch(method, path, data, s);
+      if (r.status !== 429) break;
+    }
+    if (!r) throw new Error('unreachable');
     if (r.status === 401 && sessions.has(role)) {
       // Session died — force a fresh login and retry once.
       sessions.delete(role);

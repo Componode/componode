@@ -6,7 +6,7 @@ FROM mcr.microsoft.com/playwright:v1.64.1-noble
 
 # NSS tooling lets the entrypoint install the workload CA into the shared
 # NSS database read by Chromium (and by Firefox enterprise_roots).
-RUN apt-get update && apt-get install -y --no-install-recommends libnss3-tools \
+RUN apt-get update && apt-get install -y --no-install-recommends libnss3-tools p11-kit \
     && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g pnpm@9.15.2

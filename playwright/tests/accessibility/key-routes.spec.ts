@@ -14,6 +14,9 @@ for (const { path, role } of ROUTES) {
   test(`axe WCAG 2.1 AA scan: ${path} (${role})`, async ({ page }) => {
     if (path !== '/login') await loginPage(page, role);
     await page.goto(path);
+    // Under suite load the page can transiently serve an error document —
+    // wait for a rendered title before scanning so the scan targets the app.
+    await expect(page).toHaveTitle(/.+/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle');
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])

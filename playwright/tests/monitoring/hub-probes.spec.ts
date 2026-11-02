@@ -5,13 +5,26 @@ import { readFileSync } from 'node:fs';
 const BASE = 'https://app.componode-pw.test';
 const CTL = 'http://mock-control:9090';
 
+function seeded() {
+  return JSON.parse(readFileSync('/pw-private/out/seed-result.json', 'utf8'));
+}
+
 test.describe('hub probe observations (four auth modes)', () => {
   test('mock target records matching auth for BASIC, BEARER, CUSTOM_HEADERS', async ({ request }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(100_000);
     const api = await apiLogin(request, BASE, 'ADMIN');
+    // Earlier specs may have flipped the probe component to AGENT vantage or
+    // left cadence elevated — restore HUB vantage, then re-arm every check
+    // (PATCH enabled resets nextProbeAt to now) so probes fire promptly.
+    const { probeComponentId } = seeded();
+    await api('PUT', `/api/v1/components/${probeComponentId}/monitoring-setup`, { vantage: 'HUB', agentId: null, cadenceSeconds: 60 });
+    const checksRes = await api('GET', `/api/v1/components/${probeComponentId}/url-checks`);
+    for (const check of checksRes.body.checks ?? []) {
+      await api('PATCH', `/api/v1/url-checks/${check.id}`, { enabled: true });
+    }
     await fetch(`${CTL}/reset/mock-url-check-target`, { method: 'POST' });
 
-    const deadline = Date.now() + 60_000;
+    const deadline = Date.now() + 75_000;
     let probes: any[] = [];
     while (Date.now() < deadline) {
       const res = await fetch(`${CTL}/requests/mock-url-check-target`);

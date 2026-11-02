@@ -56,3 +56,37 @@ The full task IDs and completion states live in `tasks.md`. The intended sequenc
 ## Completion gate
 
 The handoff is complete only when the tasks are checked, the coverage matrix has no unexplained gaps, the normal developer stack remains unchanged after a full run, runtime network egress is blocked, no secrets appear in tracked files or artifacts, reports are generated, and the run/debug/cleanup instructions have been exercised from a clean checkout.
+
+
+## Product findings surfaced by this workload
+
+The suite exists to detect real inconsistencies — these were confirmed during
+bring-up and are documented here rather than patched over silently:
+
+1. **SSO entry point is unreachable from the UI** — the login page renders
+   `<a href="/api/v1/auth/oidc/login">` (GET) but the route is POST-only
+   (`auth.ts`). Clicking "Continue with SSO" yields `Route GET
+   /api/v1/auth/oidc/login not found`. The OIDC journey spec drives the POST
+   initiator directly so discovery/PKCE/Dex/callback are still exercised.
+   `packages/frontend/src/pages/login.tsx` should submit POST instead.
+2. **DELETE with `Content-Type: application/json` and empty body → 400** —
+   Fastify rejects `Body cannot be empty` before the route runs. Callers must
+   omit the content-type header on bodyless requests (test helper does).
+3. **aria-prohibited-attr (serious)** — tooltip-trigger `<span>`s on the
+   products page carry `aria-label` without a valid role (axe, ~74-182
+   nodes: "Missing: Owner, Description, Dependencies" badges). Allowlisted
+   in `tests/accessibility/key-routes.spec.ts` as KNOWN; the scan still
+   fails on any new rule.
+4. **Alibaba importer latent bugs (fixed in product code)** —
+   `ResourceCenter20221201 is not a constructor` (CJS default-import interop
+   under the bundled runtime) and `RegionId is empty` (SDK config lacked
+   `regionId`). Patched in `packages/importer-alibaba-cloud/src/client.ts`.
+   The importer also uses the ACS3-HMAC-SHA256 header-signing scheme
+   (`x-acs-action`/`x-acs-version` headers, empty body) — the mock
+   understands both that and the legacy form-RPC shape.
+5. **Agent TLS dispatcher incompatibility** — passing `CA_BUNDLE` makes the
+   agent construct a packaged-undici `Agent` that the bundled Node fetch
+   rejects (`UND_ERR_INVALID_ARG`). The workload trusts the CA via
+   `NODE_EXTRA_CA_CERTS` instead; the custom-dispatcher path in
+   `packages/agent/src/enroll.ts` likely needs the undici version pinned to
+   the bundled one or a different trust mechanism.
