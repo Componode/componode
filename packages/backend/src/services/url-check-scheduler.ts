@@ -71,10 +71,24 @@ async function writeMissedSlots(
   const missed = pending.slice(0, MAX_MISSED_PER_SWEEP);
   let disabled = false;
   if (missed.length > 0) {
-    // One transaction for the whole slot write (spec 056): MISSED rows,
-    // the streak bump, and any auto-disable + audit commit atomically —
-    // the same contract recordObservation holds for executed probes.
+    // One transaction for the whole slot write (spec 056): the guarded
+    // streak bump runs first so a check disabled before this write is
+    // committed accrues nothing at all, then MISSED rows, then any
+    // auto-disable + audit — same atomicity recordObservation holds.
     disabled = await db.transaction().execute(async (trx) => {
+      // Spec 056: MISSED slots advance the streak by the batch size; a
+      // check crossing its threshold mid-sweep disables here and the
+      // live slot below never dispatches.
+      const streak = await trx
+        .updateTable("url_checks")
+        .set({
+          consecutiveFailures: sql<number>`"consecutiveFailures" + ${missed.length}`,
+        })
+        .where("id", "=", checkId)
+        .where("enabled", "=", true)
+        .returning(["consecutiveFailures", "autoDisableAfter"])
+        .executeTakeFirst();
+      if (!streak) return false;
       await trx
         .insertInto("url_check_observations")
         .values(
@@ -93,19 +107,6 @@ async function writeMissedSlots(
           })),
         )
         .execute();
-      // Spec 056: MISSED slots advance the streak by the batch size; a
-      // check crossing its threshold mid-sweep disables here and the
-      // live slot below never dispatches.
-      const streak = await trx
-        .updateTable("url_checks")
-        .set({
-          consecutiveFailures: sql<number>`"consecutiveFailures" + ${missed.length}`,
-        })
-        .where("id", "=", checkId)
-        .where("enabled", "=", true)
-        .returning(["consecutiveFailures", "autoDisableAfter"])
-        .executeTakeFirst();
-      if (!streak) return false;
       return evaluateAutoDisable(
         trx,
         checkId,
