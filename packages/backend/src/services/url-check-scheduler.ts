@@ -174,7 +174,7 @@ export async function sweepOnce(deps: SweepDeps = {}): Promise<void> {
     const { lastCovered, remaining, disabled } = await writeMissedSlots(
       row.id,
       slots.slice(0, -1),
-      row.vantage,
+      row.vantage as UrlCheckVantage,
       row.agentId,
     );
     // Auto-disabled mid-sweep (spec 056): the live slot and any further
