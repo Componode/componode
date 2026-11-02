@@ -1,5 +1,7 @@
 # Bugfix batch: UX findings from live iteration
 
+**Status**: Shipped
+
 > Accumulating spec — user-reported bugs and findings land here as `F###`
 > entries. Each finding gets: root cause, regression test first, minimal fix,
 > task row in `tasks.md`. One branch (`bugfix/036-ux-findings`), one PR, merged
@@ -73,7 +75,7 @@
   inside Radix `DialogContent`, which unmounts on close; page-level forms
   mount fresh per route).
 - **Root cause**: the reset effect ran only `if (open && initial)` —
-  opening for *create* (`initial` undefined) kept the previous record's
+  opening for _create_ (`initial` undefined) kept the previous record's
   `useState` values; typed-but-unsaved values also persisted. The body read
   `initial.name` non-optionally (latent crash on create-open).
 - **Fix**: reset unconditionally when `open` flips true — every field
@@ -85,7 +87,7 @@
 ### F006 — Product create 400s on `unrecognized_keys: lifecycle`, error unreadable
 
 - **Reported**: creating a product returns 400 `Unrecognized key:
-  "lifecycle"` shown as bare "Invalid input"; asks why lifecycle fails and
+"lifecycle"` shown as bare "Invalid input"; asks why lifecycle fails and
   for proper payload interpretation on all forms.
 - **Surface**: `product-form.tsx` payload; `api/client.ts` `fieldErrors`.
 - **Root cause**: `createProductSchema` is `.strict()` and deliberately has

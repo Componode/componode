@@ -1,5 +1,7 @@
 # Bugfix: CodeQL incomplete sanitization in generate-importer-docs
 
+**Status**: Shipped
+
 ## Problem
 
 PR #212 CodeQL scan flagged two `js/incomplete-sanitization` (high)

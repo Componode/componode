@@ -306,7 +306,9 @@ consecutive-failure auto-disable threshold.
   integer override (`0`–`1000`, `NULL` = inherit, `0` = never) over a
   global env tunable (default **12**, `0` = never). Both write paths
   evaluate after updating the counter; the guarded disable update
-  (`enabled = true`) makes the transition single-writer.
+  (`enabled = true`) makes the transition single-writer. The transition
+  increments `url_check_auto_disabled_total{vantage}` — a bounded-label
+  counter ratified under the ADR-069 inventory convention.
 - **Disable semantics** — reaching the threshold sets `enabled = false`,
   `nextProbeAt = null`, `autoDisabledAt = now` in the same transaction and
   writes a `url_check` `disabled` audit event with

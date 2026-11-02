@@ -1,5 +1,7 @@
 # Bugfix: user-creation form swallows validation detail
 
+**Status**: Shipped
+
 ## Problem
 
 On **Administration → Users → New user** (`InviteUserDialog`), submitting an

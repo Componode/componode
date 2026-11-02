@@ -71,3 +71,11 @@
 
 - **MVP**: Phases 1–3 alone deliver the ratified contract end-to-end
 - US2 is a mechanical sweep runnable in parallel once the convention is written
+
+## Phase 6: Review
+
+- [x] T027 Wrap the bulk-MISSED insert, streak update, and `evaluateAutoDisable` call in one `db.transaction()` inside `writeMissedSlots` (`packages/backend/src/services/url-check-scheduler.ts`) so observation, counter, disable, and audit commit atomically per ADR-124 Amendment 3 and the audit-in-transaction rule (code-review: standards, code-review: spec)
+- [x] T028 Ratify the `url_check_auto_disabled_total` counter series explicitly in `researches/adrs/ADR-124-url-check-execution-surfaces.md` Amendment 3 per the ADR-069 closed-inventory convention (code-review: standards)
+- [x] T029 Replace the hardcoded `12` in `packages/frontend/src/ux/components/catalog/url-check-editor.tsx` with `URL_CHECK_AUTO_DISABLE_AFTER_DEFAULT` so the copy can't drift (code-review: standards)
+- [x] T030 Type `writeMissedSlots`' `vantage` param as `UrlCheckVantage` and drop the `as` cast at the call site (code-review: standards)
+- [x] T031 Add missing `**Status**: Shipped` lines to `specs/035-bugfix-user-form-validation/spec.md`, `specs/036-bugfix-ux-findings/spec.md`, and `specs/050-bugfix-codeql-sanitize/spec.md` so the FR-008 vocabulary is uniform (code-review: standards)
