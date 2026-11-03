@@ -253,6 +253,7 @@ Notes:
 | POST | `/api/v1/components/:id/instances` | Add the first instance to a zero-instance component | `component:update` |
 | GET | `/api/v1/components/platform-candidates` | List platform candidates (ADR-017 detection) | Authenticated |
 | GET | `/api/v1/components/:id/dependents` | List products that directly depend on a component | Authenticated |
+| GET | `/api/v1/components/:id/relationships` | Read a component's one-hop typed relationships (spec 060) | Authenticated |
 | POST | `/api/v1/components/:id/promote-to-platform` | Promote a component into a PLATFORM product (ADR-017) | `product:create` |
 <!-- /GENERATED:table:Components -->
 

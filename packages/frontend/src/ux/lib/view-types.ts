@@ -345,6 +345,57 @@ export interface ProductTopology {
   unavailableGroups: string[];
 }
 
+/** Related-Component node in the spec-060 Relationships view. */
+export interface RelatedComponentNode {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  provider: Provider;
+  resourceType: string;
+  lifecycle: Lifecycle;
+}
+
+/** Product node that depends on the focused Component (spec 060). */
+export interface ComponentDependentNode {
+  id: string;
+  name: string;
+  slug: string;
+  type: ProductType;
+  lifecycle: Lifecycle;
+}
+
+/** ComponentGroup ref carried on group-mediated Product paths. */
+export interface ComponentGroupNode {
+  id: string;
+  name: string;
+  slug: string;
+  lifecycle: Lifecycle;
+}
+
+/** Group-mediated Product path — attributed, never a direct edge. */
+export interface GroupMediatedDependentNode extends ComponentDependentNode {
+  viaGroup: ComponentGroupNode;
+}
+
+/** One-hop typed relation data for the Component Relationships tab (spec 060). */
+export interface ComponentRelationshipsView {
+  component: RelatedComponentNode;
+  dependsOn: RelatedComponentNode[];
+  dependedOnBy: RelatedComponentNode[];
+  sourcesFrom: RelatedComponentNode[];
+  sourcedBy: RelatedComponentNode[];
+  exposes: RelatedComponentNode[];
+  exposedBy: RelatedComponentNode[];
+  productDependents: {
+    direct: ComponentDependentNode[];
+    viaGroups: GroupMediatedDependentNode[];
+  };
+  instances: ComponentInstance[];
+  /** Relation groups that failed to read — rendered as a partial warning. */
+  unavailableKinds: string[];
+}
+
 /**
  * Row on a product detail's components tab — the API's ComponentDepRef
  * joined with the catalog component for display fields (group/provider/

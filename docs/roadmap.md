@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–059)
+## Shipped (features 001–060)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -344,6 +344,16 @@ file tracks shipped and upcoming work — update it when a spec completes.
   inspection panel; usable at 768px with no horizontal overflow and
   reduced-motion compliant.
 
+- `060-component-relationships` — Component detail gains a read-only
+  Relationships tab (ADR-128, amends ADR-103): one-hop typed lanes for
+  `DEPENDS_ON`/`SOURCES_FROM`/`EXPOSES` in both directions, Product
+  dependents with direct and `via [ComponentGroup]` provenance on a single
+  node, and nested ComponentInstances (GONE excluded by default, explicit
+  "Show gone" toggle). `GET /components/{id}/relationships` is a bounded,
+  authenticated, side-effect-free read that degrades failed relation
+  groups into `unavailableKinds`. Reuses the Product Map's keyboard,
+  `+N`, inspection, and reduced-motion patterns; no edge authoring.
+
 ## Next — post-v1.1
 
 The Docker importer program's mapped waves (A–E) plus Hub execution
@@ -351,8 +361,7 @@ The Docker importer program's mapped waves (A–E) plus Hub execution
 (051), operational bounds (052), the Component-level summary (053),
 onboarding completion (054), the repeated-failure auto-disable
 policy (056), and importer-managed checks (058) — has shipped, as has the Product Map
-topology (059); `060` is
-the next open spec slot — see
+topology (059) and the Component Relationships view (060). See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new
 importer wave).

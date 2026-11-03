@@ -1364,6 +1364,76 @@ paths:
                     items: { $ref: "#/components/schemas/ComponentDependent" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /components/{id}/relationships:
+    get:
+      tags: [Components]
+      summary: Read a component's one-hop typed relationships (spec 060)
+      description: >-
+        Read-only one-hop view (ADR-128): typed Component-to-Component
+        relations (`DEPENDS_ON` in both directions, `SOURCES_FROM`,
+        `EXPOSES`), Product dependents split into direct and
+        ComponentGroup-mediated paths (`viaGroup` attribution, never a
+        direct edge), and nested ComponentInstances. Bounded single read;
+        relation groups that fail to read are reported in
+        `unavailableKinds` instead of being silently dropped.
+        Component-to-Component tables have no writer yet — empty lanes are
+        expected. Side-effect-free.
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - name: includeGone
+          in: query
+          schema: { type: boolean, default: false }
+          description: Include `GONE` ComponentInstances in the nested instance group.
+      responses:
+        "200":
+          description: One-hop typed relationships
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  component: { $ref: "#/components/schemas/RelatedComponentRef" }
+                  relationships:
+                    type: object
+                    properties:
+                      dependsOn:
+                        type: array
+                        items: { $ref: "#/components/schemas/RelatedComponentRef" }
+                      dependedOnBy:
+                        type: array
+                        items: { $ref: "#/components/schemas/RelatedComponentRef" }
+                      sourcesFrom:
+                        type: array
+                        items: { $ref: "#/components/schemas/RelatedComponentRef" }
+                      sourcedBy:
+                        type: array
+                        items: { $ref: "#/components/schemas/RelatedComponentRef" }
+                      exposes:
+                        type: array
+                        items: { $ref: "#/components/schemas/RelatedComponentRef" }
+                      exposedBy:
+                        type: array
+                        items: { $ref: "#/components/schemas/RelatedComponentRef" }
+                      productDependents:
+                        type: object
+                        properties:
+                          direct:
+                            type: array
+                            items: { $ref: "#/components/schemas/ProductDependentRef" }
+                          viaGroups:
+                            type: array
+                            items: { $ref: "#/components/schemas/GroupMediatedDependent" }
+                      instances:
+                        type: array
+                        items: { $ref: "#/components/schemas/ComponentInstance" }
+                  unavailableKinds:
+                    type: array
+                    items:
+                      type: string
+                      enum: [dependsOn, dependedOnBy, sourcesFrom, sourcedBy, exposes, exposedBy, productDependents, instances]
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /components/{id}/promote-to-platform:
     post:
       tags: [Components]
@@ -4000,6 +4070,46 @@ components:
         name: { type: string }
         slug: { type: string }
         type: { $ref: "#/components/schemas/ProductType" }
+    RelatedComponentRef:
+      type: object
+      description: >-
+        Typed related-Component ref in the one-hop relationships read
+        (spec 060) — carries lifecycle so retired endpoints are labeled,
+        never relabeled or dropped.
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        category: { type: string }
+        provider: { type: string }
+        resourceType: { type: string }
+        lifecycle: { $ref: "#/components/schemas/Lifecycle" }
+    ProductDependentRef:
+      type: object
+      description: >-
+        A non-RETIRED product that depends on the component, direct or via
+        a ComponentGroup (spec 060).
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        type: { $ref: "#/components/schemas/ProductType" }
+        lifecycle: { $ref: "#/components/schemas/Lifecycle" }
+    GroupMediatedDependent:
+      allOf:
+        - $ref: "#/components/schemas/ProductDependentRef"
+        - type: object
+          description: >-
+            Product dependency mediated through a ComponentGroup — the
+            group is attributed, never flattened into a direct edge.
+          properties:
+            viaGroup:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                name: { type: string }
+                slug: { type: string }
+                lifecycle: { $ref: "#/components/schemas/Lifecycle" }
     CreateProduct:
       type: object
       required: [name, type]

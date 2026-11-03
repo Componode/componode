@@ -97,7 +97,7 @@ tab (`sessionStorage`).
 | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------- |
 | `/`                                                                                       | Dashboard                                                                                          | —                                   |
 | `/products`, `/products/new`, `/products/import`, `/products/:slug` (+`/edit`,`/history`) | Product tree, authoring, detail                                                                    | editor for writes                   |
-| `/components`, `/components/:slug` (+`/promote`,`/history`)                               | Catalog, promotion, detail                                                                         | editor for writes                   |
+| `/components`, `/components/:slug` (+`/promote`,`/history`)                               | Catalog, promotion, detail (includes Relationships tab)                                            | editor for writes                   |
 | `/component-groups`, `…/:slug`                                                            | Groups                                                                                             | —                                   |
 | `/suggestions`                                                                            | Edge-suggestion queue                                                                              | —                                   |
 | `/importers`, `…/new`, `…/:id` (+`/edit`,`/runs/:runId`)                                  | Import operations                                                                                  | —                                   |
@@ -216,6 +216,10 @@ detailed entry in **`researches/ux-rewrite-gaps.md`**:
   tab (ADR-118 Amendment 1 / ADR-127). Keyboard focus, selection, inspection,
   and `+N` expansion are view affordances; pan/zoom/drag/layout editing and
   edge authoring remain out of scope.
+- Component detail has a separate **read-only Relationships** tab
+  (ADR-128). It reuses the Product Map's accessibility patterns while
+  preserving typed Component relation semantics; ComponentInstances remain
+  nested children.
 - No dashboard widget customization, no notification backend, no TOTP —
   all flagged gaps, not hidden bugs.
 

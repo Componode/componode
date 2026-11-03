@@ -46,6 +46,11 @@ export const listComponentsQuerySchema = z.object({
   includeGone: z.preprocess(toBoolean, z.boolean().default(false)),
 }).strict();
 
+/** Spec 060: query params for the read-only Component relationships read. */
+export const componentRelationshipsQuerySchema = z.object({
+  includeGone: z.preprocess(toBoolean, z.boolean().default(false)),
+}).strict();
+
 export const updateComponentGroupAssignmentSchema = z.object({
   componentGroupId: z.string().uuid().nullable().optional(),
   teamOwnerId: z.string().uuid().nullable().optional(),
@@ -100,6 +105,7 @@ export const listComponentGroupsQuerySchema = z.object({
 });
 
 export type ListComponentsQuery = z.infer<typeof listComponentsQuerySchema>;
+export type ComponentRelationshipsQuery = z.infer<typeof componentRelationshipsQuerySchema>;
 export type UpdateComponentGroupAssignmentInput = z.infer<typeof updateComponentGroupAssignmentSchema>;
 export type UpdateComponentInput = z.infer<typeof updateComponentSchema>;
 export type CreateComponentInput = z.infer<typeof createComponentSchema>;

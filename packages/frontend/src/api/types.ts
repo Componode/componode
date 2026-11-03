@@ -433,6 +433,57 @@ export interface PromoteToPlatformResult {
   consumers: ComponentDependent[];
 }
 
+// --- Read-only Component relationships (spec 060 / ADR-128) ----------------
+
+export interface RelatedComponentRef {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  provider: string;
+  resourceType: string;
+  lifecycle: string;
+}
+
+export interface ComponentProductDependent {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+  lifecycle: string;
+}
+
+export interface ComponentGroupRef {
+  id: string;
+  name: string;
+  slug: string;
+  lifecycle: string;
+}
+
+/** Product dependency mediated through a ComponentGroup — never a direct edge. */
+export interface GroupMediatedDependent extends ComponentProductDependent {
+  viaGroup: ComponentGroupRef;
+}
+
+export interface ComponentRelationshipsResponse {
+  component: RelatedComponentRef;
+  relationships: {
+    dependsOn: RelatedComponentRef[];
+    dependedOnBy: RelatedComponentRef[];
+    sourcesFrom: RelatedComponentRef[];
+    sourcedBy: RelatedComponentRef[];
+    exposes: RelatedComponentRef[];
+    exposedBy: RelatedComponentRef[];
+    productDependents: {
+      direct: ComponentProductDependent[];
+      viaGroups: GroupMediatedDependent[];
+    };
+    instances: ComponentInstance[];
+  };
+  /** Relation groups that could not be read — never silently omitted. */
+  unavailableKinds: string[];
+}
+
 export type { BootstrapReport, BootstrapSkippedItem } from "@componode/core";
 
 // Edge suggestions (spec 022 / ADR-113) — contracts live in core; re-export

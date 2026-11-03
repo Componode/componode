@@ -654,4 +654,48 @@ describe("POST /components/:id/instances — first-instance recovery (spec 054)"
     expect(JSON.parse(res.payload).code).toBe("NOT_FOUND");
   });
 });
+
+describe("GET /components/:id/relationships — read-only view (spec 060)", () => {
+  it("rejects unauthenticated requests and unknown components", async () => {
+    const unauthenticated = await app.inject({
+      method: "GET",
+      url: `/api/v1/components/${uuidv7()}/relationships`,
+    });
+    expect(unauthenticated.statusCode).toBe(401);
+
+    const missing = await app.inject({
+      method: "GET",
+      url: `/api/v1/components/${uuidv7()}/relationships`,
+      cookies: { [SESSION_COOKIE_NAME]: viewerSession },
+    });
+    expect(missing.statusCode).toBe(404);
+    expect(JSON.parse(missing.payload).code).toBe("NOT_FOUND");
+  });
+
+  it("is side-effect-free — the read writes no audit rows", async () => {
+    const componentId = uuidv7();
+    await insertComponent(testDb.db, {
+      id: componentId,
+      name: "Rel Target",
+      slug: "rel-target",
+      category: "API",
+      provider: "OTHER",
+      resourceType: "service",
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/v1/components/${componentId}/relationships`,
+      cookies: { [SESSION_COOKIE_NAME]: viewerSession },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const [entityRows, edgeRows] = await Promise.all([
+      testDb.db.selectFrom("entity_changes").selectAll().execute(),
+      testDb.db.selectFrom("edge_changes").selectAll().execute(),
+    ]);
+    expect(entityRows).toHaveLength(0);
+    expect(edgeRows).toHaveLength(0);
+  });
+});
 });

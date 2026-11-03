@@ -182,11 +182,12 @@ export type RelationGroupKey =
   | "dependsOnGroups";
 
 /** Spec 059: one failed relation-family read degrades to an empty array and
- *  records the family key; other families and the focused read still respond. */
-export async function readRelationFamily<T>(
-  key: RelationGroupKey,
+ *  records the family key; other families and the focused read still respond.
+ *  Generic over the family key — spec 060 reuses it for Component relations. */
+export async function readRelationFamily<K extends string, T>(
+  key: K,
   p: Promise<T[]>,
-  unavailable: RelationGroupKey[],
+  unavailable: K[],
 ): Promise<T[]> {
   try {
     return await p;

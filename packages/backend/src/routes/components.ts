@@ -1,9 +1,10 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
-import { listComponentsQuerySchema, updateComponentSchema, createComponentSchema, createInstanceBlockSchema } from "@componode/core";
+import { listComponentsQuerySchema, updateComponentSchema, createComponentSchema, createInstanceBlockSchema, componentRelationshipsQuerySchema } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
 import { listComponents, getComponentById } from "../services/component-catalog-service.js";
+import { getComponentRelationships } from "../services/component-relationship-service.js";
 import { updateComponent, createComponent } from "../services/component-group-service.js";
 import { createComponentInstance } from "../services/component-instance-service.js";
 import { toActor } from "../services/actor.js";
@@ -34,6 +35,35 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(404).send({ code: "NOT_FOUND", message: "Component not found" });
     }
     return reply.status(200).send({ dependents: await listComponentDependents(id) });
+  });
+
+  // Spec 060 / ADR-128: read-only one-hop relationship view — authenticated,
+  // side-effect-free (ADR-094), no role gate beyond session.
+  app.get("/components/:id/relationships", {
+    preHandler: [app.verifySession],
+  }, async (req: FastifyRequest, reply: FastifyReply) => {
+    const params = componentIdParam.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid path parameters",
+      });
+    }
+    const query = componentRelationshipsQuerySchema.safeParse(req.query);
+    if (!query.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid query parameters",
+        details: query.error.issues,
+      });
+    }
+    const result = await getComponentRelationships(params.data.id, {
+      includeGone: query.data.includeGone,
+    });
+    if (!result) {
+      return reply.status(404).send({ code: "NOT_FOUND", message: "Component not found" });
+    }
+    return reply.status(200).send(result);
   });
 
   // Manual first-instance recovery (spec 054): intentionally scoped to the

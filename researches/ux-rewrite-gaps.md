@@ -364,6 +364,20 @@ them into specs when scheduled. G29/G31/G32 shipped as spec
   the top of the Dependencies tab (ADR-127) — the Map tab is removed and
   `?tab=map` resolves to `dependencies`.
 
+## G35 — Component Relationships tab — RESOLVED by spec 060
+
+- Component detail needed a read-only, one-hop view of typed
+  Component-to-Component relations (`DEPENDS_ON`/`SOURCES_FROM`/`EXPOSES`),
+  direct and ComponentGroup-mediated Product dependents, and nested
+  ComponentInstances — none of which any read surface exposed (ADR-128). The
+  `componentRelationships` flag ships ON with the complete contract:
+  `GET /components/{id}/relationships` returns every typed lane in one
+  bounded read, reports failed relation groups via `unavailableKinds`, and
+  keeps group-mediated Product paths attributed (`viaGroup`) rather than
+  presenting them as direct edges. Component detail gains an
+  Overview/Relationships tab pair; the Overview Instances table and
+  read-only URL Check summary are unchanged.
+
 ## Conditional gaps — VERIFIED during implementation
 
 - **Product bulk-import** — RESOLVED: `POST /products/bootstrap`

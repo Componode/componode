@@ -68,3 +68,8 @@ general nested schema-renderer boundary is unchanged.
 
 **Amended by ADR-127**: the Product Map topology moves to the Dependencies
 tab while retaining the read-only, data-true canvas constraints.
+
+---
+
+**Amended by ADR-128**: Component detail gains a typed, read-only
+Relationships tab with nested ComponentInstances.
