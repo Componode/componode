@@ -69,8 +69,7 @@ test.describe('component relationships tab (spec 060)', () => {
       'Depended on by',
       'Sourced by',
       'Exposed by',
-      'Direct product dependents',
-      'Products via groups',
+      'Product dependents',
       'Depends on',
       'Sources from',
       'Exposes',
@@ -78,9 +77,9 @@ test.describe('component relationships tab (spec 060)', () => {
       await expect(page.getByText(lane, { exact: true }).first()).toBeVisible();
     }
 
-    // Direct vs group-mediated provenance stays distinct.
+    // Direct vs group-mediated provenance stays labeled on the node.
     await expect(
-      page.getByRole('button', { name: new RegExp(`RelDirect ${fx.run}.*depends on RelComp ${fx.run}`, 'i') }),
+      page.getByRole('button', { name: new RegExp(`RelDirect ${fx.run}.*depends on RelComp ${fx.run} directly`, 'i') }),
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: new RegExp(`RelVia ${fx.run}.*via RelGroup ${fx.run}`, 'i') }),
@@ -155,6 +154,8 @@ test.describe('component relationships tab (spec 060)', () => {
     await page.goto(`/components/relempty-${run}?tab=relationships`);
     await expect(page.getByText(/no relationships/i)).toBeVisible({ timeout: 15_000 });
 
+    // 768px viewport (SC-004): no horizontal overflow.
+    await page.setViewportSize({ width: 768, height: 900 });
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );

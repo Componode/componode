@@ -220,3 +220,24 @@ never fabricates missing relationship data.
 4. Add keyboard, responsive, empty, and no-write coverage.
 5. Update OpenAPI, UX-gap/flag governance, user documentation, and generated
    API docs.
+
+## Phase 8: Review
+
+- [x] T032 Merge direct and group-mediated Product dependents into one
+      "Product dependents" lane where each Product renders once with labeled
+      provenance paths (code-review: spec, MEDIUM — US2/AC2.3 + edge case)
+- [x] T033 Render every typed lane's "None" empty state even when the whole
+      view is empty, keeping the explicit empty-state box (code-review: spec,
+      LOW — US1/AC1.5, FR-010)
+- [x] T034 Add a "Show gone" toggle in the Relationships instances section so
+      GONE instances are explicitly requestable (code-review: spec, LOW —
+      US3/AC3.3)
+- [x] T035 Add a backend test asserting a failed relation family reports its
+      kind in `unavailableKinds` rather than dropping silently, and a 768px
+      viewport overflow check in the Playwright spec (code-review: spec,
+      LOW — FR-007, SC-004)
+- [x] T036 Replace the `productDependents` one-element-array wrapper with a
+      dedicated try/catch degradation (code-review: standards, LOW)
+- [x] T037 Extract `mapProductDependent` in `mappers/catalog.ts` and narrow
+      `unavailableKinds` labels to the contract kind union (code-review:
+      standards, LOW)

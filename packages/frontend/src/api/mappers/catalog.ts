@@ -13,6 +13,7 @@ import type {
 } from "@/api/types";
 import type {
   Component,
+  ComponentDependentNode,
   ComponentGroupView,
   ComponentInstance,
   ComponentRelationshipsView,
@@ -156,6 +157,22 @@ export function mapProductTopology(d: ProductDetail): ProductTopology {
   };
 }
 
+function mapProductDependent(p: {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+  lifecycle: string;
+}): ComponentDependentNode {
+  return {
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    type: narrow<ProductType>(p.type, PRODUCT_TYPES, "CUSTOMER_FACING"),
+    lifecycle: narrow<Lifecycle>(p.lifecycle, LIFECYCLES, "ACTIVE"),
+  };
+}
+
 /** Spec 060: typed related-Component ref → lane node. */
 export function mapRelatedComponent(ref: RelatedComponentRef): RelatedComponentNode {
   return {
@@ -184,19 +201,9 @@ export function mapComponentRelationships(
     exposes: rel.exposes.map(mapRelatedComponent),
     exposedBy: rel.exposedBy.map(mapRelatedComponent),
     productDependents: {
-      direct: rel.productDependents.direct.map((p) => ({
-        id: p.id,
-        name: p.name,
-        slug: p.slug,
-        type: narrow<ProductType>(p.type, PRODUCT_TYPES, "CUSTOMER_FACING"),
-        lifecycle: narrow<Lifecycle>(p.lifecycle, LIFECYCLES, "ACTIVE"),
-      })),
-      viaGroups: rel.productDependents.viaGroups.map((p) => ({
-        id: p.id,
-        name: p.name,
-        slug: p.slug,
-        type: narrow<ProductType>(p.type, PRODUCT_TYPES, "CUSTOMER_FACING"),
-        lifecycle: narrow<Lifecycle>(p.lifecycle, LIFECYCLES, "ACTIVE"),
+      direct: (rel.productDependents?.direct ?? []).map(mapProductDependent),
+      viaGroups: (rel.productDependents?.viaGroups ?? []).map((p) => ({
+        ...mapProductDependent(p),
         viaGroup: {
           id: p.viaGroup.id,
           name: p.viaGroup.name,
@@ -205,7 +212,7 @@ export function mapComponentRelationships(
         },
       })),
     },
-    instances: rel.instances.map(mapComponentInstance),
+    instances: (rel.instances ?? []).map(mapComponentInstance),
     unavailableKinds: res.unavailableKinds ?? [],
   };
 }

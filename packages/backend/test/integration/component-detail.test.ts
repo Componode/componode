@@ -412,6 +412,28 @@ describe("component detail", () => {
       expect(all).toContain(gone);
     });
 
+    it("reports a failed relation family in unavailableKinds instead of dropping it", async () => {
+      const focused = await mkComponent({ slug: "rel-degraded" });
+      // Force the `exposes` family read to fail; others must still respond.
+      await testDb.db.schema
+        .alterTable("component_exposes")
+        .renameTo("component_exposes_bak")
+        .execute();
+      try {
+        const res = await readRelationships(focused);
+        expect(res.statusCode).toBe(200);
+        const body = JSON.parse(res.payload);
+        expect(body.unavailableKinds).toContain("exposes");
+        expect(body.relationships.exposes).toEqual([]);
+        expect(body.relationships.dependsOn).toEqual([]);
+      } finally {
+        await testDb.db.schema
+          .alterTable("component_exposes_bak")
+          .renameTo("component_exposes")
+          .execute();
+      }
+    });
+
     it("returns 404 for a missing component and 401 without a session", async () => {
       const missing = await readRelationships(uuidv7());
       expect(missing.statusCode).toBe(404);

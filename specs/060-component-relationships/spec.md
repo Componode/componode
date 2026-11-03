@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-03
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User-confirmed direction from `researches/web_api_product_map_component_relationships_research.md` and ADR-128. Add a read-only, one-hop Component Relationships tab that reuses the Product Map's visual/accessibility patterns while preserving typed Component, Product, ComponentGroup, and ComponentInstance semantics.
 

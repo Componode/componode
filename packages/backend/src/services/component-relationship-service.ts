@@ -9,6 +9,7 @@ import type {
   RelatedComponent,
 } from "@componode/core";
 import { db } from "../db/connection.js";
+import { logger as appLogger } from "../plugins/logging.js";
 import { readRelationFamily } from "./product-service.js";
 
 /**
@@ -189,13 +190,23 @@ export async function getComponentRelationships(
             })),
           );
 
-  // One family covers both provenance paths: a failure degrades to [].
-  const productDependents = family(
-    "productDependents",
-    Promise.all([directDependents, viaGroupDependents]).then(
-      ([direct, viaGroups]) => [{ direct, viaGroups }],
-    ),
-  );
+  // One family covers both provenance paths: a failure degrades the pair.
+  const productDependents = (async () => {
+    try {
+      const [direct, viaGroups] = await Promise.all([
+        directDependents,
+        viaGroupDependents,
+      ]);
+      return { direct, viaGroups };
+    } catch (err) {
+      unavailableKinds.push("productDependents");
+      appLogger.warn(
+        { err, family: "productDependents" },
+        "relation family read degraded",
+      );
+      return { direct: [] as ComponentProductDependent[], viaGroups: [] as GroupMediatedDependent[] };
+    }
+  })();
 
   const instances = family(
     "instances",
@@ -219,6 +230,7 @@ export async function getComponentRelationships(
     dependents,
     instanceRows,
   ] = await Promise.all([
+
     dependsOn,
     dependedOnBy,
     sourcesFrom,
@@ -228,7 +240,7 @@ export async function getComponentRelationships(
     productDependents,
     instances,
   ]);
-  const { direct, viaGroups } = dependents[0] ?? { direct: [], viaGroups: [] };
+  const { direct, viaGroups } = dependents;
 
   const focused: RelatedComponent = {
     id: component.id,

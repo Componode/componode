@@ -121,6 +121,7 @@ describe("ComponentRelationships view (spec 060)", () => {
       "Depended on by",
       "Sourced by",
       "Exposed by",
+      "Product dependents",
       "Depends on",
       "Sources from",
       "Exposes",
@@ -166,7 +167,7 @@ describe("ComponentRelationships view (spec 060)", () => {
     expect(screen.getByText(/via Checkout services/i)).toBeTruthy();
   });
 
-  it("keeps direct and group-mediated paths distinct for the same product", () => {
+  it("renders one node for a product on both paths with labeled provenance", () => {
     const dual = product("dual-product");
     renderView({
       ...fullView,
@@ -185,16 +186,19 @@ describe("ComponentRelationships view (spec 060)", () => {
         ],
       },
     });
+    // Exactly one node — both provenance paths labeled on it.
+    const nodes = screen.getAllByRole("button", { name: /dual-product/i });
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]!.getAttribute("aria-label")).toMatch(
+      /depends on Payments API directly and via Checkout services/i,
+    );
+    expect(screen.getByText(/via Checkout services/i)).toBeTruthy();
+    // Inspection lists both paths.
+    fireEvent.click(nodes[0]!);
+    expect(screen.getByText("Direct")).toBeTruthy();
     expect(
-      screen.getByRole("button", {
-        name: /dual-product.*depends on Payments API(?!.*via)/i,
-      }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("button", {
-        name: /dual-product.*via Checkout services/i,
-      }),
-    ).toBeTruthy();
+      screen.getByRole("link", { name: "Checkout services" }).getAttribute("href"),
+    ).toContain("/component-groups/checkout-services");
   });
 
   it("nests ComponentInstances under the focused component with status", () => {
@@ -247,7 +251,9 @@ describe("ComponentRelationships view (spec 060)", () => {
     );
     const open = screen.getByRole("link", { name: /open product/i });
     expect(open.getAttribute("href")).toContain("/products/via-product");
-    expect(screen.getByText("Checkout services")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Checkout services" }).getAttribute("href"),
+    ).toContain("/component-groups/checkout-services");
   });
 
   it("activates nodes with Enter or Space and clears with Escape", () => {
@@ -274,6 +280,11 @@ describe("ComponentRelationships view (spec 060)", () => {
   it("renders honest empty lanes when the catalog has no edge rows", () => {
     renderView(emptyView);
     expect(screen.getByText(/no relationships/i)).toBeTruthy();
+    // Every typed lane still renders its explicit empty state (US1/AC1.5).
+    for (const label of ["Depended on by", "Depends on", "Product dependents"]) {
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+    expect(screen.getAllByText("None")).toHaveLength(7);
   });
 
   it("still shows instances and products when Component edges are empty", () => {

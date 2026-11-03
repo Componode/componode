@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { XIcon } from "lucide-react"
+import type { ComponentRelationKind } from "@componode/core"
 import { useComponentRelationships } from "@/api/hooks/components"
 import { mapComponentRelationships } from "@/api/mappers/catalog"
 import { ErrorState, ForbiddenState, TableSkeleton } from "@/ux/components/patterns/states"
@@ -30,16 +31,21 @@ type LaneKey =
   | "dependedOnBy"
   | "sourcedBy"
   | "exposedBy"
-  | "productDirect"
-  | "productViaGroups"
+  | "productDependents"
   | "dependsOn"
   | "sourcesFrom"
   | "exposes"
 
+/** A Product dependent rendered once per Product — provenance paths
+ *  (direct edge, group-mediated) are labeled, never separate nodes. */
+type ProductDependent = ComponentDependentNode & {
+  direct: boolean
+  viaGroup?: GroupMediatedDependentNode["viaGroup"]
+}
+
 type RelationNode =
   | { kind: "component"; key: string; data: RelatedComponentNode; relation: string; lane: LaneKey }
-  | { kind: "product"; key: string; data: ComponentDependentNode; relation: string; lane: LaneKey }
-  | { kind: "groupProduct"; key: string; data: GroupMediatedDependentNode; relation: string; lane: LaneKey }
+  | { kind: "product"; key: string; data: ProductDependent; relation: string; lane: LaneKey }
 
 type Edge = { id: string; from: string; to: string }
 type DrawnEdge = Edge & { d: string }
@@ -50,8 +56,7 @@ const LANE_META: Record<LaneKey, { title: string; incoming: boolean; hint: (c: s
   dependedOnBy: { title: "Depended on by", incoming: true, hint: (c) => `dependents → ${c}` },
   sourcedBy: { title: "Sourced by", incoming: true, hint: (c) => `sourcing services → ${c}` },
   exposedBy: { title: "Exposed by", incoming: true, hint: (c) => `exposing services → ${c}` },
-  productDirect: { title: "Direct product dependents", incoming: true, hint: (c) => `products → ${c}` },
-  productViaGroups: { title: "Products via groups", incoming: true, hint: (c) => `products → group → ${c}` },
+  productDependents: { title: "Product dependents", incoming: true, hint: (c) => `products → ${c}` },
   dependsOn: { title: "Depends on", incoming: false, hint: (c) => `${c} → targets` },
   sourcesFrom: { title: "Sources from", incoming: false, hint: (c) => `${c} → repositories` },
   exposes: { title: "Exposes", incoming: false, hint: (c) => `${c} → APIs` },
@@ -61,7 +66,8 @@ const LANE_META: Record<LaneKey, { title: string; incoming: boolean; hint: (c: s
  *  bounded read fires when the tab opens and owns its own loading/error
  *  states (spec 060 T024). */
 export function ComponentRelationshipsPanel({ componentId }: { componentId: string }) {
-  const query = useComponentRelationships(componentId)
+  const [includeGone, setIncludeGone] = useState(false)
+  const query = useComponentRelationships(componentId, { includeGone })
 
   if (query.isPending) {
     return (
@@ -85,16 +91,35 @@ export function ComponentRelationshipsPanel({ componentId }: { componentId: stri
   }
 
   if (!query.data) return null
-  return <ComponentRelationships view={mapComponentRelationships(query.data)} />
+  return (
+    <ComponentRelationships
+      view={mapComponentRelationships(query.data)}
+      includeGone={includeGone}
+      onToggleGone={setIncludeGone}
+    />
+  )
 }
 
-const UNAVAILABLE_LABELS: Record<string, string> = {
-  ...Object.fromEntries(Object.entries(LANE_META).map(([k, v]) => [k, v.title])),
+const UNAVAILABLE_LABELS: Record<ComponentRelationKind, string> = {
+  dependedOnBy: LANE_META.dependedOnBy.title,
+  sourcedBy: LANE_META.sourcedBy.title,
+  exposedBy: LANE_META.exposedBy.title,
+  dependsOn: LANE_META.dependsOn.title,
+  sourcesFrom: LANE_META.sourcesFrom.title,
+  exposes: LANE_META.exposes.title,
   productDependents: "Product dependents",
   instances: "Instances",
 }
 
-export function ComponentRelationships({ view }: { view: ComponentRelationshipsView }) {
+export function ComponentRelationships({
+  view,
+  includeGone = false,
+  onToggleGone,
+}: {
+  view: ComponentRelationshipsView
+  includeGone?: boolean
+  onToggleGone?: (value: boolean) => void
+}) {
   const component = view.component
   const rootRef = useRef<HTMLDivElement>(null)
   const [selected, setSelected] = useState<string | null>(null)
@@ -115,25 +140,34 @@ export function ComponentRelationships({ view }: { view: ComponentRelationshipsV
         relation: relation(n),
         lane: key,
       }))
-    const productNodes = (nodes: ComponentDependentNode[]): RelationNode[] =>
-      nodes.map((p) => ({
-        kind: "product" as const,
-        key: `productDirect:${p.id}`,
-        data: p,
-        relation: `depends on ${component.name}`,
-        lane: "productDirect" as LaneKey,
-      }))
+    const products = new Map<string, ProductDependent>()
+    for (const p of view.productDependents.direct) {
+      products.set(p.id, { ...p, direct: true })
+    }
+    for (const p of view.productDependents.viaGroups) {
+      const existing = products.get(p.id)
+      products.set(p.id, {
+        ...(existing ?? p),
+        direct: existing?.direct ?? false,
+        viaGroup: p.viaGroup,
+      })
+    }
     return {
       dependedOnBy: componentNodes("dependedOnBy", view.dependedOnBy, () => `depends on ${component.name}`),
       sourcedBy: componentNodes("sourcedBy", view.sourcedBy, () => `sources from ${component.name}`),
       exposedBy: componentNodes("exposedBy", view.exposedBy, () => `exposes ${component.name}`),
-      productDirect: productNodes(view.productDependents.direct),
-      productViaGroups: view.productDependents.viaGroups.map((p) => ({
-        kind: "groupProduct" as const,
-        key: `productViaGroups:${p.id}:${p.viaGroup.id}`,
+      productDependents: [...products.values()].map((p) => ({
+        kind: "product" as const,
+        key: `productDependents:${p.id}`,
         data: p,
-        relation: `depends on ${component.name} via ${p.viaGroup.name}`,
-        lane: "productViaGroups" as LaneKey,
+        relation: `depends on ${component.name}${[
+          p.direct ? "directly" : null,
+          p.viaGroup ? `via ${p.viaGroup.name}` : null,
+        ]
+          .filter(Boolean)
+          .map((s) => ` ${s}`)
+          .join(" and")}`,
+        lane: "productDependents" as LaneKey,
       })),
       dependsOn: componentNodes("dependsOn", view.dependsOn, () => `depended on by ${component.name}`),
       sourcesFrom: componentNodes("sourcesFrom", view.sourcesFrom, () => `sourced by ${component.name}`),
@@ -257,7 +291,7 @@ export function ComponentRelationships({ view }: { view: ComponentRelationshipsV
       >
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-medium">{n.data.name}</span>
-          {n.kind === "groupProduct" && (
+          {n.kind === "product" && n.data.viaGroup && (
             <span className="truncate text-xs text-muted-foreground">
               via {n.data.viaGroup.name}
             </span>
@@ -318,7 +352,7 @@ export function ComponentRelationships({ view }: { view: ComponentRelationshipsV
           <Alert>
             <AlertTitle>Some relations couldn't be loaded</AlertTitle>
             <AlertDescription>
-              {view.unavailableKinds.map((g) => UNAVAILABLE_LABELS[g] ?? g).join(", ")} — the view may be incomplete.
+              {view.unavailableKinds.map((g) => UNAVAILABLE_LABELS[g as ComponentRelationKind] ?? g).join(", ")} — the view may be incomplete.
             </AlertDescription>
           </Alert>
         )}
@@ -327,7 +361,7 @@ export function ComponentRelationships({ view }: { view: ComponentRelationshipsV
           {announcement}
         </div>
 
-        {empty ? (
+        {empty && (
           <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
             <p className="font-medium text-foreground/80">No relationships yet</p>
             {view.unavailableKinds.length > 0 ? (
@@ -339,7 +373,9 @@ export function ComponentRelationships({ view }: { view: ComponentRelationshipsV
               </p>
             )}
           </div>
-        ) : (
+        )}
+
+        {
           <div
             ref={rootRef}
             onClick={(e) => {
@@ -373,8 +409,7 @@ export function ComponentRelationships({ view }: { view: ComponentRelationshipsV
               {laneColumn("dependedOnBy")}
               {laneColumn("sourcedBy")}
               {laneColumn("exposedBy")}
-              {laneColumn("productDirect")}
-              {laneColumn("productViaGroups")}
+              {laneColumn("productDependents")}
             </div>
 
             <div className="lg:w-56 lg:shrink-0">
@@ -389,7 +424,19 @@ export function ComponentRelationships({ view }: { view: ComponentRelationshipsV
                   {component.lifecycle === "RETIRED" && <LifecycleBadge value="RETIRED" />}
                 </div>
                 <div className="border-t pt-3">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Instances</p>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Instances</p>
+                    {onToggleGone && (
+                      <button
+                        type="button"
+                        aria-pressed={includeGone}
+                        className="text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded motion-safe:transition-colors"
+                        onClick={() => onToggleGone(!includeGone)}
+                      >
+                        {includeGone ? "Hide gone" : "Show gone"}
+                      </button>
+                    )}
+                  </div>
                   {view.instances.length === 0 ? (
                     <p className="text-xs text-muted-foreground">No active instances</p>
                   ) : (
@@ -412,7 +459,7 @@ export function ComponentRelationships({ view }: { view: ComponentRelationshipsV
               {laneColumn("exposes")}
             </div>
           </div>
-        )}
+        }
 
         {selectedNode && (
           <div className="flex items-start justify-between gap-4 rounded-lg border bg-muted/30 p-4">
@@ -428,19 +475,27 @@ export function ComponentRelationships({ view }: { view: ComponentRelationshipsV
                 {selectedNode.data.lifecycle === "RETIRED" && <LifecycleBadge value="RETIRED" />}
               </div>
               <p className="text-sm text-muted-foreground">{selectedNode.relation}</p>
-              {selectedNode.kind === "groupProduct" && (
+              {selectedNode.kind === "product" && (
                 <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <dt className="text-muted-foreground">Via group</dt>
-                    <dd>
-                      <Link
-                        to={ux(`/component-groups/${selectedNode.data.viaGroup.slug}`)}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {selectedNode.data.viaGroup.name}
-                      </Link>
-                    </dd>
-                  </div>
+                  {selectedNode.data.direct && (
+                    <div className="flex items-center gap-1.5">
+                      <dt className="text-muted-foreground">Path</dt>
+                      <dd className="font-medium">Direct</dd>
+                    </div>
+                  )}
+                  {selectedNode.data.viaGroup && (
+                    <div className="flex items-center gap-1.5">
+                      <dt className="text-muted-foreground">Via group</dt>
+                      <dd>
+                        <Link
+                          to={ux(`/component-groups/${selectedNode.data.viaGroup.slug}`)}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {selectedNode.data.viaGroup.name}
+                        </Link>
+                      </dd>
+                    </div>
+                  )}
                 </dl>
               )}
             </div>
