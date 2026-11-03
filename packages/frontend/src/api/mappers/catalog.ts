@@ -6,6 +6,7 @@ import type {
   ComponentGroup as ApiComponentGroup,
   ComponentInstance as ApiInstance,
   DigitalProduct,
+  ProductRef,
 } from "@/api/types";
 import type {
   Component,
@@ -13,6 +14,7 @@ import type {
   ComponentInstance,
   Product,
   ProductComponentRow,
+  RelatedProduct,
 } from "@/ux/lib/view-types";
 import type {
   Environment,
@@ -107,6 +109,21 @@ export function mapProduct(
       dependencies: false,
     },
     updatedAt: p.updatedAt,
+  };
+}
+
+/** Spec 059: enriched ProductRef → topology node. Absent enrichment fields
+ *  degrade to no-data (null status, 0 components) — never fabricated. */
+export function mapRelatedProduct(ref: ProductRef): RelatedProduct {
+  return {
+    id: ref.id,
+    name: ref.name,
+    slug: ref.slug,
+    type: narrow<ProductType>(ref.type, PRODUCT_TYPES, "CUSTOMER_FACING"),
+    lifecycle: narrow<Lifecycle>(ref.lifecycle, LIFECYCLES, "ACTIVE"),
+    criticality: narrowOrNull<Criticality>(ref.criticality, CRITICALITIES),
+    status: narrowOrNull<HealthStatus>(ref.health?.status, HEALTH),
+    componentCount: ref.componentCount ?? 0,
   };
 }
 

@@ -10,10 +10,10 @@ implementation and verify each failure has the intended cause.
 
 ## Phase 1: Setup
 
-- [ ] T001 Review `packages/frontend/src/ux/components/products/product-map.tsx`,
+- [X] T001 Review `packages/frontend/src/ux/components/products/product-map.tsx`,
       `packages/frontend/src/ux/components/products/product-detail.tsx`,
       `packages/backend/src/services/product-service.ts`, and ADR-127
-- [ ] T002 Confirm `.specify/feature.json` points to
+- [X] T002 Confirm `.specify/feature.json` points to
       `specs/059-product-map-topology`
 
 ## Phase 2: Foundational
@@ -21,16 +21,16 @@ implementation and verify each failure has the intended cause.
 **Purpose**: Establish relation-direction, read-contract, and view tests before
 the topology or API response changes.
 
-- [ ] T003 [P] Add failing Product detail integration fixtures in
+- [X] T003 [P] Add failing Product detail integration fixtures in
       `packages/backend/test/integration/products.test.ts` for `composedBy`,
       `composes`, `consumesFrom`, `consumedBy`, and `dependsOnGroups`
-- [ ] T004 [P] Add failing related-Product health/count response tests in
+- [X] T004 [P] Add failing related-Product health/count response tests in
       `packages/backend/test/integration/products.test.ts`, including null health
       Components reached through ComponentGroup dependencies, and partial
       relation-group availability
-- [ ] T005 [P] Add failing topology direction, empty-state, and navigation
+- [X] T005 [P] Add failing topology direction, empty-state, and navigation
       tests in `packages/frontend/src/test/unit/product-map.test.tsx`
-- [ ] T006 Add failing accessibility and 768px layout coverage in
+- [X] T006 Add failing accessibility and 768px layout coverage in
       `playwright/tests/journeys/product-map.spec.ts`
 
 **Checkpoint**: Tests fail for missing relation directions/related-node
@@ -47,25 +47,25 @@ Components surface and existing edge-authoring controls remain usable.
 
 ### Tests for User Story 1
 
-- [ ] T007 [P] [US1] Add failing tests for incoming/outgoing edge direction,
+- [X] T007 [P] [US1] Add failing tests for incoming/outgoing edge direction,
       `consumedBy`, ComponentGroup nodes, and legacy `?tab=map` fallback in
       `packages/frontend/src/test/unit/product-map.test.tsx`
-- [ ] T008 [P] [US1] Add failing API coverage for every relation group and
+- [X] T008 [P] [US1] Add failing API coverage for every relation group and
       empty ComponentGroups in `packages/backend/test/integration/products.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Add typed Product topology data for all relation directions
+- [X] T009 [US1] Add typed Product topology data for all relation directions
       in `packages/frontend/src/ux/app/products/$slug.tsx`
-- [ ] T010 [US1] Replace the separate Map tab with topology at the top of
+- [X] T010 [US1] Replace the separate Map tab with topology at the top of
       Dependencies while retaining edge authoring and list controls in
       `packages/frontend/src/ux/components/products/product-detail.tsx`
-- [ ] T011 [US1] Implement the deterministic one-hop Product/ComponentGroup
+- [X] T011 [US1] Implement the deterministic one-hop Product/ComponentGroup
       topology, direction-aware connectors, four-node lanes, and `+N` expansion
       in `packages/frontend/src/ux/components/products/product-map.tsx`
-- [ ] T012 [US1] Route legacy `?tab=map` links to Dependencies in
+- [X] T012 [US1] Route legacy `?tab=map` links to Dependencies in
       `packages/frontend/src/ux/components/products/product-detail.tsx`
-- [ ] T013 [US1] Add the `productMapTopology` fallback flag and matching
+- [X] T013 [US1] Add the `productMapTopology` fallback flag and matching
       G34 gap entry in `packages/frontend/src/ux/lib/flags.ts` and
       `researches/ux-rewrite-gaps.md`; enable it only with the complete read path
 
@@ -82,27 +82,27 @@ verify details, no-data behavior, bounded reads, and correct navigation.
 
 ### Tests for User Story 2
 
-- [ ] T014 [P] [US2] Add failing ProductRef mapper/type tests for related
+- [X] T014 [P] [US2] Add failing ProductRef mapper/type tests for related
       criticality, Product health, and Component count in
       `packages/frontend/src/test/unit/ux-mappers.test.ts`
-- [ ] T015 [P] [US2] Add failing bounded-read/query-count coverage for related
+- [X] T015 [P] [US2] Add failing bounded-read/query-count coverage for related
       Product enrichment in `packages/backend/test/integration/performance.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Batch-compute health and Component counts for all related
+- [X] T016 [US2] Batch-compute health and Component counts for all related
       ProductRefs and report unavailable relation groups in
       `packages/backend/src/services/product-service.ts`
-- [ ] T017 [US2] Extend `ProductRef` and `ProductDetail` API types in
+- [X] T017 [US2] Extend `ProductRef` and `ProductDetail` API types in
       `packages/frontend/src/api/types.ts` for related health, criticality,
       Component count, and `unavailableRelationGroups`
-- [ ] T018 [US2] Map related Product fields through the catalog view mapper in
+- [X] T018 [US2] Map related Product fields through the catalog view mapper in
       `packages/frontend/src/api/mappers/catalog.ts`
-- [ ] T019 [US2] Add the accessible inspection panel and Open Product action
+- [X] T019 [US2] Add the accessible inspection panel and Open Product action
       in `packages/frontend/src/ux/components/products/product-map.tsx`
-- [ ] T020 [US2] Add the related Product fields to the canonical response
+- [X] T020 [US2] Add the related Product fields to the canonical response
       schema in `docs/openapi.yaml`
-- [ ] T021 [US2] Regenerate API documentation from `docs/openapi.yaml` with
+- [X] T021 [US2] Regenerate API documentation from `docs/openapi.yaml` with
       `pnpm --filter @componode/backend docs:api` and verify `docs/api.md`
 
 **Checkpoint**: Related Product detail is available in one bounded read and
@@ -118,33 +118,33 @@ and 768px, including node selection, `+N`, panel navigation, and Escape.
 
 ### Tests for User Story 3
 
-- [ ] T022 [P] [US3] Add failing keyboard, accessible-name, focus-announcement,
+- [X] T022 [P] [US3] Add failing keyboard, accessible-name, focus-announcement,
       and Escape tests in `packages/frontend/src/test/unit/product-map.test.tsx`
-- [ ] T023 [P] [US3] Add failing responsive, reduced-motion, and no-horizontal-
+- [X] T023 [P] [US3] Add failing responsive, reduced-motion, and no-horizontal-
       overflow checks in `playwright/tests/journeys/product-map.spec.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T024 [US3] Make Product and ComponentGroup nodes keyboard-operable
+- [X] T024 [US3] Make Product and ComponentGroup nodes keyboard-operable
       controls with semantic names and focus state in
       `packages/frontend/src/ux/components/products/product-map.tsx`
-- [ ] T025 [US3] Add the polite focus announcement and Escape/empty-canvas
+- [X] T025 [US3] Add the polite focus announcement and Escape/empty-canvas
       clearing behavior in `packages/frontend/src/ux/components/products/product-map.tsx`
-- [ ] T026 [US3] Implement stacked/narrow relation lanes and reduced-motion
+- [X] T026 [US3] Implement stacked/narrow relation lanes and reduced-motion
       behavior in `packages/frontend/src/ux/components/products/product-map.tsx`
-- [ ] T027 [US3] Update the normative Product Map and Dependencies
+- [X] T027 [US3] Update the normative Product Map and Dependencies
       information-architecture text in `docs/ux.md`
 
 ## Phase 6: Documentation and verification
 
-- [ ] T028 Verify ADR-118 Amendment 1, ADR-127, ADR-103 back-pointer, and
+- [X] T028 Verify ADR-118 Amendment 1, ADR-127, ADR-103 back-pointer, and
       `researches/architecture-decisions.md` remain consistent
-- [ ] T029 Verify the `productMapTopology` fallback/gap pair in
+- [X] T029 Verify the `productMapTopology` fallback/gap pair in
       `packages/frontend/src/ux/lib/flags.ts` and `researches/ux-rewrite-gaps.md`
-- [ ] T030 Run `pnpm --filter @componode/backend test:integration`,
+- [X] T030 Run `pnpm --filter @componode/backend test:integration`,
       `pnpm --filter @componode/frontend test:unit`, and the Product Map journey
       in `playwright/tests/journeys/product-map.spec.ts`
-- [ ] T031 Run `pnpm --filter @componode/backend docs:api:check`,
+- [X] T031 Run `pnpm --filter @componode/backend docs:api:check`,
       `pnpm --filter @componode/frontend typecheck`, and `git diff --check`
 
 ## Dependencies & Execution Order

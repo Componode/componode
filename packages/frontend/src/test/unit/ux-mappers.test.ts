@@ -404,7 +404,7 @@ describe("mapRunChange / mapRunError", () => {
 
 import { mapSession, mapUser } from "@/api/mappers/operations";
 import { mapActivityItem, mapAttentionItem, mapCoverage } from "@/api/mappers/dashboard";
-import { mapDepComponent } from "@/api/mappers/catalog";
+import { mapDepComponent, mapRelatedProduct } from "@/api/mappers/catalog";
 import { mapSuggestion } from "@/api/mappers/suggestions";
 
 describe("mapUser", () => {
@@ -692,5 +692,44 @@ describe("mapComponent list enrichment (spec 039)", () => {
     const bare = mapComponent(component);
     expect(bare.worstStatus).toBeNull();
     expect(bare.lastSeenAt).toBeNull();
+  });
+});
+
+describe("mapRelatedProduct (spec 059)", () => {
+  it("maps enriched related-product fields from the detail read", () => {
+    const view = mapRelatedProduct({
+      id: "r1",
+      name: "Platform X",
+      slug: "platform-x",
+      type: "PLATFORM",
+      lifecycle: "ACTIVE",
+      criticality: "HIGH",
+      health: { status: "ERROR", perEnv: { PRODUCTION: "ERROR" }, sourceCount: 2 },
+      componentCount: 5,
+    });
+    expect(view).toEqual({
+      id: "r1",
+      name: "Platform X",
+      slug: "platform-x",
+      type: "PLATFORM",
+      lifecycle: "ACTIVE",
+      criticality: "HIGH",
+      status: "ERROR",
+      componentCount: 5,
+    });
+  });
+
+  it("keeps null health as no data and defaults absent enrichment", () => {
+    const view = mapRelatedProduct({
+      id: "r2",
+      name: "Bare ref",
+      slug: "bare-ref",
+      type: "BUSINESS_CAPABILITY",
+      lifecycle: "RETIRED",
+    });
+    expect(view.status).toBeNull();
+    expect(view.criticality).toBeNull();
+    expect(view.componentCount).toBe(0);
+    expect(view.lifecycle).toBe("RETIRED");
   });
 });

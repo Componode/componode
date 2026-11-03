@@ -770,6 +770,13 @@ paths:
             attribution, ADR-110), `dependsOnGroups` (raw group edges incl.
             empty groups with `memberCount`), and derived read-only `health`
             (ADR-112: `{status, perEnv, sourceCount}` or `null`).
+            Spec 059 (ADR-127): each related ProductRef in `composedBy`,
+            `composes`, `consumesFrom`, and `consumedBy` is enriched in one
+            bounded batch with `criticality`, derived `health`
+            (`ProductHealth` or `null` = no data), and `componentCount`
+            (declared+inherited semantics). A relation family that fails to
+            read is listed in `unavailableRelationGroups` with an empty
+            array — not rendered as a confirmed no-relations state.
           content:
             application/json:
               schema: { type: object }

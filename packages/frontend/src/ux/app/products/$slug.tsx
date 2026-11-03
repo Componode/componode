@@ -1,10 +1,9 @@
-import type { Criticality } from "@/ux/lib/domain";
 import { useParams } from "react-router-dom";
 import { useAllComponents } from "@/api/hooks/components";
 import { useEntityHistory } from "@/api/hooks/audit";
 import { useProduct } from "@/api/hooks/products";
 import { useSuggestions } from "@/api/hooks/suggestions";
-import { mapDepComponent, mapProduct } from "@/api/mappers/catalog";
+import { mapDepComponent, mapProduct, mapRelatedProduct } from "@/api/mappers/catalog";
 import { mapActivityItem } from "@/api/mappers/dashboard";
 import { mapSuggestion } from "@/api/mappers/suggestions";
 import { PageContainer } from "@/ux/components/patterns/page-header";
@@ -77,19 +76,29 @@ export function UxProductDetailPage() {
     <ProductDetail
       product={mapProduct(d.product, { componentCount: d.counts.components })}
       components={rows}
-      consumers={d.consumedBy.map((p) => ({ id: p.id, name: p.name, slug: p.slug, criticality: (p as { criticality?: Criticality | null }).criticality ?? null }))}
+      consumers={d.consumedBy.map((p) => {
+        const m = mapRelatedProduct(p);
+        return { id: m.id, name: m.name, slug: m.slug, criticality: m.criticality };
+      })}
       edges={{
         composes: d.composes ?? [],
         consumesFrom: d.consumesFrom ?? [],
         dependsOnComponents: directDepComponents,
         dependsOnGroups: d.dependsOnGroups ?? [],
       }}
-      relations={[
-        { label: "Composed by", names: (d.composedBy ?? []).map((x) => x.name) },
-        { label: "Composes", names: (d.composes ?? []).map((x) => x.name) },
-        { label: "Consumes from", names: (d.consumesFrom ?? []).map((x) => x.name) },
-        { label: "Depends on groups", names: (d.dependsOnGroups ?? []).map((x) => (x as unknown as { name?: string }).name ?? "—") },
-      ].filter((r) => r.names.length > 0)}
+      topology={{
+        composedBy: (d.composedBy ?? []).map(mapRelatedProduct),
+        composes: (d.composes ?? []).map(mapRelatedProduct),
+        consumesFrom: (d.consumesFrom ?? []).map(mapRelatedProduct),
+        consumedBy: (d.consumedBy ?? []).map(mapRelatedProduct),
+        dependsOnGroups: (d.dependsOnGroups ?? []).map((g) => ({
+          id: g.id,
+          name: g.name,
+          slug: g.slug,
+          memberCount: g.memberCount,
+        })),
+        unavailableGroups: d.unavailableRelationGroups ?? [],
+      }}
       suggestions={(suggestions.data?.items ?? [])
         .filter((s) => s.productId === d.product.id)
         .map(mapSuggestion)}

@@ -169,38 +169,160 @@ export async function getProductBySlug(slug: string) {
     .executeTakeFirst();
 }
 
-const REF_SELECT = ["id", "name", "slug", "type", "lifecycle"] as const;
+const REF_SELECT = ["id", "name", "slug", "type", "lifecycle", "criticality"] as const;
+
+/** Spec 059: relation families degrade independently — a failed family
+ *  reports in `unavailableRelationGroups` instead of failing the read. */
+export type RelationGroupKey =
+  | "composedBy"
+  | "composes"
+  | "consumesFrom"
+  | "consumedBy"
+  | "dependsOnGroups";
+
+/** Spec 059: one failed relation-family read degrades to an empty array and
+ *  records the family key; other families and the focused read still respond. */
+export async function readRelationFamily<T>(
+  key: RelationGroupKey,
+  p: Promise<T[]>,
+  unavailable: RelationGroupKey[],
+): Promise<T[]> {
+  try {
+    return await p;
+  } catch {
+    unavailable.push(key);
+    return [];
+  }
+}
+
+/**
+ * Spec 059: declared+inherited component counts for related products, in a
+ * bounded batch (3 queries regardless of product count). Matches the detail
+ * read's semantics: a product's own direct + group-expanded DEPENDS_ON
+ * components plus every COMPOSES descendant's, deduplicated.
+ */
+async function computeComponentCountsForProducts(
+  productIds: string[],
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  const rootIds = [...new Set(productIds)];
+  if (rootIds.length === 0) return result;
+
+  // COMPOSES descendants per root product, in one recursive query.
+  const descendants = await db
+    .withRecursive("related_descendants(root_id, id)", (qb) =>
+      qb
+        .selectFrom("product_composes")
+        .select(["parentId as root_id", "childId as id"])
+        .where("parentId", "in", rootIds)
+        .unionAll((eb) =>
+          eb
+            .selectFrom("product_composes")
+            .innerJoin(
+              "related_descendants",
+              "product_composes.parentId",
+              "related_descendants.id",
+            )
+            .select(["related_descendants.root_id", "product_composes.childId as id"]),
+        ),
+    )
+    .selectFrom("related_descendants")
+    .select(["root_id", "id"])
+    .execute();
+
+  const ownerIds = [...new Set([...rootIds, ...descendants.map((d) => d.id)])];
+  const [directEdges, groupEdges] = await Promise.all([
+    db
+      .selectFrom("product_depends_on_component")
+      .select(["productId", "componentId"])
+      .where("productId", "in", ownerIds)
+      .execute(),
+    db
+      .selectFrom("product_depends_on_component_group")
+      .innerJoin(
+        "components",
+        "components.componentGroupId",
+        "product_depends_on_component_group.componentGroupId",
+      )
+      .select([
+        "product_depends_on_component_group.productId",
+        "components.id as componentId",
+      ])
+      .where("product_depends_on_component_group.productId", "in", ownerIds)
+      .execute(),
+  ]);
+
+  const componentsByOwner = new Map<string, Set<string>>();
+  for (const e of [...directEdges, ...groupEdges]) {
+    if (!e.productId || !e.componentId) continue;
+    let set = componentsByOwner.get(e.productId);
+    if (!set) componentsByOwner.set(e.productId, (set = new Set()));
+    set.add(e.componentId);
+  }
+  const descendantsByRoot = new Map<string, string[]>();
+  for (const d of descendants) {
+    if (!d.root_id || !d.id) continue;
+    let list = descendantsByRoot.get(d.root_id);
+    if (!list) descendantsByRoot.set(d.root_id, (list = []));
+    list.push(d.id);
+  }
+
+  for (const rootId of rootIds) {
+    const components = new Set(componentsByOwner.get(rootId) ?? []);
+    for (const descId of descendantsByRoot.get(rootId) ?? []) {
+      for (const cid of componentsByOwner.get(descId) ?? []) components.add(cid);
+    }
+    result.set(rootId, components.size);
+  }
+  return result;
+}
 
 /** FR-003: full detail — composition edges, declared+inherited deps, instances. */
 export async function getProductDetail(slug: string) {
   const product = await getProductBySlug(slug);
   if (!product) return null;
 
+  const unavailableRelationGroups: RelationGroupKey[] = [];
+  const family = <T>(key: RelationGroupKey, p: Promise<T[]>): Promise<T[]> =>
+    readRelationFamily(key, p, unavailableRelationGroups);
+
   const [composedBy, composes, consumesFrom, consumedBy, surfaces] = await Promise.all([
-    db
-      .selectFrom("product_composes")
-      .innerJoin("digital_products", "product_composes.parentId", "digital_products.id")
-      .select(REF_SELECT)
-      .where("product_composes.childId", "=", product.id)
-      .execute(),
-    db
-      .selectFrom("product_composes")
-      .innerJoin("digital_products", "product_composes.childId", "digital_products.id")
-      .select(REF_SELECT)
-      .where("product_composes.parentId", "=", product.id)
-      .execute(),
-    db
-      .selectFrom("product_consumes_from")
-      .innerJoin("digital_products", "product_consumes_from.platformId", "digital_products.id")
-      .select(REF_SELECT)
-      .where("product_consumes_from.consumerId", "=", product.id)
-      .execute(),
-    db
-      .selectFrom("product_consumes_from")
-      .innerJoin("digital_products", "product_consumes_from.consumerId", "digital_products.id")
-      .select(REF_SELECT)
-      .where("product_consumes_from.platformId", "=", product.id)
-      .execute(),
+    family(
+      "composedBy",
+      db
+        .selectFrom("product_composes")
+        .innerJoin("digital_products", "product_composes.parentId", "digital_products.id")
+        .select(REF_SELECT)
+        .where("product_composes.childId", "=", product.id)
+        .execute(),
+    ),
+    family(
+      "composes",
+      db
+        .selectFrom("product_composes")
+        .innerJoin("digital_products", "product_composes.childId", "digital_products.id")
+        .select(REF_SELECT)
+        .where("product_composes.parentId", "=", product.id)
+        .execute(),
+    ),
+    family(
+      "consumesFrom",
+      db
+        .selectFrom("product_consumes_from")
+        .innerJoin("digital_products", "product_consumes_from.platformId", "digital_products.id")
+        .select(REF_SELECT)
+        .where("product_consumes_from.consumerId", "=", product.id)
+        .execute(),
+    ),
+    family(
+      "consumedBy",
+      db
+        .selectFrom("product_consumes_from")
+        .innerJoin("digital_products", "product_consumes_from.consumerId", "digital_products.id")
+        .select(REF_SELECT)
+        .where("product_consumes_from.platformId", "=", product.id)
+        .execute(),
+    ),
     computeDependencySurfaces(),
   ]);
 
@@ -289,25 +411,28 @@ export async function getProductDetail(slug: string) {
     : [];
 
   // Raw group edges of this product — surfaces empty groups too (spec 019).
-  const dependsOnGroups = await db
-    .selectFrom("product_depends_on_component_group")
-    .innerJoin(
-      "component_groups",
-      "product_depends_on_component_group.componentGroupId",
-      "component_groups.id",
-    )
-    .select((eb) => [
-      "component_groups.id",
-      "component_groups.name",
-      "component_groups.slug",
-      eb
-        .selectFrom("components")
-        .whereRef("components.componentGroupId", "=", "component_groups.id")
-        .select((eb2) => eb2.fn.countAll().as("c"))
-        .as("memberCount"),
-    ])
-    .where("product_depends_on_component_group.productId", "=", product.id)
-    .execute();
+  const dependsOnGroups = await family(
+    "dependsOnGroups",
+    db
+      .selectFrom("product_depends_on_component_group")
+      .innerJoin(
+        "component_groups",
+        "product_depends_on_component_group.componentGroupId",
+        "component_groups.id",
+      )
+      .select((eb) => [
+        "component_groups.id",
+        "component_groups.name",
+        "component_groups.slug",
+        eb
+          .selectFrom("components")
+          .whereRef("components.componentGroupId", "=", "component_groups.id")
+          .select((eb2) => eb2.fn.countAll().as("c"))
+          .as("memberCount"),
+      ])
+      .where("product_depends_on_component_group.productId", "=", product.id)
+      .execute(),
+  );
 
   type DepEntry = {
     id: string;
@@ -421,21 +546,41 @@ export async function getProductDetail(slug: string) {
     }
   }
 
+  // Spec 059: related products are enriched in one bounded batch — derived
+  // health (ADR-112) and declared+inherited component counts for the
+  // topology inspection panel. The focused product shares the health call.
+  const relatedIds = [
+    ...new Set(
+      [...composedBy, ...composes, ...consumesFrom, ...consumedBy].map((r) => r.id),
+    ),
+  ];
+  const [healthByProduct, componentCounts] = await Promise.all([
+    computeHealthForProducts([product.id, ...relatedIds]),
+    computeComponentCountsForProducts(relatedIds),
+  ]);
+  const enrich = <T extends { id: string }>(refs: T[]) =>
+    refs.map((r) => ({
+      ...r,
+      health: healthByProduct.get(r.id) ?? null,
+      componentCount: componentCounts.get(r.id) ?? 0,
+    }));
+
   return {
     product: {
       ...product,
       completeness: productCompleteness(product, surfaces),
     },
-    composedBy,
-    composes,
-    consumesFrom,
-    consumedBy,
+    composedBy: enrich(composedBy),
+    composes: enrich(composes),
+    consumesFrom: enrich(consumesFrom),
+    consumedBy: enrich(consumedBy),
     components: { declared, inherited },
     dependsOnGroups: dependsOnGroups.map((g) => ({
       ...g,
       memberCount: Number(g.memberCount),
     })),
-    health: (await computeHealthForProducts([product.id])).get(product.id) ?? null,
+    unavailableRelationGroups,
+    health: healthByProduct.get(product.id) ?? null,
     instances: { declared: declaredInstances, inherited: inheritedInstances },
     counts: {
       composedBy: composedBy.length,

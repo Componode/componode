@@ -292,6 +292,10 @@ export interface ProductRef {
   slug: string;
   type: string;
   lifecycle: string;
+  /** Spec 059 topology enrichment — present on product-detail relations only. */
+  criticality?: string | null;
+  health?: ProductHealth | null;
+  componentCount?: number;
 }
 
 export interface DigitalProduct extends ProductRef {
@@ -337,6 +341,14 @@ export interface InstanceDepRef {
   via?: { id: string; name: string; slug: string };
 }
 
+/** Relation families of the product detail read (spec 059). */
+export type RelationGroupKey =
+  | "composedBy"
+  | "composes"
+  | "consumesFrom"
+  | "consumedBy"
+  | "dependsOnGroups";
+
 export interface ProductDetail {
   product: DigitalProduct;
   health: ProductHealth | null;
@@ -347,6 +359,8 @@ export interface ProductDetail {
   components: { declared: ComponentDepRef[]; inherited: ComponentDepRef[] };
   dependsOnGroups: ProductGroupEdge[];
   instances: { declared: InstanceDepRef[]; inherited: InstanceDepRef[] };
+  /** Spec 059: relation families that failed to read (their arrays are empty). */
+  unavailableRelationGroups?: RelationGroupKey[];
   counts: {
     composedBy: number;
     composes: number;
