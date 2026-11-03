@@ -110,6 +110,8 @@ export interface ImporterConfig {
   id: string;
   importerName: Provider;
   label: string;
+  /** Configured scope — collection importers declare Component profiles here. */
+  scope: Record<string, unknown>;
   schedule: string | null;
   scheduleLabel: string;
   enabled: boolean;
@@ -309,6 +311,40 @@ export interface Suggestion {
   confidence: "HIGH" | "MEDIUM" | "LOW";
 }
 
+/** Related product node in the detail topology (spec 059) — enriched
+ *  ProductRef: derived health status (null = no data) and the same
+ *  declared+inherited component count the product detail reports. */
+export interface RelatedProduct {
+  id: string;
+  name: string;
+  slug: string;
+  type: ProductType;
+  lifecycle: Lifecycle;
+  criticality: Criticality | null;
+  status: HealthStatus | null;
+  componentCount: number;
+}
+
+/** ComponentGroup dependency node in the detail topology (spec 059). */
+export interface TopologyGroup {
+  id: string;
+  name: string;
+  slug: string;
+  memberCount: number;
+  lifecycle: Lifecycle;
+}
+
+/** Complete one-hop relation data for the Product detail topology. */
+export interface ProductTopology {
+  composedBy: RelatedProduct[];
+  composes: RelatedProduct[];
+  consumesFrom: RelatedProduct[];
+  consumedBy: RelatedProduct[];
+  dependsOnGroups: TopologyGroup[];
+  /** Relation families that failed to read — rendered as a partial warning. */
+  unavailableGroups: string[];
+}
+
 /**
  * Row on a product detail's components tab — the API's ComponentDepRef
  * joined with the catalog component for display fields (group/provider/
@@ -397,6 +433,10 @@ export interface UrlCheckView {
   id: string;
   setupId: string;
   componentInstanceId: string;
+  /** ImporterConfig-declared check identity (spec 058); null = legacy/manual. */
+  managedKey: string | null;
+  /** ImporterConfig owning this managed check — the only edit surface. */
+  managedByConfigId: string | null;
   credentialId: string | null;
   name: string;
   url: string;

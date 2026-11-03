@@ -46,11 +46,12 @@ hidden by default; use the filters to include them.
 **Component Instances** — inside a component's detail page. One component
 has many instances, one per environment (`DEV` … `PRODUCTION`), each with
 operational status (`RUNNING`/`STOPPED`/`ERROR`/`GONE`). A resource that
-disappears from the source becomes `GONE` — it's marked, not deleted. For
-URL Check onboarding, a manually created `ACTIVE` Component with no
-instances offers **Add first instance** from its URL checks card; that
-focused recovery path saves one environment and then returns to the
-normal check editor without creating a second Component.
+disappears from the source becomes `GONE` — it's marked, not deleted. A
+manually created `ACTIVE` Component with no instances offers **Add first
+instance** from its URL checks card — a focused recovery path that saves
+one environment without creating a second Component. URL checks
+themselves are declared on a Web/API ImporterConfig and materialize on
+import runs; the card is read-only and links to the owning configuration.
 
 **Component Groups** (`/component-groups`) — human-declared equivalences:
 "these three imported things are the same logical component." Products can

@@ -126,6 +126,65 @@ async function seedCheck(
   return { componentId, instanceId, setupId, checkId };
 }
 
+async function seedManagedCheck(
+  db: TestDb["db"],
+  input: { slug: string; configEnabled?: boolean; autoDisabledAt?: string | null; consecutiveFailures?: number },
+) {
+  const { componentId, instanceId, setupId, checkId } = await seedCheck(db, {
+    slug: input.slug,
+  });
+  await db
+    .updateTable("url_checks")
+    .set({
+      managedKey: `chk-${input.slug}`,
+      autoDisabledAt: input.autoDisabledAt ?? null,
+      consecutiveFailures: input.consecutiveFailures ?? 0,
+    })
+    .where("id", "=", checkId)
+    .execute();
+  const configId = uuidv7();
+  await db
+    .insertInto("importer_configs")
+    .values({
+      id: configId,
+      importerName: "web-url",
+      label: `cfg-${input.slug}`,
+      scope: JSON.stringify({ sourceKey: uuidv7(), components: [] }),
+      enabled: input.configEnabled ?? true,
+      createdAt: iso(0),
+      updatedAt: iso(0),
+    } as never)
+    .execute();
+  const sourceId = uuidv7();
+  await db
+    .insertInto("importer_sources")
+    .values({
+      id: sourceId,
+      importerName: "web-url",
+      externalIdentity: `collection:${input.slug}`,
+      label: `src-${input.slug}`,
+      status: "ACTIVE",
+      boundConfigId: configId,
+      createdAt: iso(0),
+      updatedAt: iso(0),
+    } as never)
+    .execute();
+  await db
+    .insertInto("source_url_check_memberships")
+    .values({
+      id: uuidv7(),
+      sourceId,
+      urlCheckId: checkId,
+      checkKey: `chk-${input.slug}`,
+      active: true,
+      configuredEnabled: true,
+      createdAt: iso(0),
+      updatedAt: iso(0),
+    } as never)
+    .execute();
+  return { componentId, instanceId, setupId, checkId, configId, sourceId };
+}
+
 const getCheck = (db: TestDb["db"], checkId: string) =>
   db
     .selectFrom("url_checks")
@@ -345,47 +404,54 @@ describe("url check repeated-failure policy (spec 056)", () => {
     expect(await getObservations(testDb.db, checkId)).toHaveLength(3);
   });
 
-  it("manual re-enable resets the streak and clears the auto-disabled marker", async () => {
-    setThreshold(2);
-    const { checkId } = await seedCheck(testDb.db, { slug: "re-enable" });
-    await fail(checkId, iso(0));
-    await fail(checkId, iso(1000));
+  it("owner resume restores scheduling and preserves the streak; auto-disable is sticky", async () => {
+    // Spec 058: managed checks have no manual write path -- the owner
+    // ImporterConfig's enabled flag drives scheduling via recompute.
+    // Resuming restores enabled/nextProbeAt but never rewrites the streak.
+    const { recomputeManagedCheckEnabled } = await import(
+      "../../src/services/url-check-service.js"
+    );
+    const { checkId, configId } = await seedManagedCheck(testDb.db, {
+      slug: "resume",
+      configEnabled: false,
+      consecutiveFailures: 2,
+    });
+    await recomputeManagedCheckEnabled(testDb.db as never, checkId);
     let check = await getCheck(testDb.db, checkId);
     expect(check.enabled).toBe(false);
+    expect(check.nextProbeAt).toBeNull();
 
-    const res = await app.inject({
-      method: "PATCH",
-      url: `/api/v1/url-checks/${checkId}`,
-      payload: { enabled: true },
-      ...authed(adminSession),
-    });
-    expect(res.statusCode).toBe(200);
+    await testDb.db
+      .updateTable("importer_configs")
+      .set({ enabled: true })
+      .where("id", "=", configId)
+      .execute();
+    await recomputeManagedCheckEnabled(testDb.db as never, checkId);
     check = await getCheck(testDb.db, checkId);
     expect(check.enabled).toBe(true);
-    expect(check.consecutiveFailures).toBe(0);
-    expect(check.autoDisabledAt).toBeNull();
     expect(check.nextProbeAt).not.toBeNull();
+    // The streak survives the pause/resume cycle -- a fresh failure
+    // advances it rather than restarting.
+    expect(check.consecutiveFailures).toBe(2);
 
-    // A fresh failure after re-enable starts a new streak.
-    await fail(checkId, iso(5000));
-    check = await getCheck(testDb.db, checkId);
-    expect(check.consecutiveFailures).toBe(1);
-    expect(check.enabled).toBe(true);
+    // Sticky auto-disable: autoDisabledAt keeps the check off even with
+    // an enabled owner.
+    const { checkId: stickyId } = await seedManagedCheck(testDb.db, {
+      slug: "sticky",
+      autoDisabledAt: iso(0),
+    });
+    await recomputeManagedCheckEnabled(testDb.db as never, stickyId);
+    const sticky = await getCheck(testDb.db, stickyId);
+    expect(sticky.enabled).toBe(false);
+    expect(sticky.nextProbeAt).toBeNull();
   });
 
   it("exposes autoDisableAfter, consecutiveFailures and autoDisabledAt over the API", async () => {
     setThreshold(undefined);
     const { componentId, checkId } = await seedCheck(testDb.db, {
       slug: "fields",
+      autoDisableAfter: 5,
     });
-    const patch = await app.inject({
-      method: "PATCH",
-      url: `/api/v1/url-checks/${checkId}`,
-      payload: { autoDisableAfter: 5 },
-      ...authed(adminSession),
-    });
-    expect(patch.statusCode).toBe(200);
-
     const single = await app.inject({
       method: "GET",
       url: `/api/v1/url-checks/${checkId}`,
@@ -410,23 +476,62 @@ describe("url check repeated-failure policy (spec 056)", () => {
     expect(item.consecutiveFailures).toBe(0);
   });
 
-  it("rejects out-of-range autoDisableAfter values", async () => {
-    const { checkId } = await seedCheck(testDb.db, { slug: "bounds" });
+  it("rejects out-of-range autoDisableAfter values in a managed check def", async () => {
+    // Spec 058: bounds moved from the retired PATCH route to the
+    // collection scope schema at ImporterConfig create.
+    const scopeWith = (autoDisableAfter: unknown) => ({
+      sourceKey: uuidv7(),
+      components: [
+        {
+          componentKey: uuidv7(),
+          name: "Bounds",
+          instances: [
+            {
+              instanceKey: uuidv7(),
+              environment: "PRODUCTION",
+              url: "https://example.com/",
+              check: {
+                checkKey: uuidv7(),
+                name: "check",
+                method: "GET",
+                enabled: true,
+                successPolicy: { codes: [], ranges: [{ min: 200, max: 299 }] },
+                authMode: "NONE",
+                autoDisableAfter,
+              },
+            },
+          ],
+        },
+      ],
+    });
     for (const autoDisableAfter of [-1, 1001, 2.5, "ten"]) {
       const res = await app.inject({
-        method: "PATCH",
-        url: `/api/v1/url-checks/${checkId}`,
-        payload: { autoDisableAfter },
-        ...authed(adminSession),
+        method: "POST",
+        url: "/api/v1/importer-configs",
+        cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
+        headers: csrfHeader,
+        payload: {
+          importerName: "web-url",
+          label: "bounds",
+          scope: scopeWith(autoDisableAfter),
+          secretRefs: [],
+        },
       });
       expect(res.statusCode).toBe(400);
     }
-    const res = await app.inject({
-      method: "PATCH",
-      url: `/api/v1/url-checks/${checkId}`,
-      payload: { autoDisableAfter: null },
-      ...authed(adminSession),
+    // null clears the field -- the scope validates cleanly.
+    const ok = await app.inject({
+      method: "POST",
+      url: "/api/v1/importer-configs",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
+      headers: csrfHeader,
+      payload: {
+        importerName: "web-url",
+        label: "bounds-ok",
+        scope: scopeWith(null),
+        secretRefs: [],
+      },
     });
-    expect(res.statusCode).toBe(200);
+    expect(ok.statusCode).toBe(201);
   });
 });

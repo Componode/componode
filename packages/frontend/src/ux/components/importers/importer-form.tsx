@@ -5,7 +5,7 @@ import {
   useCreateImporterConfig,
   useUpdateImporterConfig,
 } from "@/api/hooks/importers"
-import { fieldErrors, type ApiError } from "@/api/client"
+import { apiFetch, fieldErrors, type ApiError } from "@/api/client"
 import type { Credential, DockerTarget, ImporterConfig, ImporterManifest } from "@/api/types"
 import type { ImportAgent } from "@componode/core"
 import { FormPage, FormSection } from "@/ux/components/forms/form-shell"
@@ -19,6 +19,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/ux/components/ui/switch"
 import { Textarea } from "@/ux/components/ui/textarea"
 import { ux } from "@/ux/lib/paths"
+import { useImporterSources } from "@/api/hooks/importer-sources"
+import {
+  CollectionScopeBuilder,
+  draftFromScope,
+  emptyCollection,
+  scopeFromDraft,
+  type CollectionDraft,
+} from "./collection-scope-builder"
 import { ScopeFields } from "./scope-fields"
 import {
   fieldsForSchema,
@@ -118,9 +126,15 @@ export function ImporterForm({ config, manifests, credentials, agents, dockerTar
   const [rawText, setRawText] = React.useState("{}")
   const [scopeFieldErrors, setScopeFieldErrors] = React.useState<Record<string, string>>({})
   const [errors, setErrors] = React.useState<Errors>({})
+  const [collectionDraft, setCollectionDraft] = React.useState<CollectionDraft | null>(null)
+  const [reattachSourceId, setReattachSourceId] = React.useState(NONE)
 
   const boundToAgent = agentId !== HUB
   const manifest = manifests.find((m) => m.name === importerName)
+  // Web/API collection importers use the nested profile builder instead of
+  // the schema-driven scope editor (spec 058).
+  const isCollection = importerName === "web-url" || importerName === "api-url"
+  const reattach = isCollection && !editing
   const requiresAgent = Boolean(manifest?.requiresAgent)
   const requiresSecrets = Boolean(manifest?.secrets?.length)
   const schema = manifest?.configSchema
@@ -199,6 +213,19 @@ export function ImporterForm({ config, manifests, credentials, agents, dockerTar
     }
     setScopeFieldErrors({})
   }, [config, importerName, manifest, rawText])
+
+  // Collection importers: seed the builder once per (config, importer)
+  // pair — stored scope wins, else a fresh draft with generated keys.
+  const collectionSeededFor = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    if (!isCollection) return
+    const key = `${config?.id ?? "new"}:${importerName}`
+    if (collectionSeededFor.current === key) return
+    collectionSeededFor.current = key
+    setCollectionDraft(
+      config ? (draftFromScope(config.scope) ?? emptyCollection()) : emptyCollection(),
+    )
+  }, [config, importerName, isCollection])
 
   function typedScope(): Record<string, unknown> {
     return scopeFromValues(scopeFields, scopeValues, unknownScope)
@@ -372,7 +399,17 @@ export function ImporterForm({ config, manifests, credentials, agents, dockerTar
     if (preset === "custom" && !isCron(cron)) next.cron = "Enter a five-field cron expression, for example 0 */4 * * *."
     let scope: Record<string, unknown> = {}
     const fieldErrs: Record<string, string> = {}
-    if (rawMode || !renderable) {
+    if (isCollection) {
+      const built = scopeFromDraft(
+        collectionDraft ?? emptyCollection(),
+        importerName === "api-url",
+      )
+      if (built.error) {
+        next.scope = built.error
+      } else {
+        scope = built.scope as Record<string, unknown>
+      }
+    } else if (rawMode || !renderable) {
       try {
         const parsed = JSON.parse(rawText || "{}")
         if (!isRecord(parsed)) {
@@ -592,11 +629,56 @@ export function ImporterForm({ config, manifests, credentials, agents, dockerTar
         <FormSection
           title="Scope"
           description={
-            scopeRequired.length
-              ? `What the importer reads — orgs, clusters, accounts, URLs. ${manifest?.label} requires: ${scopeRequired.join(", ")}.`
-              : "What the importer reads — orgs, clusters, accounts, URLs."
+            isCollection
+              ? "Component profiles — each declares instances and one managed URL check per instance."
+              : scopeRequired.length
+                ? `What the importer reads — orgs, clusters, accounts, URLs. ${manifest?.label} requires: ${scopeRequired.join(", ")}.`
+                : "What the importer reads — orgs, clusters, accounts, URLs."
           }
         >
+          {isCollection ? (
+            <FieldGroup>
+              {reattach && (
+                <ReattachSourceSelect
+                  importerName={importerName}
+                  value={reattachSourceId}
+                  onChange={(v) => {
+                    setReattachSourceId(v)
+                    if (v === NONE) {
+                      setCollectionDraft((d) =>
+                        d
+                          ? { ...d, sourceKey: emptyCollection().sourceKey }
+                          : d,
+                      )
+                      return
+                    }
+                    // Rehydrate the scope from the Source's memberships
+                    // (spec 058 US5/FR-018): the fetched draft keeps the
+                    // original component/instance/check keys so the next
+                    // run reuses memberships instead of retiring the graph.
+                    apiFetch(`/api/v1/importer-sources/${v}/collection-scope`)
+                      .then((scope) => {
+                        const hydrated = draftFromScope(scope)
+                        if (hydrated) setCollectionDraft(hydrated)
+                      })
+                      .catch(() => {
+                        // Fallback: keep the current draft — the Source
+                        // still binds by identity even without rehydration.
+                      })
+                  }}
+                />
+              )}
+              {collectionDraft && (
+                <CollectionScopeBuilder
+                  draft={collectionDraft}
+                  onChange={setCollectionDraft}
+                  isApi={importerName === "api-url"}
+                />
+              )}
+              {errors.scope && <FieldError>{errors.scope}</FieldError>}
+            </FieldGroup>
+          ) : (
+          <>
           {renderable && (
             <div className="flex justify-end">
               <Button type="button" variant="outline" size="sm" onClick={toggleScopeMode}>
@@ -675,6 +757,8 @@ export function ImporterForm({ config, manifests, credentials, agents, dockerTar
               {errors.scope && <FieldError>{errors.scope}</FieldError>}
             </>
           )}
+          </>
+          )}
         </FormSection>
 
         <FormSection title="Schedule">
@@ -726,5 +810,52 @@ export function ImporterForm({ config, manifests, credentials, agents, dockerTar
         </FormSection>
       </FormPage>
     </PageContainer>
+  )
+}
+
+/** Renders the unmonitored-source reattach picker; null when none exist. */
+function ReattachSourceSelect({
+  importerName,
+  value,
+  onChange,
+}: {
+  importerName: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  const sources = useImporterSources()
+  const orphaned = (sources.data?.sources ?? []).filter(
+    (s) =>
+      s.importerName === importerName &&
+      s.status === "UNMONITORED" &&
+      // Only collection-era Sources are reattachable — pre-v2 Sources have
+      // no `collection:` identity to bind and no memberships to reuse.
+      s.externalIdentity.startsWith("collection:"),
+  )
+  if (orphaned.length === 0) return null
+  return (
+    <Field>
+      <FieldLabel htmlFor="i-reattach">Collection identity</FieldLabel>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id="i-reattach" className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NONE}>New collection</SelectItem>
+          {orphaned.map((s) => (
+            // The option value is the Source row id — the onChange handler
+            // fetches the collection-scope endpoint to rehydrate the draft
+            // with the Source's real stable keys (spec 058 US5/FR-018).
+            <SelectItem key={s.id} value={s.id}>
+              Reattach — {s.label ?? s.externalIdentity}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <FieldDescription>
+        Reattach an unmonitored collection Source to keep its Components,
+        checks, and observation history.
+      </FieldDescription>
+    </Field>
   )
 }

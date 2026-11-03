@@ -31,6 +31,7 @@ This matrix covers all 35 application-owned persistent tables. The two migration
 | `importer_sources` | Importer first-run identity reporting | Stable source identity and lifecycle |
 | `source_component_memberships` | Importer reconciliation | Add/update/omit and shared-Source preservation |
 | `source_instance_memberships` | Importer reconciliation | Instance membership and omission behavior |
+| `source_url_check_memberships` | Managed-check sync (spec 058) | Per-source check ownership and shared-key union |
 | `docker_targets` | Admin target UI/API with fake mTLS credentials | Create, test, enable/disable, update/delete |
 | `entity_changes` | Normal application mutations | Generated history; never fabricate direct rows for ordinary test setup |
 | `edge_changes` | Product/component relationship mutations | Generated history and detail reads |

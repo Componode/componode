@@ -23,7 +23,7 @@ async function main() {
   const bulk = await seedBulk(pgUrl);
 
   console.log('[seed] application flows');
-  const result = await seedAppFlows(appHttp, env, {
+  const result = await seedAppFlows(appHttp, pgUrl, env, {
     githubBase: 'https://mock-github:9443',
     alibabaEndpoint: 'mock-alibaba:9443',
     webFixture: 'http://web-fixture.mock.test:9080/web',

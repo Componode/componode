@@ -770,6 +770,13 @@ paths:
             attribution, ADR-110), `dependsOnGroups` (raw group edges incl.
             empty groups with `memberCount`), and derived read-only `health`
             (ADR-112: `{status, perEnv, sourceCount}` or `null`).
+            Spec 059 (ADR-127): each related ProductRef in `composedBy`,
+            `composes`, `consumesFrom`, and `consumedBy` is enriched in one
+            bounded batch with `criticality`, derived `health`
+            (`ProductHealth` or `null` = no data), and `componentCount`
+            (declared+inherited semantics). A relation family that fails to
+            read is listed in `unavailableRelationGroups` with an empty
+            array — not rendered as a confirmed no-relations state.
           content:
             application/json:
               schema: { type: object }
@@ -1149,11 +1156,12 @@ paths:
                 monitoring:
                   type: object
                   additionalProperties: false
+                  deprecated: true
                   description: >-
-                    Composite URL-check create — requires `instance`. Checks
-                    target the new instance, so `componentInstanceId` is not
-                    part of the check payload. The whole graph is created in
-                    one transaction; any failure persists nothing.
+                    **Deprecated (spec 058, ADR-126):** carrying a
+                    `monitoring` block returns `410
+                    URL_CHECK_WRITE_DEPRECATED` — managed checks are
+                    declared by an ImporterConfig.
                   required: [checks]
                   properties:
                     setup:
@@ -1167,7 +1175,7 @@ paths:
                         { $ref: "#/components/schemas/CompositeUrlCheckInput" }
       responses:
         "201":
-          description: Component created (plus instance/setup/checks when supplied)
+          description: Component created (plus instance when supplied)
           content:
             application/json:
               schema:
@@ -1183,6 +1191,11 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "410":
+          description: Request carried the retired `monitoring` block (`URL_CHECK_WRITE_DEPRECATED`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
         "409":
           description: Slug already in use (`SLUG_CONFLICT`)
           content:
@@ -1505,14 +1518,13 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
     post:
       tags: [URLChecks]
+      deprecated: true
       summary: Create a URL check on a component instance
-      x-permission: "urlCheck:create"
       description: >-
-        Auto-creates the monitoring setup with defaults (HUB vantage, 300 s
-        cadence) when absent. `authMode != NONE` requires an API-category
-        component, a `credentialId`, and `authConfig` credential key names —
-        never secret values. AGENT-vantage setups require an AGENT_MANAGED
-        credential.
+        **Deprecated (spec 058, ADR-126):** direct check-definition writes
+        are retired — managed checks are declared by the owning
+        ImporterConfig and synchronized by the importer core. Always
+        returns `410 URL_CHECK_WRITE_DEPRECATED`.
       parameters:
         - name: componentId
           in: path
@@ -1524,18 +1536,12 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/CreateUrlCheckInput" }
       responses:
-        "201":
-          description: Check created (scheduled from `nextProbeAt`)
+        "410":
+          description: Direct URL check writes are deprecated (`URL_CHECK_WRITE_DEPRECATED`)
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  check: { $ref: "#/components/schemas/UrlCheck" }
-        "400": { $ref: "#/components/responses/ValidationFailed" }
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
   /url-checks/{id}:
     get:
       tags: [URLChecks]
@@ -1555,12 +1561,13 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [URLChecks]
+      deprecated: true
       summary: Update a URL check (incl. enable/disable)
-      x-permission: "urlCheck:update"
       description: >-
-        Editing `url` updates the row in place — identity and observation
-        history are preserved. `enabled: false` clears `nextProbeAt` (no
-        MISSED rows accrue while disabled); enabling reschedules from now.
+        **Deprecated (spec 058, ADR-126):** direct check-definition writes
+        are retired — managed checks are declared by the owning
+        ImporterConfig and synchronized by the importer core. Always
+        returns `410 URL_CHECK_WRITE_DEPRECATED`.
       parameters:
         - { $ref: "#/components/parameters/Id" }
       requestBody:
@@ -1569,29 +1576,30 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/UpdateUrlCheckInput" }
       responses:
-        "200":
-          description: Updated check
+        "410":
+          description: Direct URL check writes are deprecated (`URL_CHECK_WRITE_DEPRECATED`)
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  check: { $ref: "#/components/schemas/UrlCheck" }
-        "400": { $ref: "#/components/responses/ValidationFailed" }
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
     delete:
       tags: [URLChecks]
+      deprecated: true
       summary: Delete a URL check and its observations
-      x-permission: "urlCheck:delete"
+      description: >-
+        **Deprecated (spec 058, ADR-126):** direct check-definition writes
+        are retired — managed checks are deleted by reconciliation when
+        their ComponentInstance becomes GONE, or by an owning config's
+        removal. Always returns `410 URL_CHECK_WRITE_DEPRECATED`.
       parameters:
         - { $ref: "#/components/parameters/Id" }
       responses:
-        "204": { description: Check deleted }
+        "410":
+          description: Direct URL check writes are deprecated (`URL_CHECK_WRITE_DEPRECATED`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
   /url-checks/{id}/metrics:
     get:
       tags: [URLChecks]
@@ -2238,6 +2246,33 @@ paths:
                   truncated:
                     type: boolean
                     description: True when either list hit the 200-row cap
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /importer-sources/{id}/collection-scope:
+    get:
+      tags: [Importers]
+      summary: Rehydrate a collection scope draft from a source's memberships (spec 058)
+      description: >
+        Reconstructs a CollectionScope ({sourceKey, components[]}) from the
+        Source's active component/instance/check memberships so a reattach
+        flow seeds the builder with the original stable keys.
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+      responses:
+        "200":
+          description: Collection scope draft with original stable keys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sourceKey:
+                    { type: [string, "null"], format: uuid }
+                  components:
+                    type: array
+                    items:
+                      { type: object }
         "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -3681,6 +3716,7 @@ components:
             - TARGET_RESOLUTION_FAILED
             - URL_CHECK_NOT_FOUND
             - MONITORING_SETUP_NOT_FOUND
+            - URL_CHECK_WRITE_DEPRECATED
         message: { type: string }
         details:
           {
@@ -4747,6 +4783,13 @@ components:
         id: { type: string, format: uuid }
         setupId: { type: string, format: uuid }
         componentInstanceId: { type: string, format: uuid }
+        managedKey:
+          type: string
+          nullable: true
+          description: >-
+            ImporterConfig-declared check identity (spec 058, ADR-126) —
+            non-null rows are managed by the owning ImporterConfig; null
+            rows are legacy/manual, retained disabled and read-only
         credentialId: { type: string, format: uuid, nullable: true }
         name: { type: string }
         url: { type: string }
@@ -4827,6 +4870,13 @@ components:
         - $ref: "#/components/schemas/UrlCheck"
         - type: object
           properties:
+            managedByConfigId:
+              type: string
+              format: uuid
+              nullable: true
+              description: >-
+                ImporterConfig owning this managed check — the only edit
+                surface; null for legacy/manual rows
             latest:
               allOf:
                 - $ref: "#/components/schemas/UrlCheckLatest"

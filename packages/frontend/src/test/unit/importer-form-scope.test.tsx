@@ -55,9 +55,10 @@ const KUBERNETES = {
   secrets: [{ key: "kubeconfig", label: "Kubeconfig", required: true }],
 };
 
-const WEB_URL = {
-  name: "web-url",
-  label: "Web URL",
+// Not a collection importer — web-url/api-url render the profile builder.
+const SIMPLE_URL = {
+  name: "simple-url",
+  label: "Simple URL",
   description: "Import a web page",
   configSchema: {
     type: "object",
@@ -66,7 +67,7 @@ const WEB_URL = {
   },
 };
 
-const manifests = [GITHUB, KUBERNETES, WEB_URL];
+const manifests = [GITHUB, KUBERNETES, SIMPLE_URL];
 
 const renderForm = (props: Record<string, unknown> = {}, ms: unknown[] = manifests) =>
   render(
@@ -159,7 +160,7 @@ describe("ImporterForm â€” schema-driven scope fields (G13)", () => {
 
   it("renders a minimal field set for simple importers", () => {
     renderForm();
-    pickImporter("Web URL");
+    pickImporter("Simple URL");
     expect(document.getElementById("i-scope-url")).toBeTruthy();
     expect(document.getElementById("i-scope-org")).toBeNull();
   });

@@ -107,6 +107,7 @@ exception is `GET /metrics`, which is served at the root.
 | `TARGET_RESOLUTION_FAILED` | Target profile could not be resolved or is malformed (400) |
 | `URL_CHECK_NOT_FOUND` | URL check not found (404) |
 | `MONITORING_SETUP_NOT_FOUND` | Component monitoring setup not found (404) |
+| `URL_CHECK_WRITE_DEPRECATED` | Direct URL check writes are deprecated — manage checks through the ImporterConfig (410) |
 <!-- /GENERATED:error-codes -->
 
 ---
@@ -302,6 +303,7 @@ same fields plus `lifecycle`.
 | GET | `/api/v1/importer-sources/:id` | Get an importer source | Authenticated |
 | GET | `/api/v1/importer-sources/:id/runs` | List runs attributed to an importer source | Authenticated |
 | GET | `/api/v1/importer-sources/:id/memberships` | List a source's component and instance memberships with per-source details | Authenticated |
+| GET | `/api/v1/importer-sources/:id/collection-scope` | Rehydrate a collection scope draft from a source's memberships (spec 058) | Authenticated |
 | POST | `/api/v1/importer-sources/:id/retire` | Explicitly retire an importer source | `importer:source:retire` |
 | POST | `/api/v1/importer-sources/:id/reactivate` | Reverse source retirement | `importer:source:reactivate` |
 | GET | `/api/v1/docker-targets` | List Hub-managed Docker targets | `importer:target:read` |
@@ -460,10 +462,10 @@ the URL check permissions. Observation history is retained for 30 days.
 | GET | `/api/v1/components/:componentId/monitoring-setup` | Get the component's URL check monitoring setup | Authenticated |
 | PUT | `/api/v1/components/:componentId/monitoring-setup` | Upsert monitoring defaults (cadence, vantage, agent) | `monitoringSetup:update` |
 | GET | `/api/v1/components/:componentId/url-checks` | List URL checks for a component (with latest, 24h summary, and recent observations) | Authenticated |
-| POST | `/api/v1/components/:componentId/url-checks` | Create a URL check on a component instance | `urlCheck:create` |
+| POST | `/api/v1/components/:componentId/url-checks` | Create a URL check on a component instance | Authenticated |
 | GET | `/api/v1/url-checks/:id` | Get a URL check | Authenticated |
-| PATCH | `/api/v1/url-checks/:id` | Update a URL check (incl. enable/disable) | `urlCheck:update` |
-| DELETE | `/api/v1/url-checks/:id` | Delete a URL check and its observations | `urlCheck:delete` |
+| PATCH | `/api/v1/url-checks/:id` | Update a URL check (incl. enable/disable) | Authenticated |
+| DELETE | `/api/v1/url-checks/:id` | Delete a URL check and its observations | Authenticated |
 | GET | `/api/v1/url-checks/:id/metrics` | Per-check availability, error rate, and latency percentiles | Authenticated |
 | GET | `/api/v1/url-checks/:id/observations` | Observation history (desc by scheduledAt, cursor-paginated) | Authenticated |
 <!-- /GENERATED:table:URLChecks -->

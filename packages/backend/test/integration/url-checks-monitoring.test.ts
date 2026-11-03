@@ -395,9 +395,9 @@ describe("url check monitoring (US2/US4/US5)", () => {
     expect(remaining.map((o) => o.id)).toEqual([fresh]);
   });
 
-  // --- Composite create (US5) ----------------------------------------------
+  // --- Composite create (US5, retired by spec 058) -------------------------
 
-  it("creates component + instance + setup + checks atomically via POST /components", async () => {
+  it("POST /components with a monitoring block returns 410", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/components",
@@ -415,78 +415,35 @@ describe("url check monitoring (US2/US4/US5)", () => {
         },
       },
     });
-    expect(res.statusCode).toBe(201);
-    const body = JSON.parse(res.payload);
-    expect(body.component.slug).toBe("monitored-api");
-    expect(body.instance.slug).toBe("monitored-api-production");
-    expect(body.instance.status).toBe("RUNNING");
-    expect(body.setup.cadenceSeconds).toBe(120);
-    expect(body.setup.vantage).toBe("HUB");
-    expect(body.checks).toHaveLength(1);
-    expect(body.checks[0].componentInstanceId).toBe(body.instance.id);
-
-    const checkRow = await testDb.db
-      .selectFrom("url_checks")
-      .selectAll()
-      .where("id", "=", body.checks[0].id)
-      .executeTakeFirstOrThrow();
-    expect(checkRow.nextProbeAt).toBeTruthy();
+    expect(res.statusCode).toBe(410);
+    expect(JSON.parse(res.payload).code).toBe("URL_CHECK_WRITE_DEPRECATED");
+    const row = await testDb.db
+      .selectFrom("components")
+      .select("id")
+      .where("slug", "=", "monitored-api")
+      .executeTakeFirst();
+    expect(row).toBeUndefined();
   });
 
-  it("requires instance when monitoring is present and persists nothing on check failure", async () => {
-    const noInstance = await app.inject({
+  it("component + instance create without monitoring still succeeds", async () => {
+    const res = await app.inject({
       method: "POST",
       url: "/api/v1/components",
       ...authed(adminSession),
       payload: {
-        name: "NoInstance",
-        slug: "no-instance",
-        category: "API",
-        provider: "GITHUB",
-        resourceType: "custom:api",
-        monitoring: {
-          checks: [{ name: "x", url: "https://example.com/" }],
-        },
-      },
-    });
-    expect(noInstance.statusCode).toBe(400);
-
-    const bad = await app.inject({
-      method: "POST",
-      url: "/api/v1/components",
-      ...authed(adminSession),
-      payload: {
-        name: "Atomic",
-        slug: "atomic-fail",
+        name: "Plain API",
+        slug: "plain-api",
         category: "API",
         provider: "GITHUB",
         resourceType: "custom:api",
         instance: { environment: "PRODUCTION" },
-        monitoring: {
-          checks: [{ name: "bad", url: "http://127.0.0.1:8080/" }],
-        },
       },
     });
-    expect(bad.statusCode).toBe(400);
-
-    const component = await testDb.db
-      .selectFrom("components")
-      .select("id")
-      .where("slug", "=", "atomic-fail")
-      .executeTakeFirst();
-    expect(component).toBeUndefined();
-    const orphanInstance = await testDb.db
-      .selectFrom("component_instances")
-      .select("id")
-      .where("slug", "=", "atomic-fail-production")
-      .executeTakeFirst();
-    expect(orphanInstance).toBeUndefined();
-    const orphanCheck = await testDb.db
-      .selectFrom("url_checks")
-      .select("id")
-      .where("name", "=", "bad")
-      .executeTakeFirst();
-    expect(orphanCheck).toBeUndefined();
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.payload);
+    expect(body.component.slug).toBe("plain-api");
+    expect(body.instance.slug).toBe("plain-api-production");
+    expect(body.instance.status).toBe("RUNNING");
   });
 
   // --- Credential dependents (US4) -------------------------------------------
@@ -506,20 +463,46 @@ describe("url check monitoring (US2/US4/US5)", () => {
       "cred-api",
       { category: "API" },
     );
-    const check = await app.inject({
-      method: "POST",
-      url: `/api/v1/components/${componentId}/url-checks`,
-      ...authed(adminSession),
-      payload: {
+    // Direct writes are deprecated (spec 058) — seed the check directly.
+    const setupId = uuidv7();
+    await testDb.db
+      .insertInto("component_monitoring_setups")
+      .values({
+        id: setupId,
+        componentId,
+        cadenceSeconds: 300,
+        vantage: "HUB",
+        agentId: null,
+        createdAt: iso(0),
+        updatedAt: iso(0),
+      } as any)
+      .execute();
+    await testDb.db
+      .insertInto("url_checks")
+      .values({
+        id: uuidv7(),
+        setupId,
+        componentInstanceId: instanceId,
+        credentialId,
         name: "authed",
         url: "https://example.com/private",
-        componentInstanceId: instanceId,
+        method: "GET",
+        enabled: true,
+        cadenceSeconds: null,
+        successPolicy: { codes: [], ranges: [{ min: 200, max: 299 }] },
         authMode: "BEARER",
-        credentialId,
         authConfig: { tokenKey: "token" },
-      },
-    });
-    expect(check.statusCode).toBe(201);
+        availabilityTarget: null,
+        targetWindow: null,
+        autoDisableAfter: null,
+        managedKey: null,
+        nextProbeAt: null,
+        createdBy: null,
+        updatedBy: null,
+        createdAt: iso(0),
+        updatedAt: iso(0),
+      } as any)
+      .execute();
 
     const del = await app.inject({
       method: "DELETE",

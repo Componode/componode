@@ -1,18 +1,12 @@
 import * as React from "react";
-import { GlobeIcon, Trash2Icon } from "lucide-react";
+import { GlobeIcon, PlugZapIcon } from "lucide-react";
 import { Link } from "react-router-dom";
-import { toast } from "sonner";
 import { useSession } from "@/api/hooks/auth";
-import {
-  useDeleteUrlCheck,
-  useUpdateUrlCheck,
-  useUrlChecks,
-} from "@/api/hooks/url-checks";
+import { useUrlChecks } from "@/api/hooks/url-checks";
 import {
   mapMonitoringSetup,
   mapUrlCheckListItem,
 } from "@/api/mappers/monitoring";
-import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog";
 import { RelativeTime } from "@/ux/components/patterns/primitives";
 import {
   CheckStatusBadge,
@@ -23,7 +17,7 @@ import {
   ErrorState,
   TableSkeleton,
 } from "@/ux/components/patterns/states";
-import { Button } from "@/ux/components/ui/button";
+import { Badge } from "@/ux/components/ui/badge";
 import {
   Card,
   CardAction,
@@ -31,7 +25,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/ux/components/ui/card";
-import { Switch } from "@/ux/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -57,7 +50,6 @@ import type {
 import { cn } from "@/ux/lib/utils";
 import { ComponentInstanceCreateDialog } from "./component-instance-create-dialog";
 import { MonitoringSetupEditor } from "./monitoring-setup-editor";
-import { UrlCheckEditor } from "./url-check-editor";
 
 const OUTCOME_DOT: Record<UrlCheckObservationView["outcome"], string> = {
   SUCCESS: "bg-success",
@@ -163,15 +155,11 @@ function CheckRow({
   component,
   check,
   setup,
-  canEdit,
 }: {
   component: Component;
   check: UrlCheckView;
   setup: ReturnType<typeof mapMonitoringSetup> | null;
-  canEdit: boolean;
 }) {
-  const update = useUpdateUrlCheck();
-  const del = useDeleteUrlCheck();
   const instance = component.instances.find(
     (i) => i.id === check.componentInstanceId,
   );
@@ -181,12 +169,36 @@ function CheckRow({
     <TableRow>
       <TableCell className="pl-6">
         <div className="flex min-w-0 flex-col">
-          <Link
-            to={ux(`/components/${component.slug}/checks/${check.id}`)}
-            className="truncate font-medium underline-offset-4 hover:underline"
-          >
-            {check.name}
-          </Link>
+          <span className="flex min-w-0 items-center gap-2">
+            <Link
+              to={ux(`/components/${component.slug}/checks/${check.id}`)}
+              className="truncate font-medium underline-offset-4 hover:underline"
+            >
+              {check.name}
+            </Link>
+            {check.managedKey ? (
+              check.managedByConfigId ? (
+                <Link
+                  to={ux(`/importers/${check.managedByConfigId}`)}
+                  title="Managed by an importer — edit the check on its ImporterConfig"
+                >
+                  <Badge variant="secondary" className="gap-1">
+                    <PlugZapIcon className="size-3" />
+                    Managed
+                  </Badge>
+                </Link>
+              ) : (
+                <Badge variant="secondary" className="gap-1" title="Managed by an importer">
+                  <PlugZapIcon className="size-3" />
+                  Managed
+                </Badge>
+              )
+            ) : (
+              <Badge variant="outline" title="Legacy check — retained read-only">
+                Legacy
+              </Badge>
+            )}
+          </span>
           <code
             className="max-w-64 truncate font-mono text-xs text-muted-foreground"
             title={check.url}
@@ -232,75 +244,32 @@ function CheckRow({
       <TableCell>
         <RecentOutcomes check={check} />
       </TableCell>
-      {canEdit && (
-        <TableCell className="pr-6">
-          <div className="flex items-center justify-end gap-1">
-            <Switch
-              checked={check.enabled}
-              aria-label={
-                check.enabled ? `Disable ${check.name}` : `Enable ${check.name}`
-              }
-              disabled={update.isPending}
-              onCheckedChange={(v) =>
-                update.mutate(
-                  { id: check.id, enabled: v },
-                  {
-                    onSuccess: () =>
-                      toast.success(
-                        v ? `${check.name} enabled` : `${check.name} disabled`,
-                      ),
-                    onError: (e) => toast.error(e.message),
-                  },
-                )
-              }
-            />
-            <UrlCheckEditor component={component} check={check} setup={setup} />
-            <ConfirmDialog
-              trigger={
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={`Delete ${check.name}`}
-                >
-                  <Trash2Icon className="size-3.5" />
-                </Button>
-              }
-              title={`Delete ${check.name}?`}
-              description="The check definition and its observation history are removed. This cannot be undone."
-              confirmLabel="Delete check"
-              onConfirm={() =>
-                del.mutate(check.id, {
-                  onSuccess: () => toast.success(`${check.name} deleted`),
-                  onError: (e) => toast.error(e.message),
-                })
-              }
-            />
-          </div>
-        </TableCell>
-      )}
+      <TableCell className="pr-6 text-right text-sm text-muted-foreground">
+        {check.managedKey ? "Read-only — managed by importer" : "Read-only"}
+      </TableCell>
     </TableRow>
   );
 }
 
 /**
  * URL checks on the component detail grid (spec 051 US1/US3): one row per
- * check with status, latest result, and a recent-outcome strip. Check status
- * is rendered distinct from instance health — monitoring never overwrites
- * importer-reported state (FR-016/FR-024).
+ * check with status, latest result, and a recent-outcome strip. Managed
+ * checks drive the monitored instance's status (spec 058 FR-014) — the
+ * card is read-only; definitions live on the owning ImporterConfig.
  */
 export function UrlChecksCard({ component }: { component: Component }) {
   const query = useUrlChecks(component.id);
   const session = useSession();
-  const canEdit = canAccess(session.data?.role ?? "VIEWER", "EDITOR");
+  const role = session.data?.role ?? "VIEWER";
+  const canConfigure = canAccess(role, "EDITOR");
   const hasInstances = component.instances.length > 0;
 
   const setup = query.data?.setup ? mapMonitoringSetup(query.data.setup) : null;
   const checks = (query.data?.checks ?? []).map(mapUrlCheckListItem);
   const totalInstances =
     component.totalInstanceCount ?? component.instances.length;
-  const canAdd = canEdit && hasInstances;
   const canRecover =
-    canEdit && totalInstances === 0 && component.lifecycle === "ACTIVE";
+    canConfigure && totalInstances === 0 && component.lifecycle === "ACTIVE";
 
   return (
     <Card className="lg:col-span-3 overflow-hidden pb-0">
@@ -311,18 +280,16 @@ export function UrlChecksCard({ component }: { component: Component }) {
           {setup
             ? `every ${setup.cadenceSeconds} seconds, reachable from ${setup.vantageLabel}`
             : "not configured yet"}
-          . Check status is independent of the importer-reported instance
-          status.
+          . Checks are declared by the owning ImporterConfig and their results
+          drive the monitored instance status.
         </CardDescription>
         <CardAction className="flex items-center gap-2">
-          {canEdit && (
+          {canConfigure && (
             <MonitoringSetupEditor componentId={component.id} setup={setup} />
           )}
-          {canAdd ? (
-            <UrlCheckEditor component={component} setup={setup} />
-          ) : canRecover ? (
+          {canRecover && (
             <ComponentInstanceCreateDialog component={component} />
-          ) : null}
+          )}
         </CardAction>
       </CardHeader>
       {query.isPending ? (
@@ -341,13 +308,11 @@ export function UrlChecksCard({ component }: { component: Component }) {
             title="No URL checks yet"
             description={
               hasInstances
-                ? "Add a check to probe an endpoint on a schedule and track availability and latency — phrased as “reachable from” the vantage."
+                ? "URL checks are declared by an importer's ImporterConfig — they appear here after a run syncs the managed definitions."
                 : "Checks attach to a component instance — this component has none yet."
             }
             action={
-              canAdd ? (
-                <UrlCheckEditor component={component} setup={setup} />
-              ) : canRecover ? (
+              canRecover ? (
                 <ComponentInstanceCreateDialog component={component} />
               ) : undefined
             }
@@ -365,9 +330,7 @@ export function UrlChecksCard({ component }: { component: Component }) {
               <TableHead>Availability (24h)</TableHead>
               <TableHead>p95 (24h)</TableHead>
               <TableHead>Recent</TableHead>
-              {canEdit && (
-                <TableHead className="pr-6 text-right">Actions</TableHead>
-              )}
+              <TableHead className="pr-6 text-right">Authoring</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -377,7 +340,6 @@ export function UrlChecksCard({ component }: { component: Component }) {
                 component={component}
                 check={c}
                 setup={setup}
-                canEdit={canEdit}
               />
             ))}
           </TableBody>

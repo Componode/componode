@@ -184,6 +184,7 @@
 | [ADR-107](./adrs/ADR-107-credential-store.md)                        | Application credential store for integration secrets (supersedes ADR-023 no-secrets-at-rest clause); Amendment 1 adds URL Check credential consumers and dependent protection (ADR-123); amended by ADR-124 — concrete `url_checks.credentialId` + `authConfig` key-name mapping, `AGENT`-vantage checks require `AGENT_MANAGED` |
 | [ADR-108](./adrs/ADR-108-mobile-nav-drawer.md)                       | Mobile navigation drawer below `md` (narrows `docs/ux.md` §9)                                                                                                                                                                                                                                                                    |
 | [ADR-118](./adrs/ADR-118-product-map-canvas.md)                      | In-app Product Map canvas (read-only); Amendment 1 (ADR-127) — topology in Dependencies, complete relations, focus/expand boundary (amends ADR-103/`ux.md` §8)                                                                                                                                                                   |
+| [ADR-127](./adrs/ADR-127-product-map-topology-in-dependencies.md) | Product Map topology in Dependencies (amends ADR-118/ADR-103) |
 | [ADR-117](./adrs/ADR-117-agent-managed-credentials.md)               | Agent-managed credentials: reference-only credential flavor (amends ADR-107, 055, 023, 090); Amendment 1 ratifies spec-026 surfaces — 4 error codes, `credential_test_dispatched`, `agent_credential_tests_total`, `testId` correlation, `keyHints` source types                                                                 |
 
 ### Frontend & SPA
@@ -191,7 +192,6 @@
 | ADR                                                               | Title                                                         |
 | ----------------------------------------------------------------- | ------------------------------------------------------------- |
 | [ADR-105](./adrs/ADR-105-spa-fallback-for-direct-navigation.md)   | SPA fallback for direct navigation                            |
-| [ADR-127](./adrs/ADR-127-product-map-topology-in-dependencies.md) | Product Map topology in Dependencies (amends ADR-118/ADR-103) |
 | [ADR-128](./adrs/ADR-128-component-relationship-read-view.md)     | Read-only typed Component Relationships view (amends ADR-103) |
 
 ---

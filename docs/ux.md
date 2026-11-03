@@ -131,7 +131,9 @@ List pages: `PageHeader` (title/description/primary action) → `ListToolbar`
 
 Every tabbed detail page keeps the active tab in `?tab=` (replace, not
 push) via the **`useValidatedTab` hook** — unknown/missing values fall back
-to the first tab so deep links never render an empty panel. Never hand-roll
+to the first tab so deep links never render an empty panel; retired tab
+names resolve through the hook's alias map (e.g. the removed Product "Map"
+tab resolves to `dependencies` — spec 059). Never hand-roll
 `searchParams.get("tab")`.
 
 ### State matrix

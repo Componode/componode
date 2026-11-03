@@ -6,6 +6,8 @@ import type {
   ComponentGroup as ApiComponentGroup,
   ComponentInstance as ApiInstance,
   DigitalProduct,
+  ProductDetail,
+  ProductRef,
 } from "@/api/types";
 import type {
   Component,
@@ -13,6 +15,8 @@ import type {
   ComponentInstance,
   Product,
   ProductComponentRow,
+  ProductTopology,
+  RelatedProduct,
 } from "@/ux/lib/view-types";
 import type {
   Environment,
@@ -107,6 +111,44 @@ export function mapProduct(
       dependencies: false,
     },
     updatedAt: p.updatedAt,
+  };
+}
+
+/** Spec 059: enriched ProductRef → topology node. Absent enrichment fields
+ *  degrade to no-data (null status, 0 components) — never fabricated. */
+export function mapRelatedProduct(ref: ProductRef): RelatedProduct {
+  return {
+    id: ref.id,
+    name: ref.name,
+    slug: ref.slug,
+    type: narrow<ProductType>(ref.type, PRODUCT_TYPES, "CUSTOMER_FACING"),
+    lifecycle: narrow<Lifecycle>(ref.lifecycle, LIFECYCLES, "ACTIVE"),
+    criticality: narrowOrNull<Criticality>(ref.criticality, CRITICALITIES),
+    status: narrowOrNull<HealthStatus>(ref.health?.status, HEALTH),
+    componentCount: ref.componentCount ?? 0,
+  };
+}
+
+/** Spec 059: detail response → the complete topology view-model — the sole
+ *  conversion seam so every relation family and degradation flag is carried. */
+export function mapProductTopology(d: ProductDetail): ProductTopology {
+  return {
+    composedBy: (d.composedBy ?? []).map(mapRelatedProduct),
+    composes: (d.composes ?? []).map(mapRelatedProduct),
+    consumesFrom: (d.consumesFrom ?? []).map(mapRelatedProduct),
+    consumedBy: (d.consumedBy ?? []).map(mapRelatedProduct),
+    dependsOnGroups: (d.dependsOnGroups ?? []).map((g) => ({
+      id: g.id,
+      name: g.name,
+      slug: g.slug,
+      memberCount: g.memberCount,
+      lifecycle: narrow<Lifecycle>(
+        (g as { lifecycle?: string }).lifecycle,
+        LIFECYCLES,
+        "ACTIVE",
+      ),
+    })),
+    unavailableGroups: d.unavailableRelationGroups ?? [],
   };
 }
 

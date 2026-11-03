@@ -3,26 +3,16 @@ import { render, cleanup, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { TooltipProvider } from "@/ux/components/ui/tooltip";
 import { UrlChecksCard } from "@/ux/components/catalog/url-checks-card";
-import { UrlCheckEditor } from "@/ux/components/catalog/url-check-editor";
 import { MonitoringSetupEditor } from "@/ux/components/catalog/monitoring-setup-editor";
 import { ComponentInstanceCreateDialog } from "@/ux/components/catalog/component-instance-create-dialog";
-import { UxComponentNewPage } from "@/ux/app/components/new";
 import { UrlCheckDetail } from "@/ux/components/catalog/url-check-detail";
-import {
-  emptyCheckRow,
-  UrlCheckRows,
-} from "@/ux/components/forms/url-check-rows";
 import { useUrlCheckObservations } from "@/api/hooks/url-checks";
 
 const useUrlCheckObservationsMock = vi.mocked(useUrlCheckObservations);
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-const createMutate = vi.fn();
-const updateMutate = vi.fn();
-const deleteMutate = vi.fn();
 const setupMutate = vi.fn();
-const createCompositeMutate = vi.fn();
 const createInstanceMutate = vi.fn();
 const sessionRole = { role: "EDITOR" as string };
 const urlChecksImpl: { fn: () => unknown } = {
@@ -93,13 +83,6 @@ vi.mock("@/api/hooks/url-checks", () => ({
     metricsImpl.fn(id, window),
   ),
   useUrlCheckObservations: vi.fn(() => observationsImpl.fn()),
-  useCreateUrlCheck: vi.fn(() => ({ mutate: createMutate, isPending: false })),
-  useUpdateUrlCheck: vi.fn(() => ({ mutate: updateMutate, isPending: false })),
-  useDeleteUrlCheck: vi.fn(() => ({ mutate: deleteMutate, isPending: false })),
-  useCreateComponentWithMonitoring: vi.fn(() => ({
-    mutate: createCompositeMutate,
-    isPending: false,
-  })),
 }));
 vi.mock("@/api/hooks/components", () => ({
   useCreateComponentInstance: vi.fn(() => ({
@@ -174,6 +157,8 @@ const apiCheck = {
   id: "k1",
   setupId: "s1",
   componentInstanceId: "i1",
+  managedKey: null,
+  managedByConfigId: null,
   credentialId: null,
   name: "Storefront",
   url: "https://shop.example.com/health",
@@ -391,12 +376,12 @@ describe("UrlChecksCard (spec 051 US1/US3)", () => {
     expect(screen.getByText("1200 ms")).toBeTruthy();
   });
 
-  it("renders the empty state and offers Add check for editors", () => {
+  it("renders the empty state read-only - checks come from importer configs", () => {
     wrap(<UrlChecksCard component={component} />);
-    expect(screen.getByText("No URL checks yet")).toBeTruthy();
     expect(
-      screen.getAllByRole("button", { name: /add check/i }).length,
-    ).toBeGreaterThan(0);
+      screen.getByText(/declared by an importer's ImporterConfig/i),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /add check/i })).toBeNull();
   });
 
   it("offers first-instance recovery on a zero-instance component (spec 054)", () => {
@@ -445,26 +430,13 @@ describe("UrlChecksCard (spec 051 US1/US3)", () => {
     ).toBeNull();
   });
 
-  it("hides authoring controls for VIEWER", () => {
+  it("hides setup editing for VIEWER - checks are read-only for everyone", () => {
     sessionRole.role = "VIEWER";
     wrap(<UrlChecksCard component={component} />);
-    expect(screen.getByText("No URL checks yet")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /add check/i })).toBeNull();
-  });
-
-  it("toggles enabled state through useUpdateUrlCheck", () => {
-    urlChecksImpl.fn = () => ({
-      data: { setup: null, checks: [{ ...apiCheck, latest: latestOk }] },
-      isPending: false,
-      isError: false,
-      refetch: vi.fn(),
-    });
-    wrap(<UrlChecksCard component={component} />);
-    fireEvent.click(screen.getByRole("switch", { name: "Disable Storefront" }));
-    expect(updateMutate).toHaveBeenCalledWith(
-      { id: "k1", enabled: false },
-      expect.anything(),
-    );
+    expect(
+      screen.queryByRole("button", { name: /monitoring defaults/i }),
+    ).toBeNull();
   });
 
   it("renders the outcome strip from the list payload with no per-row requests (spec 053 US2)", () => {
@@ -533,7 +505,7 @@ describe("UrlChecksCard (spec 051 US1/US3)", () => {
     });
 
     wrap(<UrlChecksCard component={component} />);
-    // Both summary cells show the honest no-data state — never 0%/100%.
+    // Both summary cells show the honest no-data state  --  never 0%/100%.
     expect(screen.getAllByText("No data yet")).toHaveLength(2);
     expect(screen.queryByText(/%/)).toBeNull();
   });
@@ -700,95 +672,7 @@ describe("ComponentInstanceCreateDialog (spec 054)", () => {
   });
 });
 
-describe("UxComponentNewPage composite checks (spec 054)", () => {
-  function fillComponentShell() {
-    fireEvent.change(document.getElementById("nc-name")!, {
-      target: { value: "Payments API" },
-    });
-    fireEvent.change(document.getElementById("nc-resource-type")!, {
-      target: { value: "service" },
-    });
-    pick("nc-category", "API");
-    pick("nc-provider", "Other");
-    pick("nc-environment", "Production");
-    const key = document
-      .querySelector<HTMLInputElement>('[id^="ucr-name-"]')!
-      .id.slice("ucr-name-".length);
-    fireEvent.change(document.getElementById(`ucr-name-${key}`)!, {
-      target: { value: "Readiness" },
-    });
-    fireEvent.change(document.getElementById(`ucr-url-${key}`)!, {
-      target: { value: "https://api.example.com/ready" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
-    return key;
-  }
-
-  it("submits complete auth, availability, and enabled check fields", () => {
-    wrap(<UxComponentNewPage />);
-    const key = fillComponentShell();
-    pick(`ucr-${key}-auth-mode`, "Bearer token");
-    pick(`ucr-${key}-credential`, "Storefront API key");
-    fireEvent.change(document.getElementById(`ucr-target-${key}`)!, {
-      target: { value: "99.9" },
-    });
-    pick(`ucr-target-window-${key}`, "7 days");
-    fireEvent.click(screen.getByRole("switch", { name: "Check 1 enabled" }));
-    fireEvent.submit(document.getElementById("nc-name")!.closest("form")!);
-
-    expect(createCompositeMutate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: "Payments API",
-        slug: "payments-api",
-        instance: { environment: "PRODUCTION" },
-        monitoring: expect.objectContaining({
-          checks: [
-            expect.objectContaining({
-              name: "Readiness",
-              enabled: false,
-              authMode: "BEARER",
-              credentialId: "cred-1",
-              authConfig: { tokenKey: "token" },
-              availabilityTarget: 99.9,
-              targetWindow: "7D",
-            }),
-          ],
-        }),
-      }),
-      expect.anything(),
-    );
-  });
-
-  it("rejects an API check that selects auth without a credential", () => {
-    wrap(<UxComponentNewPage />);
-    const key = fillComponentShell();
-    pick(`ucr-${key}-auth-mode`, "Bearer token");
-    fireEvent.submit(document.getElementById("nc-name")!.closest("form")!);
-
-    expect(createCompositeMutate).not.toHaveBeenCalled();
-    expect(
-      screen.getByText(/Select a credential for the chosen auth mode/),
-    ).toBeTruthy();
-  });
-});
-
 describe("Admin-only selector guidance (spec 054)", () => {
-  it("explains unavailable credentials without displaying secret material", () => {
-    credentialsImpl.fn = () => ({
-      data: undefined,
-      isPending: false,
-      isError: true,
-    });
-    wrap(<UrlCheckRows rows={[emptyCheckRow()]} onChange={vi.fn()} isApi />);
-    fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
-
-    expect(
-      screen.getByText("Credential selection requires the Admin role."),
-    ).toBeTruthy();
-    expect(screen.queryByText("…1234")).toBeNull();
-    expect(screen.queryByDisplayValue("…1234")).toBeNull();
-  });
-
   it("explains unavailable Import Agents in monitoring setup", () => {
     agentsImpl.fn = () => ({
       data: undefined,
@@ -803,128 +687,6 @@ describe("Admin-only selector guidance (spec 054)", () => {
     expect(
       screen.getByText("Picking an Import Agent requires the Admin role."),
     ).toBeTruthy();
-  });
-});
-
-describe("UrlCheckRows (spec 054)", () => {
-  it("shows auth and availability target controls for API checks", () => {
-    const row = {
-      ...emptyCheckRow(),
-      target: "99.9",
-      authMode: "BEARER" as const,
-      credentialId: "cred-1",
-      tokenKey: "token",
-    };
-    wrap(<UrlCheckRows rows={[row]} onChange={vi.fn()} isApi />);
-    fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
-
-    expect(screen.getByText("Authentication")).toBeTruthy();
-    expect(
-      (document.getElementById(`ucr-target-${row.key}`) as HTMLInputElement)
-        .value,
-    ).toBe("99.9");
-    expect(
-      document.getElementById(`ucr-target-window-${row.key}`),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("switch", { name: "Check 1 enabled" }),
-    ).toBeTruthy();
-  });
-
-  it("hides auth controls for non-API checks", () => {
-    const row = emptyCheckRow();
-    wrap(<UrlCheckRows rows={[row]} onChange={vi.fn()} isApi={false} />);
-    fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
-    expect(screen.queryByText("Authentication")).toBeNull();
-  });
-});
-
-describe("UrlCheckEditor (spec 051 US1/US4)", () => {
-  it("creates a check with parsed success policy", () => {
-    wrap(<UrlCheckEditor component={component} />);
-    fireEvent.click(screen.getByRole("button", { name: /add check/i }));
-    fireEvent.change(document.getElementById("uce-name")!, {
-      target: { value: "Readiness" },
-    });
-    fireEvent.change(document.getElementById("uce-url")!, {
-      target: { value: "https://api.example.com/ready" },
-    });
-    fireEvent.change(document.getElementById("uce-statuses")!, {
-      target: { value: "200-299,301" },
-    });
-    fireEvent.submit(document.getElementById("uce-name")!.closest("form")!);
-
-    expect(createMutate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: "Readiness",
-        url: "https://api.example.com/ready",
-        componentInstanceId: "i1",
-        method: "GET",
-        enabled: true,
-        cadenceSeconds: null,
-        successPolicy: { codes: [301], ranges: [{ min: 200, max: 299 }] },
-        authMode: "NONE",
-      }),
-      expect.anything(),
-    );
-  });
-
-  it("rejects a malformed accepted-statuses input inline", () => {
-    wrap(<UrlCheckEditor component={component} />);
-    fireEvent.click(screen.getByRole("button", { name: /add check/i }));
-    fireEvent.change(document.getElementById("uce-name")!, {
-      target: { value: "X" },
-    });
-    fireEvent.change(document.getElementById("uce-url")!, {
-      target: { value: "https://x.example.com" },
-    });
-    fireEvent.change(document.getElementById("uce-statuses")!, {
-      target: { value: "banana" },
-    });
-    fireEvent.submit(document.getElementById("uce-name")!.closest("form")!);
-    expect(createMutate).not.toHaveBeenCalled();
-    expect(screen.getByText(/Can't parse "banana"/)).toBeTruthy();
-  });
-
-  it("prefills fields in edit mode and PATCHes on submit", () => {
-    wrap(
-      <UrlCheckEditor
-        component={component}
-        check={
-          {
-            ...apiCheck,
-            successPolicyLabel: "200–299",
-            latest: latestOk,
-            status: "UP",
-          } as never
-        }
-      />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Edit Storefront" }));
-    expect(
-      (document.getElementById("uce-name") as HTMLInputElement).value,
-    ).toBe("Storefront");
-    fireEvent.change(document.getElementById("uce-name")!, {
-      target: { value: "Storefront v2" },
-    });
-    fireEvent.submit(document.getElementById("uce-name")!.closest("form")!);
-    expect(updateMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "k1", name: "Storefront v2" }),
-      expect.anything(),
-    );
-  });
-
-  it("shows the auth section for API components only", () => {
-    const { unmount } = wrap(<UrlCheckEditor component={component} />);
-    fireEvent.click(screen.getByRole("button", { name: /add check/i }));
-    expect(screen.getByText("Authentication")).toBeTruthy();
-    unmount();
-
-    wrap(
-      <UrlCheckEditor component={{ ...component, category: "WEB_ENDPOINT" }} />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: /add check/i }));
-    expect(screen.queryByText("Authentication")).toBeNull();
   });
 });
 
@@ -978,6 +740,31 @@ describe("UrlCheckDetail (spec 051 US3/US6)", () => {
     // Observation history: outcome badge, status, duration, error reason.
     expect(screen.getByText("Failure")).toBeTruthy();
     expect(screen.getByText("Timed out")).toBeTruthy();
+  });
+
+  it("renders no edit/delete affordances and a Legacy badge on unmigrated checks", () => {
+    wrap(<UrlCheckDetail component={component} checkId="k1" />);
+    expect(screen.queryByRole("button", { name: /edit check/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /delete check/i })).toBeNull();
+    expect(screen.getByText("Legacy")).toBeTruthy();
+  });
+
+  it("shows a Managed badge linking to the owning ImporterConfig", () => {
+    checkImpl.fn = () => ({
+      data: {
+        check: {
+          ...apiCheck,
+          managedKey: "chk-1",
+          managedByConfigId: "cfg-9",
+        },
+      },
+      isPending: false,
+      error: null,
+    });
+    wrap(<UrlCheckDetail component={component} checkId="k1" />);
+    const link = screen.getByRole("link", { name: /managed/i });
+    expect(link.getAttribute("href")).toBe("/importers/cfg-9");
+    expect(screen.queryByRole("button", { name: /edit check/i })).toBeNull();
   });
 
   it("renders NotFound when the check does not belong to the component", () => {

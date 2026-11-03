@@ -1,9 +1,5 @@
-import { PencilIcon, Trash2Icon } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
-import { useSession } from "@/api/hooks/auth";
+import { Link } from "react-router-dom";
 import {
-  useDeleteUrlCheck,
   useMonitoringSetup,
   useUrlCheck,
   useUrlCheckMetrics,
@@ -17,11 +13,7 @@ import {
   mapUrlCheckObservation,
 } from "@/api/mappers/monitoring";
 import { OutcomeDots } from "@/ux/components/catalog/url-checks-card";
-import {
-  UrlCheckEditor,
-  instanceLabel,
-} from "@/ux/components/catalog/url-check-editor";
-import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog";
+import { ENVIRONMENT_META } from "@/ux/lib/domain";
 import {
   PageContainer,
   PageHeader,
@@ -57,7 +49,6 @@ import {
 } from "@/ux/components/ui/table";
 import { CHECK_AUTH_MODE_META, CHECK_ERROR_TYPE_LABELS } from "@/ux/lib/domain";
 import { formatMs, formatPct } from "@/ux/lib/format";
-import { canAccess } from "@/ux/lib/nav";
 import { ux } from "@/ux/lib/paths";
 import type { Component, UrlCheckMetricsView } from "@/ux/lib/view-types";
 
@@ -142,6 +133,12 @@ function MetricColumn({
 
 const OUTCOME_STRIP_LEN = 30;
 
+/** env label + optional region so instance rows stay distinguishable. */
+function instanceLabel(i: Component["instances"][number]): string {
+  const env = ENVIRONMENT_META[i.environment]?.label ?? i.environment;
+  return i.region ? `${env} · ${i.region}` : env;
+}
+
 export function UrlCheckDetail({
   component,
   checkId,
@@ -149,17 +146,12 @@ export function UrlCheckDetail({
   component: Component;
   checkId: string;
 }) {
-  const navigate = useNavigate();
-  const session = useSession();
-  const canEdit = canAccess(session.data?.role ?? "VIEWER", "EDITOR");
-
   const checkQuery = useUrlCheck(checkId);
   const setupQuery = useMonitoringSetup(component.id);
   const m24 = useUrlCheckMetrics(checkId, "24h");
   const m7 = useUrlCheckMetrics(checkId, "7d");
   const m30 = useUrlCheckMetrics(checkId, "30d");
   const obs = useUrlCheckObservations(checkId, 25);
-  const del = useDeleteUrlCheck();
 
   if (checkQuery.isPending) {
     return (
@@ -247,48 +239,28 @@ export function UrlCheckDetail({
                 failures · <RelativeTime iso={check.autoDisabledAt} />
               </Badge>
             )}
+            {check.managedKey ? (
+              check.managedByConfigId ? (
+                <Link
+                  to={ux(`/importers/${check.managedByConfigId}`)}
+                  title="Managed by an importer — edit the check on its ImporterConfig"
+                >
+                  <Badge variant="secondary" className="gap-1">Managed</Badge>
+                </Link>
+              ) : (
+                <Badge variant="secondary" title="Managed by an importer">
+                  Managed
+                </Badge>
+              )
+            ) : (
+              <Badge
+                variant="secondary"
+                title="Created before importer-managed checks — kept read-only and disabled"
+              >
+                Legacy
+              </Badge>
+            )}
           </>
-        }
-        actions={
-          canEdit ? (
-            <>
-              <UrlCheckEditor
-                component={component}
-                check={check}
-                setup={setup}
-                trigger={
-                  <Button variant="outline">
-                    <PencilIcon data-icon="inline-start" />
-                    Edit check
-                  </Button>
-                }
-              />
-              <ConfirmDialog
-                trigger={
-                  <Button
-                    variant="outline"
-                    className="text-destructive"
-                    disabled={del.isPending}
-                  >
-                    <Trash2Icon data-icon="inline-start" />
-                    Delete check
-                  </Button>
-                }
-                title={`Delete ${check.name}?`}
-                description="The check definition and its observation history are removed. This cannot be undone."
-                confirmLabel="Delete check"
-                onConfirm={() =>
-                  del.mutate(check.id, {
-                    onSuccess: () => {
-                      toast.success(`${check.name} deleted`);
-                      navigate(ux(`/components/${component.slug}`));
-                    },
-                    onError: (e) => toast.error(e.message),
-                  })
-                }
-              />
-            </>
-          ) : undefined
         }
       />
 

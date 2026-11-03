@@ -341,6 +341,29 @@ them into specs when scheduled. G29/G31/G32 shipped as spec
   decider name; no accept/dismiss actions; empty state when none.
   `suggestionsHistory` flag removed.
 
+## G33 — Importer-config profile builder — RESOLVED by spec 058
+
+- The Web/API importer form needed a nested Component-profile builder —
+  profiles → per-environment instances → one managed URL Check each —
+  which the schema-driven scope renderer cannot express. The
+  `importerProfileBuilder` flag ships ON with the complete backend
+  contract (collection scope v2 + managed-check sync): `importer-form`
+  renders `collection-scope-builder` for `web-url`/`api-url`, with a
+  reattachment select over UNMONITORED Sources on create. Other
+  importers keep the generic schema/raw editors.
+
+## G34 — Related-product health/count on the Product Map — RESOLVED by spec 059
+
+- The Product Map needed related-Product `criticality`, derived `health`
+  (ADR-112), and `componentCount` for its inspection panel, but the detail
+  read's ProductRefs carried only id/name/slug/type/lifecycle. The
+  `productMapTopology` flag ships ON with the complete contract: the
+  `GET /products/{slug}` read enriches every related ProductRef in a
+  bounded batch (no request-per-node), reports failed relation families
+  via `unavailableRelationGroups`, and the read-only topology renders at
+  the top of the Dependencies tab (ADR-127) — the Map tab is removed and
+  `?tab=map` resolves to `dependencies`.
+
 ## Conditional gaps — VERIFIED during implementation
 
 - **Product bulk-import** — RESOLVED: `POST /products/bootstrap`

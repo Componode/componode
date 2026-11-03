@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-03
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User-confirmed direction from `researches/web_api_product_map_component_relationships_research.md` and ADR-127. Move the read-only Product Map topology to the top of Dependencies, preserve edge authoring below it, include all product relations and ComponentGroup targets, and make the view accessible and responsive.
 
