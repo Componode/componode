@@ -134,6 +134,10 @@ export function mapRelatedProduct(ref: ProductRef): RelatedProduct {
   };
 }
 
+/** Direct Product→Component DEPENDS_ON edge predicate (spec 042/061 shared). */
+export const isDirectDep = (c: ComponentDepRef): boolean =>
+  c.sources.some((s) => s.kind === "DIRECT");
+
 /** Spec 059: detail response → the complete topology view-model — the sole
  *  conversion seam so every relation family and degradation flag is carried.
  *  Spec 061: `instances` feeds the component-node status rollup; omitting it
@@ -148,7 +152,7 @@ export function mapProductTopology(
     consumesFrom: (d.consumesFrom ?? []).map(mapRelatedProduct),
     consumedBy: (d.consumedBy ?? []).map(mapRelatedProduct),
     dependsOnComponents: (d.components?.declared ?? [])
-      .filter((c) => c.sources.some((s) => s.kind === "DIRECT"))
+      .filter(isDirectDep)
       .map((c) => ({
         id: c.id,
         name: c.name,
@@ -292,7 +296,8 @@ function worstInstanceStatus(instances: InstanceDepRef[] | undefined, componentI
   const statuses = (instances ?? [])
     .filter((i) => i.componentId === componentId)
     .map((i) => narrowOrNull<InstanceStatus>(i.status, INSTANCE_STATUSES))
-    .filter((s): s is InstanceStatus => s !== null);
+    // GONE is reconciliation state, never Component health (ADR-127 Amend. 2).
+    .filter((s): s is Exclude<InstanceStatus, "GONE"> => s !== null && s !== "GONE");
   if (!statuses.length) return null;
   return statuses.reduce((a, b) => (RANK[b] < RANK[a] ? b : a));
 }

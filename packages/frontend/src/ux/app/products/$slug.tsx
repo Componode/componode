@@ -3,7 +3,7 @@ import { useAllComponents } from "@/api/hooks/components";
 import { useEntityHistory } from "@/api/hooks/audit";
 import { useProduct } from "@/api/hooks/products";
 import { useSuggestions } from "@/api/hooks/suggestions";
-import { mapDepComponent, mapProduct, mapProductTopology, mapRelatedProduct } from "@/api/mappers/catalog";
+import { isDirectDep, mapDepComponent, mapProduct, mapProductTopology, mapRelatedProduct } from "@/api/mappers/catalog";
 import { mapActivityItem } from "@/api/mappers/dashboard";
 import { mapSuggestion } from "@/api/mappers/suggestions";
 import { PageContainer } from "@/ux/components/patterns/page-header";
@@ -69,7 +69,7 @@ export function UxProductDetailPage() {
   // G31 edge authoring: only components reached through a DIRECT edge are
   // removable — group-expanded members are removed via their group edge.
   const directDepComponents = d.components.declared
-    .filter((c) => c.sources.some((s) => s.kind === "DIRECT"))
+    .filter(isDirectDep)
     .map((c) => ({ id: c.id, name: c.name, slug: c.slug }));
 
   return (

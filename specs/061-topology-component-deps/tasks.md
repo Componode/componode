@@ -187,3 +187,14 @@ covers.
 MVP = Phases 1–3 (lane renders honest topology). Phase 4 adds inspection;
 Phase 5 copy; Phase 6 governance. Ship all phases in one PR — the feature is
 small enough that partial delivery adds no value.
+
+## Phase 7: Review
+
+- [x] T022 Exclude `GONE` inside `worstInstanceStatus` in `packages/frontend/src/api/mappers/catalog.ts` so the view-model never presents it as health (code-review: spec FR-002) (partial)
+- [x] T023 Add a "Component" kind identifier to the component inspection panel in `packages/frontend/src/ux/components/products/product-map.tsx` (code-review: spec FR-005) (partial)
+- [x] T024 Distinguish all four relation kinds (composition, consumption, component, group) in the empty-state and CardDescription copy in `product-map.tsx` (code-review: spec FR-007) (partial)
+- [x] T025 Include ", retired" in accessible node names for retired nodes in `product-map.tsx` (code-review: standards WCAG 2.5.3 + spec FR-002) (partial)
+- [x] T026 Extract a shared `isDirectDep` predicate in `catalog.ts` used by `mapProductTopology` and `$slug.tsx` (code-review: standards) (partial)
+- [x] T027 Use valid `COMPONENT_CATEGORIES` values in `product-map.test.tsx`/`ux-mappers.test.ts` fixtures plus one explicit unknown-category passthrough test (code-review: standards) (partial)
+- [x] T028 Align `specs/061-topology-component-deps/contracts/topology-view-model.md` extras signature with the implemented `{ instances? }` (code-review: spec) (partial)
+- [x] T029 Add a product-topology line covering the components lane in `docs/using-the-catalog.md` (code-review: standards, AGENTS.md docs rule) (missing)

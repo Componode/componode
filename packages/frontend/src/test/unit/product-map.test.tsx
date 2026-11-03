@@ -40,7 +40,7 @@ const comp = (slug: string, over: Partial<TopologyComponent> = {}): TopologyComp
   id: `id-${slug}`,
   name: slug,
   slug,
-  category: "SERVICE",
+  category: "DATABASE",
   lifecycle: "ACTIVE",
   worstStatus: null,
   ...over,
@@ -272,6 +272,14 @@ describe("ProductMap component dependencies (spec 061)", () => {
       dependsOnComponents: [comp("old-thing", { lifecycle: "RETIRED" })],
     });
     expect(screen.getByText("Retired")).toBeTruthy();
+  });
+
+  it("passes an unknown category through as raw text on the node sublabel", () => {
+    renderMap({
+      ...emptyTopology,
+      dependsOnComponents: [comp("mystery-box", { category: "WIDGET" })],
+    });
+    expect(screen.getByText("WIDGET")).toBeTruthy();
   });
 
   it("caps the components lane at four nodes with local +N expansion", () => {

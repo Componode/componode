@@ -9,7 +9,7 @@ read, the mapper, and the `ProductMap` component.
 ## Producer → view-model
 
 `mapProductTopology(detail, extras)` where
-`extras = { instances?: InstanceDepRef[]; catalog?: ApiComponent[] }`:
+`extras = { instances?: InstanceDepRef[] }`:
 
 | Output | Rule |
 |---|---|

@@ -196,8 +196,9 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
   const nodeButton = (n: TopologyNode) => {
     const status = nodeStatus(n)
     const retired = n.data.lifecycle === "RETIRED"
-    const statusText =
-      n.kind !== "group" && !retired
+    const statusText = retired
+      ? ", retired"
+      : n.kind !== "group"
         ? status
           ? `, ${HEALTH_META[status].label}`
           : ", no health data"
@@ -282,7 +283,7 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
       <CardHeader>
         <CardTitle>Product topology</CardTitle>
         <CardDescription>
-          One-hop relations around {product.name} — who composes and consumes it, and which components and groups it depends on.
+          One-hop relations around {product.name} — the products that compose or consume it, and the components and groups it depends on.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -305,7 +306,7 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
             {topology.unavailableGroups.length > 0 ? (
               <p>Some relation families could not be loaded — the map may be incomplete.</p>
             ) : (
-              <p>This product has no product, component, or group relations yet. Author edges below.</p>
+              <p>This product has no composition, consumption, component, or group relations yet. Author edges below.</p>
             )}
           </div>
         ) : (
@@ -382,7 +383,10 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
                 <span className="font-medium">{selectedNode.data.name}</span>
                 {selectedNode.kind === "product" && <ProductTypeBadge value={selectedNode.data.type} />}
                 {selectedNode.kind === "product" && <CriticalityBadge value={selectedNode.data.criticality} />}
-                {selectedNode.kind === "product" && selectedNode.data.lifecycle === "RETIRED" && (
+                {selectedNode.kind === "component" && (
+                  <span className="rounded-md border px-1.5 py-0.5 text-xs text-muted-foreground">Component</span>
+                )}
+                {selectedNode.kind !== "group" && selectedNode.data.lifecycle === "RETIRED" && (
                   <LifecycleBadge value="RETIRED" />
                 )}
               </div>

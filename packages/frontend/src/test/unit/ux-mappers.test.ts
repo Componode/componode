@@ -813,7 +813,7 @@ describe("mapProductTopology component dependencies (spec 061)", () => {
     id,
     name: `comp-${id}`,
     slug: `comp-${id}`,
-    category: "SERVICE",
+    category: "DATABASE",
     lifecycle: "ACTIVE",
     sources,
     ...over,
