@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-03
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User-confirmed design from `researches/web_api_product_map_component_relationships_research.md` and ADR-126. Extend Web URL and API URL importer setup from one URL per config to named Component profiles with multiple ComponentInstances and importer-managed URL Checks, while preserving the independent URL Check scheduler and observation history.
 
