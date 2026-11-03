@@ -131,7 +131,9 @@ List pages: `PageHeader` (title/description/primary action) → `ListToolbar`
 
 Every tabbed detail page keeps the active tab in `?tab=` (replace, not
 push) via the **`useValidatedTab` hook** — unknown/missing values fall back
-to the first tab so deep links never render an empty panel. Never hand-roll
+to the first tab so deep links never render an empty panel; retired tab
+names resolve through the hook's alias map (e.g. the removed Product "Map"
+tab resolves to `dependencies` — spec 059). Never hand-roll
 `searchParams.get("tab")`.
 
 ### State matrix
@@ -210,8 +212,10 @@ detailed entry in **`researches/ux-rewrite-gaps.md`**:
 ## 8. Scope boundaries
 
 - ≥1280px optimized, ~768px usable; sub-`md` = nav drawer only (ADR-108).
-- The product "Map" is a **read-only** relations canvas (ADR-118). An
-  interactive/authoring graph still requires its own ADR.
+- Product topology is a **read-only** view at the top of the Dependencies
+  tab (ADR-118 Amendment 1 / ADR-127). Keyboard focus, selection, inspection,
+  and `+N` expansion are view affordances; pan/zoom/drag/layout editing and
+  edge authoring remain out of scope.
 - No dashboard widget customization, no notification backend, no TOTP —
   all flagged gaps, not hidden bugs.
 

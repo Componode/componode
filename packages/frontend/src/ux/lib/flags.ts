@@ -42,6 +42,8 @@ export const flags = {
   detailGoneInstances: false,
   /** Nested profile/instance/check builder for Web/API collection importers (gap G33, spec 058). */
   importerProfileBuilder: true,
+  /** Related-product health/count on the Dependencies topology (gap G34, spec 059). */
+  productMapTopology: true,
 } as const;
 
 export type GapFlag = keyof typeof flags;

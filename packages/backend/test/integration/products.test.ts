@@ -471,4 +471,231 @@ describe("product hierarchy API", () => {
       .execute();
     expect(edgeRows.some((r) => r.edgeType === "COMPOSES" && r.action === "added")).toBe(true);
   });
+
+  // Spec 059 — Product Map topology read contract: every relation family of
+  // the detail read is returned with correct direction, related ProductRefs
+  // carry bounded health/criticality/componentCount enrichment, and a failed
+  // relation family degrades into unavailableRelationGroups.
+  describe("product detail topology read (spec 059)", () => {
+    async function mkGroup(slug: string) {
+      const id = uuidv7();
+      await testDb.db
+        .insertInto("component_groups")
+        .values({
+          id,
+          name: slug,
+          slug,
+          description: null,
+          lifecycle: "ACTIVE",
+          teamOwnerId: null,
+          createdBy: null,
+          updatedBy: null,
+          createdAt: now(),
+          updatedAt: now(),
+        } as never)
+        .execute();
+      return id;
+    }
+
+    async function mkInstance(componentId: string, status: string) {
+      await testDb.db
+        .insertInto("component_instances")
+        .values({
+          id: uuidv7(),
+          componentId,
+          environment: "PRODUCTION",
+          externalId: `ext-${componentId.slice(0, 8)}-${status}`,
+          slug: `inst-${componentId.slice(0, 8)}-${status.toLowerCase()}`,
+          url: null,
+          region: null,
+          status,
+          version: null,
+          deployedAt: null,
+          rawConfig: null,
+          lastSeenAt: null,
+          lastSeenInRunId: null,
+          createdBy: null,
+          updatedBy: null,
+          createdAt: now(),
+          updatedAt: now(),
+        } as never)
+        .execute();
+    }
+
+    let fx: {
+      suffix: string;
+      hub: string;
+      parent: string;
+      child: string;
+      grandchild: string;
+      platform: string;
+      consumer: string;
+      group: string;
+      emptyGroup: string;
+    } | null = null;
+
+    async function topologyFixture() {
+      if (fx) return fx;
+      const suffix = Date.now().toString(36);
+      const mk = (name: string, type = "PLATFORM") =>
+        mkProduct(testDb, { name, slug: `${name}-${suffix}`, type });
+      const hub = await mk("topo-hub");
+      const parent = await mk("topo-parent", "BUSINESS_CAPABILITY");
+      const child = await mk("topo-child", "BUSINESS_CAPABILITY");
+      const grandchild = await mk("topo-grandchild");
+      const platform = await mk("topo-platform");
+      const consumer = await mk("topo-consumer", "CUSTOMER_FACING");
+      const group = await mkGroup(`topo-group-${suffix}`);
+      const emptyGroup = await mkGroup(`topo-empty-group-${suffix}`);
+
+      await testDb.db
+        .insertInto("product_composes")
+        .values([
+          { parentId: parent, childId: hub },
+          { parentId: hub, childId: child },
+          { parentId: child, childId: grandchild },
+        ])
+        .execute();
+      await testDb.db
+        .insertInto("product_consumes_from")
+        .values([
+          { consumerId: hub, platformId: platform },
+          { consumerId: consumer, platformId: hub },
+        ])
+        .execute();
+      await testDb.db
+        .insertInto("product_depends_on_component_group")
+        .values([
+          { productId: hub, componentGroupId: group },
+          { productId: hub, componentGroupId: emptyGroup },
+        ])
+        .execute();
+
+      // Enrichment fixtures: child has 1 direct + 1 inherited (grandchild)
+      // component; consumer has 1 direct component with an ERROR instance;
+      // platform carries criticality only; parent has nothing.
+      const compA = await mkComponent(testDb, `topo-comp-a-${suffix}`);
+      const compB = await mkComponent(testDb, `topo-comp-b-${suffix}`);
+      const compC = await mkComponent(testDb, `topo-comp-c-${suffix}`);
+      const compM = await mkComponent(testDb, `topo-comp-m-${suffix}`);
+      await testDb.db
+        .insertInto("product_depends_on_component")
+        .values([
+          { productId: child, componentId: compA },
+          { productId: grandchild, componentId: compB },
+          { productId: consumer, componentId: compC },
+        ])
+        .execute();
+      await testDb.db
+        .updateTable("components")
+        .set({ componentGroupId: group })
+        .where("id", "=", compM)
+        .execute();
+      await mkInstance(compC, "ERROR");
+      await testDb.db
+        .updateTable("digital_products")
+        .set({ criticality: "HIGH" })
+        .where("id", "=", platform)
+        .execute();
+
+      fx = { suffix, hub, parent, child, grandchild, platform, consumer, group, emptyGroup };
+      return fx;
+    }
+
+    const detail = (slug: string) =>
+      app.inject({
+        method: "GET",
+        url: `/api/v1/products/${slug}`,
+        ...authed(viewerSession),
+      });
+
+    it("returns all five relation families with correct source/target direction", async () => {
+      const f = await topologyFixture();
+      const res = await detail(`topo-hub-${f.suffix}`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      const slugs = (rows: Array<{ slug: string }>) => rows.map((r) => r.slug);
+      expect(slugs(body.composedBy)).toEqual([`topo-parent-${f.suffix}`]);
+      expect(slugs(body.composes)).toEqual([`topo-child-${f.suffix}`]);
+      expect(slugs(body.consumesFrom)).toEqual([`topo-platform-${f.suffix}`]);
+      expect(slugs(body.consumedBy)).toEqual([`topo-consumer-${f.suffix}`]);
+      expect(
+        body.dependsOnGroups.map((g: { slug: string }) => g.slug).sort(),
+      ).toEqual([`topo-empty-group-${f.suffix}`, `topo-group-${f.suffix}`]);
+      const empty = body.dependsOnGroups.find(
+        (g: { slug: string }) => g.slug === `topo-empty-group-${f.suffix}`,
+      );
+      expect(empty.memberCount).toBe(0);
+      expect(empty.lifecycle).toBe("ACTIVE");
+      expect(body.unavailableRelationGroups).toEqual([]);
+    });
+
+    it("enriches related ProductRefs with criticality, derived health, and componentCount", async () => {
+      const f = await topologyFixture();
+      const res = await detail(`topo-hub-${f.suffix}`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      const by = Object.fromEntries(
+        [
+          ...body.composedBy,
+          ...body.composes,
+          ...body.consumesFrom,
+          ...body.consumedBy,
+        ].map((r: { slug: string }) => [r.slug, r]),
+      );
+
+      // Child: 1 direct + 1 inherited (via its COMPOSES child) component.
+      const child = by[`topo-child-${f.suffix}`];
+      expect(child.componentCount).toBe(2);
+      expect(child.health).toBeNull(); // deps exist but no instances → no data
+
+      // Consumer: 1 direct component whose instance reports ERROR.
+      const consumer = by[`topo-consumer-${f.suffix}`];
+      expect(consumer.componentCount).toBe(1);
+      expect(consumer.health?.status).toBe("ERROR");
+      expect(consumer.health?.sourceCount).toBe(1);
+
+      // Platform: criticality passthrough, no deps → zero count, null health.
+      const platform = by[`topo-platform-${f.suffix}`];
+      expect(platform.criticality).toBe("HIGH");
+      expect(platform.componentCount).toBe(0);
+      expect(platform.health).toBeNull();
+
+      // Parent inherits components from its whole COMPOSES subtree
+      // (hub's group member + child + grandchild) — declared/inherited count.
+      const parent = by[`topo-parent-${f.suffix}`];
+      expect(parent.componentCount).toBe(3);
+      expect(parent.health).toBeNull();
+    });
+
+    it("keeps a RETIRED related product visible with its lifecycle", async () => {
+      const f = await topologyFixture();
+      await testDb.db
+        .updateTable("digital_products")
+        .set({ lifecycle: "RETIRED" })
+        .where("id", "=", f.consumer)
+        .execute();
+      try {
+        const res = await detail(`topo-hub-${f.suffix}`);
+        expect(res.statusCode).toBe(200);
+        const consumer = res
+          .json()
+          .consumedBy.find((r: { slug: string }) => r.slug === `topo-consumer-${f.suffix}`);
+        expect(consumer).toBeDefined();
+        expect(consumer.lifecycle).toBe("RETIRED");
+      } finally {
+        await testDb.db
+          .updateTable("digital_products")
+          .set({ lifecycle: "ACTIVE" })
+          .where("id", "=", f.consumer)
+          .execute();
+      }
+    });
+
+    // Isolated family failures can't be simulated at schema level — every
+    // edge table is shared with the dependency-surface read (a missing table
+    // correctly 500s the whole read). The degradation mechanism itself is
+    // covered by the readRelationFamily unit test; the response contract
+    // (unavailableRelationGroups) is asserted on the happy path above.
+  });
 });
