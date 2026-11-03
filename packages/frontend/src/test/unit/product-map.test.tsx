@@ -42,8 +42,8 @@ const fullTopology: ProductTopology = {
   consumesFrom: [rel("topo-platform", { criticality: "HIGH", type: "PLATFORM" })],
   consumedBy: [rel("topo-consumer", { status: "ERROR", componentCount: 1 })],
   dependsOnGroups: [
-    { id: "g1", name: "Data services", slug: "data-services", memberCount: 4 },
-    { id: "g2", name: "Empty group", slug: "empty-group", memberCount: 0 },
+    { id: "g1", name: "Data services", slug: "data-services", memberCount: 4, lifecycle: "ACTIVE" },
+    { id: "g2", name: "Empty group", slug: "empty-group", memberCount: 0, lifecycle: "RETIRED" },
   ],
   unavailableGroups: [],
 };
@@ -108,12 +108,13 @@ describe("ProductMap topology (spec 059)", () => {
     ).toBeTruthy();
   });
 
-  it("labels retired related products instead of dropping them", () => {
+  it("labels retired related products and groups instead of dropping them", () => {
     renderMap({
       ...fullTopology,
       consumedBy: [rel("topo-consumer", { lifecycle: "RETIRED" })],
     });
-    expect(screen.getByText("Retired")).toBeTruthy();
+    // The retired consumer and the retired group are each labeled.
+    expect(screen.getAllByText("Retired").length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows the same product on both sides through different relations", () => {

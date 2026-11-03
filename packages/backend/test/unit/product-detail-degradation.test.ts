@@ -4,6 +4,11 @@ import { describe, it, expect, vi } from "vitest";
 // under test never touches it.
 vi.mock("../../src/db/connection.js", () => ({ db: {} }));
 
+const warn = vi.fn();
+vi.mock("../../src/plugins/logging.js", () => ({
+  logger: { warn },
+}));
+
 const { readRelationFamily } = await import(
   "../../src/services/product-service.js"
 );
@@ -18,7 +23,7 @@ describe("readRelationFamily (spec 059)", () => {
     expect(unavailable).toEqual([]);
   });
 
-  it("degrades a failed family to an empty array and flags it", async () => {
+  it("degrades a failed family to an empty array, flags it, and logs", async () => {
     const unavailable: string[] = [];
     await expect(
       readRelationFamily(
@@ -28,6 +33,10 @@ describe("readRelationFamily (spec 059)", () => {
       ),
     ).resolves.toEqual([]);
     expect(unavailable).toEqual(["consumedBy"]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ family: "consumedBy" }),
+      expect.stringContaining("degraded"),
+    );
   });
 
   it("accumulates multiple failed families", async () => {

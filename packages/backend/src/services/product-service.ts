@@ -10,6 +10,7 @@ import {
   type DepSource,
 } from "@componode/core";
 import { db } from "../db/connection.js";
+import { logger as appLogger } from "../plugins/logging.js";
 import { writeEntityChange, writeEdgeChange, type Actor } from "./audit-service.js";
 import { computeHealthForProducts } from "./product-health-service.js";
 import {
@@ -189,8 +190,9 @@ export async function readRelationFamily<T>(
 ): Promise<T[]> {
   try {
     return await p;
-  } catch {
+  } catch (err) {
     unavailable.push(key);
+    appLogger.warn({ err, family: key }, "relation family read degraded");
     return [];
   }
 }
@@ -424,6 +426,7 @@ export async function getProductDetail(slug: string) {
         "component_groups.id",
         "component_groups.name",
         "component_groups.slug",
+        "component_groups.lifecycle",
         eb
           .selectFrom("components")
           .whereRef("components.componentGroupId", "=", "component_groups.id")

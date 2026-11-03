@@ -37,13 +37,9 @@ const LANE_META: Record<LaneKey, { title: string; incoming: boolean; hint: (p: s
   dependsOnGroups: { title: "Depends on groups", incoming: false, hint: (p) => `${p} → groups` },
 }
 
-const UNAVAILABLE_LABELS: Record<string, string> = {
-  composedBy: "Composed by",
-  composes: "Composes",
-  consumesFrom: "Consumes from",
-  consumedBy: "Consumed by",
-  dependsOnGroups: "Depends on groups",
-}
+const UNAVAILABLE_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(LANE_META).map(([k, v]) => [k, v.title]),
+)
 
 function nodeStatus(n: TopologyNode): HealthStatus | null {
   return n.kind === "product" ? n.data.status : null
@@ -81,7 +77,7 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
       composedBy: productNodes("composedBy", () => `composes ${product.name}`),
       consumedBy: productNodes("consumedBy", () => `consumes from ${product.name}`),
       composes: productNodes("composes", () => `composed by ${product.name}`),
-      consumesFrom: productNodes("consumesFrom", () => `platform ${product.name} consumes from`),
+      consumesFrom: productNodes("consumesFrom", () => `platform consumed by ${product.name}`),
       dependsOnGroups: topology.dependsOnGroups.map((g) => ({
         kind: "group" as const,
         key: `dependsOnGroups:${g.id}`,
@@ -186,7 +182,13 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
 
   const nodeButton = (n: TopologyNode) => {
     const status = nodeStatus(n)
-    const statusText = n.kind === "product" ? (status ? `, ${HEALTH_META[status].label}` : ", no health data") : ""
+    const retired = n.data.lifecycle === "RETIRED"
+    const statusText =
+      n.kind === "product" && !retired
+        ? status
+          ? `, ${HEALTH_META[status].label}`
+          : ", no health data"
+        : ""
     const label = `${n.data.name}, ${n.relation}${statusText}`
     const isSelected = selected === n.key
     return (
@@ -217,11 +219,9 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
               Component group · {n.data.memberCount} {n.data.memberCount === 1 ? "member" : "members"}
             </span>
           )}
-          {n.kind === "product" && n.data.lifecycle === "RETIRED" && (
-            <span className="text-xs text-muted-foreground">Retired</span>
-          )}
+          {retired && <span className="text-xs text-muted-foreground">Retired</span>}
         </span>
-        {n.kind === "product" && n.data.lifecycle === "RETIRED" ? null : <StatusDot status={status} />}
+        {retired ? null : <StatusDot status={status} />}
       </button>
     )
   }
@@ -246,6 +246,7 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
             {overflow > 0 && (
               <button
                 type="button"
+                aria-label={`+${overflow} more ${meta.title}`}
                 className="rounded-lg border border-dashed px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-safe:transition-colors"
                 onClick={() => setExpanded((prev) => ({ ...prev, [key]: true }))}
               >
@@ -259,7 +260,7 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
   }
 
   return (
-    <Card>
+    <Card onKeyDown={onCanvasKeyDown}>
       <CardHeader>
         <CardTitle>Product topology</CardTitle>
         <CardDescription>
@@ -283,12 +284,15 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
         {totalNodes === 0 ? (
           <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
             <p className="font-medium text-foreground/80">No relationships yet</p>
-            <p>This product composes, consumes, or depends on nothing. Author edges below.</p>
+            {topology.unavailableGroups.length > 0 ? (
+              <p>Some relation families could not be loaded — the map may be incomplete.</p>
+            ) : (
+              <p>This product composes, consumes, or depends on nothing. Author edges below.</p>
+            )}
           </div>
         ) : (
           <div
             ref={rootRef}
-            onKeyDown={onCanvasKeyDown}
             onClick={(e) => {
               if (!(e.target as HTMLElement).closest("button, a")) clear()
             }}

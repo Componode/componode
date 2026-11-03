@@ -331,6 +331,7 @@ export interface TopologyGroup {
   name: string;
   slug: string;
   memberCount: number;
+  lifecycle: Lifecycle;
 }
 
 /** Complete one-hop relation data for the Product detail topology. */

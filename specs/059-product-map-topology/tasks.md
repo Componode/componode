@@ -177,3 +177,13 @@ and 768px, including node selection, `+N`, panel navigation, and Escape.
 4. Complete keyboard, responsive, and reduced-motion behavior.
 5. Update flags/gap documentation, OpenAPI, and generated API docs; run the
    end-to-end journey and contract checks.
+
+## Phase 7: Review
+
+- [X] T032 Label retired ComponentGroup nodes — `dependsOnGroups` must return `lifecycle` so a retired group is labeled not dropped (code-review: spec) — edge case, HIGH
+- [X] T033 Escape MUST clear focus from inside the inspection panel, not only from the canvas (code-review: spec) — US3/AC3, HIGH
+- [X] T034 Log warn on relation-family degradation in `readRelationFamily` — no silent catch (code-review: standards) — Constitution VII, HIGH
+- [X] T035 Empty-state copy must not assert "depends on nothing" while `unavailableGroups` is non-empty (code-review: spec) — MEDIUM
+- [X] T036 Wire `flags.productMapTopology` to gate the topology surface or remove it — currently dead (code-review: standards) — MEDIUM
+- [X] T037 Dedupe `UNAVAILABLE_LABELS` via `LANE_META`; give `+N more` lane context; group copy "platform consumed by"; keep retired-node aria-label consistent (code-review: standards) — LOW
+- [X] T038 Move inline topology assembly in `$slug.tsx` into `api/mappers/catalog.ts` (`mapProductTopology`) (code-review: standards) — LOW

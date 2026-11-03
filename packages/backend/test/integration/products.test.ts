@@ -626,6 +626,7 @@ describe("product hierarchy API", () => {
         (g: { slug: string }) => g.slug === `topo-empty-group-${f.suffix}`,
       );
       expect(empty.memberCount).toBe(0);
+      expect(empty.lifecycle).toBe("ACTIVE");
       expect(body.unavailableRelationGroups).toEqual([]);
     });
 

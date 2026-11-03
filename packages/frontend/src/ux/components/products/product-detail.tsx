@@ -27,6 +27,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ux/components/ui/tabs"
 import { CATEGORY_LABELS, type Criticality } from "@/ux/lib/domain"
+import { flags } from "@/ux/lib/flags"
 import { ux } from "@/ux/lib/paths"
 import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import type { AuditEvent, Product, ProductComponentRow, ProductTopology, Suggestion } from "@/ux/lib/view-types"
@@ -248,9 +249,11 @@ export function ProductDetail({ product, components, consumers, topology, edges,
         </TabsContent>
 
         <TabsContent value="dependencies" className="grid gap-6 lg:grid-cols-2">
-          <div className="lg:col-span-2">
-            <ProductMap product={product} topology={topology} />
-          </div>
+          {flags.productMapTopology && (
+            <div className="lg:col-span-2">
+              <ProductMap product={product} topology={topology} />
+            </div>
+          )}
           {edges && (
             <div className="lg:col-span-2">
               <EdgeAuthoring product={{ id: product.id, name: product.name, slug: product.slug }} {...edges} />

@@ -3,7 +3,7 @@ import { useAllComponents } from "@/api/hooks/components";
 import { useEntityHistory } from "@/api/hooks/audit";
 import { useProduct } from "@/api/hooks/products";
 import { useSuggestions } from "@/api/hooks/suggestions";
-import { mapDepComponent, mapProduct, mapRelatedProduct } from "@/api/mappers/catalog";
+import { mapDepComponent, mapProduct, mapProductTopology, mapRelatedProduct } from "@/api/mappers/catalog";
 import { mapActivityItem } from "@/api/mappers/dashboard";
 import { mapSuggestion } from "@/api/mappers/suggestions";
 import { PageContainer } from "@/ux/components/patterns/page-header";
@@ -86,19 +86,7 @@ export function UxProductDetailPage() {
         dependsOnComponents: directDepComponents,
         dependsOnGroups: d.dependsOnGroups ?? [],
       }}
-      topology={{
-        composedBy: (d.composedBy ?? []).map(mapRelatedProduct),
-        composes: (d.composes ?? []).map(mapRelatedProduct),
-        consumesFrom: (d.consumesFrom ?? []).map(mapRelatedProduct),
-        consumedBy: (d.consumedBy ?? []).map(mapRelatedProduct),
-        dependsOnGroups: (d.dependsOnGroups ?? []).map((g) => ({
-          id: g.id,
-          name: g.name,
-          slug: g.slug,
-          memberCount: g.memberCount,
-        })),
-        unavailableGroups: d.unavailableRelationGroups ?? [],
-      }}
+      topology={mapProductTopology(d)}
       suggestions={(suggestions.data?.items ?? [])
         .filter((s) => s.productId === d.product.id)
         .map(mapSuggestion)}
