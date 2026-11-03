@@ -86,7 +86,7 @@ export function UxProductDetailPage() {
         dependsOnComponents: directDepComponents,
         dependsOnGroups: d.dependsOnGroups ?? [],
       }}
-      topology={mapProductTopology(d)}
+      topology={mapProductTopology(d, { instances: allInstances })}
       suggestions={(suggestions.data?.items ?? [])
         .filter((s) => s.productId === d.product.id)
         .map(mapSuggestion)}

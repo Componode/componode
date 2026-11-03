@@ -404,7 +404,8 @@ describe("mapRunChange / mapRunError", () => {
 
 import { mapSession, mapUser } from "@/api/mappers/operations";
 import { mapActivityItem, mapAttentionItem, mapCoverage } from "@/api/mappers/dashboard";
-import { mapDepComponent, mapRelatedProduct } from "@/api/mappers/catalog";
+import { mapDepComponent, mapProductTopology, mapRelatedProduct } from "@/api/mappers/catalog";
+import type { ComponentDepRef, InstanceDepRef, ProductDetail } from "@/api/types";
 import { mapSuggestion } from "@/api/mappers/suggestions";
 
 describe("mapUser", () => {
@@ -800,5 +801,93 @@ describe("mapComponentRelationships (spec 060)", () => {
     const view = mapComponentRelationships(weird);
     expect(view.component.provider).toBe("OTHER");
     expect(view.component.lifecycle).toBe("ACTIVE");
+  });
+});
+
+describe("mapProductTopology component dependencies (spec 061)", () => {
+  const dep = (
+    id: string,
+    sources: ComponentDepRef["sources"],
+    over: Partial<ComponentDepRef> = {},
+  ): ComponentDepRef => ({
+    id,
+    name: `comp-${id}`,
+    slug: `comp-${id}`,
+    category: "SERVICE",
+    lifecycle: "ACTIVE",
+    sources,
+    ...over,
+  });
+
+  const instance = (
+    componentId: string,
+    status: string,
+  ): InstanceDepRef => ({
+    id: `i-${componentId}-${status}`,
+    componentId,
+    componentName: `comp-${componentId}`,
+    environment: "PRODUCTION",
+    status,
+    region: null,
+  });
+
+  const detail = (declared: ComponentDepRef[]): ProductDetail =>
+    ({
+      product,
+      health: null,
+      composedBy: [],
+      composes: [],
+      consumesFrom: [],
+      consumedBy: [],
+      components: { declared, inherited: [] },
+      dependsOnGroups: [],
+      instances: { declared: [], inherited: [] },
+      counts: { composedBy: 0, composes: 0, components: 0, instances: 0 },
+    }) as ProductDetail;
+
+  it("keeps only DIRECT-sourced declared components as topology nodes", () => {
+    const view = mapProductTopology(
+      detail([
+        dep("direct", [{ kind: "DIRECT" }]),
+        dep("group-only", [
+          { kind: "GROUP", group: { id: "g1", name: "G", slug: "g" } },
+        ]),
+        dep("inherited-only", [
+          { kind: "INHERITED", product: { id: "p2", name: "P", slug: "p" } },
+        ]),
+        dep("both", [
+          { kind: "DIRECT" },
+          { kind: "GROUP", group: { id: "g1", name: "G", slug: "g" } },
+        ]),
+      ]),
+    );
+    expect(view.dependsOnComponents.map((c) => c.id).sort()).toEqual([
+      "both",
+      "direct",
+    ]);
+  });
+
+  it("derives worstStatus from the detail's instances and keeps null as no data", () => {
+    const d = detail([dep("ok", [{ kind: "DIRECT" }]), dep("none", [{ kind: "DIRECT" }])]);
+    d.instances.declared = [
+      instance("ok", "RUNNING"),
+      instance("ok", "ERROR"),
+      instance("ok", "STOPPED"),
+    ];
+    const view = mapProductTopology(d, { instances: d.instances.declared });
+    expect(view.dependsOnComponents.find((c) => c.id === "ok")?.worstStatus).toBe("ERROR");
+    expect(view.dependsOnComponents.find((c) => c.id === "none")?.worstStatus).toBeNull();
+  });
+
+  it("preserves RETIRED lifecycle on dependency targets", () => {
+    const view = mapProductTopology(
+      detail([dep("old", [{ kind: "DIRECT" }], { lifecycle: "RETIRED" })]),
+    );
+    expect(view.dependsOnComponents[0]?.lifecycle).toBe("RETIRED");
+  });
+
+  it("defaults to an empty lane when instances extras are omitted", () => {
+    const view = mapProductTopology(detail([dep("x", [{ kind: "DIRECT" }])]));
+    expect(view.dependsOnComponents[0]?.worstStatus).toBeNull();
   });
 });

@@ -213,7 +213,10 @@ detailed entry in **`researches/ux-rewrite-gaps.md`**:
 
 - ≥1280px optimized, ~768px usable; sub-`md` = nav drawer only (ADR-108).
 - Product topology is a **read-only** view at the top of the Dependencies
-  tab (ADR-118 Amendment 1 / ADR-127). Keyboard focus, selection, inspection,
+  tab (ADR-118 Amendment 1 / ADR-127). It shows related Products,
+  ComponentGroup dependencies, and direct Component `DEPENDS_ON` targets as
+  typed lanes (ADR-127 Amendment 2); Components reached only through a group
+  stay inside the group node. Keyboard focus, selection, inspection,
   and `+N` expansion are view affordances; pan/zoom/drag/layout editing and
   edge authoring remain out of scope.
 - Component detail has a separate **read-only Relationships** tab

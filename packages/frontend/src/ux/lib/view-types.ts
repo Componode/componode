@@ -334,6 +334,17 @@ export interface TopologyGroup {
   lifecycle: Lifecycle;
 }
 
+/** Direct Component dependency node in the detail topology (spec 061). */
+export interface TopologyComponent {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  lifecycle: Lifecycle;
+  /** Worst operational status across non-GONE instances; null = no data. */
+  worstStatus: InstanceStatus | null;
+}
+
 /** Complete one-hop relation data for the Product detail topology. */
 export interface ProductTopology {
   composedBy: RelatedProduct[];
@@ -341,6 +352,8 @@ export interface ProductTopology {
   consumesFrom: RelatedProduct[];
   consumedBy: RelatedProduct[];
   dependsOnGroups: TopologyGroup[];
+  /** Direct Product→Component DEPENDS_ON targets (spec 061, ADR-127 Amendment 2). */
+  dependsOnComponents: TopologyComponent[];
   /** Relation families that failed to read — rendered as a partial warning. */
   unavailableGroups: string[];
 }

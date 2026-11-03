@@ -3,7 +3,7 @@ import { render, cleanup, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { TooltipProvider } from "@/ux/components/ui/tooltip";
 import { ProductMap } from "@/ux/components/products/product-map";
-import type { Product, RelatedProduct, ProductTopology } from "@/ux/lib/view-types";
+import type { Product, RelatedProduct, ProductTopology, TopologyComponent } from "@/ux/lib/view-types";
 
 const product: Product = {
   id: "p-hub",
@@ -36,6 +36,16 @@ const rel = (slug: string, over: Partial<RelatedProduct> = {}): RelatedProduct =
   ...over,
 });
 
+const comp = (slug: string, over: Partial<TopologyComponent> = {}): TopologyComponent => ({
+  id: `id-${slug}`,
+  name: slug,
+  slug,
+  category: "SERVICE",
+  lifecycle: "ACTIVE",
+  worstStatus: null,
+  ...over,
+});
+
 const fullTopology: ProductTopology = {
   composedBy: [rel("topo-parent")],
   composes: [rel("topo-child", { componentCount: 2, status: "RUNNING" })],
@@ -45,6 +55,7 @@ const fullTopology: ProductTopology = {
     { id: "g1", name: "Data services", slug: "data-services", memberCount: 4, lifecycle: "ACTIVE" },
     { id: "g2", name: "Empty group", slug: "empty-group", memberCount: 0, lifecycle: "RETIRED" },
   ],
+  dependsOnComponents: [comp("landing-page", { worstStatus: "ERROR" }), comp("orders-db")],
   unavailableGroups: [],
 };
 
@@ -54,7 +65,14 @@ const emptyTopology: ProductTopology = {
   consumesFrom: [],
   consumedBy: [],
   dependsOnGroups: [],
+  dependsOnComponents: [],
   unavailableGroups: [],
+};
+
+/** Spec 061: a product whose only relations are direct component deps. */
+const componentOnlyTopology: ProductTopology = {
+  ...emptyTopology,
+  dependsOnComponents: [comp("landing-page", { worstStatus: "ERROR" }), comp("orders-db")],
 };
 
 const renderMap = (topology: ProductTopology = fullTopology, p = product) =>
@@ -211,5 +229,79 @@ describe("ProductMap topology (spec 059)", () => {
     for (const el of controls) {
       expect(el.getAttribute("class")).toMatch(/motion-safe:/);
     }
+  });
+});
+
+describe("ProductMap component dependencies (spec 061)", () => {
+  it("renders direct component deps in a Depends on components lane without an empty state", () => {
+    renderMap(componentOnlyTopology);
+    expect(screen.getByText("Depends on components")).toBeTruthy();
+    expect(screen.getByText("landing-page")).toBeTruthy();
+    expect(screen.getByText("orders-db")).toBeTruthy();
+    expect(screen.queryByText(/no relationships/i)).toBeNull();
+  });
+
+  it("encodes the dependency direction in accessible component node names", () => {
+    renderMap(componentOnlyTopology);
+    expect(
+      screen.getByRole("button", { name: /landing-page.*Topo Hub depends on/i }),
+    ).toBeTruthy();
+  });
+
+  it("selecting a component node opens inspection with status and Open component", () => {
+    renderMap(componentOnlyTopology);
+    fireEvent.click(
+      screen.getByRole("button", { name: /landing-page.*Topo Hub depends on/i }),
+    );
+    expect(screen.getAllByText("Error").length).toBeGreaterThanOrEqual(1);
+    const open = screen.getByRole("link", { name: /open component/i });
+    expect(open.getAttribute("href")).toContain("/components/landing-page");
+  });
+
+  it("shows no data for a component with no status", () => {
+    renderMap(componentOnlyTopology);
+    fireEvent.click(
+      screen.getByRole("button", { name: /orders-db.*Topo Hub depends on/i }),
+    );
+    expect(screen.getByText(/no health data|no data/i)).toBeTruthy();
+  });
+
+  it("labels retired component dependency targets instead of dropping them", () => {
+    renderMap({
+      ...emptyTopology,
+      dependsOnComponents: [comp("old-thing", { lifecycle: "RETIRED" })],
+    });
+    expect(screen.getByText("Retired")).toBeTruthy();
+  });
+
+  it("caps the components lane at four nodes with local +N expansion", () => {
+    const many = Array.from({ length: 6 }, (_, i) => comp(`dep-${i}`));
+    renderMap({ ...emptyTopology, dependsOnComponents: many });
+    expect(screen.getByText("dep-0")).toBeTruthy();
+    expect(screen.getByText("dep-3")).toBeTruthy();
+    expect(screen.queryByText("dep-4")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /\+2 more/i }));
+    expect(screen.getByText("dep-4")).toBeTruthy();
+    expect(screen.getByText("dep-5")).toBeTruthy();
+  });
+
+  it("activates component nodes with keyboard and clears with Escape", () => {
+    renderMap(componentOnlyTopology);
+    const node = screen.getByRole("button", {
+      name: /orders-db.*Topo Hub depends on/i,
+    });
+    fireEvent.keyDown(node, { key: "Enter" });
+    expect(screen.getByRole("link", { name: /open component/i })).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toMatch(/orders-db/);
+    fireEvent.keyDown(node, { key: "Escape" });
+    expect(screen.queryByRole("link", { name: /open component/i })).toBeNull();
+  });
+
+  it("keeps the empty state honest — it never claims the product depends on nothing ambiguously", () => {
+    renderMap(emptyTopology);
+    expect(screen.getByText(/no relationships/i)).toBeTruthy();
+    expect(
+      screen.getByText(/component.*group relations|no .*relations of any kind|product, component/i),
+    ).toBeTruthy();
   });
 });

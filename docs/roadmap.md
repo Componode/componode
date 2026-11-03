@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–060)
+## Shipped (features 001–061)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -354,6 +354,17 @@ file tracks shipped and upcoming work — update it when a spec completes.
   groups into `unavailableKinds`. Reuses the Product Map's keyboard,
   `+N`, inspection, and reduced-motion patterns; no edge authoring.
 
+- `061-topology-component-deps` — Product topology gains a "Depends on
+  components" lane (ADR-127 Amendment 2): direct `DEPENDS_ON` Component
+  targets render as typed nodes with operational status (worst non-GONE
+  instance status, no-data when absent), selection/inspection, `+N`
+  expansion, and Open-component navigation. Group-mediated and
+  `COMPOSES`-inherited components stay out of the lane — provenance remains
+  attributed to the group node. The empty state only appears when a product
+  has no relations of any kind, and card copy distinguishes composition,
+  platform consumption, component, and group dependencies. No API change —
+  frontend-only, reusing the existing detail read.
+
 ## Next — post-v1.1
 
 The Docker importer program's mapped waves (A–E) plus Hub execution
@@ -361,7 +372,8 @@ The Docker importer program's mapped waves (A–E) plus Hub execution
 (051), operational bounds (052), the Component-level summary (053),
 onboarding completion (054), the repeated-failure auto-disable
 policy (056), and importer-managed checks (058) — has shipped, as has the Product Map
-topology (059) and the Component Relationships view (060). See
+topology (059), the Component Relationships view (060), and component
+dependencies in the Product topology (061). See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new
 importer wave).

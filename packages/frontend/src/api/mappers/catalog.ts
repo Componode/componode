@@ -135,13 +135,28 @@ export function mapRelatedProduct(ref: ProductRef): RelatedProduct {
 }
 
 /** Spec 059: detail response → the complete topology view-model — the sole
- *  conversion seam so every relation family and degradation flag is carried. */
-export function mapProductTopology(d: ProductDetail): ProductTopology {
+ *  conversion seam so every relation family and degradation flag is carried.
+ *  Spec 061: `instances` feeds the component-node status rollup; omitting it
+ *  degrades statuses to no-data, never fabricated. */
+export function mapProductTopology(
+  d: ProductDetail,
+  extras: { instances?: InstanceDepRef[] } = {},
+): ProductTopology {
   return {
     composedBy: (d.composedBy ?? []).map(mapRelatedProduct),
     composes: (d.composes ?? []).map(mapRelatedProduct),
     consumesFrom: (d.consumesFrom ?? []).map(mapRelatedProduct),
     consumedBy: (d.consumedBy ?? []).map(mapRelatedProduct),
+    dependsOnComponents: (d.components?.declared ?? [])
+      .filter((c) => c.sources.some((s) => s.kind === "DIRECT"))
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        category: c.category,
+        lifecycle: narrow<Lifecycle>(c.lifecycle, LIFECYCLES, "ACTIVE"),
+        worstStatus: worstInstanceStatus(extras.instances, c.id),
+      })),
     dependsOnGroups: (d.dependsOnGroups ?? []).map((g) => ({
       id: g.id,
       name: g.name,
