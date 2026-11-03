@@ -2,8 +2,8 @@
 
 > **Status:** Ratified
 
-**Context**: The attention dashboard surfaces unhealthy *instances*, but the
-question users ask is "is my *product* affected?" Instance statuses
+**Context**: The attention dashboard surfaces unhealthy _instances_, but the
+question users ask is "is my _product_ affected?" Instance statuses
 (`RUNNING`/`STOPPED`/`ERROR`/`GONE`, ADR-034) already exist — the missing
 piece is a derived, documented rollup onto products.
 
@@ -48,3 +48,20 @@ refreshed by a job — rejected (staleness and a write path for data that is
 purely derivable). Simple all-env worst-of headline only — rejected for
 PRD-headline + fallback (a DEV `ERROR` shouldn't flag a healthy prod
 product, but with no prod instances the all-env signal is the only one).
+
+## Amendment 1 — Monitored instance status is a Product health input (2026-11-03, ADR-126)
+
+**Context**: ADR-126 makes URL Check outcomes authoritative for the current
+`ComponentInstance.status` of monitored instances after the first observation.
+Product health already derives from those current instance statuses.
+
+**Refinement**: The aggregation formula, source scope, ranking, and empty
+semantics in this ADR are unchanged. A URL Check-driven `RUNNING` or `ERROR`
+instance status participates in the same direct-dependency rollup as any
+other current ComponentInstance status; URL Check observations are not
+independently added to Product health.
+
+---
+
+**Amended by ADR-126**: URL Check outcomes can update the ComponentInstance
+status consumed by this unchanged derived Product health rollup.

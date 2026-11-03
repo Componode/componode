@@ -182,3 +182,46 @@ observes.
 zero-instance first-`ComponentInstance` endpoint and clarifies that
 ordinary checks/Hub setup are EDITOR while Credential and Import Agent
 selection are ADMIN via existing `credential:read`/`agent:read`.
+
+## Amendment 1 — Importer-managed definitions and instance status (2026-11-03, ADR-126)
+
+**Context**: The Web/API importer journey needs one config for multiple
+Component profiles and instances, with a managed URL Check per instance. The
+user-selected model makes ImporterConfig the canonical definition source
+while retaining URL Check records, the independent scheduler, and observation
+history.
+
+**Refinements**:
+
+- The Web/API ImporterConfig owns each managed check definition. The core
+  synchronizes it to `url_checks`; importer packages remain database-free.
+  The URL Check scheduler and observation history stay separate from
+  `import_runs`, and Component-level monitoring setup continues to own shared
+  cadence/vantage defaults.
+- URL Check outcomes update monitored `ComponentInstance.status`:
+  `SUCCESS` maps to `RUNNING`, `FAILURE` maps to `ERROR`, and `MISSED`,
+  no-data, or disabled states preserve the last status. The importer
+  one-shot result supplies initial status; after the first check observation,
+  subsequent importer status values do not overwrite it. `GONE` remains
+  controlled by Source reconciliation. The unchanged ADR-112 rollup
+  therefore reflects monitored instance status.
+- One managed check is configured per imported ComponentInstance. A check
+  may override the instance URL; `GET`/`HEAD`, API-category authentication,
+  and the current Credential/key-name rules remain. URL Check
+  `autoDisableAfter` remains configurable and uses ADR-124 streak semantics.
+- A typed Source-to-check membership permits identical stable check keys to
+  share one URL Check across Sources. Direct URL Check write routes and the
+  manual Component-create monitoring block are deprecated/read-only;
+  importer-managed definitions are edited through ImporterConfig. Legacy
+  manual checks are disabled and retained.
+
+**Unchanged**: URL Check observations remain the source for availability,
+error-rate, latency, and coverage-gap metrics; the URL Check scheduler remains
+independent of importer scheduling; destination safety, bounded probe
+execution, and the 30-day observation policy remain in force.
+
+---
+
+**Amended by ADR-126**: ImporterConfig owns managed check definitions,
+URL Check records/history and the independent scheduler remain, and check
+outcomes update monitored ComponentInstance status.

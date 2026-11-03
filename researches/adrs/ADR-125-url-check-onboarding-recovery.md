@@ -61,3 +61,22 @@ bypassing disabled selectors.
   ratified.
 - **New `credential:select`/`agent:select` permissions** — rejected. The
   existing read permissions already model access to the selector metadata.
+
+## Amendment 1 — Manual URL Check authoring retirement (2026-11-03, ADR-126)
+
+**Context**: ADR-126 makes Web/API ImporterConfig the authoring surface for
+managed checks and retires new manual check authoring. The existing composite
+`POST /components` monitoring block and direct URL Check write routes
+otherwise remain competing definition sources.
+
+**Refinement**: Manual Component and focused first-instance creation remain,
+but `POST /components` no longer creates monitoring setups or URL Checks.
+Supplying a `monitoring` block, or calling direct URL Check create/update/
+delete routes, returns the deprecated-write response. Existing manually
+authored checks are disabled and retained read-only. Component-level
+monitoring setup defaults and URL Check read/metrics/history routes remain.
+
+---
+
+**Amended by ADR-126**: manual Component creation remains available without
+URL Check creation; new managed checks are authored through ImporterConfig.

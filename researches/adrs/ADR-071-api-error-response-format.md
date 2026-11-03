@@ -30,3 +30,20 @@ change (ADR-104).
 
 **Amended by ADR-124**: the error-code set gains `URL_CHECK_NOT_FOUND`
 and `MONITORING_SETUP_NOT_FOUND`; see Amendment 1.
+
+## Amendment 2 — Deprecated URL Check writes (2026-11-03, ADR-126)
+
+**Context**: URL Check definitions for the Web/API importer profiles are
+owned by ImporterConfig. Existing direct write routes remain in the v1
+contract as deprecated, read-only operations.
+
+**Refinement**: Direct URL Check create/update/delete requests and the
+manual Component-create monitoring payload return HTTP `410` with controlled
+code `URL_CHECK_WRITE_DEPRECATED`. Read routes remain available. The code
+is added to `ERROR_CODES`, `ERROR_TYPES`, and the OpenAPI error enum under
+ADR-104.
+
+---
+
+**Amended by ADR-126**: `URL_CHECK_WRITE_DEPRECATED` identifies direct
+URL Check write attempts rejected by the importer-managed authoring model.
