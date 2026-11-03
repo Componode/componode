@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–058)
+## Shipped (features 001–059)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -331,13 +331,27 @@ file tracks shipped and upcoming work — update it when a spec completes.
   deprecated (`410 URL_CHECK_WRITE_DEPRECATED`) and legacy manual checks
   are disabled and retained read-only.
 
+- `059-product-map-topology` — Product Map topology moved into the
+  Dependencies tab (ADR-127, amends ADR-118/ADR-103): the standalone Map
+  tab is removed and `?tab=map` resolves to `dependencies`; all five
+  relation families (composedBy, composes, consumesFrom, consumedBy,
+  dependsOnGroups) render as directed read-only lanes with four-node caps
+  and `+N` expansion, ComponentGroups as typed nodes. The detail read
+  enriches related Products in one bounded batch (criticality, ADR-112
+  health, component count) and degrades failed families into
+  `unavailableRelationGroups`. Nodes are keyboard-operable with accessible
+  direction labels, focus announcements, Escape clearing, and a read-only
+  inspection panel; usable at 768px with no horizontal overflow and
+  reduced-motion compliant.
+
 ## Next — post-v1.1
 
 The Docker importer program's mapped waves (A–E) plus Hub execution
 (049) are complete and the URL Check monitoring program — monitoring
 (051), operational bounds (052), the Component-level summary (053),
 onboarding completion (054), the repeated-failure auto-disable
-policy (056), and importer-managed checks (058) — has shipped; `059` is
+policy (056), and importer-managed checks (058) — has shipped, as has the Product Map
+topology (059); `060` is
 the next open spec slot — see
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new
