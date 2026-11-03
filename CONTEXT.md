@@ -20,14 +20,17 @@ _Avoid_: asset, resource, service
 **Component Instance**:
 The operational occurrence of a Component in an environment; carries the
 operational status (`RUNNING`/`STOPPED`/`ERROR`/`GONE`), distinct from the
-Component's logical lifecycle.
+Component's logical lifecycle. For an actively monitored instance, executed
+URL Check outcomes may update this status under ADR-126; `GONE` remains a
+source-reconciliation state.
 _Avoid_: deployment, environment
 
 **URL Check**:
 A configured check of one HTTP(S) URL associated with a ComponentInstance.
 A ComponentInstance can have multiple URL Checks; each has its own monitoring
-status and availability history, separate from the instance's operational
-status and importer-reported state (ADR-123).
+observations and availability history. For actively monitored instances,
+executed outcomes also update the current operational status under ADR-126;
+`MISSED`, no-data, and disabled checks preserve the last status.
 _Avoid_: URL Importer when referring to a monitoring check
 
 **Component Group**:
@@ -78,11 +81,18 @@ _Avoid_: department, org unit
 A pull-only integration that discovers Components from an external source.
 _Avoid_: connector, sync
 
+**Importer Component profile**:
+A named, stable-keyed entry in a Web/API importer collection that describes
+one logical Component and its ComponentInstances. It is configuration, not a
+catalog entity.
+_Avoid_: profile alone when it could mean an Agent Target profile
+
 **ImporterSource** (Source):
 A durable provenance entity — "which external system reported this data"
 (ADR-119). Keyed by the provider-native canonical identity (engine ID,
-org ID, account/subscription ID, canonicalized URL), never by display
-name. Lifecycle `ACTIVE`/`UNMONITORED`/`RETIRED`; outlives the
+org ID, account/subscription ID, canonicalized URL), or the generated,
+immutable collection key for Web/API importer profiles (ADR-126); never by
+display name. Lifecycle `ACTIVE`/`UNMONITORED`/`RETIRED`; outlives the
 `ImporterConfig` that feeds it. Internal provenance — never a catalog
 Component.
 _Avoid_: connection, endpoint, "source" alone when ambiguity with the

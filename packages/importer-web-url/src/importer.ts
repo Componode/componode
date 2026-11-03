@@ -1,16 +1,51 @@
-import { canonicalizeSourceIdentity, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
-import { webUrlConfigSchema } from "./config.js";
+import { probeEndpoint, validateDiscoveredAsset, type DiscoveredAsset, type DiscoveredAssetInstance, type Importer, type ImporterContext } from "@componode/core";
+import { webUrlConfigSchema, type WebUrlConfig } from "./config.js";
 
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+// One one-shot discovery request per configured instance (spec 058): the
+// result seeds the initial ComponentInstance status until its managed URL
+// Check's first observation. An endpoint-level failure yields an ERROR
+// instance — sibling rows continue.
+async function probeInstance(
+  instance: WebUrlConfig["components"][number]["instances"][number],
+  signal: AbortSignal,
+): Promise<DiscoveredAssetInstance> {
+  const base: DiscoveredAssetInstance = {
+    environment: instance.environment,
+    externalId: instance.instanceKey,
+    url: instance.url,
+    region: instance.region ?? null,
+    version: instance.version ?? null,
+    deployedAt: null,
+    rawConfig: { url: instance.url },
+  };
+  try {
+    const response = await probeEndpoint(instance.url, signal);
+    const body = await response.text();
+    return {
+      ...base,
+      status: response.ok ? "RUNNING" : "ERROR",
+      rawConfig: {
+        url: instance.url,
+        statusCode: response.status,
+        bodyPreview: body.slice(0, 200),
+      },
+    };
+  } catch (err) {
+    if (signal.aborted) throw err;
+    return {
+      ...base,
+      status: "ERROR",
+      rawConfig: {
+        url: instance.url,
+        error: err instanceof Error ? err.message : String(err),
+      },
+    };
+  }
 }
 
 export class WebUrlImporter implements Importer {
   readonly name = "web-url";
-  readonly version = "1.0.0";
+  readonly version = "2.0.0";
 
   async *run(
     config: Record<string, unknown>,
@@ -23,56 +58,39 @@ export class WebUrlImporter implements Importer {
 
     context.reportPhase("Initializing");
     const parsed = webUrlConfigSchema.parse(config);
-    const identity = canonicalizeSourceIdentity(parsed.url);
+    // The generated collection key — never a URL set or label — is the
+    // durable Source identity (ADR-126, ADR-119 A2). Reported before the
+    // first yield, including an empty inventory.
     await context.reportSourceIdentity({
-      externalIdentity: identity,
-      label: identity,
+      externalIdentity: `collection:${parsed.sourceKey}`,
     });
 
-    context.reportPhase(`Probing ${parsed.url}`);
-    const doFetch = (globalThis as unknown as { fetch: (...args: unknown[]) => Promise<unknown> }).fetch;
-    const response = (await doFetch(parsed.url, { signal: context.signal })) as {
-      ok: boolean;
-      status: number;
-      text: () => Promise<string>;
-    };
-
-    if (context.signal.aborted) {
-      return;
-    }
-
-    const body = await response.text();
-
-    context.reportPhase("Building asset");
-    const status = response.ok ? "RUNNING" : "ERROR";
-
-    const asset: DiscoveredAsset = {
-      category: "WEB_ENDPOINT",
-      provider: "WEB_URL",
-      resourceType: "web:url",
-      name: parsed.url,
-      externalId: identity,
-      slug: slugify(parsed.url),
-      details: {
-        statusCode: response.status,
-        bodyPreview: body.slice(0, 200),
-      },
-      instances: [
-        {
-          environment: "PRODUCTION",
-          externalId: identity,
-          url: parsed.url,
-          status,
-          version: "1.0.0",
-          deployedAt: new Date().toISOString(),
-          rawConfig: { url: parsed.url },
+    for (const profile of parsed.components) {
+      if (context.signal.aborted) {
+        return;
+      }
+      context.reportPhase(`Probing ${profile.name}`);
+      const instances: DiscoveredAssetInstance[] = [];
+      for (const instance of profile.instances) {
+        instances.push(await probeInstance(instance, context.signal));
+      }
+      const asset: DiscoveredAsset = {
+        category: "WEB_ENDPOINT",
+        provider: "WEB_URL",
+        resourceType: "web:url",
+        name: profile.name,
+        externalId: profile.componentKey,
+        details: {
+          componentKey: profile.componentKey,
+          instanceCount: instances.length,
         },
-      ],
-    };
-    if (!validateDiscoveredAsset(asset)) {
-      throw new Error(`Invalid discovered asset for ${parsed.url}`);
+        instances,
+      };
+      if (!validateDiscoveredAsset(asset)) {
+        throw new Error(`Invalid discovered asset for ${profile.name}`);
+      }
+      yield asset;
     }
-    yield asset;
 
     context.reportPhase("Completed");
   }

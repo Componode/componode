@@ -176,3 +176,47 @@ derivable-only backfill contract are ratified in ADR-120 (spec 045).
 ---
 
 **Amended by ADR-122**: item 8 — target profiles are no longer Agent-local only; the Hub resolves `targetId` through `docker_targets` with identical fail-before-network semantics (spec 049).
+
+## Amendment 2 — Generated collection identity and URL Check memberships (2026-11-03, ADR-126)
+
+**Context**: `web-url` and `api-url` now configure a collection of stable
+Component profiles and instances rather than one URL. A canonical URL-set
+identity would change whenever an endpoint is added or removed, while a
+display label is mutable and cannot identify the Source.
+
+**Refinement**:
+
+- A Web/API collection receives an opaque generated `sourceKey`, persisted
+  in the ImporterConfig scope and as the Source's `externalIdentity`
+  (`collection:<sourceKey>`). The key survives config edits and deletion.
+  Recreating a config can select the existing `UNMONITORED` Source and
+  reattach its identity. This is the generated-identity exception to item
+  1's provider-native/admin-supplied key rule.
+- Source→URL Check ownership is recorded with a typed
+  `source_url_check_memberships` table. Shared managed checks remain active
+  while an effective, enabled Source membership declares the same stable
+  check key. Conflicting definitions are rejected.
+- Config deletion leaves the Source `UNMONITORED`, pauses its check
+  memberships, and preserves the membership rows and URL Check history.
+  Endpoint removal deactivates only the reporting Source's check membership;
+  the check and observations are deleted only when completed reconciliation
+  leaves the ComponentInstance `GONE` with no effective Source membership.
+
+**Rationale**: A stable generated collection key keeps one Source across
+endpoint-list edits and makes reattachment possible after config deletion.
+Typed Source-to-check membership applies the existing source-scoped sharing
+model without making URL Check history part of import-run history.
+
+**Alternatives considered**:
+
+- **Canonical URL-set identity** — rejected because each URL addition or
+  removal would create a new Source and leave the prior Source `UNMONITORED`.
+- **Display label identity** — rejected because it is editable metadata.
+- **One Source per configured URL** — rejected because one ImporterConfig
+  binds one Source under item 3.
+
+---
+
+**Amended by ADR-126**: Web/API collections use a generated durable
+`sourceKey`, and URL Check membership follows the Source-sharing lifecycle;
+see Amendment 2.

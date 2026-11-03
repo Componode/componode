@@ -686,3 +686,124 @@ export async function markOrphanedInstancesGone(
   }
   return gone;
 }
+
+/** Rehydrate a collection scope draft from a Source's memberships (spec 058
+ *  US5): the reattach path pre-populates the builder with the existing
+ *  component/instance/check keys so reconciliation reuses memberships
+ *  instead of retiring the graph. */
+export async function collectionScopeForSource(sourceId: string) {
+  const source = await getSource(sourceId);
+  if (!source) return null;
+  const m = /^collection:(.+)$/.exec(source.externalIdentity ?? "");
+  if (!m) return { sourceKey: null, components: [] };
+  const sourceKey = m[1];
+
+  const components = await db
+    .selectFrom("source_component_memberships")
+    .innerJoin(
+      "components",
+      "components.id",
+      "source_component_memberships.componentId",
+    )
+    .select([
+      "components.id as id",
+      "components.externalId as componentKey",
+      "components.name as name",
+    ])
+    .where("source_component_memberships.sourceId", "=", sourceId)
+    .where("source_component_memberships.active", "=", true)
+    .execute();
+
+  const instances = await db
+    .selectFrom("source_instance_memberships")
+    .innerJoin(
+      "component_instances",
+      "component_instances.id",
+      "source_instance_memberships.componentInstanceId",
+    )
+    .select([
+      "component_instances.componentId as componentId",
+      "component_instances.externalId as instanceKey",
+      "component_instances.environment as environment",
+      "component_instances.url as url",
+      "component_instances.region as region",
+      "component_instances.version as version",
+      "component_instances.id as rowId",
+    ])
+    .where("source_instance_memberships.sourceId", "=", sourceId)
+    .where("source_instance_memberships.active", "=", true)
+    .execute();
+
+  const checks = await db
+    .selectFrom("source_url_check_memberships")
+    .innerJoin(
+      "url_checks",
+      "url_checks.id",
+      "source_url_check_memberships.urlCheckId",
+    )
+    .select([
+      "url_checks.componentInstanceId as instanceId",
+      "url_checks.managedKey as checkKey",
+      "url_checks.name as name",
+      "url_checks.url as url",
+      "url_checks.method as method",
+      "url_checks.enabled as enabled",
+      "url_checks.successPolicy as successPolicy",
+      "url_checks.cadenceSeconds as cadenceSeconds",
+      "url_checks.authMode as authMode",
+      "url_checks.credentialId as credentialId",
+      "url_checks.authConfig as authConfig",
+      "url_checks.availabilityTarget as availabilityTarget",
+      "url_checks.targetWindow as targetWindow",
+      "url_checks.autoDisableAfter as autoDisableAfter",
+    ])
+    .where("source_url_check_memberships.sourceId", "=", sourceId)
+    .where("source_url_check_memberships.active", "=", true)
+    .execute();
+  const checkByInstance = new Map(checks.map((c) => [c.instanceId, c]));
+
+  return {
+    sourceKey,
+    components: components.map((comp) => ({
+      componentKey: comp.componentKey,
+      name: comp.name,
+      instances: instances
+        .filter((i) => i.componentId === comp.id)
+        .map((inst) => {
+          const check = checkByInstance.get(inst.rowId);
+          return {
+            instanceKey: inst.instanceKey,
+            environment: inst.environment,
+            url: inst.url,
+            ...(inst.region ? { region: inst.region } : {}),
+            ...(inst.version ? { version: inst.version } : {}),
+            check: check
+              ? {
+                  checkKey: check.checkKey,
+                  name: check.name,
+                  url: check.url,
+                  method: check.method,
+                  enabled: check.enabled,
+                  successPolicy: check.successPolicy,
+                  ...(check.cadenceSeconds != null ? { cadenceSeconds: check.cadenceSeconds } : {}),
+                  authMode: check.authMode,
+                  ...(check.authMode !== "NONE" && check.credentialId
+                    ? { credentialId: check.credentialId }
+                    : {}),
+                  ...(check.authMode !== "NONE" && check.authConfig
+                    ? { authConfig: check.authConfig }
+                    : {}),
+                  ...(check.availabilityTarget != null
+                    ? { availabilityTarget: Number(check.availabilityTarget) }
+                    : {}),
+                  ...(check.targetWindow ? { targetWindow: check.targetWindow } : {}),
+                  ...(check.autoDisableAfter != null
+                    ? { autoDisableAfter: check.autoDisableAfter }
+                    : {}),
+                }
+              : null,
+          };
+        }),
+    })),
+  };
+}

@@ -97,6 +97,7 @@ export function mapImporterConfig(
     id: c.id,
     importerName: importerProvider(c.importerName),
     label: c.label,
+    scope: c.scope,
     schedule: c.schedule,
     scheduleLabel: scheduleLabel(c.schedule),
     enabled: c.enabled,

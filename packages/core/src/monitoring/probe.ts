@@ -138,3 +138,22 @@ export function statusAccepted(
     (r) => httpStatus >= r.min && httpStatus <= r.max,
   );
 }
+
+// Discovery-probe fetch for Web/API importers (spec 058): the same redirect
+// and timeout hardening as monitoring probes, but returns the Response so
+// the importer can read a bounded body preview. Callers are responsible for
+// URL safety — importer configs validate destinations via urlSafetyError.
+export const ENDPOINT_PROBE_TIMEOUT_MS = 15_000;
+
+export function probeEndpoint(
+  url: string,
+  signal: AbortSignal,
+  timeoutMs: number = ENDPOINT_PROBE_TIMEOUT_MS,
+): Promise<Response> {
+  const combined = AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]);
+  return fetch(url, {
+    redirect: "manual",
+    signal: combined,
+    headers: { "user-agent": "Componode-Discovery/1.0" },
+  });
+}

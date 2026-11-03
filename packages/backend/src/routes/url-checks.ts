@@ -1,9 +1,6 @@
-import { isDeepStrictEqual } from "node:util";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import {
-  createUrlCheckSchema,
-  updateUrlCheckSchema,
   updateMonitoringSetupSchema,
   urlCheckMetricsQuerySchema,
   urlCheckObservationsQuerySchema,
@@ -15,11 +12,7 @@ import { sendServiceError } from "./route-helpers.js";
 import { getSetup, upsertSetup } from "../services/monitoring-setup-service.js";
 import {
   listChecks,
-  getCheck,
   getCheckDetail,
-  createCheck,
-  updateCheck,
-  deleteCheck,
   getMetrics,
   listObservations,
 } from "../services/url-check-service.js";
@@ -116,27 +109,20 @@ export async function urlCheckRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // Spec 058 (ADR-126): direct check-definition writes are deprecated —
+  // importer-managed definitions change only through ImporterConfig.
+  const deprecatedWrite = (reply: FastifyReply) =>
+    reply.status(410).send({
+      code: "URL_CHECK_WRITE_DEPRECATED",
+      message:
+        "Direct URL check writes are deprecated — manage checks through the ImporterConfig",
+    });
+
   app.post(
     "/components/:componentId/url-checks",
-    { preHandler: [app.verifySession, requireRole("urlCheck:create")] },
-    async (req: AuthenticatedRequest, reply: FastifyReply) => {
-      const params = componentIdParam.safeParse(req.params);
-      if (!params.success) return badParams(reply);
-      const parsed = createUrlCheckSchema.safeParse(req.body);
-      if (!parsed.success) return validationFailed(reply, parsed.error.issues);
-      if (parsed.data.credentialId != null && !can(req, "credential:read")) {
-        return forbidden(reply);
-      }
-      try {
-        const check = await createCheck(
-          params.data.componentId,
-          parsed.data,
-          toActor(req),
-        );
-        return reply.status(201).send({ check });
-      } catch (err) {
-        return sendServiceError(reply, err);
-      }
+    { preHandler: [app.verifySession] },
+    async (_req: FastifyRequest, reply: FastifyReply) => {
+      return deprecatedWrite(reply);
     },
   );
 
@@ -157,64 +143,17 @@ export async function urlCheckRoutes(app: FastifyInstance): Promise<void> {
 
   app.patch(
     "/url-checks/:id",
-    { preHandler: [app.verifySession, requireRole("urlCheck:update")] },
-    async (req: AuthenticatedRequest, reply: FastifyReply) => {
-      const params = checkIdParam.safeParse(req.params);
-      if (!params.success) return badParams(reply);
-      const parsed = updateUrlCheckSchema.safeParse(req.body);
-      if (!parsed.success) return validationFailed(reply, parsed.error.issues);
-      try {
-        const existing = await getCheck(params.data.id);
-        const effectiveAuthMode = parsed.data.authMode ?? existing.authMode;
-        const credentialChanged =
-          (parsed.data.credentialId !== undefined &&
-            parsed.data.credentialId !== existing.credentialId &&
-            (parsed.data.credentialId !== null ||
-              effectiveAuthMode !== "NONE")) ||
-          (parsed.data.authMode !== undefined &&
-            parsed.data.authMode !== existing.authMode &&
-            parsed.data.authMode !== "NONE") ||
-          (parsed.data.authConfig !== undefined &&
-            !isDeepStrictEqual(parsed.data.authConfig, existing.authConfig) &&
-            (parsed.data.authConfig !== null || effectiveAuthMode !== "NONE"));
-        if (credentialChanged && !can(req, "credential:read")) {
-          return forbidden(reply);
-        }
-        if (
-          effectiveAuthMode === "NONE" &&
-          (parsed.data.credentialId != null || parsed.data.authConfig != null)
-        ) {
-          return validationFailed(reply, [
-            {
-              message:
-                "credentialId and authConfig are only allowed with an auth mode",
-            },
-          ]);
-        }
-        const check = await updateCheck(
-          params.data.id,
-          parsed.data,
-          toActor(req),
-        );
-        return reply.status(200).send({ check });
-      } catch (err) {
-        return sendServiceError(reply, err);
-      }
+    { preHandler: [app.verifySession] },
+    async (_req: FastifyRequest, reply: FastifyReply) => {
+      return deprecatedWrite(reply);
     },
   );
 
   app.delete(
     "/url-checks/:id",
-    { preHandler: [app.verifySession, requireRole("urlCheck:delete")] },
-    async (req: AuthenticatedRequest, reply: FastifyReply) => {
-      const params = checkIdParam.safeParse(req.params);
-      if (!params.success) return badParams(reply);
-      try {
-        await deleteCheck(params.data.id, toActor(req));
-        return reply.status(204).send();
-      } catch (err) {
-        return sendServiceError(reply, err);
-      }
+    { preHandler: [app.verifySession] },
+    async (_req: FastifyRequest, reply: FastifyReply) => {
+      return deprecatedWrite(reply);
     },
   );
 

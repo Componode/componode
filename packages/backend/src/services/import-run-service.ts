@@ -8,6 +8,7 @@ import {
   type DiscoveredAsset,
   type ImportRun,
   type Logger,
+  type ManagedCheckDefinition,
 } from "@componode/core";
 import { db } from "../db/connection.js";
 import { logger as appLogger } from "../plugins/logging.js";
@@ -30,6 +31,11 @@ import {
   markOrphanedInstancesGone,
   recordRunSourceIdentity,
 } from "./importer-source-service.js";
+import {
+  cleanupManagedChecksForGoneInstances,
+  reconcileSourceCheckMemberships,
+  syncManagedCheck,
+} from "./url-check-service.js";
 import { resolveHubTargetProfile } from "./docker-target-service.js";
 
 const maxConcurrency = parseInt(process.env.IMPORTER_MAX_CONCURRENCY ?? "3", 10);
@@ -146,6 +152,46 @@ export interface RunSource {
   configId: string | null;
 }
 
+/** A managed check definition plus the instance URL it defaults to —
+ *  extracted from the validated v2 collection scope (spec 058). */
+export interface ManagedCheckEntry {
+  def: ManagedCheckDefinition;
+  instanceUrl: string | null;
+}
+
+/**
+ * Extract managed check definitions from a v2 collection scope, keyed
+ * `componentKey::instanceKey`. Non-collection scopes return null so other
+ * importers keep byte-identical behavior.
+ */
+export function managedCheckDefsFromScope(
+  scope: unknown,
+): Map<string, ManagedCheckEntry> | null {
+  if (!scope || typeof scope !== "object") return null;
+  const components = (scope as { components?: unknown }).components;
+  if (!Array.isArray(components)) return null;
+  const map = new Map<string, ManagedCheckEntry>();
+  for (const comp of components) {
+    if (!comp || typeof comp !== "object") continue;
+    const componentKey = (comp as { componentKey?: unknown }).componentKey;
+    const instances = (comp as { instances?: unknown }).instances;
+    if (typeof componentKey !== "string" || !Array.isArray(instances)) continue;
+    for (const inst of instances) {
+      if (!inst || typeof inst !== "object") continue;
+      const instanceKey = (inst as { instanceKey?: unknown }).instanceKey;
+      const check = (inst as { check?: unknown }).check;
+      if (typeof instanceKey === "string" && check && typeof check === "object") {
+        const url = (inst as { url?: unknown }).url;
+        map.set(`${componentKey}::${instanceKey}`, {
+          def: check as ManagedCheckDefinition,
+          instanceUrl: typeof url === "string" ? url : null,
+        });
+      }
+    }
+  }
+  return map;
+}
+
 function isUrlLike(id: string): boolean {
   if (!/^https?:\/\//i.test(id)) return false;
   try {
@@ -181,6 +227,7 @@ export async function processAsset(
   asset: DiscoveredAsset,
   triggeredBy: string | null,
   source: RunSource = { sourceId: null, sourceIdentity: null, configId: null },
+  managedChecks: Map<string, ManagedCheckEntry> | null = null,
 ): Promise<{ componentId: string; created: boolean; instancesOrphaned: number }> {
   const { sourceId, sourceIdentity } = source;
   const now = new Date().toISOString();
@@ -406,6 +453,32 @@ export async function processAsset(
   // membership upsert below.
   const yieldedInstanceAssets = new Map<string, DiscoveredAsset["instances"][number]>();
 
+  // Spec 058: after a managed URL Check's first observation its outcomes
+  // are authoritative for the ComponentInstance status — later importer
+  // status values must not overwrite it. One batch read, no per-row
+  // fan-out (FR-015/T037).
+  const checkObservedInstanceIds = new Set(
+    (
+      await trx
+        .selectFrom("url_checks")
+        .innerJoin(
+          "url_check_observations",
+          "url_check_observations.urlCheckId",
+          "url_checks.id",
+        )
+        .innerJoin(
+          "component_instances",
+          "component_instances.id",
+          "url_checks.componentInstanceId",
+        )
+        .select("url_checks.componentInstanceId")
+        .where("component_instances.componentId", "=", componentId)
+        .where("url_checks.managedKey", "is not", null)
+        .groupBy("url_checks.componentInstanceId")
+        .execute()
+    ).map((r) => r.componentInstanceId),
+  );
+
   for (const instance of asset.instances) {
     const baseInstanceSlug = generateInstanceSlug(componentSlug, instance.environment, instance.externalId);
     const instanceSlug = await ensureUniqueInstanceSlug(trx, baseInstanceSlug, componentId);
@@ -453,11 +526,20 @@ export async function processAsset(
       }
     }
 
+    // A managed check with observations owns the status — the importer's
+    // one-shot result is ignored for monitored instances (spec 058).
+    const checkOwnsStatus =
+      existingInstance !== undefined &&
+      checkObservedInstanceIds.has(existingInstance.id);
+    const effectiveStatus = checkOwnsStatus
+      ? existingInstance!.status
+      : (instance.status ?? "RUNNING");
+
     const instanceValues = {
       environment: instance.environment,
       url: instance.url ?? null,
       region: instance.region ?? null,
-      status: instance.status ?? "RUNNING",
+      status: effectiveStatus,
       version: instance.version ?? null,
       deployedAt: instance.deployedAt ?? null,
       rawConfig: instance.rawConfig ?? null,
@@ -470,7 +552,7 @@ export async function processAsset(
     if (existingInstance) {
       yieldedInstanceIds.add(existingInstance.id);
       yieldedInstanceAssets.set(existingInstance.id, instance);
-      const statusChanged = existingInstance.status !== (instance.status ?? "RUNNING");
+      const statusChanged = existingInstance.status !== effectiveStatus;
       await trx
         .updateTable("component_instances")
         .set(instanceValues)
@@ -485,7 +567,7 @@ export async function processAsset(
             action: "status_change",
             changes: {
               previousStatus: existingInstance.status,
-              status: instance.status ?? "RUNNING",
+              status: effectiveStatus,
               environment: instance.environment,
             },
             importRunId: runId,
@@ -517,7 +599,7 @@ export async function processAsset(
           action: "discovered",
           changes: {
             environment: instance.environment,
-            status: instance.status ?? "RUNNING",
+            status: effectiveStatus,
             componentId,
           },
           importRunId: runId,
@@ -525,6 +607,41 @@ export async function processAsset(
         },
         trx,
       );
+    }
+  }
+
+  // Managed URL Check sync (spec 058): the ImporterConfig scope is
+  // canonical — one check per configured instance, materialized in the
+  // same per-asset transaction. Conflicts are run errors, never
+  // last-writer-wins.
+  if (sourceId && managedChecks) {
+    for (const [instanceId, yielded] of yieldedInstanceAssets) {
+      const entry = managedChecks.get(
+        `${asset.externalId}::${yielded.externalId}`,
+      );
+      if (!entry) continue;
+      const result = await syncManagedCheck(trx, {
+        sourceId,
+        componentId,
+        componentInstanceId: instanceId,
+        instanceUrl: yielded.url ?? entry.instanceUrl ?? "",
+        def: entry.def,
+        runId,
+        actor,
+      });
+      if (result.conflict) {
+        await trx
+          .insertInto("import_run_errors")
+          .values({
+            id: uuidv7(),
+            runId,
+            assetExternalId: asset.externalId,
+            errorType: "CONFLICT",
+            errorMessage: result.conflict,
+            createdAt: now,
+          })
+          .execute();
+      }
     }
   }
 
@@ -561,6 +678,11 @@ export async function processAsset(
       trx,
       staleMemberships.map((m) => m.componentInstanceId),
       now,
+    );
+    // Managed checks die with their GONE instance (spec 058 FR-019).
+    await cleanupManagedChecksForGoneInstances(
+      trx,
+      staleMemberships.map((m) => m.componentInstanceId),
     );
   } else {
     // Legacy path (non-adopting importers — byte-identical behavior):
@@ -682,6 +804,12 @@ export async function reconcileRetiredComponents(
         .where("lastSeenInRunId", "!=", runId)
         .returning("componentInstanceId")
         .execute();
+
+      // Managed-check memberships reconcile independently: a scope edit that
+      // only changes a checkKey leaves component/instance memberships intact
+      // but deactivates the old check — it must not early-return first
+      // (spec 058 FR-019, contracts/managed-url-check-sync).
+      await reconcileSourceCheckMemberships(trx, sourceId, runId);
       if (staleComponentMemberships.length === 0 && staleInstanceMemberships.length === 0) {
         return { componentsRetired: 0, instancesOrphaned: 0 };
       }
@@ -692,6 +820,10 @@ export async function reconcileRetiredComponents(
         staleInstanceMemberships.map((m) => m.componentInstanceId),
         now,
       );
+      const goneInstanceIds = staleInstanceMemberships.map(
+        (m) => m.componentInstanceId,
+      );
+      await cleanupManagedChecksForGoneInstances(trx, goneInstanceIds);
       if (orphaned > 0) {
         await trx
           .updateTable("import_runs")
@@ -721,12 +853,17 @@ export async function reconcileRetiredComponents(
         if (!updated) continue;
         retired++;
 
-        await trx
+        const goneInstanceIds = await trx
           .updateTable("component_instances")
           .set({ status: "GONE", updatedAt: now })
           .where("componentId", "=", updated.id)
           .where("status", "!=", "GONE")
+          .returning("id")
           .execute();
+        await cleanupManagedChecksForGoneInstances(
+          trx,
+          goneInstanceIds.map((i) => i.id),
+        );
 
         await writeEntityChange(
           {
@@ -971,6 +1108,10 @@ async function worker(runId: string): Promise<void> {
       },
     };
 
+    // Spec 058: managed check definitions live in the validated config
+    // scope — extracted once and synchronized inside each per-asset
+    // transaction. Non-collection scopes yield null (other importers).
+    const managedCheckDefs = managedCheckDefsFromScope(config.scope);
     const yieldedComponentIds = new Set<string>();
     let assetsProcessed = 0;
     let assetsCreated = 0;
@@ -1005,7 +1146,7 @@ async function worker(runId: string): Promise<void> {
       }
 
       const result = await traceDbQuery("processAsset", () =>
-        db.transaction().execute(async (trx) => processAsset(trx, runId, importerName!, asset, run.triggeredBy, { sourceId: reportedSourceId, sourceIdentity: reportedSourceIdentity, configId: run.configId })),
+        db.transaction().execute(async (trx) => processAsset(trx, runId, importerName!, asset, run.triggeredBy, { sourceId: reportedSourceId, sourceIdentity: reportedSourceIdentity, configId: run.configId }, managedCheckDefs)),
       );
 
       yieldedComponentIds.add(result.componentId);

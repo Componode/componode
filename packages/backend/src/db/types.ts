@@ -401,6 +401,9 @@ export interface UrlCheckRow {
   autoDisableAfter: number | null;
   consecutiveFailures: Generated<number>;
   autoDisabledAt: string | null;
+  // ImporterConfig-declared check identity (spec 058, ADR-126); NULL =
+  // legacy/manual row, retained disabled and read-only.
+  managedKey: string | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: Generated<string>;
@@ -418,6 +421,22 @@ export interface UrlCheckObservationRow {
   vantage: string;
   agentId: string | null;
   createdAt: Generated<string>;
+}
+
+/** Typed Source→URL Check ownership (spec 058, ADR-126): which Source
+ *  declares which managed check, its reconciliation activity, and this
+ *  Source's configured enabled intent. */
+export interface SourceUrlCheckMembershipRow {
+  id: string;
+  sourceId: string;
+  urlCheckId: string;
+  checkKey: string;
+  active: Generated<boolean>;
+  configuredEnabled: Generated<boolean>;
+  firstSeenInRunId: string | null;
+  lastSeenInRunId: string | null;
+  createdAt: Generated<string>;
+  updatedAt: Generated<string>;
 }
 
 export interface KyselyMigrationRow {
@@ -465,6 +484,7 @@ export interface DB {
   component_monitoring_setups: ComponentMonitoringSetupRow;
   url_checks: UrlCheckRow;
   url_check_observations: UrlCheckObservationRow;
+  source_url_check_memberships: SourceUrlCheckMembershipRow;
   kysely_migration: KyselyMigrationRow;
   kysely_migration_lock: KyselyMigrationLockRow;
 }

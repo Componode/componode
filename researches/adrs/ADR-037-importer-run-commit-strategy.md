@@ -18,7 +18,7 @@ the [ADR-036](./ADR-036-two-phase-reconciliation-scope.md) invariant that reconc
 
 **Context**: This strategy gates phase-2 reconciliation on `COMPLETED` by
 reference to [ADR-036](./ADR-036-two-phase-reconciliation-scope.md).
-ADR-036 Amendment 1 changed *what* phase 2 reconciles — from config touch
+ADR-036 Amendment 1 changed _what_ phase 2 reconciles — from config touch
 to the reporting Source's durable memberships ([ADR-119](./ADR-119-importer-source-identity-and-lifecycle.md)).
 
 **Refinement**: The commit strategy is unchanged — per-asset incremental
@@ -34,3 +34,21 @@ partial inventory for that Source and performs no retirement.
 see Amendment 1 and [ADR-036](./ADR-036-two-phase-reconciliation-scope.md)
 Amendment 1. Per-asset incremental commits and the completion gate are
 unchanged.
+
+## Amendment 2 — Configured URL rows define a complete inventory (2026-11-03, ADR-126)
+
+**Context**: The Web/API profile importers evaluate a finite configured set
+of ComponentInstances. A remote endpoint can fail while the configured
+inventory is still completely known.
+
+**Refinement**: A run that evaluates every configured profile and instance
+is `COMPLETED`, even when an endpoint's result is `ERROR`; the failure is
+recorded on that ComponentInstance. A fatal/configuration failure or
+incomplete run remains `FAILED` and performs no phase-2 reconciliation.
+The ImportRun status set does not gain `PARTIAL`.
+
+---
+
+**Amended by ADR-126**: Web/API endpoint failures are per-instance outcomes
+within a completed configured inventory; phase-2 reconciliation remains
+gated on `COMPLETED`.

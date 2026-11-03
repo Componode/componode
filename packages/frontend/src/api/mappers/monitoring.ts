@@ -246,7 +246,9 @@ function mapSummary(
   };
 }
 
-function mapCheckBase(c: UrlCheck): Omit<UrlCheckView, "latest" | "status"> {
+function mapCheckBase(
+  c: UrlCheck & { managedByConfigId?: string | null },
+): Omit<UrlCheckView, "latest" | "status"> {
   const policy: SuccessPolicy = c.successPolicy ?? {
     codes: [],
     ranges: [{ min: 200, max: 299 }],
@@ -255,6 +257,8 @@ function mapCheckBase(c: UrlCheck): Omit<UrlCheckView, "latest" | "status"> {
     id: c.id,
     setupId: c.setupId,
     componentInstanceId: c.componentInstanceId,
+    managedKey: c.managedKey ?? null,
+    managedByConfigId: c.managedByConfigId ?? null,
     credentialId: c.credentialId ?? null,
     name: c.name,
     url: c.url,
@@ -295,6 +299,7 @@ export function mapUrlCheckListItem(c: UrlCheckListItem): UrlCheckView {
   });
   return {
     ...mapCheckBase(c),
+    managedByConfigId: c.managedByConfigId ?? null,
     latest,
     status,
     summary: mapSummary(c.summary),

@@ -7,11 +7,8 @@ import {
 import type {
   CreateComponentInput,
   CreateInstanceBlock,
-  CreateMonitoringBlock,
-  CreateUrlCheckInput,
   MonitoringSetup,
   UpdateMonitoringSetupInput,
-  UpdateUrlCheckInput,
   UrlCheck,
   UrlCheckListItem,
   UrlCheckMetrics,
@@ -125,56 +122,13 @@ export function useUrlCheckObservations(id: string | null, limit = 25) {
   });
 }
 
-export function useCreateUrlCheck(componentId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (vars: CreateUrlCheckInput) =>
-      api<{ check: UrlCheck }>(`/components/${componentId}/url-checks`, {
-        method: "POST",
-        body: JSON.stringify(vars),
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["url-checks"] });
-      qc.invalidateQueries({ queryKey: ["monitoring-setup", componentId] });
-    },
-  });
-}
-
-export function useUpdateUrlCheck() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (vars: { id: string } & UpdateUrlCheckInput) => {
-      const { id, ...body } = vars;
-      return api<{ check: UrlCheck }>(`/url-checks/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["url-checks"] });
-    },
-  });
-}
-
-export function useDeleteUrlCheck() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      api<void>(`/url-checks/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["url-checks"] });
-    },
-  });
-}
-
 /**
- * Composite create (spec 051 US5): component + first instance + monitoring
- * setup + first checks in one POST /components transaction.
+ * Composite create (spec 051 US5): component + first instance in one
+ * POST /components transaction — the monitoring block is retired (spec 058).
  */
 export interface CreateComponentWithMonitoringInput
   extends CreateComponentInput {
   instance?: CreateInstanceBlock;
-  monitoring?: CreateMonitoringBlock;
 }
 
 export function useCreateComponentWithMonitoring() {

@@ -23,6 +23,7 @@ have no human actor). **Nullable `triggeredBy`** for scheduled runs.
 
 > **UPDATE (Session 2, [ADR-099](./ADR-099-secure-password-and-credential-handling.md)/100)**: Three additions from the secure
 > development grilling:
+>
 > 1. **`password_reset_tokens`** table (table 28) — `id uuid PK`, `userId`
 >    FK→`persons`, `tokenHash text not null` (SHA-256 of the 32-byte reset
 >    token), `expiresAt timestamptz not null`, `usedAt timestamptz` (nullable,
@@ -57,7 +58,7 @@ product's LOB and team detail can name the LOB it belongs to.
 **Refinement**: `teams.lobId uuid NULL → line_of_businesses(id) ON DELETE
 SET NULL` joins the 1-to-many FK list — same advisory-ownership shape as
 `digital_products.lobOwnerId`, `components.teamOwnerId`, `persons.teamId`.
-Unlike those ownership references, the association is *advisory*: deleting
+Unlike those ownership references, the association is _advisory_: deleting
 a LOB clears the link on its teams (set-null) rather than blocking, and the
 API does not enforce consistency between a product's `lobOwnerId` and its
 `teamOwnerId`'s LOB. Team read payloads carry the resolved `lob` summary so
@@ -146,3 +147,30 @@ Component-level shared-defaults record.
 **Amended by ADR-124**: `component_monitoring_setups` joins the v1 schema
 inventory and the URL Check column-level design deferred in Amendment 3 is
 ratified; see Amendment 4.
+
+## Amendment 5 — Source-managed URL Check definitions (2026-11-03, ADR-126)
+
+**Context**: ADR-126 makes Web/API ImporterConfig the canonical definition
+source for one managed URL Check per configured ComponentInstance while
+retaining `url_checks` and `url_check_observations` as operational records.
+Source-scoped sharing and reconciliation need a typed persistence record.
+
+**Refinement**:
+
+1. `url_checks` gains a nullable stable `managedKey`, unique per
+   ComponentInstance when present. Null identifies legacy/manual rows.
+2. Add `source_url_check_memberships`, a typed Source→URL Check junction
+   recording the stable check key, membership activity, and configured
+   enabled state. A shared URL Check row may have multiple Source memberships.
+3. A check is scheduled while at least one effective, enabled Source
+   membership declares it. Conflicting definitions for the same managed key
+   are rejected; they are never resolved by last-writer-wins.
+4. Existing legacy/manual URL Check rows remain readable but are disabled
+   during the migration. Observation shape and the 30-day retention job are
+   unchanged; explicit GONE/unshared cleanup may remove a check and its
+   observations earlier.
+
+---
+
+**Amended by ADR-126**: the schema gains a managed-check key and typed
+Source→URL Check memberships; existing observation records remain unchanged.

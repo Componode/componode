@@ -118,7 +118,30 @@ describe("audit coverage for consequential mutations", () => {
       payload: {
         importerName: "web-url",
         label: "Audit Web URL",
-        scope: { url: "https://example.com" },
+        scope: {
+          sourceKey: uuidv7(),
+          components: [
+            {
+              componentKey: uuidv7(),
+              name: "Audit Web",
+              instances: [
+                {
+                  instanceKey: uuidv7(),
+                  environment: "PRODUCTION",
+                  url: "https://example.com",
+                  check: {
+                    checkKey: uuidv7(),
+                    name: "Audit check",
+                    method: "GET",
+                    enabled: true,
+                    successPolicy: { codes: [], ranges: [{ min: 200, max: 299 }] },
+                    authMode: "NONE",
+                  },
+                },
+              ],
+            },
+          ],
+        },
         secretRefs: [],
         enabled: false,
       },

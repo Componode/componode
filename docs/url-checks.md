@@ -36,28 +36,58 @@ One vantage applies to the whole setup; every metric display states it
 and reads as "reachable from" that vantage — never a claim of global
 availability.
 
-The setup is created automatically (Hub vantage, 5-minute cadence) when
-you add a Component's first check; edit it from the Component's **URL
-checks** card.
+The setup is created automatically (Hub vantage, 5-minute cadence) on the
+first run that materializes a managed check; edit cadence and vantage from
+the Component's **URL checks** card.
 
 ## Managing checks
 
-From a Component's detail page, **URL checks** card:
+Checks are **importer-managed**. A Web/API ImporterConfig declares
+Component profiles — each instance carries exactly one managed check
+definition (`checkKey`), and the importer core synchronizes those
+definitions into schedulable rows on every run. The **URL checks** card on
+a Component detail page is read-only: it shows each check's status,
+latest result, availability, latency, and recent outcomes, plus a
+**Managed** badge linking back to the owning ImporterConfig — the only
+edit surface.
 
-- **Add** a check with a name, the URL to probe, and the Component
-  Instance it monitors. A check needs an existing instance.
-- **Edit** name, URL, method, cadence override, success policy, auth, or
-  availability target. Editing the URL preserves the check's identity
-  and its entire observation history.
-- **Disable** a check to pause probing — no new probes are scheduled and
-  no `MISSED` rows accrue (a disabled window is configuration, not
-  monitor downtime). History stays visible; re-enabling resumes from the
-  next slot.
-- **Delete** a check to remove it and all of its observations.
+- **Author** checks by editing the ImporterConfig's profile scope —
+  URL, method, cadence override, success policy, auth, availability
+  target, and per-check enable live on the check definition there.
+- **Pause** a check by setting `enabled: false` on its definition in the
+  config; the next run stops scheduling it. Pausing or deleting the
+  ImporterConfig pauses all checks it owns, unless another enabled Source
+  declares the same `checkKey` (shared checks stay active while at least
+  one effective owner remains).
+- **Delete** a check by removing its instance (or profile) from the
+  config. When the instance's Source membership ends and the instance
+  goes `GONE`, the managed check and its observation history are
+  removed; otherwise the definition is retained.
+- **Manual (legacy) checks** created before managed checks shipped are
+  retained, disabled, and read-only — they appear with a **Legacy**
+  badge. Direct write routes (`POST/PATCH/DELETE` under `/url-checks`)
+  are deprecated and return `410 URL_CHECK_WRITE_DEPRECATED`.
 
 Deleting a Component Instance removes its checks and observations;
 deleting a Component removes its monitoring setup and every check under
 it. A `RETIRED` Component's checks stop probing but remain readable.
+
+### Check outcomes and instance status
+
+A managed check's executed outcomes are authoritative for the
+ComponentInstance it monitors:
+
+- `SUCCESS` → the instance reports `RUNNING`.
+- `FAILURE` → the instance reports `ERROR`.
+- `MISSED` slots, a disabled check, and no-data windows preserve the
+  previous status — they describe probe coverage, not the endpoint.
+- `GONE` remains importer-reconciliation territory: a check outcome can
+  never resurrect or remove an instance, and statuses on `RETIRED`
+  Components are never rewritten.
+
+Before a managed check's first observation, the importer's own status
+report seeds the instance status; after that, importer status values no
+longer overwrite it.
 
 ### Repeated failures and auto-disable
 
@@ -81,24 +111,18 @@ of consecutive non-success observations:
   separate, future capability.
 
 For endpoints with no catalog entry yet, the create flow (Components →
-_New component_) can create the Component, its first Component Instance,
-and its first checks in one pass — including the same API-authentication
-and availability-target fields as the regular editor. A validation failure
-creates nothing.
+_New component_) creates the Component and its first Component Instance
+in one pass — checks are declared separately on a Web/API ImporterConfig.
+A validation failure creates nothing.
 
 For a manually created ACTIVE Component that has no instances yet, the URL
-checks card offers **Add first instance**. Save the environment (plus
-optional URL, version, and region), then use the regular **Add check**
-dialog on the same Component. That two-step path does not create a second
-Component; a valid first instance remains if a later check save fails.
+checks card offers **Add first instance** — save the environment (plus
+optional URL, version, and region).
 
-Check management requires the `EDITOR` role (create, update, delete, and
-Hub monitoring-setup changes). Credential and Import Agent selectors are
-`ADMIN` actions: Editors can create ordinary checks and Hub checks, while
-only Admins can attach a reusable Credential or choose an Import Agent.
-Editors may preserve an already configured Credential or Agent vantage while
-editing ordinary fields, but cannot select or reconfigure either one.
-Viewing checks and metrics only requires a signed-in session.
+Check *definitions* move with the owning `importer:config:update`
+permission on the ImporterConfig; editing a Component's monitoring setup
+(cadence, vantage) requires `EDITOR`. Viewing checks and metrics only
+requires a signed-in session.
 
 ## How a probe works
 
@@ -217,9 +241,11 @@ egress, as with the importers.
 A check's monitoring status is **its own** signal. It is distinct from:
 
 - **ComponentInstance status** (`RUNNING`/`STOPPED`/`ERROR`/`GONE`) —
-  the operational state importers report and reconcile. Probe results
-  never write it; a failed check does not mark its instance `ERROR`, and
-  a healthy check does not mark it `RUNNING`.
+  the operational state importers report and reconcile. For
+  importer-managed checks it *is* probe-owned after the first observation:
+  `SUCCESS` → `RUNNING`, `FAILURE` → `ERROR`; `MISSED`, disabled, and
+  no-data windows preserve the prior status, and `GONE` stays
+  importer-reconciliation territory.
 - **Component lifecycle** (`ACTIVE`/`RETIRED`) — the logical curation
   state.
 - **Product health** — the derived rollup over dependency instance

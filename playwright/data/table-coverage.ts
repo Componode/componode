@@ -32,6 +32,7 @@ export const TABLE_COVERAGE: Record<string, { source: CoverageSource; note: stri
   importer_sources: { source: 'runtime', note: 'source identity reporting' },
   source_component_memberships: { source: 'runtime', note: 'reconciliation' },
   source_instance_memberships: { source: 'runtime', note: 'reconciliation' },
+  source_url_check_memberships: { source: 'runtime', note: 'managed-check ownership (spec 058)' },
   docker_targets: { source: 'flow', note: 'admin target API' },
   entity_changes: { source: 'runtime', note: 'audit of mutations' },
   edge_changes: { source: 'runtime', note: 'audit of edge mutations' },

@@ -6,23 +6,23 @@
 
 **Decision**: **Matrix approved as proposed in Q22.**
 
-| Action | Viewer | Editor | Admin |
-|---|---|---|---|
-| View all entities, hierarchy, audit log | ✅ | ✅ | ✅ |
-| View importer configs + run history | ✅ | ✅ | ✅ |
-| Trigger on-demand importer run | ❌ | ✅ | ✅ |
-| Create/edit/retire `DigitalProduct` | ❌ | ✅ | ✅ |
-| Author/edit `COMPOSES`/`CONSUMES_FROM`/`DEPENDS_ON` edges | ❌ | ✅ | ✅ |
-| Author/edit `OWNS`/`BELONGS_TO` edges | ❌ | ✅ | ✅ |
-| Manually edit `Component.lifecycle` | ❌ | ✅ | ✅ |
-| Manually edit `Component` attributes | ❌ | ✅ | ✅ |
-| Create/edit `LineOfBusiness`/`Team` | ❌ | ❌ | ✅ |
-| Create/edit `Person` (user management) | ❌ | ❌ | ✅ |
-| Create/edit/delete `importer_config` | ❌ | ❌ | ✅ |
-| View all sessions | ❌ | ❌ | ✅ |
-| Revoke sessions (self or any) | self only | self only | ✅ any |
-| Configure OIDC integration | ❌ | ❌ | ✅ |
-| Bulk-retire components by importer config | ❌ | ❌ | ✅ |
+| Action                                                    | Viewer    | Editor    | Admin  |
+| --------------------------------------------------------- | --------- | --------- | ------ |
+| View all entities, hierarchy, audit log                   | ✅        | ✅        | ✅     |
+| View importer configs + run history                       | ✅        | ✅        | ✅     |
+| Trigger on-demand importer run                            | ❌        | ✅        | ✅     |
+| Create/edit/retire `DigitalProduct`                       | ❌        | ✅        | ✅     |
+| Author/edit `COMPOSES`/`CONSUMES_FROM`/`DEPENDS_ON` edges | ❌        | ✅        | ✅     |
+| Author/edit `OWNS`/`BELONGS_TO` edges                     | ❌        | ✅        | ✅     |
+| Manually edit `Component.lifecycle`                       | ❌        | ✅        | ✅     |
+| Manually edit `Component` attributes                      | ❌        | ✅        | ✅     |
+| Create/edit `LineOfBusiness`/`Team`                       | ❌        | ❌        | ✅     |
+| Create/edit `Person` (user management)                    | ❌        | ❌        | ✅     |
+| Create/edit/delete `importer_config`                      | ❌        | ❌        | ✅     |
+| View all sessions                                         | ❌        | ❌        | ✅     |
+| Revoke sessions (self or any)                             | self only | self only | ✅ any |
+| Configure OIDC integration                                | ❌        | ❌        | ✅     |
+| Bulk-retire components by importer config                 | ❌        | ❌        | ✅     |
 
 **Rationale**: Viewer is strictly read-only (safest default for OIDC JIT-
 provisioned users). Editor owns the meaning layer (architect/curator). Admin
@@ -47,6 +47,7 @@ already exists for groups).
 audit event with `toActor` attribution, enforces unique kebab-case slugs
 (`409 SLUG_CONFLICT`), and never accepts importer-managed columns
 (`externalId`, `details`, `lastSeen*`).
+
 ## Amendment 2 — ImporterSource lifecycle permissions (2026-10-31, spec 044)
 
 **Refinement**: `importer:source:retire` and `importer:source:reactivate`
@@ -72,3 +73,25 @@ and `monitoringSetup:update` (all EDITOR); see Amendment 3.
 granularity — composite monitoring creation requires `urlCheck:create`;
 Credential references require `credential:read`; Agent vantage/ID requires
 `agent:read`. First-instance recovery uses `component:update` (EDITOR).
+
+## Amendment 4 — Importer-owned URL Check authoring (2026-11-03, ADR-126)
+
+**Context**: Web/API importer-managed URL Check definitions are authored
+through the ADMIN-gated ImporterConfig create/update surfaces. Direct URL
+Check write routes and the manual Component-create monitoring block are
+deprecated and reject writes. Component monitoring setup remains a separate
+EDITOR action; Credential/Agent selectors retain their existing read
+permissions.
+
+**Refinement**: `urlCheck:create|update|delete` no longer grant direct
+URL Check definition writes. ImporterConfig permissions govern managed
+definitions; `credential:read` remains required for Credential references.
+`monitoringSetup:update` remains EDITOR, and all URL Check reads remain
+authenticated-any. Ordinary manual Component and focused first-instance
+creation remain available without a monitoring block.
+
+---
+
+**Amended by ADR-126**: managed check definitions are written through
+ImporterConfig; direct URL Check writes and manual composite check creation
+are deprecated/read-only.

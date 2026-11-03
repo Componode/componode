@@ -7,8 +7,8 @@ import { apiLogin, creds } from '../fixtures/auth.js';
 const pgUrl = `postgres://postgres:${process.env.PWP_POSTGRES_PASSWORD ?? 'x'}@postgres:5432/componode_pw`;
 
 test.describe('table coverage registry', () => {
-  test('registry accounts for all 35 application-owned tables + 2 exclusions', () => {
-    expect(APP_TABLES).toHaveLength(35);
+  test('registry accounts for all 36 application-owned tables + 2 exclusions', () => {
+    expect(APP_TABLES).toHaveLength(36);
     expect(EXCLUDED_TABLES.sort()).toEqual(['kysely_migration', 'kysely_migration_lock'].sort());
   });
 

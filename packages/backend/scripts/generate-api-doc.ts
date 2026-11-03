@@ -77,6 +77,7 @@ const CODE_MEANINGS: Record<string, string> = {
   AGENT_OFFLINE: "Bound import agent is not connected (503)",
   URL_CHECK_NOT_FOUND: "URL check not found (404)",
   MONITORING_SETUP_NOT_FOUND: "Component monitoring setup not found (404)",
+  URL_CHECK_WRITE_DEPRECATED: "Direct URL check writes are deprecated — manage checks through the ImporterConfig (410)",
   AGENT_TEST_TIMEOUT:
     "Agent did not answer the credential test in time (504)",
   CREDENTIAL_NO_BOUND_AGENT:
