@@ -53,3 +53,23 @@ each check's URL and status/history are distinct from the instance's existing
 
 **Amended by ADR-123**: adds URL Checks as separate monitoring records
 associated with a ComponentInstance; see Amendment 1.
+
+## Amendment 2 — URL Check outcomes update monitored instance status (2026-11-03, ADR-126)
+
+**Context**: Web/API importer profiles now create managed URL Checks for their
+ComponentInstances. The user-selected operational signal is the latest
+executed URL Check outcome after the first observation; the prior importer
+status remains the initial value.
+
+**Refinement**: For a ComponentInstance with an active managed URL Check,
+`SUCCESS` updates `status` to `RUNNING` and `FAILURE` updates it to `ERROR`.
+`MISSED`, no-data, and disabled checks preserve the last status. After the
+first check observation, later importer status values do not overwrite it.
+Source reconciliation remains the sole writer of `GONE`, and a check cannot
+update an instance whose Component is `RETIRED`.
+
+---
+
+**Amended by ADR-126**: URL Check observations become authoritative for
+monitored ComponentInstance status after the initial observation; `GONE`
+remains source-reconciliation state.

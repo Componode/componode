@@ -40,7 +40,7 @@ decisions:
 **Rationale**: Componode's UX was emergent from implementation rather than
 designed, and its core differentiator (product composition) was invisible in
 the UI. A single normative doc gives specs a reference the way
-`docs/data-model.md` does for schema, while keeping the decision *record* in
+`docs/data-model.md` does for schema, while keeping the decision _record_ in
 the ADR stream per project convention. The specific choices favor
 catalog-management workflows (list/tree-shaped, dense, keyboard-friendly)
 over graph exploration; the deferred items (graph canvas, mobile, activity
@@ -57,3 +57,19 @@ decisions; each graduates to its own ADR or spec before implementation.
 **Amended by ADR-118**: the "no in-app graph canvas" boundary on the product
 Map is relaxed — a read-only relations canvas is ratified. Interactive graph
 authoring remains out of scope (gap G31, needs its own ADR/spec).
+
+---
+
+**Amended by ADR-126**: `docs/ux.md` §9 approves the nested Web/API
+profile/instance builder as a scoped custom importer-form control; the
+general nested schema-renderer boundary is unchanged.
+
+---
+
+**Amended by ADR-127**: the Product Map topology moves to the Dependencies
+tab while retaining the read-only, data-true canvas constraints.
+
+---
+
+**Amended by ADR-128**: Component detail gains a typed, read-only
+Relationships tab with nested ComponentInstances.

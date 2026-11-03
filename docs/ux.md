@@ -14,7 +14,7 @@ description: Design tokens, conventions, information architecture, and gap gover
 
 This document is the single UX/UI reference for Componode: the design
 system (tokens, components, patterns) plus the conventions every page must
-follow. ADRs record *why*; this file records *what the UI must look like*.
+follow. ADRs record _why_; this file records _what the UI must look like_.
 
 ---
 
@@ -40,13 +40,13 @@ All color/space/typography comes from the CSS custom properties in
 `packages/frontend/src/ux/styles.css` and `index.css` — **never hardcoded**
 hex or palette utilities (`bg-amber-500`, `text-red-600`) in components.
 
-| Token group | Role |
-|---|---|
-| `background`/`foreground`, `card`, `muted`, `accent`, `border`, `input`, `ring` | Base surfaces and text |
+| Token group                                                                      | Role                                             |
+| -------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `background`/`foreground`, `card`, `muted`, `accent`, `border`, `input`, `ring`  | Base surfaces and text                           |
 | `primary`, `secondary`, `destructive`, `warning`, `info` (+ `-foreground` pairs) | Semantic emphasis — status tones come from these |
-| `sidebar-*` | Shell sidebar surfaces |
-| `chart-1`…`chart-5` | Data visualization series only |
-| `radius` scale (`rounded-md` etc.) | Consistent cornering |
+| `sidebar-*`                                                                      | Shell sidebar surfaces                           |
+| `chart-1`…`chart-5`                                                              | Data visualization series only                   |
+| `radius` scale (`rounded-md` etc.)                                               | Consistent cornering                             |
 
 - **Dark mode** ships via `next-themes`; tokens carry dark values. Default
   follows `prefers-color-scheme`; a picker lives in Settings → Appearance.
@@ -93,23 +93,23 @@ tab (`sessionStorage`).
 
 ### Route map (post-cutover `/` tree)
 
-| Route | Page | Min role |
-|---|---|---|
-| `/` | Dashboard | — |
-| `/products`, `/products/new`, `/products/import`, `/products/:slug` (+`/edit`,`/history`) | Product tree, authoring, detail | editor for writes |
-| `/components`, `/components/:slug` (+`/promote`,`/history`) | Catalog, promotion, detail | editor for writes |
-| `/component-groups`, `…/:slug` | Groups | — |
-| `/suggestions` | Edge-suggestion queue | — |
-| `/importers`, `…/new`, `…/:id` (+`/edit`,`/runs/:runId`) | Import operations | — |
-| `/agents`, `/agents/:id` | Import Agent fleet | ADMIN |
-| `/sources`, `/sources/:id` | ImporterSource provenance | — (retire/reactivate ADMIN via API) |
-| `/lobs`, `…/:slug`, `/teams`, `…/:slug` | Org entities | editor for writes |
-| `/users`, `/users/:id` | User management | ADMIN |
-| `/sessions` | Own sessions | — |
-| `/credentials`, `…/new`, `…/:id` (+`/edit` rotate) | Credential store | ADMIN |
-| `/activity` | Audit feed | ADMIN |
-| `/settings/*` | profile, appearance, security, notifications / workspace, authentication, session-policy, advanced | admin sections ADMIN |
-| `/login`, `/register`, `/auth/oidc/callback` | Auth (no shell) | — |
+| Route                                                                                     | Page                                                                                               | Min role                            |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `/`                                                                                       | Dashboard                                                                                          | —                                   |
+| `/products`, `/products/new`, `/products/import`, `/products/:slug` (+`/edit`,`/history`) | Product tree, authoring, detail                                                                    | editor for writes                   |
+| `/components`, `/components/:slug` (+`/promote`,`/history`)                               | Catalog, promotion, detail (includes Relationships tab)                                            | editor for writes                   |
+| `/component-groups`, `…/:slug`                                                            | Groups                                                                                             | —                                   |
+| `/suggestions`                                                                            | Edge-suggestion queue                                                                              | —                                   |
+| `/importers`, `…/new`, `…/:id` (+`/edit`,`/runs/:runId`)                                  | Import operations                                                                                  | —                                   |
+| `/agents`, `/agents/:id`                                                                  | Import Agent fleet                                                                                 | ADMIN                               |
+| `/sources`, `/sources/:id`                                                                | ImporterSource provenance                                                                          | — (retire/reactivate ADMIN via API) |
+| `/lobs`, `…/:slug`, `/teams`, `…/:slug`                                                   | Org entities                                                                                       | editor for writes                   |
+| `/users`, `/users/:id`                                                                    | User management                                                                                    | ADMIN                               |
+| `/sessions`                                                                               | Own sessions                                                                                       | —                                   |
+| `/credentials`, `…/new`, `…/:id` (+`/edit` rotate)                                        | Credential store                                                                                   | ADMIN                               |
+| `/activity`                                                                               | Audit feed                                                                                         | ADMIN                               |
+| `/settings/*`                                                                             | profile, appearance, security, notifications / workspace, authentication, session-policy, advanced | admin sections ADMIN                |
+| `/login`, `/register`, `/auth/oidc/callback`                                              | Auth (no shell)                                                                                    | —                                   |
 
 ### Internal links
 
@@ -136,14 +136,14 @@ to the first tab so deep links never render an empty panel. Never hand-roll
 
 ### State matrix
 
-| State | Convention |
-|---|---|
-| Initial loading | `TableSkeleton`/shaped `Skeleton` — no full-page spinners |
-| Refetch | Keep existing data (TanStack `placeholderData`); no layout shift |
-| Empty | `EmptyState` — icon, one-line explanation, one primary action |
-| Error | `ErrorState` with `errorMessage(err)` + retry |
-| 403 Forbidden | `ForbiddenState`/in-page notice; UI guards are advisory — the API enforces |
-| 404 | `NotFoundState` linking back to the section root |
+| State           | Convention                                                                 |
+| --------------- | -------------------------------------------------------------------------- |
+| Initial loading | `TableSkeleton`/shaped `Skeleton` — no full-page spinners                  |
+| Refetch         | Keep existing data (TanStack `placeholderData`); no layout shift           |
+| Empty           | `EmptyState` — icon, one-line explanation, one primary action              |
+| Error           | `ErrorState` with `errorMessage(err)` + retry                              |
+| 403 Forbidden   | `ForbiddenState`/in-page notice; UI guards are advisory — the API enforces |
+| 404             | `NotFoundState` linking back to the section root                           |
 
 `errorMessage`/`isNotFound`/`isForbidden` in `src/ux/lib/api-state.ts`
 classify API errors uniformly.
@@ -210,8 +210,14 @@ detailed entry in **`researches/ux-rewrite-gaps.md`**:
 ## 8. Scope boundaries
 
 - ≥1280px optimized, ~768px usable; sub-`md` = nav drawer only (ADR-108).
-- The product "Map" is a **read-only** relations canvas (ADR-118). An
-  interactive/authoring graph still requires its own ADR.
+- Product topology is a **read-only** view at the top of the Dependencies
+  tab (ADR-118 Amendment 1 / ADR-127). Keyboard focus, selection, inspection,
+  and `+N` expansion are view affordances; pan/zoom/drag/layout editing and
+  edge authoring remain out of scope.
+- Component detail has a separate **read-only Relationships** tab
+  (ADR-128). It reuses the Product Map's accessibility patterns while
+  preserving typed Component relation semantics; ComponentInstances remain
+  nested children.
 - No dashboard widget customization, no notification backend, no TOTP —
   all flagged gaps, not hidden bugs.
 
@@ -227,10 +233,10 @@ Deferred — each needs its own ADR or spec:
 - Credential-form provider scaffolds — free-form key/value is the model
 - Mobile/tablet support beyond the nav drawer
 - Custom importer-form widgets beyond the schema-driven scope renderer
-  (nested/complex fields stay on per-field JSON) — resolved in one place:
-  the dedicated URL Check editor on the Component detail "URL checks"
-  card and the create-with-checks flow are approved custom controls
-  (spec 051); the general importer-scope-form question stays open
+  (nested/complex fields stay on per-field JSON) — approved exceptions are
+  the dedicated URL Check editor on Component detail (spec 051) and the
+  nested Web/API profile/instance builder (ADR-126 / spec 058); the general
+  importer-scope-form question remains open for other importers
 - Notification delivery (gap G15), TOTP (gap G16), session concurrency
   controls (gap G17), workspace profile fields (gap G18), retention/export
   operations (gap G19)

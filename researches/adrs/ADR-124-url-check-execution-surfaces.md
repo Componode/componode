@@ -284,6 +284,42 @@ decision — the summary is computed from observations at read time.
 non-null `credentialId` writes require `credential:read` and AGENT
 vantage/`agentId` writes require `agent:read`.
 
+## Amendment 4 — Importer-managed check synchronization (2026-11-03, ADR-126)
+
+**Context**: ADR-126 makes ImporterConfig the canonical definition source
+for one managed URL Check per configured ComponentInstance. The URL Check
+table remains the scheduler/runtime record, so synchronization must preserve
+the spec-056 auto-disable state and the bounded execution contract.
+
+**Refinements**:
+
+- Core synchronization upserts managed checks by stable ComponentInstance
+  and check key, preserving `url_checks.id` and observations during ordinary
+  edits. Repeated import runs do not re-enable an auto-disabled check or reset
+  its failure streak.
+- A false-to-true ImporterConfig `enabled` transition is an explicit manual
+  re-enable for its configured-enabled checks: it clears `autoDisabledAt`,
+  resets `consecutiveFailures`, and resumes the Component setup
+  cadence/vantage. A check configured disabled remains disabled.
+- For a shared check key, the effective schedule remains enabled while any
+  effective, enabled Source membership declares it. Conflicting definitions
+  for that key are rejected. A Source becoming `UNMONITORED` pauses only its
+  membership; another enabled owner can keep the shared check running.
+- `SUCCESS`/`FAILURE` observations update monitored ComponentInstance
+  status per ADR-126; `MISSED`, no-data, and disabled states do not create an
+  instance status transition. `GONE` and retired Components remain protected
+  by Source reconciliation and lifecycle rules.
+
+**Unchanged**: auto-disable thresholds, `FAILURE`/`MISSED` streak counting,
+`SUCCESS` reset, bounded Hub/Agent dispatch, one observation per scheduled
+slot, and status-independent URL Check metrics.
+
+---
+
+**Amended by ADR-126**: managed check synchronization preserves
+spec-056 auto-disable state across ordinary runs and integrates with
+ImporterConfig enablement and ComponentInstance status.
+
 ## Amendment 3 — Repeated-failure auto-disable (2026-11-02, spec 056)
 
 **Context**: the original research follow-up asked for an explicit failure
