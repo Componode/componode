@@ -8,10 +8,11 @@ import {
   csrfHeader,
 } from "../helpers/api.js";
 
-// Spec 051 — URL Check auth validation + hub header construction (task
-// T047, gap G2). Route-level auth contract tests (Authorization reserved,
-// API-category gate, AGENT vantage × STORED credential, missing credential
-// keys) plus dispatchProbe header injection for BASIC/BEARER/CUSTOM_HEADERS.
+// Spec 051 — hub dispatchProbe header construction for the three credential
+// auth modes (task T047, gap G2). The write-path auth validation contract
+// (reserved Authorization, API-category gate, CREDENTIAL_KIND_MISMATCH,
+// CREDENTIAL_MISSING_KEY) retired with the check-write routes in spec 058;
+// managed checks are authored by importer configs instead.
 
 const ADMIN_USERNAME = "admin";
 const ADMIN_PASSWORD = "AdminPassword123!";
@@ -143,105 +144,46 @@ describe("url check auth (validation + hub headers)", () => {
     return JSON.parse(res.payload).credential.id as string;
   }
 
-  async function createCheck(
+  async function insertCheck(
     componentId: string,
-    payload: Record<string, unknown>,
+    instanceId: string,
+    fields: Record<string, unknown>,
   ) {
-    return app.inject({
-      method: "POST",
-      url: `/api/v1/components/${componentId}/url-checks`,
-      ...authed(adminSession),
-      payload,
-    });
-  }
-
-  it("rejects a CUSTOM_HEADERS authConfig that names the reserved Authorization header", async () => {
-    const credentialId = await createCredential({ k: "v" });
-    const { componentId, instanceId } = await seedComponent(
-      testDb.db,
-      "auth-reserved",
-    );
-    const res = await createCheck(componentId, {
-      name: "reserved",
-      url: "https://example.com/",
-      componentInstanceId: instanceId,
-      authMode: "CUSTOM_HEADERS",
-      credentialId,
-      authConfig: { headers: [{ name: "Authorization", key: "k" }] },
-    });
-    expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.payload).code).toBe("VALIDATION_FAILED");
-  });
-
-  it("rejects authMode BASIC on a non-API (WEB_ENDPOINT) component", async () => {
-    const credentialId = await createCredential({ u: "x", p: "y" });
-    const { componentId, instanceId } = await seedComponent(
-      testDb.db,
-      "auth-web",
-      { category: "WEB_ENDPOINT" },
-    );
-    const res = await createCheck(componentId, {
-      name: "web-auth",
-      url: "https://example.com/",
-      componentInstanceId: instanceId,
-      authMode: "BASIC",
-      credentialId,
-      authConfig: { usernameKey: "u", passwordKey: "p" },
-    });
-    expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.payload).code).toBe("VALIDATION_FAILED");
-  });
-
-  it("rejects a STORED credential for an AGENT-vantage check (CREDENTIAL_KIND_MISMATCH)", async () => {
-    const agentId = uuidv7();
+    const setupId = uuidv7();
     await testDb.db
-      .insertInto("import_agents")
-      .values({ id: agentId, name: "auth-agent", createdBy: null } as any)
+      .insertInto("component_monitoring_setups")
+      .values({
+        id: setupId,
+        componentId,
+        cadenceSeconds: 60,
+        vantage: "HUB",
+        agentId: null,
+      })
       .execute();
-
-    const credentialId = await createCredential({ u: "x", p: "y" });
-    const { componentId, instanceId } = await seedComponent(
-      testDb.db,
-      "auth-agent-vantage",
-    );
-
-    const setup = await app.inject({
-      method: "PUT",
-      url: `/api/v1/components/${componentId}/monitoring-setup`,
-      ...authed(adminSession),
-      payload: { vantage: "AGENT", agentId },
-    });
-    expect(setup.statusCode).toBe(200);
-
-    const res = await createCheck(componentId, {
-      name: "agent-stored",
-      url: "https://example.com/",
-      componentInstanceId: instanceId,
-      authMode: "BASIC",
-      credentialId,
-      authConfig: { usernameKey: "u", passwordKey: "p" },
-    });
-    expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.payload).code).toBe("CREDENTIAL_KIND_MISMATCH");
-  });
-
-  it("rejects authConfig keys missing from the credential bundle (CREDENTIAL_MISSING_KEY)", async () => {
-    const credentialId = await createCredential({ token: "abc" });
-    const { componentId, instanceId } = await seedComponent(
-      testDb.db,
-      "auth-missing-key",
-    );
-    const res = await createCheck(componentId, {
-      name: "missing-key",
-      url: "https://example.com/",
-      componentInstanceId: instanceId,
-      authMode: "BEARER",
-      credentialId,
-      authConfig: { tokenKey: "notThere" },
-    });
-    expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.payload).code).toBe("CREDENTIAL_MISSING_KEY");
-  });
+    const checkId = uuidv7();
+    await testDb.db
+      .insertInto("url_checks")
+      .values({
+        id: checkId,
+        setupId,
+        componentInstanceId: instanceId,
+        name: `check-${checkId.slice(0, 8)}`,
+        url: "https://example.com/private",
+        method: "GET",
+        enabled: true,
+        successPolicy: { codes: [], ranges: [{ min: 200, max: 299 }] },
+        authMode: "NONE",
+        authConfig: null,
+        nextProbeAt: now(),
+        createdBy: null,
+        updatedBy: null,
+        createdAt: now(),
+        updatedAt: now(),
+        ...fields,
+      } as never)
+      .execute();
+    return checkId;
+  }
 
   // --- Hub dispatchProbe header injection ----------------------------------
 
@@ -252,16 +194,11 @@ describe("url check auth (validation + hub headers)", () => {
     authConfig: Record<string, unknown>,
   ) {
     const { componentId, instanceId } = await seedComponent(testDb.db, slug);
-    const created = await createCheck(componentId, {
-      name: `check-${slug}`,
-      url: "https://example.com/private",
-      componentInstanceId: instanceId,
+    const checkId = await insertCheck(componentId, instanceId, {
       authMode,
       credentialId,
       authConfig,
     });
-    expect(created.statusCode).toBe(201);
-    const checkId = JSON.parse(created.payload).check.id;
 
     let captured: Record<string, unknown> | null = null;
     await dispatchProbe(checkId, iso(-60_000), {

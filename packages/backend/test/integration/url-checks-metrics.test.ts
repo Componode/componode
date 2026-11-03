@@ -75,6 +75,43 @@ async function seedComponent(db: TestDb["db"], slug = "api") {
 
 // Component + shared setup + checks seeded directly (bypasses HTTP so
 // sibling checks can share one setup and dispatch can be driven directly).
+async function insertCheck(
+  db: TestDb["db"],
+  slug: string,
+  overrides: Record<string, unknown> = {},
+) {
+  const { componentId, instanceId } = await seedComponent(db, slug);
+  const setupId = uuidv7();
+  await db
+    .insertInto("component_monitoring_setups")
+    .values({
+      id: setupId,
+      componentId,
+      cadenceSeconds: 300,
+      vantage: "HUB",
+      agentId: null,
+    })
+    .execute();
+  const checkId = uuidv7();
+  await db
+    .insertInto("url_checks")
+    .values({
+      id: checkId,
+      setupId,
+      componentInstanceId: instanceId,
+      credentialId: null,
+      name: slug,
+      url: "https://example.com/",
+      method: "GET",
+      enabled: true,
+      cadenceSeconds: null,
+      successPolicy: { codes: [], ranges: [{ min: 200, max: 299 }] },
+      ...overrides,
+    } as never)
+    .execute();
+  return { componentId, instanceId, checkId };
+}
+
 async function seedChecks(
   db: TestDb["db"],
   slug: string,
@@ -203,24 +240,12 @@ describe("url check metrics + observations (US3)", () => {
   });
 
   it("computes availability, errorRate, coverageGap, percentiles, counts, latest, and target echo", async () => {
-    const { componentId, instanceId } = await seedComponent(
-      testDb.db,
-      "m-full",
-    );
-    const created = await app.inject({
-      method: "POST",
-      url: `/api/v1/components/${componentId}/url-checks`,
-      ...authed(adminSession),
-      payload: {
-        name: "metrics",
-        url: "https://example.com/health",
-        componentInstanceId: instanceId,
-        availabilityTarget: 99.5,
-        targetWindow: "30D",
-      },
+    const { componentId, checkId } = await insertCheck(testDb.db, "m-full", {
+      name: "metrics",
+      url: "https://example.com/health",
+      availabilityTarget: 99.5,
+      targetWindow: "30D",
     });
-    expect(created.statusCode).toBe(201);
-    const checkId = JSON.parse(created.payload).check.id;
 
     // 2 SUCCESS (durations 100/300), 1 FAILURE, 1 MISSED — MISSED is the
     // most recent so `latest` surfaces it.
@@ -277,21 +302,9 @@ describe("url check metrics + observations (US3)", () => {
   });
 
   it("excludes observations older than the window and reports null target when unset", async () => {
-    const { componentId, instanceId } = await seedComponent(
-      testDb.db,
-      "m-window",
-    );
-    const created = await app.inject({
-      method: "POST",
-      url: `/api/v1/components/${componentId}/url-checks`,
-      ...authed(adminSession),
-      payload: {
-        name: "windowed",
-        url: "https://example.com/",
-        componentInstanceId: instanceId,
-      },
+    const { componentId, checkId } = await insertCheck(testDb.db, "m-window", {
+      name: "windowed",
     });
-    const checkId = JSON.parse(created.payload).check.id;
 
     // Outside the 24h window — must not count.
     await seedObservation(testDb.db, checkId, {
@@ -328,21 +341,9 @@ describe("url check metrics + observations (US3)", () => {
   });
 
   it("paginates observations with the nextBefore cursor", async () => {
-    const { componentId, instanceId } = await seedComponent(
-      testDb.db,
-      "m-pages",
-    );
-    const created = await app.inject({
-      method: "POST",
-      url: `/api/v1/components/${componentId}/url-checks`,
-      ...authed(adminSession),
-      payload: {
-        name: "paged",
-        url: "https://example.com/",
-        componentInstanceId: instanceId,
-      },
+    const { componentId, checkId } = await insertCheck(testDb.db, "m-pages", {
+      name: "paged",
     });
-    const checkId = JSON.parse(created.payload).check.id;
 
     const oldest = await seedObservation(testDb.db, checkId, {
       scheduledAt: iso(-3 * 60 * 60 * 1000),
