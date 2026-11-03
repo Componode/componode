@@ -95,6 +95,17 @@ export type {
   ComponentGroup,
   ComponentGroupListItem,
 } from "./contracts/component-group.js";
+export {
+  COMPONENT_RELATION_KINDS,
+} from "./contracts/component-relationships.js";
+export type {
+  RelatedComponent,
+  ComponentProductDependent,
+  ComponentGroupRef,
+  GroupMediatedDependent,
+  ComponentRelationKind,
+  ComponentRelationships,
+} from "./contracts/component-relationships.js";
 export type {
   DigitalProduct,
   ProductHealth,
@@ -254,6 +265,7 @@ export {
   createComponentGroupSchema,
   updateComponentGroupSchema,
   listComponentGroupsQuerySchema,
+  componentRelationshipsQuerySchema,
 } from "./schemas/components.js";
 export { searchQuerySchema } from "./schemas/search.js";
 export type { SearchQuery } from "./schemas/search.js";
@@ -311,6 +323,7 @@ export type {
   CreateComponentGroupInput,
   UpdateComponentGroupInput,
   ListComponentGroupsQuery,
+  ComponentRelationshipsQuery,
 } from "./schemas/components.js";
 export type {
   LoginInput,

@@ -10,6 +10,7 @@ import type {
   ComponentWithInstances,
   ComponentListResponse,
   ComponentDependent,
+  ComponentRelationshipsResponse,
   PlatformCandidate,
   PromoteToPlatformInput,
   PromoteToPlatformResult,
@@ -81,6 +82,22 @@ export function useComponentDetail(id: string | null) {
     queryKey: ["components", id],
     queryFn: () =>
       api<{ component: ComponentWithInstances }>(`/components/${id}`),
+    enabled: id !== null,
+  });
+}
+
+/** Spec 060: one-hop typed relationships for the read-only Relationships tab. */
+export function useComponentRelationships(
+  id: string | null,
+  options: { includeGone?: boolean } = {},
+) {
+  const includeGone = options.includeGone ?? false;
+  return useQuery({
+    queryKey: ["component-relationships", id, includeGone],
+    queryFn: () =>
+      api<ComponentRelationshipsResponse>(
+        `/components/${id}/relationships${includeGone ? "?includeGone=true" : ""}`,
+      ),
     enabled: id !== null,
   });
 }

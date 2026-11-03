@@ -5,17 +5,21 @@ import type {
   Component as ApiComponent,
   ComponentGroup as ApiComponentGroup,
   ComponentInstance as ApiInstance,
+  ComponentRelationshipsResponse,
   DigitalProduct,
   ProductDetail,
   ProductRef,
+  RelatedComponentRef,
 } from "@/api/types";
 import type {
   Component,
   ComponentGroupView,
   ComponentInstance,
+  ComponentRelationshipsView,
   Product,
   ProductComponentRow,
   ProductTopology,
+  RelatedComponentNode,
   RelatedProduct,
 } from "@/ux/lib/view-types";
 import type {
@@ -149,6 +153,60 @@ export function mapProductTopology(d: ProductDetail): ProductTopology {
       ),
     })),
     unavailableGroups: d.unavailableRelationGroups ?? [],
+  };
+}
+
+/** Spec 060: typed related-Component ref → lane node. */
+export function mapRelatedComponent(ref: RelatedComponentRef): RelatedComponentNode {
+  return {
+    id: ref.id,
+    name: ref.name,
+    slug: ref.slug,
+    category: ref.category,
+    provider: narrow<Provider>(ref.provider, PROVIDERS, "OTHER"),
+    resourceType: ref.resourceType,
+    lifecycle: narrow<Lifecycle>(ref.lifecycle, LIFECYCLES, "ACTIVE"),
+  };
+}
+
+/** Spec 060: relationships read → view-model — the sole conversion seam so
+ *  every typed lane, provenance path, and degradation flag is carried. */
+export function mapComponentRelationships(
+  res: ComponentRelationshipsResponse,
+): ComponentRelationshipsView {
+  const rel = res.relationships;
+  return {
+    component: mapRelatedComponent(res.component),
+    dependsOn: rel.dependsOn.map(mapRelatedComponent),
+    dependedOnBy: rel.dependedOnBy.map(mapRelatedComponent),
+    sourcesFrom: rel.sourcesFrom.map(mapRelatedComponent),
+    sourcedBy: rel.sourcedBy.map(mapRelatedComponent),
+    exposes: rel.exposes.map(mapRelatedComponent),
+    exposedBy: rel.exposedBy.map(mapRelatedComponent),
+    productDependents: {
+      direct: rel.productDependents.direct.map((p) => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        type: narrow<ProductType>(p.type, PRODUCT_TYPES, "CUSTOMER_FACING"),
+        lifecycle: narrow<Lifecycle>(p.lifecycle, LIFECYCLES, "ACTIVE"),
+      })),
+      viaGroups: rel.productDependents.viaGroups.map((p) => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        type: narrow<ProductType>(p.type, PRODUCT_TYPES, "CUSTOMER_FACING"),
+        lifecycle: narrow<Lifecycle>(p.lifecycle, LIFECYCLES, "ACTIVE"),
+        viaGroup: {
+          id: p.viaGroup.id,
+          name: p.viaGroup.name,
+          slug: p.viaGroup.slug,
+          lifecycle: narrow<Lifecycle>(p.viaGroup.lifecycle, LIFECYCLES, "ACTIVE"),
+        },
+      })),
+    },
+    instances: rel.instances.map(mapComponentInstance),
+    unavailableKinds: res.unavailableKinds ?? [],
   };
 }
 

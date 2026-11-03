@@ -53,6 +53,15 @@ one environment without creating a second Component. URL checks
 themselves are declared on a Web/API ImporterConfig and materialize on
 import runs; the card is read-only and links to the owning configuration.
 
+**Component Relationships** — the component detail's **Relationships** tab
+is a read-only, one-hop view of everything stored about a component: typed
+Component relations in both directions (`DEPENDS_ON`, `SOURCES_FROM`,
+`EXPOSES`), Products that depend on it — directly or *via* a named
+ComponentGroup — and its instances nested with environment and status.
+Lanes show four entries with `+N` expansion; nodes are keyboard-operable
+(Enter/Space to inspect, Escape to clear). Empty lanes are honest empty
+states, not errors — the view never infers relations.
+
 **Component Groups** (`/component-groups`) — human-declared equivalences:
 "these three imported things are the same logical component." Products can
 depend on a group instead of a single component.

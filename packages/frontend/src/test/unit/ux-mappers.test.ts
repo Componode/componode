@@ -733,3 +733,72 @@ describe("mapRelatedProduct (spec 059)", () => {
     expect(view.lifecycle).toBe("RETIRED");
   });
 });
+
+import { mapComponentRelationships } from "@/api/mappers/catalog";
+import type { ComponentRelationshipsResponse } from "@/api/types";
+
+describe("mapComponentRelationships (spec 060)", () => {
+  const ref = (slug: string, over: Record<string, unknown> = {}) => ({
+    id: `id-${slug}`,
+    name: slug,
+    slug,
+    category: "REPOSITORY",
+    provider: "GITHUB",
+    resourceType: "repo",
+    lifecycle: "ACTIVE",
+    ...over,
+  });
+
+  const response: ComponentRelationshipsResponse = {
+    component: ref("focused"),
+    relationships: {
+      dependsOn: [ref("dep")],
+      dependedOnBy: [],
+      sourcesFrom: [],
+      sourcedBy: [],
+      exposes: [],
+      exposedBy: [],
+      productDependents: {
+        direct: [{ id: "p1", name: "Direct", slug: "direct", type: "PLATFORM", lifecycle: "ACTIVE" }],
+        viaGroups: [
+          {
+            id: "p2",
+            name: "Via",
+            slug: "via",
+            type: "BUSINESS_CAPABILITY",
+            lifecycle: "ACTIVE",
+            viaGroup: { id: "g1", name: "Group", slug: "group", lifecycle: "RETIRED" },
+          },
+        ],
+      },
+      instances: [instance],
+    },
+    unavailableKinds: ["exposes"],
+  };
+
+  it("maps every typed lane, provenance path, and degradation flag", () => {
+    const view = mapComponentRelationships(response);
+    expect(view.component.slug).toBe("focused");
+    expect(view.dependsOn).toHaveLength(1);
+    expect(view.productDependents.direct[0]?.type).toBe("PLATFORM");
+    expect(view.productDependents.viaGroups[0]?.viaGroup).toEqual({
+      id: "g1",
+      name: "Group",
+      slug: "group",
+      lifecycle: "RETIRED",
+    });
+    expect(view.instances).toHaveLength(1);
+    expect(view.instances[0]?.environment).toBe("PRODUCTION");
+    expect(view.unavailableKinds).toEqual(["exposes"]);
+  });
+
+  it("narrows unknown enums to neutral fallbacks", () => {
+    const weird: ComponentRelationshipsResponse = {
+      ...response,
+      component: ref("weird", { provider: "MARS", lifecycle: "ARCHIVED" }),
+    };
+    const view = mapComponentRelationships(weird);
+    expect(view.component.provider).toBe("OTHER");
+    expect(view.component.lifecycle).toBe("ACTIVE");
+  });
+});

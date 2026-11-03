@@ -13,7 +13,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CATEGORY_LABELS, PROVIDER_META } from "@/ux/lib/domain"
 import { flags } from "@/ux/lib/flags"
 import { formatDate } from "@/ux/lib/format"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ux/components/ui/tabs"
+import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import { ComponentEditDialog } from "@/ux/components/catalog/component-edit-dialog"
+import { ComponentRelationshipsPanel } from "@/ux/components/catalog/component-relationships"
 import { UrlChecksCard } from "@/ux/components/catalog/url-checks-card"
 import type { Component, ComponentInstance } from "@/ux/lib/view-types"
 import { ux } from "@/ux/lib/paths"
@@ -69,7 +72,10 @@ function ObservationDetails({ obs }: { obs: DockerObservation }) {
   );
 }
 
+const TABS = ["overview", "relationships"] as const
+
 export function ComponentDetail({ component: c }: { component: Component }) {
+  const [tab, setTab] = useValidatedTab(TABS)
   const [expanded, setExpanded] = React.useState<ReadonlySet<string>>(new Set());
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -122,6 +128,15 @@ export function ComponentDetail({ component: c }: { component: Component }) {
         </Alert>
       )}
 
+      <Tabs value={tab} onValueChange={(v) => setTab(v as (typeof TABS)[number])} className="gap-6">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          {flags.componentRelationships && (
+            <TabsTrigger value="relationships">Relationships</TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="overview">
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 overflow-hidden pb-0">
           <CardHeader>
@@ -214,6 +229,14 @@ export function ComponentDetail({ component: c }: { component: Component }) {
         </Card>
         <UrlChecksCard component={c} />
       </div>
+        </TabsContent>
+
+        {flags.componentRelationships && (
+          <TabsContent value="relationships">
+            <ComponentRelationshipsPanel componentId={c.id} />
+          </TabsContent>
+        )}
+      </Tabs>
     </PageContainer>
   )
 }

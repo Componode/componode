@@ -44,6 +44,8 @@ export const flags = {
   importerProfileBuilder: true,
   /** Related-product health/count on the Dependencies topology (gap G34, spec 059). */
   productMapTopology: true,
+  /** Read-only typed Component relationships read + tab (gap G35, spec 060). */
+  componentRelationships: true,
 } as const;
 
 export type GapFlag = keyof typeof flags;

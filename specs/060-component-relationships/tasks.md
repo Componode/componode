@@ -10,9 +10,9 @@ implementation and verify each failure has the intended cause.
 
 ## Phase 1: Setup
 
-- [ ] T001 Confirm the `060-component-relationships` branch and
+- [x] T001 Confirm the `060-component-relationships` branch and
       `.specify/feature.json` point to `specs/060-component-relationships/spec.md`
-- [ ] T002 Review `researches/adrs/ADR-016-component-component-relationships.md`,
+- [x] T002 Review `researches/adrs/ADR-016-component-component-relationships.md`,
       `researches/adrs/ADR-048-graph-relationship-persistence.md`,
       `packages/backend/src/routes/components.ts`, and
       `packages/backend/src/services/component-catalog-service.ts`
@@ -21,19 +21,19 @@ implementation and verify each failure has the intended cause.
 
 **Purpose**: Define and test the typed read contract before the UI consumes it.
 
-- [ ] T003 [P] Add failing backend integration coverage in
+- [x] T003 [P] Add failing backend integration coverage in
       `packages/backend/test/integration/component-detail.test.ts` for typed
       Component relation directions, empty groups, unavailable relation groups,
       and bounded query count
-- [ ] T004 [P] Add failing backend integration coverage in
+- [x] T004 [P] Add failing backend integration coverage in
       `packages/backend/test/integration/components.test.ts` for direct Product
       dependents, Product paths via ComponentGroup, lifecycle visibility, and
       read-only authentication behavior
-- [ ] T005 [P] Add failing frontend view tests in
+- [x] T005 [P] Add failing frontend view tests in
       `packages/frontend/src/test/unit/component-relationships.test.tsx` for
       typed lanes, direction labels, group provenance, nested instances, and
       empty states
-- [ ] T006 Add failing route/permission coverage in
+- [x] T006 Add failing route/permission coverage in
       `packages/backend/test/integration/components.test.ts` proving the new
       relationship read is authenticated and side-effect-free
 
@@ -51,21 +51,21 @@ appears in its typed lane without inferred edges.
 
 ### Tests for User Story 1
 
-- [ ] T007 [US1] Extend `packages/backend/test/integration/component-detail.test.ts`
+- [x] T007 [US1] Extend `packages/backend/test/integration/component-detail.test.ts`
       to fail for missing `DEPENDS_ON`, `SOURCES_FROM`, and `EXPOSES` read results
-- [ ] T008 [US1] Extend
+- [x] T008 [US1] Extend
       `packages/frontend/src/test/unit/component-relationships.test.tsx` to fail
       for incorrect incoming/outgoing relation labels and reversed endpoints
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Define the typed Component relationship read contract in
+- [x] T009 [US1] Define the typed Component relationship read contract in
       `packages/core/src/contracts/component-relationships.ts` and export it
       through `packages/core/src/index.ts`
-- [ ] T010 [US1] Implement bounded typed relation queries in
+- [x] T010 [US1] Implement bounded typed relation queries in
       `packages/backend/src/services/component-relationship-service.ts` using
       the existing Component junction tables
-- [ ] T011 [US1] Add authenticated
+- [x] T011 [US1] Add authenticated
       `GET /api/v1/components/:id/relationships` to
       `packages/backend/src/routes/components.ts` with safe not-found and
       validation errors and the default-false `includeGone` query
@@ -83,19 +83,19 @@ ComponentGroup-mediated dependency; verify both are visible and attributed.
 
 ### Tests for User Story 2
 
-- [ ] T012 [P] [US2] Add direct and group-mediated Product path fixtures to
+- [x] T012 [P] [US2] Add direct and group-mediated Product path fixtures to
       `packages/backend/test/integration/component-detail.test.ts`
-- [ ] T013 [US2] Add frontend assertions for “via [ComponentGroup]” and
+- [x] T013 [US2] Add frontend assertions for “via [ComponentGroup]” and
       direct-versus-group path distinction in
       `packages/frontend/src/test/unit/component-relationships.test.tsx`
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Extend
+- [x] T014 [US2] Extend
       `packages/backend/src/services/component-relationship-service.ts` to read
       Product dependents and ComponentGroup-mediated paths from existing typed
       product relation tables
-- [ ] T015 [US2] Add frontend view types and mapper coverage in
+- [x] T015 [US2] Add frontend view types and mapper coverage in
       `packages/frontend/src/api/types.ts`,
       `packages/frontend/src/api/mappers/catalog.ts`, and
       `packages/frontend/src/test/unit/ux-mappers.test.ts`
@@ -114,22 +114,22 @@ recomputed by the view.
 
 ### Tests for User Story 3
 
-- [ ] T016 [P] [US3] Add instance nesting, Overview duplication, and GONE
+- [x] T016 [P] [US3] Add instance nesting, Overview duplication, and GONE
       visibility tests to
       `packages/frontend/src/test/unit/component-relationships.test.tsx`
-- [ ] T017 [US3] Add detail-read contract coverage for instance environment,
+- [x] T017 [US3] Add detail-read contract coverage for instance environment,
       status, default GONE exclusion, and explicit `includeGone=true` in
       `packages/backend/test/integration/component-detail.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T018 [US3] Include nested ComponentInstance refs in the typed
+- [x] T018 [US3] Include nested ComponentInstance refs in the typed
       relationship read with `includeGone` filtering in
       `packages/backend/src/services/component-relationship-service.ts`
-- [ ] T019 [US3] Render nested instances with the existing Environment and
+- [x] T019 [US3] Render nested instances with the existing Environment and
       Health badges in
       `packages/frontend/src/ux/components/catalog/component-relationships.tsx`
-- [ ] T020 [US3] Preserve the existing Overview Instances table and add the
+- [x] T020 [US3] Preserve the existing Overview Instances table and add the
       Relationships tab using `useValidatedTab`, keeping read-only URL Check
       summaries in Overview, in
       `packages/frontend/src/ux/components/catalog/component-detail.tsx`
@@ -147,22 +147,22 @@ without graph editing.
 
 ### Tests for User Story 4
 
-- [ ] T021 [P] [US4] Add keyboard reachability, accessible names, focus
+- [x] T021 [P] [US4] Add keyboard reachability, accessible names, focus
       announcement, Escape, and no-write tests in
       `packages/frontend/src/test/unit/component-relationships.test.tsx`
-- [ ] T022 [P] [US4] Add responsive, reduced-motion, and relationship
+- [x] T022 [P] [US4] Add responsive, reduced-motion, and relationship
       navigation coverage in
       `playwright/tests/journeys/component-relationships.spec.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T023 [US4] Add the typed lane layout, focus state, inspection panel,
+- [x] T023 [US4] Add the typed lane layout, focus state, inspection panel,
       and `+N` expansion in
       `packages/frontend/src/ux/components/catalog/component-relationships.tsx`
-- [ ] T024 [US4] Wire loading, empty, error, forbidden, and partial relation
+- [x] T024 [US4] Wire loading, empty, error, forbidden, and partial relation
       states through `packages/frontend/src/ux/app/components/$slug.tsx`
       and `packages/frontend/src/ux/components/catalog/component-detail.tsx`
-- [ ] T025 [US4] Add the `componentRelationships` fallback flag in
+- [x] T025 [US4] Add the `componentRelationships` fallback flag in
       `packages/frontend/src/ux/lib/flags.ts` with the matching G35 gap entry in
       `researches/ux-rewrite-gaps.md`
 
@@ -171,21 +171,21 @@ never fabricates missing relationship data.
 
 ## Phase 7: Contracts, documentation, and verification
 
-- [ ] T026 Add the relationship read operation and schemas to
+- [x] T026 Add the relationship read operation and schemas to
       `docs/openapi.yaml`, including session security and 401/404 responses
-- [ ] T027 Regenerate `docs/api.md` with
+- [x] T027 Regenerate `docs/api.md` with
       `pnpm --filter @componode/backend docs:api` and verify
       `pnpm --filter @componode/backend docs:api:check`
-- [ ] T028 Update the Component detail/Relationships tab description in
+- [x] T028 Update the Component detail/Relationships tab description in
       `docs/ux.md` and `docs/using-the-catalog.md`
-- [ ] T029 Verify ADR-128, ADR-103 back-pointer, and
+- [x] T029 Verify ADR-128, ADR-103 back-pointer, and
       `researches/architecture-decisions.md` remain consistent
-- [ ] T030 Run backend integration tests in
+- [x] T030 Run backend integration tests in
       `packages/backend/test/integration/component-detail.test.ts` and
       `packages/backend/test/integration/components.test.ts`, frontend tests in
       `packages/frontend/src/test/unit/component-relationships.test.tsx`, and the
       browser journey in `playwright/tests/journeys/component-relationships.spec.ts`
-- [ ] T031 Run `pnpm --filter @componode/backend docs:api:check`,
+- [x] T031 Run `pnpm --filter @componode/backend docs:api:check`,
       `pnpm --filter @componode/frontend typecheck`, and `git diff --check`
 
 ## Dependencies & Execution Order
