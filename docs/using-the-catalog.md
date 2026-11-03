@@ -36,6 +36,13 @@ of Business, Team, Person), and edges:
   platform").
 - `DEPENDS_ON` — product → component **or** component group.
 
+The product detail's **Dependencies** tab opens with a read-only, one-hop
+topology: products that compose or consume this one, products it composes or
+consumes from, and the components and groups it depends on — each in its own
+labeled lane with `+N` expansion and an inspect panel. Components reached
+through a group stay inside the group node. Edge authoring lives below the
+map in the Relations card.
+
 New to the model? Start with [Digital Products in depth](./digital-products).
 
 **Components** (`/components`) — imported assets: repositories, workloads,

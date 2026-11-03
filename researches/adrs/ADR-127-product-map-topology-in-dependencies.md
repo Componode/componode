@@ -71,8 +71,42 @@ existing list-form edge-authoring surface below it.
 - **Add pan/zoom or graph authoring** — rejected; this amendment remains a
   bounded read-only view.
 
+## Amendment 2 — Direct Component dependencies as topology nodes (2026-11-03)
+
+**Spec:** `specs/061-topology-component-deps`
+
+**Context**: The original decision kept individual Components out of the
+canvas. In practice, the most common product shape is a Product whose only
+relations are direct `DEPENDS_ON` Component edges; for those products the map
+rendered a false "No relationships yet" empty state and could not answer the
+triage question it exists for ("what does a failure here touch"). The
+component-exclusion refinement is narrowed to exclude only *group-mediated*
+and `COMPOSES`-inherited paths — never authored direct edges.
+
+**Refinements**:
+
+- Direct `DEPENDS_ON` Component targets appear as typed nodes in a "Depends on
+  components" lane on the outgoing (dependency) side, beside `dependsOnGroups`.
+- Component nodes carry the derived operational status (worst status across
+  their non-`GONE` ComponentInstances) or no-data; `RETIRED` targets are
+  labeled, not dropped. `GONE` is never presented as Component health.
+- Only direct edges produce nodes. Components reachable solely through a
+  depended ComponentGroup remain represented by the group node ("via
+  [ComponentGroup]" provenance, ADR-128), and `COMPOSES`-inherited components
+  are not the focused product's dependencies.
+- The lane reuses the existing mechanics: four-node cap with `+N` expansion,
+  keyboard selection/inspection/Escape, and an Open component action.
+- No read contract change: node data comes from the existing detail read
+  (`components.declared` `DIRECT` sources + the instances rollup); the map
+  stays read-only and bounded.
+
+**Supersedes**: the "Individual Components remain in their separate Components
+tab" and "Components do not become topology nodes" statements above, and the
+"Put Components on the topology — rejected" alternative, for *direct*
+dependency targets only. The Components tab remains the inventory surface.
+
 ---
 
 **Amended by ADR-127**: Product Map topology is placed in Dependencies with
 typed relation coverage and bounded read-only focus/expansion; see Amendment 1
-to ADR-118.
+to ADR-118. Amendment 2 adds direct Component dependency nodes.

@@ -6,9 +6,9 @@ import { CriticalityBadge, HealthBadge, LifecycleBadge, ProductTypeBadge, TONE_D
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Button } from "@/ux/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
-import { HEALTH_META } from "@/ux/lib/domain"
-import type { HealthStatus } from "@/ux/lib/domain"
-import type { Product, ProductTopology, RelatedProduct, TopologyGroup } from "@/ux/lib/view-types"
+import { CATEGORY_LABELS, HEALTH_META } from "@/ux/lib/domain"
+import type { InstanceStatus } from "@/ux/lib/domain"
+import type { Product, ProductTopology, RelatedProduct, TopologyComponent, TopologyGroup } from "@/ux/lib/view-types"
 import { ux } from "@/ux/lib/paths"
 import { cn } from "@/ux/lib/utils"
 
@@ -16,13 +16,16 @@ import { cn } from "@/ux/lib/utils"
  * Spec 059 / ADR-127 — read-only one-hop topology at the top of the
  * Dependencies tab. Lanes preserve each relation's actual source/target
  * direction; pan/zoom/drag and edge authoring stay out of scope.
+ * Spec 061 / ADR-127 Amendment 2 — direct DEPENDS_ON Component targets render
+ * as typed nodes in their own outgoing lane.
  */
 
-type LaneKey = "composedBy" | "consumedBy" | "composes" | "consumesFrom" | "dependsOnGroups"
+type LaneKey = "composedBy" | "consumedBy" | "composes" | "consumesFrom" | "dependsOnComponents" | "dependsOnGroups"
 
 type TopologyNode =
   | { kind: "product"; key: string; data: RelatedProduct; relation: string; lane: LaneKey }
   | { kind: "group"; key: string; data: TopologyGroup; relation: string; lane: LaneKey }
+  | { kind: "component"; key: string; data: TopologyComponent; relation: string; lane: LaneKey }
 
 type Edge = { id: string; from: string; to: string }
 type DrawnEdge = Edge & { d: string }
@@ -34,6 +37,7 @@ const LANE_META: Record<LaneKey, { title: string; incoming: boolean; hint: (p: s
   consumedBy: { title: "Consumed by", incoming: true, hint: (p) => `consumers → ${p}` },
   composes: { title: "Composes", incoming: false, hint: (p) => `${p} → children` },
   consumesFrom: { title: "Consumes from", incoming: false, hint: (p) => `${p} → platforms` },
+  dependsOnComponents: { title: "Depends on components", incoming: false, hint: (p) => `${p} → components` },
   dependsOnGroups: { title: "Depends on groups", incoming: false, hint: (p) => `${p} → groups` },
 }
 
@@ -41,11 +45,13 @@ const UNAVAILABLE_LABELS: Record<string, string> = Object.fromEntries(
   Object.entries(LANE_META).map(([k, v]) => [k, v.title]),
 )
 
-function nodeStatus(n: TopologyNode): HealthStatus | null {
-  return n.kind === "product" ? n.data.status : null
+function nodeStatus(n: TopologyNode): InstanceStatus | null {
+  if (n.kind === "product") return n.data.status
+  if (n.kind === "component") return n.data.worstStatus
+  return null
 }
 
-function StatusDot({ status }: { status: HealthStatus | null }) {
+function StatusDot({ status }: { status: InstanceStatus | null }) {
   if (!status) {
     return <span className="size-2 shrink-0 rounded-full border border-dashed border-muted-foreground" aria-hidden="true" />
   }
@@ -78,6 +84,13 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
       consumedBy: productNodes("consumedBy", () => `consumes from ${product.name}`),
       composes: productNodes("composes", () => `composed by ${product.name}`),
       consumesFrom: productNodes("consumesFrom", () => `platform consumed by ${product.name}`),
+      dependsOnComponents: topology.dependsOnComponents.map((c) => ({
+        kind: "component" as const,
+        key: `dependsOnComponents:${c.id}`,
+        data: c,
+        relation: `${product.name} depends on`,
+        lane: "dependsOnComponents" as LaneKey,
+      })),
       dependsOnGroups: topology.dependsOnGroups.map((g) => ({
         kind: "group" as const,
         key: `dependsOnGroups:${g.id}`,
@@ -183,8 +196,9 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
   const nodeButton = (n: TopologyNode) => {
     const status = nodeStatus(n)
     const retired = n.data.lifecycle === "RETIRED"
-    const statusText =
-      n.kind === "product" && !retired
+    const statusText = retired
+      ? ", retired"
+      : n.kind !== "group"
         ? status
           ? `, ${HEALTH_META[status].label}`
           : ", no health data"
@@ -217,6 +231,11 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
           {n.kind === "group" && (
             <span className="truncate text-xs text-muted-foreground">
               Component group · {n.data.memberCount} {n.data.memberCount === 1 ? "member" : "members"}
+            </span>
+          )}
+          {n.kind === "component" && (
+            <span className="truncate text-xs text-muted-foreground">
+              {CATEGORY_LABELS[n.data.category] ?? n.data.category}
             </span>
           )}
           {retired && <span className="text-xs text-muted-foreground">Retired</span>}
@@ -264,7 +283,7 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
       <CardHeader>
         <CardTitle>Product topology</CardTitle>
         <CardDescription>
-          One-hop relations around {product.name} — who composes and consumes it, and what it depends on.
+          One-hop relations around {product.name} — the products that compose or consume it, and the components and groups it depends on.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -287,7 +306,7 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
             {topology.unavailableGroups.length > 0 ? (
               <p>Some relation families could not be loaded — the map may be incomplete.</p>
             ) : (
-              <p>This product composes, consumes, or depends on nothing. Author edges below.</p>
+              <p>This product has no composition, consumption, component, or group relations yet. Author edges below.</p>
             )}
           </div>
         ) : (
@@ -351,6 +370,7 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
             <div className="flex min-w-0 flex-1 flex-col gap-5">
               {laneColumn("composes")}
               {laneColumn("consumesFrom")}
+              {laneColumn("dependsOnComponents")}
               {laneColumn("dependsOnGroups")}
             </div>
           </div>
@@ -363,7 +383,10 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
                 <span className="font-medium">{selectedNode.data.name}</span>
                 {selectedNode.kind === "product" && <ProductTypeBadge value={selectedNode.data.type} />}
                 {selectedNode.kind === "product" && <CriticalityBadge value={selectedNode.data.criticality} />}
-                {selectedNode.kind === "product" && selectedNode.data.lifecycle === "RETIRED" && (
+                {selectedNode.kind === "component" && (
+                  <span className="rounded-md border px-1.5 py-0.5 text-xs text-muted-foreground">Component</span>
+                )}
+                {selectedNode.kind !== "group" && selectedNode.data.lifecycle === "RETIRED" && (
                   <LifecycleBadge value="RETIRED" />
                 )}
               </div>
@@ -395,6 +418,28 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
                     <dd className="tabular font-medium">{selectedNode.data.memberCount}</dd>
                   </div>
                 )}
+                {selectedNode.kind === "component" && (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <dt className="text-muted-foreground">Status</dt>
+                      <dd>
+                        {selectedNode.data.lifecycle === "RETIRED" ? (
+                          <span className="text-muted-foreground">Retired</span>
+                        ) : selectedNode.data.worstStatus ? (
+                          <HealthBadge value={selectedNode.data.worstStatus} />
+                        ) : (
+                          <span className="text-muted-foreground">No health data</span>
+                        )}
+                      </dd>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <dt className="text-muted-foreground">Category</dt>
+                      <dd className="font-medium">
+                        {CATEGORY_LABELS[selectedNode.data.category] ?? selectedNode.data.category}
+                      </dd>
+                    </div>
+                  </>
+                )}
               </dl>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -403,10 +448,12 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
                   to={
                     selectedNode.kind === "product"
                       ? ux(`/products/${selectedNode.data.slug}`)
-                      : ux(`/component-groups/${selectedNode.data.slug}`)
+                      : selectedNode.kind === "component"
+                        ? ux(`/components/${selectedNode.data.slug}`)
+                        : ux(`/component-groups/${selectedNode.data.slug}`)
                   }
                 >
-                  Open {selectedNode.kind === "product" ? "product" : "group"}
+                  Open {selectedNode.kind === "product" ? "product" : selectedNode.kind === "component" ? "component" : "group"}
                 </Link>
               </Button>
               <Button variant="ghost" size="icon" aria-label="Close selection" onClick={clear}>
