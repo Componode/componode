@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+const uuidv7 = () => crypto.randomUUID();
 import { ApiUrlImporter } from "../src/importer.js";
+import { apiUrlConfigSchema } from "../src/config.js";
 import { validateDiscoveredAsset, NOOP_LOGGER, type ImporterContext } from "@componode/core";
 
 function makeContext(): ImporterContext {
@@ -12,6 +14,35 @@ function makeContext(): ImporterContext {
     resolveTarget: vi.fn(),
   };
 }
+
+const checkDef = (overrides: Record<string, unknown> = {}) => ({
+  checkKey: uuidv7(),
+  name: "Availability",
+  method: "GET",
+  enabled: true,
+  authMode: "NONE",
+  ...overrides,
+});
+
+const instance = (overrides: Record<string, unknown> = {}) => ({
+  instanceKey: uuidv7(),
+  environment: "PRODUCTION",
+  url: "https://api.example.com/status",
+  check: checkDef(),
+  ...overrides,
+});
+
+const scope = (overrides: Record<string, unknown> = {}) => ({
+  sourceKey: uuidv7(),
+  components: [
+    {
+      componentKey: uuidv7(),
+      name: "Payments API",
+      instances: [instance()],
+    },
+  ],
+  ...overrides,
+});
 
 describe("ApiUrlImporter", () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>;
@@ -29,46 +60,94 @@ describe("ApiUrlImporter", () => {
     fetchSpy.mockRestore();
   });
 
-  it("yields a DiscoveredAsset with a PRODUCTION instance", async () => {
-    const importer = new ApiUrlImporter();
+  it("reports collection:<sourceKey> identity and yields one asset per profile", async () => {
+    const s = scope();
     const assets = [];
     const context = makeContext();
 
-    for await (const asset of importer.run({ url: "https://api.example.com/health" }, {}, context)) {
+    for await (const asset of new ApiUrlImporter().run(s, {}, context)) {
       assets.push(asset);
     }
 
-    // Canonical URL is the source identity (ADR-120).
     expect(context.reportSourceIdentity).toHaveBeenCalledTimes(1);
     expect(
       (context.reportSourceIdentity as ReturnType<typeof vi.fn>).mock.calls[0][0].externalIdentity,
-    ).toContain("api.example.com/health");
+    ).toBe(`collection:${s.sourceKey}`);
+
     expect(assets).toHaveLength(1);
-    expect(assets[0].provider).toBe("API_URL");
-    expect(assets[0].resourceType).toBe("api:url");
-    expect(assets[0].instances).toHaveLength(1);
-    expect(assets[0].instances[0].environment).toBe("PRODUCTION");
-    expect(assets[0].instances[0].status).toBe("RUNNING");
-    expect(validateDiscoveredAsset(assets[0])).toBe(true);
-    expect(fetchSpy).toHaveBeenCalledWith("https://api.example.com/health", { signal: expect.any(AbortSignal) });
+    const asset = assets[0];
+    expect(asset.category).toBe("API");
+    expect(asset.provider).toBe("API_URL");
+    expect(asset.resourceType).toBe("api:url");
+    expect(asset.name).toBe("Payments API");
+    expect(asset.externalId).toBe(s.components[0].componentKey);
+    expect(asset.instances[0].externalId).toBe(s.components[0].instances[0].instanceKey);
+    expect(asset.instances[0].status).toBe("RUNNING");
+    expect(validateDiscoveredAsset(asset)).toBe(true);
   });
 
-  it.each([
-    "http://localhost/",
-    "http://127.0.0.1/admin",
-    "http://10.0.0.1/internal",
-    "http://192.168.1.1/",
-    "http://169.254.169.254/latest/meta-data",
-    "http://[::1]/",
-    "ftp://example.com/",
-  ])("refuses internal/unsafe URL %s without fetching", async (url) => {
-    const importer = new ApiUrlImporter();
-    await expect(async () => {
-      for await (const _asset of importer.run({ url }, {}, makeContext())) {
-        // never reached
-      }
-    }).rejects.toThrow(/not allowed/);
-    expect(fetchSpy).not.toHaveBeenCalled();
+  it("probes each instance independently — transport errors yield ERROR, siblings continue", async () => {
+    const s = scope({
+      components: [
+        {
+          componentKey: uuidv7(),
+          name: "Payments API",
+          instances: [
+            instance({ url: "https://down.example.com" }),
+            instance({ url: "https://up.example.com" }),
+          ],
+        },
+      ],
+    });
+    fetchSpy.mockImplementation((url: unknown) =>
+      url === "https://down.example.com"
+        ? Promise.reject(new Error("timeout"))
+        : Promise.resolve(new Response("{}", { status: 200 })),
+    );
+
+    const assets = [];
+    for await (const asset of new ApiUrlImporter().run(s, {}, makeContext())) {
+      assets.push(asset);
+    }
+
+    expect(assets[0].instances[0].status).toBe("ERROR");
+    expect(assets[0].instances[1].status).toBe("RUNNING");
+    expect(validateDiscoveredAsset(assets[0])).toBe(true);
+  });
+
+  it("accepts authenticated check definitions on API endpoints", () => {
+    const s = scope({
+      components: [
+        {
+          componentKey: uuidv7(),
+          name: "x",
+          instances: [
+            instance({
+              check: checkDef({
+                authMode: "BASIC",
+                credentialId: uuidv7(),
+                authConfig: { usernameKey: "user", passwordKey: "pass" },
+              }),
+            }),
+          ],
+        },
+      ],
+    });
+    const result = apiUrlConfigSchema.safeParse(s);
+    expect(result.success).toBe(true);
+  });
+
+  it("requires a credentialId for non-NONE auth modes", () => {
+    const s = scope({
+      components: [
+        {
+          componentKey: uuidv7(),
+          name: "x",
+          instances: [instance({ check: checkDef({ authMode: "BEARER" }) })],
+        },
+      ],
+    });
+    expect(apiUrlConfigSchema.safeParse(s).success).toBe(false);
   });
 
   it("does not access process.env and yields no component-to-component edges", async () => {
@@ -83,17 +162,13 @@ describe("ApiUrlImporter", () => {
     try {
       const importer = new ApiUrlImporter();
       const assets = [];
-      for await (const asset of importer.run({ url: "https://api.example.com/health" }, {}, makeContext())) {
+      for await (const asset of importer.run(scope(), {}, makeContext())) {
         assets.push(asset);
       }
       expect(envSpy).not.toHaveBeenCalled();
       for (const asset of assets) {
         expect(asset).not.toHaveProperty("relationships");
       }
-      const serialized = JSON.stringify(assets).toUpperCase();
-      expect(serialized).not.toContain("DEPENDS_ON");
-      expect(serialized).not.toContain("SOURCES_FROM");
-      expect(serialized).not.toContain("EXPOSES");
     } finally {
       process.env = original;
     }

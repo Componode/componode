@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–057)
+## Shipped (features 001–058)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -316,14 +316,29 @@ file tracks shipped and upcoming work — update it when a spec completes.
   `stsEndpoint`, `bssEndpoint` config fields pin/redirect all three
   clients — STS/BSS fall back to their documented global endpoints, and
   endpoint URLs normalize to host[:port] + protocol at the SDK boundary.
+- `058-web-api-importer-journey` — Web/API importer collections and
+  importer-managed URL Checks (ADR-126): one ImporterConfig declares
+  named Component profiles with per-environment ComponentInstances and
+  one managed check per instance; stable generated keys (`sourceKey`,
+  `componentKey`, `instanceKey`, `checkKey`) drive identity, the Source
+  identity is `collection:<sourceKey>` with reattachment of unmonitored
+  Sources. Check definitions sync through `source_url_check_memberships`
+  (shared `checkKey`s stay scheduled while an effective enabled owner
+  remains; config disable/delete pauses, explicit re-enable resumes with
+  a reset streak). Managed check outcomes now drive monitored instance
+  status (`SUCCESS`→`RUNNING`, `FAILURE`→`ERROR`; `MISSED`/disabled/no-data
+  preserve; `GONE` stays reconciliation-owned); direct check writes are
+  deprecated (`410 URL_CHECK_WRITE_DEPRECATED`) and legacy manual checks
+  are disabled and retained read-only.
 
 ## Next — post-v1.1
 
 The Docker importer program's mapped waves (A–E) plus Hub execution
 (049) are complete and the URL Check monitoring program — monitoring
 (051), operational bounds (052), the Component-level summary (053),
-onboarding completion (054), and the repeated-failure auto-disable
-policy (056) — has shipped; `058` is the next open spec slot — see
+onboarding completion (054), the repeated-failure auto-disable
+policy (056), and importer-managed checks (058) — has shipped; `059` is
+the next open spec slot — see
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new
 importer wave).

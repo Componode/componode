@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { DiscoveredAsset } from "@componode/core";
+import { randomUUID } from "node:crypto";
 
 vi.mock("../../src/services/importer-registry.js", async () => {
   return {
@@ -406,7 +407,22 @@ describe("migration 023 — defensible ImporterSource backfill", () => {
       version: "1.0.0",
       implPath: "x",
     }));
-    const apiConfig = await createConfig("api-url", { url: "https://api.example.com/status?token=abc" });
+    // Legacy-shaped config seeded directly � the API now requires the v2
+    // collection scope (spec 058); this row simulates pre-migration data.
+    const apiConfigId = (await testDb!.db
+      .insertInto("importer_configs")
+      .values({
+        id: randomUUID(),
+        importerName: "api-url",
+        label: "api-url",
+        scope: JSON.stringify({ url: "https://api.example.com/status?token=abc" }),
+        enabled: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as never)
+      .returning("id")
+      .executeTakeFirstOrThrow()).id;
+    const apiConfig = { id: apiConfigId };
     (getImporter as any).mockResolvedValueOnce(importerOf([asset("https://api.example.com/status")], undefined));
     const apiRun = await legacyRun(apiConfig.id);
     expect(apiRun.status).toBe("COMPLETED");

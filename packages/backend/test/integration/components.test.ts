@@ -515,8 +515,8 @@ describe("POST /components — manual creation (spec 042, G29)", () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it("carries complete check fields and enforces Credential/Agent boundaries", async () => {
-    const monitoring = (slug: string, over: Record<string, unknown> = {}) => ({
+  it("rejects the retired monitoring block with 410 (spec 058)", async () => {
+    const monitoring = (slug: string) => ({
       name: `Monitored ${slug}`,
       slug,
       category: "API",
@@ -532,51 +532,22 @@ describe("POST /components — manual creation (spec 042, G29)", () => {
             method: "GET",
             enabled: false,
             authMode: "NONE",
-            cadenceSeconds: 120,
             successPolicy: { codes: [200, 204], ranges: [] },
-            availabilityTarget: 99.5,
-            targetWindow: "7D",
-            ...over,
           },
         ],
       },
     });
 
-    const created = await create(editorSession, monitoring(`composite-${uuidv7().slice(0, 8)}`));
-    expect(created.statusCode).toBe(201);
-    const body = JSON.parse(created.payload);
-    expect(body.checks[0]).toMatchObject({
-      enabled: false,
-      authMode: "NONE",
-      cadenceSeconds: 120,
-      availabilityTarget: 99.5,
-      targetWindow: "7D",
-    });
-
-    const credentialSlug = `cred-${uuidv7().slice(0, 8)}`;
-    const credentialed = await create(
-      editorSession,
-      monitoring(credentialSlug, {
-        authMode: "BEARER",
-        credentialId: uuidv7(),
-        authConfig: { tokenKey: "token" },
-      }),
+    const slug = `composite-${uuidv7().slice(0, 8)}`;
+    const created = await create(editorSession, monitoring(slug));
+    expect(created.statusCode).toBe(410);
+    expect(JSON.parse(created.payload).code).toBe(
+      "URL_CHECK_WRITE_DEPRECATED",
     );
-    expect(credentialed.statusCode).toBe(403);
-    expect(JSON.parse(credentialed.payload).code).toBe("AUTH_FORBIDDEN");
-
-    const agentSlug = `agent-${uuidv7().slice(0, 8)}`;
-    const agentPayload = monitoring(agentSlug);
-    (agentPayload.monitoring.setup as Record<string, unknown>).vantage = "AGENT";
-    (agentPayload.monitoring.setup as Record<string, unknown>).agentId = uuidv7();
-    const agentVantage = await create(editorSession, agentPayload);
-    expect(agentVantage.statusCode).toBe(403);
-    expect(JSON.parse(agentVantage.payload).code).toBe("AUTH_FORBIDDEN");
-
     const leaked = await testDb.db
       .selectFrom("components")
       .select("id")
-      .where("slug", "in", [credentialSlug, agentSlug])
+      .where("slug", "=", slug)
       .execute();
     expect(leaked).toHaveLength(0);
   });

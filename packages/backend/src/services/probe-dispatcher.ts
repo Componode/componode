@@ -25,6 +25,7 @@ import {
   type UrlCheckVantage,
 } from "@componode/core";
 import { db } from "../db/connection.js";
+import { writeEntityChange } from "./audit-service.js";
 import { envInt } from "../utils/env.js";
 import { evaluateAutoDisable } from "./url-check-auto-disable.js";
 import { metrics } from "../plugins/metrics.js";
@@ -35,8 +36,10 @@ import { decryptSecrets, loadKeyring } from "../utils/credential-crypto.js";
 // scheduled slot for a check: HUB vantage probes run in-process through a
 // shared p-queue, AGENT vantage probes go over the agent stream via the
 // dispatch seam below. Every dispatch ends in exactly one observation row
-// plus a nextProbeAt advance — probes never touch component_instances,
-// import_runs, or ImporterSource state.
+// plus a nextProbeAt advance. Managed checks (spec 058) additionally write
+// the monitored ComponentInstance's status on executed outcomes
+// (SUCCESS→RUNNING, FAILURE→ERROR); MISSED/disabled preserve the last
+// status and GONE stays reconciliation-owned.
 
 type FetchImpl = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -193,7 +196,10 @@ interface ObservationInput {
 
 // One observation + the nextProbeAt advance + the consecutive-failure
 // streak step, atomically (spec 056). Metrics and the finalize log follow
-// the same finalize-point convention as agent jobs.
+// the same finalize-point convention as agent jobs. Spec 058: an executed
+// outcome on a managed check is authoritative for the monitored
+// ComponentInstance status — SUCCESS→RUNNING, FAILURE→ERROR — while
+// MISSED preserves the last status and GONE/RETIRED cannot be overwritten.
 async function recordObservation(
   checkId: string,
   scheduledAt: string,
@@ -215,6 +221,59 @@ async function recordObservation(
         agentId: obs.agentId ?? null,
       })
       .execute();
+
+    if (obs.outcome === "SUCCESS" || obs.outcome === "FAILURE") {
+      const targetStatus = obs.outcome === "SUCCESS" ? "RUNNING" : "ERROR";
+      const check = await trx
+        .selectFrom("url_checks")
+        .select(["componentInstanceId", "managedKey"])
+        .where("id", "=", checkId)
+        .executeTakeFirst();
+      if (check?.managedKey) {
+        const instance = await trx
+          .selectFrom("component_instances")
+          .innerJoin(
+            "components",
+            "components.id",
+            "component_instances.componentId",
+          )
+          .select([
+            "component_instances.id",
+            "component_instances.status",
+            "components.lifecycle",
+          ])
+          .where("component_instances.id", "=", check.componentInstanceId)
+          .executeTakeFirst();
+        if (
+          instance &&
+          instance.status !== targetStatus &&
+          instance.status !== "GONE" &&
+          instance.lifecycle !== "RETIRED"
+        ) {
+          await trx
+            .updateTable("component_instances")
+            .set({ status: targetStatus, updatedAt: new Date().toISOString() })
+            .where("id", "=", instance.id)
+            .execute();
+          await writeEntityChange(
+            {
+              entityType: "component_instance",
+              entityId: instance.id,
+              action: "status_change",
+              changes: {
+                previousStatus: instance.status,
+                status: targetStatus,
+                via: "url_check",
+                outcome: obs.outcome,
+              },
+              actor: { id: null, name: "url-check-scheduler" },
+            },
+            trx,
+          );
+        }
+      }
+    }
+
     const updated = await trx
       .updateTable("url_checks")
       .set({

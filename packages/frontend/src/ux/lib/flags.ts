@@ -40,6 +40,8 @@ export const flags = {
   teamMemberCounts: true,
   /** GONE instances on component detail — needs includeGone on the detail read (gap G26). */
   detailGoneInstances: false,
+  /** Nested profile/instance/check builder for Web/API collection importers (gap G33, spec 058). */
+  importerProfileBuilder: true,
 } as const;
 
 export type GapFlag = keyof typeof flags;

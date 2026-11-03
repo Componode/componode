@@ -7,6 +7,7 @@ import {
   listSources,
   getSource,
   listSourceRuns,
+  collectionScopeForSource,
   listSourceMemberships,
   retireSource,
   reactivateSource,
@@ -78,6 +79,23 @@ export async function importerSourceRoutes(
     }
     const memberships = await listSourceMemberships(id);
     return reply.status(200).send(memberships);
+  });
+
+  // Rehydrate the collection scope a reattach flow should seed (spec 058
+  // US5): active memberships + managed checks → the same stable keys, so
+  // reattach binds instead of forking the graph.
+  app.get("/importer-sources/:id/collection-scope", {
+    preHandler: [app.verifySession],
+  }, async (req: FastifyRequest, reply: FastifyReply) => {
+    const parsed = idParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return validationFailed(reply, parsed.error.issues);
+    }
+    const scope = await collectionScopeForSource(parsed.data.id);
+    if (!scope) {
+      return reply.status(404).send({ code: "SOURCE_NOT_FOUND", message: "Importer source not found" });
+    }
+    return reply.status(200).send(scope);
   });
 
   app.post("/importer-sources/:id/retire", {

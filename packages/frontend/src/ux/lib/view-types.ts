@@ -110,6 +110,8 @@ export interface ImporterConfig {
   id: string;
   importerName: Provider;
   label: string;
+  /** Configured scope — collection importers declare Component profiles here. */
+  scope: Record<string, unknown>;
   schedule: string | null;
   scheduleLabel: string;
   enabled: boolean;
@@ -397,6 +399,10 @@ export interface UrlCheckView {
   id: string;
   setupId: string;
   componentInstanceId: string;
+  /** ImporterConfig-declared check identity (spec 058); null = legacy/manual. */
+  managedKey: string | null;
+  /** ImporterConfig owning this managed check — the only edit surface. */
+  managedByConfigId: string | null;
   credentialId: string | null;
   name: string;
   url: string;

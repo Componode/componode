@@ -1,16 +1,13 @@
-import { urlSafetyError } from "@componode/core";
+import { assertCollectionUrlSafety, collectionScopeSchema } from "@componode/core";
 import { z } from "zod";
 
-export const apiUrlConfigSchema = z.object({
-  url: z
-    .string()
-    .url()
-    .describe("The API endpoint to probe").superRefine((val, ctx) => {
-    const reason = urlSafetyError(val);
-    if (reason) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `URL is not allowed: ${reason}` });
-    }
-  }),
+// API URL collection scope (spec 058, ADR-126): Component profiles with
+// environment-specific ComponentInstances and one managed URL Check per
+// instance. API-category checks may carry credential-backed authentication.
+export const apiUrlConfigSchema = collectionScopeSchema.superRefine((scope, ctx) => {
+  assertCollectionUrlSafety(scope, (path, message) =>
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message, path }),
+  );
 });
 
 export type ApiUrlConfig = z.infer<typeof apiUrlConfigSchema>;

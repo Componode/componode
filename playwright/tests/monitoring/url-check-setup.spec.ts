@@ -8,35 +8,46 @@ function seeded() {
   return JSON.parse(readFileSync('/pw-private/out/seed-result.json', 'utf8'));
 }
 
-test.describe('url check setup and preserve-versus-reconfigure rules', () => {
-  test('authConfig rejects reserved Authorization header names', async ({ request }) => {
+// Spec 058 FR-021: direct URL Check writes are deprecated — definitions live
+// on the owning ImporterConfig scope. The write routes return a controlled
+// 410 URL_CHECK_WRITE_DEPRECATED; reads and monitoring-setup writes remain.
+test.describe('url check write deprecation and setup preserve rules', () => {
+  test('POST /components/:id/url-checks returns 410', async ({ request }) => {
     const api = await apiLogin(request, BASE, 'ADMIN');
-    const { probeComponentId, probeInstanceId, urlCheckCredentialId } = seeded();
+    const { probeComponentId, probeInstanceId } = seeded();
     const res = await api('POST', `/api/v1/components/${probeComponentId}/url-checks`, {
-      name: 'pw-reserved', url: 'http://auth.target.test/x', componentInstanceId: probeInstanceId,
-      successPolicy: { codes: [200], ranges: [] }, authMode: 'CUSTOM_HEADERS',
-      credentialId: urlCheckCredentialId,
-      authConfig: { headers: [{ name: 'Authorization', key: 'headerValue' }] },
+      name: 'pw-410', url: 'http://probe.target.test/x', componentInstanceId: probeInstanceId,
+      successPolicy: { codes: [200], ranges: [] }, authMode: 'NONE',
     });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(410);
+    expect(res.body.code).toBe('URL_CHECK_WRITE_DEPRECATED');
   });
 
-  test('editor preserves credential check while editing unrelated fields, cannot reconfigure', async ({ request }) => {
+  test('PATCH and DELETE /url-checks/:id return 410', async ({ request }) => {
+    const api = await apiLogin(request, BASE, 'ADMIN');
+    const { probeComponentId } = seeded();
+    const checksRes = await api('GET', `/api/v1/components/${probeComponentId}/url-checks`);
+    const checkId = (checksRes.body.checks ?? checksRes.body.items ?? checksRes.body ?? [])[0]?.id;
+    expect(checkId, 'seeded check exists').toBeTruthy();
+
+    const patched = await api('PATCH', `/api/v1/url-checks/${checkId}`, { name: 'pw-410' });
+    expect(patched.status).toBe(410);
+    expect(patched.body.code).toBe('URL_CHECK_WRITE_DEPRECATED');
+
+    const deleted = await api('DELETE', `/api/v1/url-checks/${checkId}`);
+    expect(deleted.status).toBe(410);
+    expect(deleted.body.code).toBe('URL_CHECK_WRITE_DEPRECATED');
+  });
+
+  test('managed check definitions flow from an importer config', async ({ request }) => {
     const admin = await apiLogin(request, BASE, 'ADMIN');
-    const editor = await apiLogin(request, BASE, 'EDITOR');
-    const { probeComponentId, probeInstanceId, urlCheckCredentialId } = seeded();
-    const created = await admin('POST', `/api/v1/components/${probeComponentId}/url-checks`, {
-      name: 'pw-preserve', url: 'http://auth.target.test/p', componentInstanceId: probeInstanceId,
-      successPolicy: { codes: [200], ranges: [] }, authMode: 'BEARER',
-      credentialId: urlCheckCredentialId, authConfig: { tokenKey: 'bearerToken' },
-    });
-    const checkId = created.body.id ?? created.body.check?.id;
-
-    const renamed = await editor('PATCH', `/api/v1/url-checks/${checkId}`, { name: 'pw-preserve-2' });
-    expect(renamed.status, 'unchanged credential preserved').toBe(200);
-
-    const reconfig = await editor('PATCH', `/api/v1/url-checks/${checkId}`, { authMode: 'BASIC' });
-    expect(reconfig.status, 'auth mode change denied').toBe(403);
+    const { probeComponentId } = seeded();
+    // A seeded (unmanaged) check stays read-only on the component endpoint —
+    // definitions are no longer editable per-row.
+    const checksRes = await admin('GET', `/api/v1/components/${probeComponentId}/url-checks`);
+    const list = checksRes.body.checks ?? checksRes.body.items ?? checksRes.body ?? [];
+    expect(list.length, 'seeded checks visible via read path').toBeGreaterThan(0);
+    expect(list.every((c: { managedKey?: string | null }) => 'managedKey' in c)).toBe(true);
   });
 
   test('editor preserves agent setup while changing cadence, can switch back to hub', async ({ request }) => {

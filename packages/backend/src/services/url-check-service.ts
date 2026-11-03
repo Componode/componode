@@ -1,14 +1,12 @@
+import { isDeepStrictEqual } from "node:util";
 import { sql } from "kysely";
 import { uuidv7 } from "uuidv7";
 import type { Kysely, Selectable, Transaction } from "kysely";
 import {
-  createUrlCheckSchema,
-  updateUrlCheckSchema,
   urlSafetyError,
-  type CreateUrlCheckInput,
+  type ManagedCheckDefinition,
   type MonitoringSetup,
   type SuccessPolicy,
-  type UpdateUrlCheckInput,
   type UrlCheck,
   type UrlCheckAuthConfig,
   type UrlCheckListItem,
@@ -37,6 +35,7 @@ function toApi(row: Selectable<UrlCheckRow>): UrlCheck {
     id: row.id,
     setupId: row.setupId,
     componentInstanceId: row.componentInstanceId,
+    managedKey: row.managedKey,
     credentialId: row.credentialId,
     name: row.name,
     url: row.url,
@@ -368,6 +367,10 @@ export async function listChecks(
     recentByCheck.set(row.urlCheckId, list);
   }
 
+  // Owning ImporterConfig for managed checks (spec 058): the config bound
+  // to the Source that declares the check — the only edit surface.
+  const ownerByCheck = await ownerConfigIdByCheck(checkIds);
+
   const items: UrlCheckListItem[] = [];
   for (const row of checks) {
     const latest = latestByCheck.get(row.id);
@@ -397,9 +400,34 @@ export async function listChecks(
         counts: { success, failure, missed },
       },
       recent: (recentByCheck.get(row.id) ?? []).map(observationToApi),
+      managedByConfigId: row.managedKey ? (ownerByCheck.get(row.id) ?? null) : null,
     });
   }
   return { setup, checks: items };
+}
+
+/** Owning ImporterConfig per managed check — the only edit surface
+ * (spec 058): active Source memberships → their bound config. */
+async function ownerConfigIdByCheck(
+  checkIds: string[],
+  executor: DbOrTrx = db,
+): Promise<Map<string, string | null>> {
+  if (checkIds.length === 0) return new Map();
+  const rows = await executor
+    .selectFrom("source_url_check_memberships")
+    .innerJoin(
+      "importer_sources",
+      "importer_sources.id",
+      "source_url_check_memberships.sourceId",
+    )
+    .select([
+      "source_url_check_memberships.urlCheckId",
+      "importer_sources.boundConfigId",
+    ])
+    .where("source_url_check_memberships.urlCheckId", "in", checkIds)
+    .where("source_url_check_memberships.active", "=", true)
+    .execute();
+  return new Map(rows.map((r) => [r.urlCheckId, r.boundConfigId]));
 }
 
 export async function getCheck(id: string): Promise<UrlCheck> {
@@ -424,256 +452,19 @@ export async function getCheckDetail(id: string) {
     ])
     .where("component_monitoring_setups.id", "=", check.setupId)
     .executeTakeFirstOrThrow();
+  // Owning ImporterConfig for managed checks (spec 058) — the only edit
+  // surface; legacy checks stay null.
+  const owners = check.managedKey
+    ? await ownerConfigIdByCheck([check.id])
+    : new Map<string, string | null>();
   return {
     ...check,
+    managedByConfigId: owners.get(check.id) ?? null,
     effectiveCadenceSeconds: check.cadenceSeconds ?? setup.setupCadenceSeconds,
     vantage: setup.vantage,
     agentName: setup.agentName ?? null,
   };
 }
-
-/**
- * Transaction-scoped check insert — shared by single-check create and the
- * composite component create (spec 051 US5). Caller owns the transaction
- * and the setup row; `parsed` is already schema-validated.
- */
-export async function insertCheck(
-  trx: DbOrTrx,
-  componentId: string,
-  setupId: string,
-  setupVantage: string,
-  parsed: CreateUrlCheckInput,
-  actor: Actor,
-): Promise<UrlCheck> {
-  await validateCheck(trx, componentId, {
-    url: parsed.url,
-    componentInstanceId: parsed.componentInstanceId,
-    authMode: parsed.authMode,
-    credentialId: parsed.credentialId ?? null,
-    authConfig: parsed.authConfig ?? null,
-    vantage: setupVantage,
-  });
-
-  const id = uuidv7();
-  const now = new Date().toISOString();
-  await trx
-    .insertInto("url_checks")
-    .values({
-      id,
-      setupId,
-      componentInstanceId: parsed.componentInstanceId,
-      credentialId:
-        parsed.authMode === "NONE" ? null : (parsed.credentialId ?? null),
-      name: parsed.name,
-      url: parsed.url,
-      method: parsed.method,
-      enabled: parsed.enabled,
-      cadenceSeconds: parsed.cadenceSeconds ?? null,
-      successPolicy: parsed.successPolicy ?? DEFAULT_POLICY,
-      authMode: parsed.authMode,
-      authConfig: parsed.authConfig ?? null,
-      availabilityTarget: parsed.availabilityTarget?.toString() ?? null,
-      targetWindow: parsed.targetWindow ?? null,
-      autoDisableAfter: parsed.autoDisableAfter ?? null,
-      nextProbeAt: parsed.enabled ? now : null,
-      createdBy: actor.id,
-      updatedBy: null,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .execute();
-  await writeEntityChange(
-    {
-      entityType: "url_check",
-      entityId: id,
-      action: "created",
-      changes: {
-        componentId,
-        name: parsed.name,
-        url: parsed.url,
-        method: parsed.method,
-        authMode: parsed.authMode,
-        credentialId: parsed.authMode === "NONE" ? null : parsed.credentialId,
-      },
-      actor,
-    },
-    trx,
-  );
-  return toApi(await getCheckRow(id, trx));
-}
-
-export async function createCheck(
-  componentId: string,
-  input: CreateUrlCheckInput,
-  actor: Actor,
-): Promise<UrlCheck> {
-  const parsed = createUrlCheckSchema.parse(input);
-
-  const component = await db
-    .selectFrom("components")
-    .select(["id", "lifecycle"])
-    .where("id", "=", componentId)
-    .executeTakeFirst();
-  if (!component) {
-    throw coded("Component not found", 404, "NOT_FOUND");
-  }
-
-  return db.transaction().execute(async (trx) => {
-    const setupId = await ensureSetup(componentId, trx);
-    const setup = await trx
-      .selectFrom("component_monitoring_setups")
-      .select("vantage")
-      .where("id", "=", setupId)
-      .executeTakeFirstOrThrow();
-    return insertCheck(trx, componentId, setupId, setup.vantage, parsed, actor);
-  });
-}
-
-export async function updateCheck(
-  id: string,
-  input: UpdateUrlCheckInput,
-  actor: Actor,
-): Promise<UrlCheck> {
-  const parsed = updateUrlCheckSchema.parse(input);
-  const existing = await getCheckRow(id);
-
-  return db.transaction().execute(async (trx) => {
-    const component = await trx
-      .selectFrom("component_instances")
-      .innerJoin(
-        "components",
-        "components.id",
-        "component_instances.componentId",
-      )
-      .select(["components.id", "components.category"])
-      .where("component_instances.id", "=", existing.componentInstanceId)
-      .executeTakeFirstOrThrow();
-
-    const setup = await trx
-      .selectFrom("component_monitoring_setups")
-      .select("vantage")
-      .where("id", "=", existing.setupId)
-      .executeTakeFirstOrThrow();
-
-    const effectiveAuthMode = parsed.authMode ?? existing.authMode;
-    const effectiveCredentialId =
-      parsed.credentialId !== undefined
-        ? parsed.credentialId
-        : existing.credentialId;
-    const effectiveAuthConfig =
-      parsed.authConfig !== undefined
-        ? (parsed.authConfig as UrlCheckAuthConfig | null)
-        : (existing.authConfig as UrlCheckAuthConfig | null);
-
-    await validateCheck(trx, component.id, {
-      url: parsed.url,
-      componentInstanceId:
-        parsed.componentInstanceId !== undefined
-          ? parsed.componentInstanceId
-          : undefined,
-      authMode: effectiveAuthMode,
-      credentialId: effectiveAuthMode === "NONE" ? null : effectiveCredentialId,
-      authConfig: effectiveAuthMode === "NONE" ? null : effectiveAuthConfig,
-      vantage: setup.vantage,
-    });
-
-    const now = new Date().toISOString();
-    const fields: Record<string, unknown> = {
-      updatedAt: now,
-      updatedBy: actor.id,
-    };
-    const changes: Record<string, unknown> = {};
-    const set = (col: string, val: unknown) => {
-      fields[col] = val;
-      changes[col] = val;
-    };
-
-    if (parsed.name !== undefined) set("name", parsed.name);
-    if (parsed.url !== undefined) set("url", parsed.url);
-    if (parsed.componentInstanceId !== undefined)
-      set("componentInstanceId", parsed.componentInstanceId);
-    if (parsed.method !== undefined) set("method", parsed.method);
-    if (parsed.cadenceSeconds !== undefined)
-      set("cadenceSeconds", parsed.cadenceSeconds);
-    if (parsed.successPolicy !== undefined)
-      set("successPolicy", parsed.successPolicy ?? DEFAULT_POLICY);
-    if (parsed.availabilityTarget !== undefined)
-      set("availabilityTarget", parsed.availabilityTarget?.toString() ?? null);
-    if (parsed.targetWindow !== undefined)
-      set("targetWindow", parsed.targetWindow);
-    if (parsed.authMode !== undefined) {
-      set("authMode", parsed.authMode);
-      if (parsed.authMode === "NONE") {
-        set("credentialId", null);
-        set("authConfig", null);
-      }
-    }
-    if (parsed.credentialId !== undefined && effectiveAuthMode !== "NONE")
-      set("credentialId", parsed.credentialId);
-    if (parsed.authConfig !== undefined && effectiveAuthMode !== "NONE")
-      set("authConfig", parsed.authConfig);
-    if (parsed.enabled !== undefined && parsed.enabled !== existing.enabled) {
-      set("enabled", parsed.enabled);
-      set("nextProbeAt", parsed.enabled ? now : null);
-      // Spec 056: manual re-enable is the only streak reset — clear the
-      // marker so a previously auto-disabled check starts a fresh run.
-      if (parsed.enabled) {
-        set("consecutiveFailures", 0);
-        set("autoDisabledAt", null);
-      }
-    }
-    if (parsed.autoDisableAfter !== undefined)
-      set("autoDisableAfter", parsed.autoDisableAfter);
-    // Schedule changes take effect on the next slot.
-    if (parsed.cadenceSeconds !== undefined && existing.enabled) {
-      fields.nextProbeAt = now;
-      changes.nextProbeAt = now;
-    }
-
-    await trx
-      .updateTable("url_checks")
-      .set(fields)
-      .where("id", "=", id)
-      .execute();
-
-    const action =
-      parsed.enabled !== undefined && parsed.enabled !== existing.enabled
-        ? parsed.enabled
-          ? "enabled"
-          : "disabled"
-        : "updated";
-    await writeEntityChange(
-      {
-        entityType: "url_check",
-        entityId: id,
-        action,
-        changes,
-        actor,
-      },
-      trx,
-    );
-    return toApi(await getCheckRow(id, trx));
-  });
-}
-
-export async function deleteCheck(id: string, actor: Actor): Promise<void> {
-  const existing = await getCheckRow(id);
-  await db.transaction().execute(async (trx) => {
-    await trx.deleteFrom("url_checks").where("id", "=", id).execute();
-    await writeEntityChange(
-      {
-        entityType: "url_check",
-        entityId: id,
-        action: "deleted",
-        changes: { name: existing.name, url: existing.url },
-        actor,
-      },
-      trx,
-    );
-  });
-}
-
-export { observationToApi };
 
 // --- Metrics + history (US3) ---------------------------------------------
 
@@ -792,4 +583,413 @@ export async function listObservations(
         ? page[page.length - 1]!.scheduledAt
         : null,
   };
+}
+
+// --- Importer-managed checks (spec 058, ADR-126) ---------------------------
+
+
+
+/** The stored definition fields compared during sync — a shared check
+ *  never changes because another Source reported different settings. */
+function checkDefinitionOf(row: Selectable<UrlCheckRow>) {
+  return {
+    name: row.name,
+    url: row.url,
+    method: row.method,
+    successPolicy: row.successPolicy,
+    cadenceSeconds: row.cadenceSeconds,
+    authMode: row.authMode,
+    credentialId: row.credentialId,
+    authConfig: row.authConfig ?? null,
+    availabilityTarget: row.availabilityTarget,
+    targetWindow: row.targetWindow,
+    autoDisableAfter: row.autoDisableAfter,
+  };
+}
+
+function definitionsEqual(
+  stored: ReturnType<typeof checkDefinitionOf>,
+  def: ManagedCheckDefinition,
+  effectiveUrl: string,
+): boolean {
+  return (
+    stored.name === def.name &&
+    stored.url === effectiveUrl &&
+    stored.method === def.method &&
+    isDeepStrictEqual(stored.successPolicy, def.successPolicy) &&
+    (stored.cadenceSeconds ?? null) === (def.cadenceSeconds ?? null) &&
+    stored.authMode === def.authMode &&
+    (stored.authMode === "NONE" ? true : stored.credentialId === (def.credentialId ?? null)) &&
+    isDeepStrictEqual(
+      stored.authMode === "NONE" ? null : stored.authConfig,
+      def.authMode === "NONE" ? null : (def.authConfig ?? null),
+    ) &&
+    String(stored.availabilityTarget ?? "") === String(def.availabilityTarget ?? "") &&
+    (stored.targetWindow ?? null) === (def.targetWindow ?? null) &&
+    (stored.autoDisableAfter ?? null) === (def.autoDisableAfter ?? null)
+  );
+}
+
+/** Whether an effective, enabled Source membership schedules this check:
+ *  active membership + ACTIVE Source + enabled bound config +
+ *  configuredEnabled intent. */
+async function hasEffectiveEnabledOwner(
+  trx: DbOrTrx,
+  checkId: string,
+): Promise<boolean> {
+  const row = await trx
+    .selectFrom("source_url_check_memberships")
+    .innerJoin(
+      "importer_sources",
+      "importer_sources.id",
+      "source_url_check_memberships.sourceId",
+    )
+    .innerJoin(
+      "importer_configs",
+      "importer_configs.id",
+      "importer_sources.boundConfigId",
+    )
+    .select("source_url_check_memberships.id")
+    .where("source_url_check_memberships.urlCheckId", "=", checkId)
+    .where("source_url_check_memberships.active", "=", true)
+    .where("source_url_check_memberships.configuredEnabled", "=", true)
+    .where("importer_sources.status", "=", "ACTIVE")
+    .where("importer_configs.enabled", "=", true)
+    .executeTakeFirst();
+  return row !== undefined;
+}
+
+/**
+ * Recompute a managed check's runtime `enabled` from its owner union.
+ * An auto-disabled check stays off until an explicit config re-enable
+ * clears the marker — ordinary runs never resurrect it (spec 056/058).
+ */
+export async function recomputeManagedCheckEnabled(
+  trx: DbOrTrx,
+  checkId: string,
+): Promise<void> {
+  const check = await trx
+    .selectFrom("url_checks")
+    .select(["id", "enabled", "autoDisabledAt", "managedKey"])
+    .where("id", "=", checkId)
+    .executeTakeFirst();
+  if (!check || check.managedKey === null) return;
+  const now = new Date().toISOString();
+  if (check.autoDisabledAt !== null) {
+    if (check.enabled) {
+      await trx
+        .updateTable("url_checks")
+        .set({ enabled: false, nextProbeAt: null, updatedAt: now })
+        .where("id", "=", checkId)
+        .execute();
+    }
+    return;
+  }
+  const schedulable = await hasEffectiveEnabledOwner(trx, checkId);
+  if (schedulable === check.enabled) return;
+  await trx
+    .updateTable("url_checks")
+    .set({
+      enabled: schedulable,
+      nextProbeAt: schedulable ? now : null,
+      updatedAt: now,
+    })
+    .where("id", "=", checkId)
+    .execute();
+}
+
+/**
+ * Sync one managed check definition for an imported ComponentInstance —
+ * called inside the per-asset run transaction (spec 058). The ImporterConfig
+ * scope is canonical; `url_checks` rows materialize scheduler state.
+ */
+export async function syncManagedCheck(
+  trx: DbOrTrx,
+  opts: {
+    sourceId: string;
+    componentId: string;
+    componentInstanceId: string;
+    instanceUrl: string;
+    def: ManagedCheckDefinition;
+    runId: string;
+    actor: Actor;
+  },
+): Promise<{ checkId: string; conflict: string | null }> {
+  const { sourceId, componentId, componentInstanceId, def, runId, actor } = opts;
+  const now = new Date().toISOString();
+  const effectiveUrl = def.url ?? opts.instanceUrl;
+
+  let check = await trx
+    .selectFrom("url_checks")
+    .selectAll()
+    .where("componentInstanceId", "=", componentInstanceId)
+    .where("managedKey", "=", def.checkKey)
+    .executeTakeFirst();
+
+  if (check) {
+    if (!definitionsEqual(checkDefinitionOf(check), def, effectiveUrl)) {
+      // A shared definition may only change when this Source is the sole
+      // owner — another owner's conflicting settings are a controlled
+      // conflict, never last-writer-wins (contract managed-url-check-sync).
+      const foreign = await trx
+        .selectFrom("source_url_check_memberships")
+        .select("id")
+        .where("urlCheckId", "=", check.id)
+        .where("sourceId", "!=", sourceId)
+        .where("active", "=", true)
+        .executeTakeFirst();
+      if (foreign) {
+        return { checkId: check.id, conflict: `managed check "${def.name}" (${def.checkKey}) has a conflicting definition from another Source` };
+      }
+      const setup = await trx
+        .selectFrom("component_monitoring_setups")
+        .select("vantage")
+        .where("id", "=", check.setupId)
+        .executeTakeFirstOrThrow();
+      await validateCheck(trx, componentId, {
+        url: effectiveUrl,
+        authMode: def.authMode,
+        credentialId: def.credentialId ?? null,
+        authConfig: def.authConfig ?? null,
+        vantage: setup.vantage,
+      });
+      await trx
+        .updateTable("url_checks")
+        .set({
+          name: def.name,
+          url: effectiveUrl,
+          method: def.method,
+          successPolicy: def.successPolicy,
+          cadenceSeconds: def.cadenceSeconds ?? null,
+          authMode: def.authMode,
+          credentialId: def.authMode === "NONE" ? null : (def.credentialId ?? null),
+          authConfig: def.authMode === "NONE" ? null : (def.authConfig ?? null),
+          availabilityTarget: def.availabilityTarget?.toString() ?? null,
+          targetWindow: def.targetWindow ?? null,
+          autoDisableAfter: def.autoDisableAfter ?? null,
+          updatedAt: now,
+        })
+        .where("id", "=", check.id)
+        .execute();
+      await writeEntityChange(
+        {
+          entityType: "url_check",
+          entityId: check.id,
+          action: "updated",
+          importRunId: runId,
+          changes: {
+            name: def.name,
+            url: effectiveUrl,
+            method: def.method,
+            authMode: def.authMode,
+            credentialId: def.authMode === "NONE" ? null : (def.credentialId ?? null),
+          },
+          actor,
+        },
+        trx,
+      );
+      check = { ...check, url: effectiveUrl };
+    }
+  } else {
+    const setupId = await ensureSetup(componentId, trx);
+    const setup = await trx
+      .selectFrom("component_monitoring_setups")
+      .select("vantage")
+      .where("id", "=", setupId)
+      .executeTakeFirstOrThrow();
+    await validateCheck(trx, componentId, {
+      url: effectiveUrl,
+      componentInstanceId,
+      authMode: def.authMode,
+      credentialId: def.credentialId ?? null,
+      authConfig: def.authConfig ?? null,
+      vantage: setup.vantage,
+    });
+    const checkId = uuidv7();
+    await trx
+      .insertInto("url_checks")
+      .values({
+        id: checkId,
+        setupId,
+        componentInstanceId,
+        credentialId: def.authMode === "NONE" ? null : (def.credentialId ?? null),
+        name: def.name,
+        url: effectiveUrl,
+        method: def.method,
+        enabled: false,
+        cadenceSeconds: def.cadenceSeconds ?? null,
+        successPolicy: def.successPolicy,
+        authMode: def.authMode,
+        authConfig: def.authMode === "NONE" ? null : (def.authConfig ?? null),
+        availabilityTarget: def.availabilityTarget?.toString() ?? null,
+        targetWindow: def.targetWindow ?? null,
+        autoDisableAfter: def.autoDisableAfter ?? null,
+        managedKey: def.checkKey,
+        nextProbeAt: null,
+        createdBy: actor.id,
+        updatedBy: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await writeEntityChange(
+      {
+        entityType: "url_check",
+        entityId: checkId,
+        action: "created",
+        changes: { componentId, name: def.name, url: effectiveUrl, managedKey: def.checkKey },
+        importRunId: runId,
+        actor,
+      },
+      trx,
+    );
+    check = await trx
+      .selectFrom("url_checks")
+      .selectAll()
+      .where("id", "=", checkId)
+      .executeTakeFirstOrThrow();
+  }
+
+  // Source ownership upsert: this Source declares the check with its
+  // configured enabled intent (UNIQUE(sourceId, checkKey)).
+  await trx
+    .insertInto("source_url_check_memberships")
+    .values({
+      id: uuidv7(),
+      sourceId,
+      urlCheckId: check.id,
+      checkKey: def.checkKey,
+      active: true,
+      configuredEnabled: def.enabled,
+      firstSeenInRunId: runId,
+      lastSeenInRunId: runId,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflict((oc) =>
+      oc.columns(["sourceId", "checkKey"]).doUpdateSet({
+        urlCheckId: check.id,
+        active: true,
+        configuredEnabled: def.enabled,
+        lastSeenInRunId: runId,
+        updatedAt: now,
+      }),
+    )
+    .execute();
+
+  await recomputeManagedCheckEnabled(trx, check.id);
+  return { checkId: check.id, conflict: null };
+}
+
+/** Phase-2 check reconciliation for a completed Source run: memberships the
+ *  Source did not refresh deactivate; affected checks recompute their
+ *  runtime enabled state. */
+export async function reconcileSourceCheckMemberships(
+  trx: DbOrTrx,
+  sourceId: string,
+  runId: string,
+): Promise<void> {
+  const stale = await trx
+    .updateTable("source_url_check_memberships")
+    .set({ active: false, updatedAt: new Date().toISOString() })
+    .where("sourceId", "=", sourceId)
+    .where("active", "=", true)
+    .where((eb) =>
+      eb.or([
+        eb("lastSeenInRunId", "!=", runId),
+        eb("lastSeenInRunId", "is", null),
+      ]),
+    )
+    .returning("urlCheckId")
+    .execute();
+  for (const row of stale) {
+    await recomputeManagedCheckEnabled(trx, row.urlCheckId);
+  }
+}
+
+/** Delete the managed checks (and, by cascade, observations + memberships)
+ *  of ComponentInstances that became GONE with no effective Source
+ *  membership (spec 058 FR-019). Legacy/manual rows are retained. */
+export async function cleanupManagedChecksForGoneInstances(
+  trx: DbOrTrx,
+  componentInstanceIds: string[],
+): Promise<number> {
+  if (componentInstanceIds.length === 0) return 0;
+  const gone = await trx
+    .selectFrom("component_instances")
+    .select("id")
+    .where("id", "in", componentInstanceIds)
+    .where("status", "=", "GONE")
+    .execute();
+  let deleted = 0;
+  for (const row of gone) {
+    const res = await trx
+      .deleteFrom("url_checks")
+      .where("componentInstanceId", "=", row.id)
+      .where("managedKey", "is not", null)
+      .execute();
+    deleted += Number(res[0]?.numDeletedRows ?? 0);
+  }
+  return deleted;
+}
+
+/** Config disabled or deleted → the bound Source's check memberships are no
+ *  longer effective; shared checks stay up only via other effective owners. */
+export async function pauseManagedChecksForConfig(
+  trx: DbOrTrx,
+  configId: string,
+): Promise<void> {
+  const checkIds = await trx
+    .selectFrom("source_url_check_memberships")
+    .innerJoin(
+      "importer_sources",
+      "importer_sources.id",
+      "source_url_check_memberships.sourceId",
+    )
+    .select("source_url_check_memberships.urlCheckId")
+    .where("importer_sources.boundConfigId", "=", configId)
+    .where("source_url_check_memberships.active", "=", true)
+    .execute();
+  for (const row of checkIds) {
+    await recomputeManagedCheckEnabled(trx, row.urlCheckId);
+  }
+}
+
+/** Explicit disabled→enabled transition (spec 058 FR-017): checks this
+ *  Source configures enabled resume and reset their streak/auto-disable
+ *  marker; configured-disabled checks remain off. */
+export async function resumeManagedChecksForConfig(
+  trx: DbOrTrx,
+  configId: string,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const memberships = await trx
+    .selectFrom("source_url_check_memberships")
+    .innerJoin(
+      "importer_sources",
+      "importer_sources.id",
+      "source_url_check_memberships.sourceId",
+    )
+    .select([
+      "source_url_check_memberships.urlCheckId",
+      "source_url_check_memberships.configuredEnabled",
+    ])
+    .where("importer_sources.boundConfigId", "=", configId)
+    .where("source_url_check_memberships.active", "=", true)
+    .execute();
+  for (const m of memberships) {
+    if (!m.configuredEnabled) continue;
+    await trx
+      .updateTable("url_checks")
+      .set({
+        enabled: true,
+        nextProbeAt: now,
+        consecutiveFailures: 0,
+        autoDisabledAt: null,
+        updatedAt: now,
+      })
+      .where("id", "=", m.urlCheckId)
+      .where("managedKey", "is not", null)
+      .execute();
+  }
 }

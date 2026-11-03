@@ -45,6 +45,8 @@ export interface UrlCheck {
   id: string;
   setupId: string;
   componentInstanceId: string;
+  // ImporterConfig-declared check identity (spec 058); null = legacy/manual.
+  managedKey: string | null;
   credentialId: string | null;
   name: string;
   url: string;
@@ -110,6 +112,8 @@ export interface UrlCheckSummary {
 }
 
 export interface UrlCheckListItem extends UrlCheck {
+  // ImporterConfig owning this managed check — the only edit surface.
+  managedByConfigId: string | null;
   latest: UrlCheckLatest | null;
   // Always present; null inner fields are the no-data signal.
   summary: UrlCheckSummary;

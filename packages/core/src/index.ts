@@ -203,6 +203,17 @@ export {
 export {
   createImporterConfigSchema,
   updateImporterConfigSchema,
+  managedCheckDefinitionSchema,
+  managedInstanceDefinitionSchema,
+  componentProfileSchema,
+  collectionScopeSchema,
+  assertCollectionUrlSafety,
+} from "./schemas/importer-config.js";
+export type {
+  ManagedCheckDefinition,
+  ManagedInstanceDefinition,
+  ComponentProfile,
+  CollectionScope,
 } from "./schemas/importer-config.js";
 export {
   createCredentialSchema,
@@ -433,7 +444,7 @@ export type {
   CreateInstanceBlock,
   CreateMonitoringBlock,
 } from "./schemas/url-check.js";
-export { executeHttpProbe, statusAccepted } from "./monitoring/probe.js";
+export { executeHttpProbe, statusAccepted, probeEndpoint, ENDPOINT_PROBE_TIMEOUT_MS } from "./monitoring/probe.js";
 export type { HttpProbeInput, HttpProbeResult } from "./monitoring/probe.js";
 export {
   URL_CHECK_METHODS,

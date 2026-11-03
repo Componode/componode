@@ -1,6 +1,8 @@
 import { ApiClient } from '../scripts/http.js';
+import pg from 'pg';
+import { randomUUID as genId } from 'node:crypto';
 
-// Supported-flow seed — creates actors, org structure, credentials, docker
+// Supported-flow seed  --  creates actors, org structure, credentials, docker
 // target, importer configs, OIDC config, monitoring, and the Import Agent
 // through real API calls (encrypted/lifecycle data never inserted directly).
 
@@ -17,14 +19,14 @@ export interface SeedResult {
   probeInstanceId: string;
 }
 
-export async function seedAppFlows(apiBase: string, env: Record<string, string>, ids: { githubBase: string; alibabaEndpoint: string; webFixture: string; apiFixture: string; dockerHost: string; dockerCa: string; dockerCert: string; dockerKey: string }): Promise<SeedResult> {
+export async function seedAppFlows(apiBase: string, pgUrl: string, env: Record<string, string>, ids: { githubBase: string; alibabaEndpoint: string; webFixture: string; apiFixture: string; dockerHost: string; dockerCa: string; dockerCert: string; dockerKey: string }): Promise<SeedResult> {
   const api = new ApiClient(apiBase);
   await api.login(env.PWP_ADMIN_USERNAME!, env.PWP_ADMIN_PASSWORD!);
   const ok = (r: { status: number; body: any }, w: string) => api.expectOk(r, w);
   const idOf = (o: any): string =>
     (o.id ?? (Object.values(o)[0] as any)?.id) as string;
 
-  // Actors — editor/viewer through the admin user API.
+  // Actors  --  editor/viewer through the admin user API.
   const editor = await ok(await api.post('/api/v1/users', {
     username: env.PWP_EDITOR_USERNAME, password: env.PWP_EDITOR_PASSWORD,
     role: 'EDITOR', displayName: 'PW Editor',
@@ -47,7 +49,7 @@ export async function seedAppFlows(apiBase: string, env: Record<string, string>,
   // Component group + a product component dependency.
   const group = await ok(await api.post('/api/v1/component-groups', { name: 'PW Group', slug: `pw-group-${env.PWP_RUN_ID}` }), 'create group');
 
-  // Credentials (encrypted store — STORED kind).
+  // Credentials (encrypted store  --  STORED kind).
   const githubCred = await ok(await api.post('/api/v1/credentials', {
     label: `pw-github-${env.PWP_RUN_ID}`, secrets: { token: env.PWP_GITHUB_TOKEN },
   }), 'github credential');
@@ -79,7 +81,7 @@ export async function seedAppFlows(apiBase: string, env: Record<string, string>,
     },
   }), 'docker target');
 
-  // Importer configs — all five implemented importers.
+  // Importer configs  --  all five implemented importers.
   const githubCfg = await ok(await api.post('/api/v1/importer-configs', {
     importerName: 'github', label: `pw-github-${env.PWP_RUN_ID}`,
     scope: { org: 'pw-org', baseUrl: ids.githubBase },
@@ -95,13 +97,33 @@ export async function seedAppFlows(apiBase: string, env: Record<string, string>,
     scope: { targetId: 'pw-engine', includeImages: true },
     credentialIds: [idOf(dockerCred)], enabled: true,
   }), 'docker config');
+  const collectionScope = (name: string, url: string) => ({
+    sourceKey: genId(),
+    components: [{
+      componentKey: genId(),
+      name,
+      instances: [{
+        instanceKey: genId(),
+        environment: 'PRODUCTION',
+        url,
+        check: {
+          checkKey: genId(),
+          name: `${name} availability`,
+          method: 'GET',
+          enabled: true,
+          successPolicy: { codes: [200], ranges: [] },
+          authMode: 'NONE',
+        },
+      }],
+    }],
+  });
   await ok(await api.post('/api/v1/importer-configs', {
     importerName: 'web-url', label: `pw-web-${env.PWP_RUN_ID}`,
-    scope: { url: ids.webFixture }, enabled: true,
+    scope: collectionScope('PW Web Fixture', ids.webFixture), enabled: true,
   }), 'web-url config');
   await ok(await api.post('/api/v1/importer-configs', {
     importerName: 'api-url', label: `pw-api-${env.PWP_RUN_ID}`,
-    scope: { url: ids.apiFixture }, enabled: true,
+    scope: collectionScope('PW API Fixture', ids.apiFixture), enabled: true,
   }), 'api-url config');
 
   // OIDC configuration pointing at Dex.
@@ -122,31 +144,40 @@ export async function seedAppFlows(apiBase: string, env: Record<string, string>,
   await ok(await api.put(`/api/v1/components/${idOf(comp)}/monitoring-setup`, {
     cadenceSeconds: 60, vantage: 'HUB',
   }), 'monitoring setup');
-  await ok(await api.post(`/api/v1/components/${idOf(comp)}/url-checks`, {
-    name: 'pw-none', url: 'http://probe.target.test:9080/none',
-    componentInstanceId: instanceId, method: 'GET', enabled: true,
-    successPolicy: { codes: [200], ranges: [] }, authMode: 'NONE',
-  }), 'check NONE');
-  await ok(await api.post(`/api/v1/components/${idOf(comp)}/url-checks`, {
-    name: 'pw-basic', url: 'http://auth.target.test:9080/basic',
-    componentInstanceId: instanceId, method: 'GET', enabled: true,
-    successPolicy: { codes: [200], ranges: [] }, authMode: 'BASIC',
-    credentialId: idOf(urlCheckCred),
-    authConfig: { usernameKey: 'basicUser', passwordKey: 'basicPassword' },
-  }), 'check BASIC');
-  await ok(await api.post(`/api/v1/components/${idOf(comp)}/url-checks`, {
-    name: 'pw-bearer', url: 'http://auth.target.test:9080/bearer',
-    componentInstanceId: instanceId, method: 'GET', enabled: true,
-    successPolicy: { codes: [200], ranges: [] }, authMode: 'BEARER',
-    credentialId: idOf(urlCheckCred), authConfig: { tokenKey: 'bearerToken' },
-  }), 'check BEARER');
-  await ok(await api.post(`/api/v1/components/${idOf(comp)}/url-checks`, {
-    name: 'pw-custom', url: 'http://auth.target.test:9080/custom',
-    componentInstanceId: instanceId, method: 'GET', enabled: true,
-    successPolicy: { codes: [200], ranges: [] }, authMode: 'CUSTOM_HEADERS',
-    credentialId: idOf(urlCheckCred),
-    authConfig: { headers: [{ name: 'X-PW-Check', key: 'headerValue' }] },
-  }), 'check CUSTOM');
+
+  // Direct URL Check writes are deprecated (spec 058 FR-021) - the write
+  // route returns 410. Workload probe checks are seeded directly so the
+  // specs exercise dispatch/observation behavior, not the retired API.
+  const pgClient = new pg.Client({ connectionString: pgUrl });
+  await pgClient.connect();
+  const setupId = (await pgClient.query(
+    'SELECT id FROM component_monitoring_setups WHERE "componentId" = $1',
+    [idOf(comp)],
+  )).rows[0].id;
+  const seedCheck = (
+    name: string, url: string, authMode: string,
+    credentialId: string | null, authConfig: unknown | null,
+  ) =>
+    pgClient.query(
+      `INSERT INTO url_checks
+         (id, "setupId", "componentInstanceId", "credentialId", name, url,
+          method, enabled, "successPolicy", "authMode", "authConfig",
+          "nextProbeAt")
+       VALUES ($1,$2,$3,$4,$5,$6,'GET',true,$7,$8,$9,now())`,
+      [
+        genId(), setupId, instanceId, credentialId, name, url,
+        JSON.stringify({ codes: [200], ranges: [] }),
+        authMode, authConfig ? JSON.stringify(authConfig) : null,
+      ],
+    );
+  await seedCheck('pw-none', 'http://probe.target.test:9080/none', 'NONE', null, null);
+  await seedCheck('pw-basic', 'http://auth.target.test:9080/basic', 'BASIC',
+    idOf(urlCheckCred), { usernameKey: 'basicUser', passwordKey: 'basicPassword' });
+  await seedCheck('pw-bearer', 'http://auth.target.test:9080/bearer', 'BEARER',
+    idOf(urlCheckCred), { tokenKey: 'bearerToken' });
+  await seedCheck('pw-custom', 'http://auth.target.test:9080/custom', 'CUSTOM_HEADERS',
+    idOf(urlCheckCred), { headers: [{ name: 'X-PW-Check', key: 'headerValue' }] });
+  await pgClient.end();
 
   // Import Agent + enrollment token (token written by caller into .env-private).
   const agent = await ok(await api.post('/api/v1/agents', { name: `pw-agent-${env.PWP_RUN_ID}` }), 'create agent');

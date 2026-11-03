@@ -15,6 +15,54 @@ import { formatDuration, formatNumber } from "@/ux/lib/format"
 import { useConvertSecrets, useTriggerImportRun } from "@/api/hooks/importers"
 import { ux } from "@/ux/lib/paths"
 import type { ImporterConfig, ImportRun } from "@/ux/lib/view-types"
+import type { CollectionScope } from "@componode/core"
+
+/** Read-only profile listing for Web/API collection importers (spec 058):
+ *  the config's declared profiles, their instances, and managed checks. */
+function ProfilesCard({ scope }: { scope: unknown }) {
+  const s = scope as CollectionScope | null
+  if (!s || !Array.isArray(s.components)) return null
+  return (
+    <Card className="overflow-hidden pb-0">
+      <CardHeader>
+        <CardTitle>Component profiles</CardTitle>
+        <CardDescription>
+          Declared on this configuration — Components, instances, and managed
+          URL checks materialize on each run. Edit via Configure.
+        </CardDescription>
+      </CardHeader>
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/40 hover:bg-muted/40">
+            <TableHead className="pl-6">Component</TableHead>
+            <TableHead>Environment</TableHead>
+            <TableHead>Instance URL</TableHead>
+            <TableHead className="pr-6">Check</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {s.components.flatMap((c) =>
+            c.instances.map((inst, ii) => (
+              <TableRow key={inst.instanceKey}>
+                <TableCell className="pl-6 font-medium">
+                  {ii === 0 ? c.name : ""}
+                </TableCell>
+                <TableCell className="text-sm">{inst.environment}</TableCell>
+                <TableCell>
+                  <code className="font-mono text-xs">{inst.url}</code>
+                </TableCell>
+                <TableCell className="pr-6 text-sm text-muted-foreground">
+                  {inst.check.name}
+                  {inst.check.enabled === false && " (disabled)"}
+                </TableCell>
+              </TableRow>
+            )),
+          )}
+        </TableBody>
+      </Table>
+    </Card>
+  )
+}
 
 export function ImporterDetail({ importer: i, runs }: { importer: ImporterConfig; runs: ImportRun[] }) {
   const trigger = useTriggerImportRun()
@@ -167,6 +215,9 @@ export function ImporterDetail({ importer: i, runs }: { importer: ImporterConfig
           </CardContent>
         </Card>
       </div>
+      {(i.importerName === "WEB_URL" || i.importerName === "API_URL") && (
+        <ProfilesCard scope={i.scope} />
+      )}
     </PageContainer>
   )
 }

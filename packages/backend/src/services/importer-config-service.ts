@@ -13,6 +13,10 @@ import * as cron from "node-cron";
 import { scheduleConfig, rescheduleConfig, unscheduleConfig } from "./scheduler-service.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { unmonitorSourcesForConfig } from "./importer-source-service.js";
+import {
+  pauseManagedChecksForConfig,
+  resumeManagedChecksForConfig,
+} from "./url-check-service.js";
 import { assertHubDockerConfig } from "./docker-target-service.js";
 
 function assertValidSchedule(schedule: string | null | undefined): void {
@@ -504,6 +508,15 @@ export async function updateImporterConfig(
       trx,
     );
 
+    // Spec 058 FR-017: a disabled config pauses its managed check
+    // memberships; an explicit re-enable resumes configured-enabled
+    // checks and resets their streak — ordinary runs never do.
+    if (input.enabled === false && existing.enabled) {
+      await pauseManagedChecksForConfig(trx, id);
+    } else if (input.enabled === true && !existing.enabled) {
+      await resumeManagedChecksForConfig(trx, id);
+    }
+
     const updated = await getImporterConfigWithTrx(trx, id);
     if (updated) {
       await rescheduleConfig({ id: updated.id, schedule: updated.schedule, enabled: updated.enabled });
@@ -521,8 +534,10 @@ export async function deleteImporterConfig(id: string, actor: Actor) {
   return db.transaction().execute(async (trx) => {
     // Bound Sources go UNMONITORED before the row is removed — the FK
     // clears boundConfigId and run history keeps its sourceId
-    // attribution (ADR-119, ADR-047 A1).
+    // attribution (ADR-119, ADR-047 A1). Managed checks pause but keep
+    // definitions/observations for reattachment (spec 058 FR-018).
     await unmonitorSourcesForConfig(id, actor, trx);
+    await pauseManagedChecksForConfig(trx, id);
     await trx.deleteFrom("importer_configs").where("id", "=", id).execute();
 
     await writeEntityChange(

@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { listComponentsQuerySchema, updateComponentSchema, createComponentSchema, createInstanceBlockSchema } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
-import { requireRole, hasPermission } from "../plugins/rbac.js";
+import { requireRole } from "../plugins/rbac.js";
 import { listComponents, getComponentById } from "../services/component-catalog-service.js";
 import { updateComponent, createComponent } from "../services/component-group-service.js";
 import { createComponentInstance } from "../services/component-instance-service.js";
@@ -80,30 +80,15 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
         details: parsed.error.issues,
       });
     }
+    // Spec 058 (ADR-126): the manual monitoring block is retired — managed
+    // checks are authored through ImporterConfig; ordinary Component and
+    // Instance creation remains available.
     if (parsed.data.monitoring) {
-      const role = req.user?.role ?? "VIEWER";
-      const setup = parsed.data.monitoring.setup;
-      if (!hasPermission(role, "urlCheck:create")) {
-        return reply
-          .status(403)
-          .send({ code: "AUTH_FORBIDDEN", message: "Forbidden" });
-      }
-      if (
-        (setup?.vantage === "AGENT" || setup?.agentId != null) &&
-        !hasPermission(role, "agent:read")
-      ) {
-        return reply
-          .status(403)
-          .send({ code: "AUTH_FORBIDDEN", message: "Forbidden" });
-      }
-      if (
-        parsed.data.monitoring.checks.some((c) => c.credentialId != null) &&
-        !hasPermission(role, "credential:read")
-      ) {
-        return reply
-          .status(403)
-          .send({ code: "AUTH_FORBIDDEN", message: "Forbidden" });
-      }
+      return reply.status(410).send({
+        code: "URL_CHECK_WRITE_DEPRECATED",
+        message:
+          "Direct URL check writes are deprecated — manage checks through the ImporterConfig",
+      });
     }
 
     try {

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
 import { startTestDb, type TestDb } from "../helpers/testcontainers.js";
 import { csrfCookie, csrfHeader, loginAs, SESSION_COOKIE_NAME, truncateImportTables } from "../helpers/api.js";
+import { randomUUID } from "node:crypto";
 
 const ADMIN_USERNAME = "admin";
 const ADMIN_PASSWORD = "AdminPassword123!";
@@ -80,6 +81,33 @@ describe("importers other", () => {
     throw new Error("Run did not reach terminal state in time");
   }
 
+  function collectionScope(name: string, url: string) {
+    return {
+      sourceKey: randomUUID(),
+      components: [
+        {
+          componentKey: randomUUID(),
+          name,
+          instances: [
+            {
+              instanceKey: randomUUID(),
+              environment: "PRODUCTION",
+              url,
+              check: {
+                checkKey: randomUUID(),
+                name: `${name} check`,
+                method: "GET",
+                enabled: true,
+                successPolicy: { codes: [], ranges: [{ min: 200, max: 299 }] },
+                authMode: "NONE",
+              },
+            },
+          ],
+        },
+      ],
+    };
+  }
+
   async function createConfigAndRun(importerName: string, scope: unknown): Promise<{ configId: string; runId: string }> {
     const createRes = await app.inject({
       method: "POST",
@@ -152,7 +180,7 @@ describe("importers other", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("OK", { status: 200 }),
     );
-    const { configId, runId } = await createConfigAndRun("web-url", { url: "https://example.com" });
+    const { configId, runId } = await createConfigAndRun("web-url", collectionScope("Web", "https://example.com"));
     const run = await waitForRun(configId, runId);
     expect(run.status).toBe("COMPLETED");
     fetchSpy.mockRestore();
@@ -172,7 +200,7 @@ describe("importers other", () => {
         headers: { "Content-Type": "application/json" },
       }),
     );
-    const { configId, runId } = await createConfigAndRun("api-url", { url: "https://api.example.com/health" });
+    const { configId, runId } = await createConfigAndRun("api-url", collectionScope("API", "https://api.example.com/health"));
     const run = await waitForRun(configId, runId);
     expect(run.status).toBe("COMPLETED");
     fetchSpy.mockRestore();
@@ -202,7 +230,30 @@ describe("importers other", () => {
           payload: {
             importerName,
             label: importerName,
-            scope: { url },
+            scope: {
+              sourceKey: randomUUID(),
+              components: [
+                {
+                  componentKey: randomUUID(),
+                  name: "Target",
+                  instances: [
+                    {
+                      instanceKey: randomUUID(),
+                      environment: "PRODUCTION",
+                      url,
+                      check: {
+                        checkKey: randomUUID(),
+                        name: "Check",
+                        method: "GET",
+                        enabled: true,
+                        successPolicy: { codes: [], ranges: [{ min: 200, max: 299 }] },
+                        authMode: "NONE",
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
             secretRefs: [],
           },
         });

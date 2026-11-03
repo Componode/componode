@@ -341,6 +341,17 @@ them into specs when scheduled. G29/G31/G32 shipped as spec
   decider name; no accept/dismiss actions; empty state when none.
   `suggestionsHistory` flag removed.
 
+## G33 — Importer-config profile builder — RESOLVED by spec 058
+
+- The Web/API importer form needed a nested Component-profile builder —
+  profiles → per-environment instances → one managed URL Check each —
+  which the schema-driven scope renderer cannot express. The
+  `importerProfileBuilder` flag ships ON with the complete backend
+  contract (collection scope v2 + managed-check sync): `importer-form`
+  renders `collection-scope-builder` for `web-url`/`api-url`, with a
+  reattachment select over UNMONITORED Sources on create. Other
+  importers keep the generic schema/raw editors.
+
 ## Conditional gaps — VERIFIED during implementation
 
 - **Product bulk-import** — RESOLVED: `POST /products/bootstrap`

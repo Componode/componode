@@ -28,6 +28,7 @@ import {
   insertRunError,
   processAsset,
   reconcileRetiredComponents,
+  managedCheckDefsFromScope,
   updateRun,
 } from "./import-run-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
@@ -1072,7 +1073,7 @@ export function createDbRemoteRunStore(): RemoteRunStore {
     async processAsset(job, asset) {
       return traceDbQuery("processAsset", () =>
         db.transaction().execute(async (trx) =>
-          processAsset(trx, job.runId, job.importerName, asset, job.triggeredBy, { sourceId: job.sourceId, sourceIdentity: job.sourceIdentity, configId: job.configId }),
+          processAsset(trx, job.runId, job.importerName, asset, job.triggeredBy, { sourceId: job.sourceId, sourceIdentity: job.sourceIdentity, configId: job.configId }, managedCheckDefsFromScope(job.scope)),
         ),
       );
     },
