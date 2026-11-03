@@ -891,3 +891,59 @@ describe("mapProductTopology component dependencies (spec 061)", () => {
     expect(view.dependsOnComponents[0]?.worstStatus).toBeNull();
   });
 });
+
+describe("mapProductTopology GONE exclusion (spec 061, review)", () => {
+  it("never presents GONE as component health", () => {
+    const view = mapProductTopology(
+      {
+        product,
+        health: null,
+        composedBy: [],
+        composes: [],
+        consumesFrom: [],
+        consumedBy: [],
+        components: {
+          declared: [
+            {
+              id: "gone-only",
+              name: "gone",
+              slug: "gone",
+              category: "DATABASE",
+              lifecycle: "ACTIVE",
+              sources: [{ kind: "DIRECT" }],
+            },
+            {
+              id: "mixed",
+              name: "mixed",
+              slug: "mixed",
+              category: "DATABASE",
+              lifecycle: "ACTIVE",
+              sources: [{ kind: "DIRECT" }],
+            },
+          ],
+          inherited: [],
+        },
+        dependsOnGroups: [],
+        instances: {
+          declared: [
+            { id: "i1", componentId: "gone-only", componentName: "gone", environment: "PRODUCTION", status: "GONE", region: null },
+            { id: "i2", componentId: "mixed", componentName: "mixed", environment: "PRODUCTION", status: "GONE", region: null },
+            { id: "i3", componentId: "mixed", componentName: "mixed", environment: "DEV", status: "RUNNING", region: null },
+          ],
+          inherited: [],
+        },
+        counts: { composedBy: 0, composes: 0, components: 0, instances: 0 },
+      } as ProductDetail,
+      {
+        instances: [
+          { id: "i1", componentId: "gone-only", componentName: "gone", environment: "PRODUCTION", status: "GONE", region: null },
+          { id: "i2", componentId: "mixed", componentName: "mixed", environment: "PRODUCTION", status: "GONE", region: null },
+          { id: "i3", componentId: "mixed", componentName: "mixed", environment: "DEV", status: "RUNNING", region: null },
+        ],
+      },
+    );
+    // GONE-only → no data; GONE+RUNNING → RUNNING, not GONE.
+    expect(view.dependsOnComponents.find((c) => c.id === "gone-only")?.worstStatus).toBeNull();
+    expect(view.dependsOnComponents.find((c) => c.id === "mixed")?.worstStatus).toBe("RUNNING");
+  });
+});

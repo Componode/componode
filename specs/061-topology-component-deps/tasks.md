@@ -198,3 +198,5 @@ small enough that partial delivery adds no value.
 - [x] T027 Use valid `COMPONENT_CATEGORIES` values in `product-map.test.tsx`/`ux-mappers.test.ts` fixtures plus one explicit unknown-category passthrough test (code-review: standards) (partial)
 - [x] T028 Align `specs/061-topology-component-deps/contracts/topology-view-model.md` extras signature with the implemented `{ instances? }` (code-review: spec) (partial)
 - [x] T029 Add a product-topology line covering the components lane in `docs/using-the-catalog.md` (code-review: standards, AGENTS.md docs rule) (missing)
+
+- [x] T030 Add a GONE-instance fixture to the spec-061 mapper test block in `packages/frontend/src/test/unit/ux-mappers.test.ts` proving `worstStatus` ignores GONE rows (code-review: standards round 2) (missing)
