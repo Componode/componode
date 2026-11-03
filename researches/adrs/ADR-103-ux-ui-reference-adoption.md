@@ -63,3 +63,8 @@ authoring remains out of scope (gap G31, needs its own ADR/spec).
 **Amended by ADR-126**: `docs/ux.md` §9 approves the nested Web/API
 profile/instance builder as a scoped custom importer-form control; the
 general nested schema-renderer boundary is unchanged.
+
+---
+
+**Amended by ADR-127**: the Product Map topology moves to the Dependencies
+tab while retaining the read-only, data-true canvas constraints.

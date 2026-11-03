@@ -210,8 +210,10 @@ detailed entry in **`researches/ux-rewrite-gaps.md`**:
 ## 8. Scope boundaries
 
 - ≥1280px optimized, ~768px usable; sub-`md` = nav drawer only (ADR-108).
-- The product "Map" is a **read-only** relations canvas (ADR-118). An
-  interactive/authoring graph still requires its own ADR.
+- Product topology is a **read-only** view at the top of the Dependencies
+  tab (ADR-118 Amendment 1 / ADR-127). Keyboard focus, selection, inspection,
+  and `+N` expansion are view affordances; pan/zoom/drag/layout editing and
+  edge authoring remain out of scope.
 - No dashboard widget customization, no notification backend, no TOTP —
   all flagged gaps, not hidden bugs.
 
