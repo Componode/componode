@@ -290,7 +290,7 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
             ref={rootRef}
             onKeyDown={onCanvasKeyDown}
             onClick={(e) => {
-              if (e.target === e.currentTarget) clear()
+              if (!(e.target as HTMLElement).closest("button, a")) clear()
             }}
             className="relative isolate flex min-w-0 flex-col gap-6 py-2 lg:flex-row lg:items-center lg:gap-8"
           >
