@@ -6,7 +6,7 @@ import { useSession } from "@/api/hooks/auth";
 import { mapComponentGroup } from "@/api/mappers/catalog";
 import { ComponentGroupCreateDialog } from "@/ux/components/catalog/component-group-create-dialog";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
-import { ErrorState } from "@/ux/components/patterns/states";
+import { EmptyState, ErrorState } from "@/ux/components/patterns/states";
 import { LifecycleBadge } from "@/ux/components/patterns/status-badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select";
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ux/components/ui/card";
@@ -53,6 +53,12 @@ export function UxComponentGroupsPage() {
           title="Component groups unavailable"
           description={errorMessage(error)}
           onRetry={() => void refetch()}
+        />
+      ) : data.groups.length === 0 ? (
+        <EmptyState
+          icon={LayersIcon}
+          title="No component groups"
+          description={showRetired ? "Create a group to bundle components that ship and retire together." : "No active groups — retired groups can be shown with the filter above."}
         />
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
