@@ -39,6 +39,13 @@ describe("theme tokens (US1 emerald identity)", () => {
     expect(uxCss).toContain("background-size: 32px 32px");
   });
 
+  it("maps prototype state variants to Radix data-state attributes", () => {
+    expect(css).toContain('@custom-variant data-active');
+    expect(css).toContain('[data-state="active"]');
+    expect(css).toContain('@custom-variant data-open');
+    expect(css).toContain('[data-state="open"]');
+  });
+
   it("status green keeps its ~142° hue in both themes (brand/status separation)", () => {
     expect(lightBlock).toMatch(/--color-success: hsl\(142\s/);
     expect(darkBlock).toMatch(/--color-success: hsl\(142\s/);
