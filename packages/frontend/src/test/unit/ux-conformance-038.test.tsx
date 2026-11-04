@@ -20,6 +20,9 @@ vi.mock("@/api/hooks/users", () => ({
 vi.mock("@/api/hooks/password", () => ({
   useResetPassword: () => ({ mutate: resetMutate, isPending: false }),
 }));
+vi.mock("@/api/hooks/components", () => ({
+  useAllComponents: () => ({ data: [], isPending: false }),
+}));
 vi.mock("@/api/hooks/products", () => ({
   useProducts: () => ({ data: { products: [] }, isPending: false }),
 }));

@@ -9,6 +9,9 @@ import type { ImporterSource } from "@/ux/lib/view-types";
 vi.mock("@/api/hooks/auth", () => ({
   useSession: vi.fn(() => ({ data: { role: "VIEWER" } })),
 }));
+vi.mock("@/api/hooks/users", () => ({
+  useUsers: () => ({ data: { users: [] }, isPending: false }),
+}));
 vi.mock("@/api/hooks/importer-sources", () => ({
   useRetireSource: () => ({ mutate: vi.fn(), isPending: false }),
   useReactivateSource: () => ({ mutate: vi.fn(), isPending: false }),
