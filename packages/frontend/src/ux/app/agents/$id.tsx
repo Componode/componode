@@ -4,6 +4,7 @@ import { useEntityHistory } from "@/api/hooks/audit";
 import { mapActivityItem } from "@/api/mappers/dashboard";
 import { mapAgentSession, mapImportAgent } from "@/api/mappers/operations";
 import { AgentDetail } from "@/ux/components/agents/agent-detail";
+import { useLeafCrumb } from "@/ux/components/app/app-header";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, ForbiddenState, NotFoundState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Card } from "@/ux/components/ui/card";
@@ -13,6 +14,7 @@ import { ux } from "@/ux/lib/paths";
 export function UxAgentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const agent = useAgent(id ?? null);
+  useLeafCrumb(agent.data?.agent?.name ?? null);
   const sessions = useAgentSessions(id ?? null);
   const history = useEntityHistory("import_agent", id ?? "");
 

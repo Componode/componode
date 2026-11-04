@@ -4,6 +4,7 @@ import { useCredentials } from "@/api/hooks/credentials";
 import { useImporterConfig, useImporterRun, useImportRunErrors } from "@/api/hooks/importers";
 import { useUsers } from "@/api/hooks/users";
 import { mapImporterConfig, mapImportRun, mapRunChange, mapRunError } from "@/api/mappers/operations";
+import { useCrumbLabel } from "@/ux/components/app/app-header";
 import { RunDetail } from "@/ux/components/importers/run-detail";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, ForbiddenState, NotFoundState, TableSkeleton } from "@/ux/components/patterns/states";
@@ -19,6 +20,7 @@ export function UxRunDetailPage() {
   const changes = useRunChanges(id ?? "", runId ?? "");
   const credentials = useCredentials();
   const users = useUsers();
+  useCrumbLabel(id, config.data?.config?.label ?? null);
 
   if (config.isPending || run.isPending) {
     return (

@@ -5,6 +5,7 @@ import { BanIcon, CircleCheckIcon, Trash2Icon, ZapIcon } from "lucide-react";
 import { useDeleteDockerTarget, useDockerTarget, useSetDockerTargetEnabled, useTestDockerTarget, useUpdateDockerTarget } from "@/api/hooks/docker-targets";
 import { useImporterConfigs } from "@/api/hooks/importers";
 import { errorMessage } from "@/ux/lib/api-state";
+import { useLeafCrumb } from "@/ux/components/app/app-header";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
 import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
 import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog";
@@ -25,6 +26,7 @@ export function UxDockerTargetDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const target = useDockerTarget(id);
+  useLeafCrumb(target.data?.target?.label ?? null);
   const configs = useImporterConfigs();
   const update = useUpdateDockerTarget(id!);
   const setEnabled = useSetDockerTargetEnabled(id!);

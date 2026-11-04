@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
 import { CredentialDetail } from "@/ux/components/admin/credential-detail";
+import { useLeafCrumb } from "@/ux/components/app/app-header";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, NotFoundState } from "@/ux/components/patterns/states";
 import { Skeleton } from "@/ux/components/ui/skeleton";
@@ -14,6 +15,7 @@ import { ux } from "@/ux/lib/paths";
 export function UxCredentialDetailPage() {
   const { id } = useParams<{ id: string }>();
   const detail = useCredential(id ?? null);
+  useLeafCrumb(detail.data?.credential?.label ?? null);
   const configs = useImporterConfigs();
   const history = useEntityHistory("credential", id ?? "");
 
