@@ -1,6 +1,8 @@
 import { useParams } from "react-router-dom";
 import { useComponentDetail, useComponents } from "@/api/hooks/components";
+import { useUrlCheck } from "@/api/hooks/url-checks";
 import { mapComponent } from "@/api/mappers/catalog";
+import { useLeafCrumb } from "@/ux/components/app/app-header";
 import { UrlCheckDetail } from "@/ux/components/catalog/url-check-detail";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, ForbiddenState, NotFoundState, TableSkeleton } from "@/ux/components/patterns/states";
@@ -16,6 +18,8 @@ export function UxUrlCheckDetailPage() {
   const lookup = useComponents({ search: slug, includeRetired: true, pageSize: 100 });
   const componentId = lookup.data?.data.find((c) => c.slug === slug)?.id ?? null;
   const detail = useComponentDetail(componentId);
+  const check = useUrlCheck(checkId ?? null);
+  useLeafCrumb(check.data?.check?.name ?? null);
 
   if (lookup.isPending || (componentId && detail.isPending)) {
     return (
