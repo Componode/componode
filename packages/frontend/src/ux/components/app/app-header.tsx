@@ -27,10 +27,34 @@ function labelFor(segment: string): string {
   return SEGMENT_LABELS[segment] ?? segment
 }
 
+/** Detail pages set this so the leaf crumb shows the entity name instead
+ *  of the raw id — needed for UUID-keyed pages (users, sources, agents)
+ *  whose entities are intentionally absent from global search. */
+const LeafCrumbContext = React.createContext<{
+  label: string | null
+  setLabel: (l: string | null) => void
+} | null>(null)
+
+export function LeafCrumbProvider({ children }: { children: React.ReactNode }) {
+  const [label, setLabel] = React.useState<string | null>(null)
+  const value = React.useMemo(() => ({ label, setLabel }), [label])
+  return <LeafCrumbContext.Provider value={value}>{children}</LeafCrumbContext.Provider>
+}
+
+export function useLeafCrumb(label: string | null | undefined) {
+  const ctx = React.useContext(LeafCrumbContext)
+  React.useEffect(() => {
+    ctx?.setLabel(label ?? null)
+    return () => ctx?.setLabel(null)
+  }, [ctx, label])
+}
+
 /** Resolve a URL segment to an entity display name via global search (exact slug/id match). */
-function useEntityName(segment: string): string {
+function useEntityName(segment: string, isLeaf: boolean): string {
+  const leaf = React.useContext(LeafCrumbContext)?.label
   const isStatic = segment in SEGMENT_LABELS || segment === "ux"
   const search = useGlobalSearch(isStatic ? "" : segment)
+  if (isLeaf && leaf) return leaf
   if (isStatic) return labelFor(segment)
   for (const hits of Object.values(search.data ?? {})) {
     const hit = (hits as { name?: string; slug?: string; id?: string }[]).find(
@@ -52,8 +76,8 @@ function useCrumbs() {
   }))
 }
 
-function CrumbLabel({ seg }: { seg: string }) {
-  return <>{useEntityName(seg)}</>
+function CrumbLabel({ seg, isLast }: { seg: string; isLast: boolean }) {
+  return <>{useEntityName(seg, isLast)}</>
 }
 
 export function AppHeader() {
@@ -70,10 +94,10 @@ export function AppHeader() {
               <React.Fragment key={c.href}>
                 <BreadcrumbItem className={last ? "min-w-0" : "hidden md:inline-flex"}>
                   {last ? (
-                    <BreadcrumbPage className="truncate">{c.label || <CrumbLabel seg={c.seg} />}</BreadcrumbPage>
+                    <BreadcrumbPage className="truncate">{c.label || <CrumbLabel seg={c.seg} isLast={last} />}</BreadcrumbPage>
                   ) : (
                     <BreadcrumbLink asChild>
-                      <Link to={c.href}>{c.label || <CrumbLabel seg={c.seg} />}</Link>
+                      <Link to={c.href}>{c.label || <CrumbLabel seg={c.seg} isLast={last} />}</Link>
                     </BreadcrumbLink>
                   )}
                 </BreadcrumbItem>

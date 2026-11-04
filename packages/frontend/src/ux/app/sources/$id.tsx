@@ -4,6 +4,7 @@ import { useImporterSource, useSourceMemberships, useSourceRuns } from "@/api/ho
 import { mapActivityItem } from "@/api/mappers/dashboard";
 import { mapImporterSource } from "@/api/mappers/operations";
 import { SourceDetail } from "@/ux/components/sources/source-detail";
+import { useLeafCrumb } from "@/ux/components/app/app-header";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, ForbiddenState, NotFoundState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Card } from "@/ux/components/ui/card";
@@ -13,6 +14,9 @@ import { ux } from "@/ux/lib/paths";
 export function UxSourceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const source = useImporterSource(id ?? null);
+  useLeafCrumb(
+    source.data?.source ? (source.data.source.label ?? source.data.source.externalIdentity) : null,
+  );
   const runs = useSourceRuns(id ?? null);
   const memberships = useSourceMemberships(id ?? null);
   const history = useEntityHistory("importer_source", id ?? "");

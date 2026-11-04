@@ -20,6 +20,8 @@ export interface User {
   displayName: string | null;
   email: string | null;
   isActive: boolean;
+  /** Most recent session sighting — null when the user never signed in. */
+  lastActiveAt?: string | null;
   createdAt: string;
 }
 

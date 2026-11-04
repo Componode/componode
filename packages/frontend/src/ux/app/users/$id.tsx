@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
 import { UserDetail } from "@/ux/components/admin/user-detail";
+import { useLeafCrumb } from "@/ux/components/app/app-header";
 import { useSession } from "@/ux/components/app/session-context";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, ForbiddenState, NotFoundState } from "@/ux/components/patterns/states";
@@ -18,6 +19,7 @@ export function UxUserDetailPage() {
   // No detail GET — resolve via the users list (wiring contract).
   const users = useUsers();
   const apiUser = users.data?.users.find((u) => u.id === id);
+  useLeafCrumb(apiUser ? (apiUser.displayName ?? apiUser.username) : null);
   const sessions = useUserSessions(apiUser ? apiUser.id : null);
   const activity = useActivityFeed({ actor: apiUser?.username, limit: 50 });
 

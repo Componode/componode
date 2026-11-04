@@ -1,6 +1,6 @@
 ﻿import { useState } from "react";
 import { Outlet } from "react-router-dom";
-import { AppHeader } from "@/ux/components/app/app-header";
+import { AppHeader, LeafCrumbProvider } from "@/ux/components/app/app-header";
 import { AppSidebar } from "@/ux/components/app/app-sidebar";
 import { CommandMenuProvider } from "@/ux/components/app/command-menu";
 import { SessionProvider } from "@/ux/components/app/session-context";
@@ -29,10 +29,12 @@ export function UxShell() {
           >
             <AppSidebar />
             <SidebarInset className="min-w-0">
-              <AppHeader />
-              <main id="main" className="min-w-0 flex-1">
-                <Outlet />
-              </main>
+              <LeafCrumbProvider>
+                <AppHeader />
+                <main id="main" className="min-w-0 flex-1">
+                  <Outlet />
+                </main>
+              </LeafCrumbProvider>
             </SidebarInset>
           </SidebarProvider>
         </CommandMenuProvider>

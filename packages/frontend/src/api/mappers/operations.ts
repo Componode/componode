@@ -245,7 +245,7 @@ export function mapCredentialStatus(status: string | null | undefined): Credenti
 
 const ROLES: readonly string[] = ["VIEWER", "EDITOR", "ADMIN"];
 
-/** API User → view. `lastActiveAt` is not exposed by the API yet (null). */
+/** API User → view. `lastActiveAt` = most recent session sighting (null for never-signed-in). */
 export function mapUser(u: {
   id: string;
   username: string;
@@ -253,6 +253,7 @@ export function mapUser(u: {
   displayName: string | null;
   email: string | null;
   isActive: boolean;
+  lastActiveAt?: string | null;
   createdAt: string;
 }): import("@/ux/lib/view-types").User {
   return {
@@ -262,7 +263,7 @@ export function mapUser(u: {
     email: u.email,
     role: narrow(u.role, ROLES, "VIEWER"),
     isActive: u.isActive,
-    lastActiveAt: null,
+    lastActiveAt: u.lastActiveAt ?? null,
     createdAt: u.createdAt,
   };
 }
