@@ -315,6 +315,11 @@ Notice the DAG property: `Accounts` and `Payments` have **two parents**
 DAG, not a tree. `Mobile Banking` reusing the same capability products is
 exactly the point of the model.
 
+In the app, the product detail's **Map** tab renders the same shape as
+labeled one-hop lanes around the product:
+
+![The product Map tab: products that consume it on one side, the platform and components it depends on across from it](./assets/product-map.png)
+
 ## How the pieces grow over time
 
 Two workflows tie this together:

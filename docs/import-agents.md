@@ -19,6 +19,12 @@ WebSocket to the hub; the hub never dials in.
 | Agent credential | Durable bearer token the agent stores and uses on the stream                                  |
 | Agent session    | One connected episode; recorded with address/versions in connection history                   |
 
+Admins enroll and manage agents under **Sources → Import agents**
+(`/agents`). Each agent connects outbound — no inbound firewall rules are
+needed, and secrets for private sources stay on the agent host.
+
+![The Import agents page: enrolled runtimes and the Enroll agent action](./assets/agents.png)
+
 ## Deploy
 
 ```bash

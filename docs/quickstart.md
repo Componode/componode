@@ -42,6 +42,8 @@ sign in with the bootstrap admin credentials from `.env`.
 You land on the **dashboard** — empty for now, because nothing has been
 imported yet.
 
+![The dashboard after a few imports: totals, attention items, and instance health](./assets/dashboard.png)
+
 ## 3. Run your first import
 
 The fastest first import needs **no credentials**: the Web URL importer
@@ -50,6 +52,10 @@ probes a public web endpoint and records it as a component.
 1. Go to **Sources → Importers → New**.
 2. Pick **Web URL**, give the config a name, and enter a public URL —
    for example `https://example.com`.
+
+   ![The new-importer form: importer type, credential, execution, and scope fields](./assets/importers-new.png)
+
+3. Save, then click **Run** on the config.
 3. Save, then click **Run** on the config.
 4. Open the run to watch its phases complete, then check
    **Catalog → Components** — you'll find a new component with a
@@ -66,6 +72,9 @@ Importers only tell you what exists. Products are what you make of it:
    (`BUSINESS_CAPABILITY`, `PLATFORM`, or `CUSTOMER_FACING`) and an owner.
 2. On the product page, wire a `DEPENDS_ON` edge to the component you just
    imported.
+
+   ![A product detail page: type, criticality, health, and the tab bar](./assets/product-detail.png)
+
 3. Revisit the **dashboard** — coverage and health now reflect your wiring.
 
 ## Where next

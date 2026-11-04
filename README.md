@@ -19,6 +19,8 @@ meaning layer (what it means).
 
 > **Documentation site:** <https://componode.github.io/componode/>
 
+![The Componode dashboard — catalog totals, attention items, instance health, and completeness](docs/assets/dashboard.png)
+
 ### About this project
 
 Componode is a personal learning project. I built it to explore, hands-on,

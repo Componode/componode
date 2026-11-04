@@ -19,6 +19,8 @@ enforced by the API — UI hiding is advisory only:
 | `EDITOR` | Everything a viewer can, plus curate: create/edit products, wire edges, decide suggestions, manage org entities, trigger imports. |
 | `ADMIN` | Everything an editor can, plus: users and roles, credentials, Import Agents, audit feed, workspace/auth/session settings, source retire/reactivate. |
 
+![The Users page: people records with role and activation state](./assets/users.png)
+
 ## Sign-in
 
 - **Local auth** — username + password (Argon2id hashing, server-side
@@ -49,6 +51,8 @@ token or an Alibaba AccessKey pair).
 - **Rotation** — edit a credential to replace values in place; importer
   configs keep working because they reference the credential, not the
   secrets.
+
+![The Credentials page: masked key hints, status, and Rotate/Revoke actions](./assets/credentials.png)
 
 ## Two credential kinds
 
