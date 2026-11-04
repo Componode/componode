@@ -4791,6 +4791,12 @@ components:
             (`env`/`file`) per key.
         expiresAt: { type: string, format: date-time, nullable: true }
         lastUsedAt: { type: string, format: date-time, nullable: true }
+        usedByCount:
+          type: integer
+          description: >-
+            Dependent count — importer configs, OIDC binding, and URL
+            checks referencing this credential. Matches `dependents`
+            cardinality on the detail payload.
         createdBy: { type: string, format: uuid, nullable: true }
         updatedBy: { type: string, format: uuid, nullable: true }
         createdAt: { type: string, format: date-time }

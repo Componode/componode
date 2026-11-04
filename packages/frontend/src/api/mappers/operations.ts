@@ -314,8 +314,9 @@ export function mapCredential(
     expiresAt: string | null;
     lastUsedAt: string | null;
     updatedBy?: string | null;
+    usedByCount?: number;
   },
-  usedBy = 0,
+  usedBy?: number,
 ): import("@/ux/lib/view-types").Credential {
   return {
     id: c.id,
@@ -326,7 +327,7 @@ export function mapCredential(
     keyHints: c.keyHints ?? {},
     expiresAt: c.expiresAt,
     lastUsedAt: c.lastUsedAt,
-    usedBy,
+    usedBy: usedBy ?? c.usedByCount ?? 0,
     updatedBy: c.updatedBy ?? "—",
   };
 }
