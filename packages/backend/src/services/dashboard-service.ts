@@ -155,6 +155,20 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
       "import_runs.errorMessage",
     ])
     .where("import_runs.status", "=", "FAILED")
+    // A failure is resolved once the same config completes a newer run —
+    // only still-broken importers belong in the attention queue.
+    .where((eb) =>
+      eb.not(
+        eb.exists(
+          eb
+            .selectFrom("import_runs as newer")
+            .select("newer.id")
+            .whereRef("newer.configId", "=", "import_runs.configId")
+            .whereRef("newer.createdAt", ">", "import_runs.createdAt")
+            .where("newer.status", "=", "COMPLETED"),
+        ),
+      ),
+    )
     .orderBy("import_runs.createdAt", "desc")
     .limit(ATTENTION_LIMIT)
     .execute();
@@ -324,6 +338,20 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
       .selectFrom("import_runs")
       .select((eb) => eb.fn.countAll<number>().as("n"))
       .where("status", "=", "FAILED")
+      // Same supersession as the attention queue: a failure followed by a
+      // newer COMPLETED run is resolved, not an outstanding issue.
+      .where((eb) =>
+        eb.not(
+          eb.exists(
+            eb
+              .selectFrom("import_runs as newer")
+              .select("newer.id")
+              .whereRef("newer.configId", "=", "import_runs.configId")
+              .whereRef("newer.createdAt", ">", "import_runs.createdAt")
+              .where("newer.status", "=", "COMPLETED"),
+          ),
+        ),
+      )
       .executeTakeFirst(),
     db
       .selectFrom("import_agents")
