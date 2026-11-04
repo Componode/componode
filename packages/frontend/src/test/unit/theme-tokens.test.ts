@@ -4,10 +4,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
-const css = readFileSync(
-  resolve(dirname(fileURLToPath(import.meta.url)), "../../index.css"),
-  "utf-8",
-);
+const frontendRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const css = readFileSync(resolve(frontendRoot, "index.css"), "utf-8");
+const uxCss = readFileSync(resolve(frontendRoot, "ux/styles.css"), "utf-8");
 
 const lightBlock = css.match(/@theme\s*\{([^}]*)\}/s)?.[1] ?? "";
 const darkBlock = css.match(/\.dark\s*\{([^}]*)\}/s)?.[1] ?? "";
@@ -28,6 +27,16 @@ describe("theme tokens (US1 emerald identity)", () => {
 
   it("radius is updated to 0.625rem", () => {
     expect(lightBlock).toContain("--radius: 0.625rem");
+  });
+
+  it("uses the bundled prototype Geist variable fonts", () => {
+    expect(lightBlock).toContain('--font-sans: "Geist Variable"');
+    expect(lightBlock).toContain('--font-mono: "Geist Mono Variable"');
+  });
+
+  it("keeps the prototype grid/canvas utility available to public auth routes", () => {
+    expect(uxCss).toContain("@utility bg-grid");
+    expect(uxCss).toContain("background-size: 32px 32px");
   });
 
   it("status green keeps its ~142° hue in both themes (brand/status separation)", () => {

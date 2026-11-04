@@ -66,10 +66,17 @@ general nested schema-renderer boundary is unchanged.
 
 ---
 
-**Amended by ADR-127**: the Product Map topology moves to the Dependencies
-tab while retaining the read-only, data-true canvas constraints.
+**Amended by ADR-127**: the Product Map topology retains the read-only,
+data-true canvas constraints and, by Amendment 3, lives on a dedicated Map
+tab while Dependencies keeps authoring/list workflows.
 
 ---
 
 **Amended by ADR-128**: Component detail gains a typed, read-only
 Relationships tab with nested ComponentInstances.
+
+---
+
+**Amended by spec 062**: `docs/ux.md` now ratifies bundled Geist Sans/Mono
+and applies the `.ux-root` token scope at document level so public auth
+routes and portal-rendered chrome share the prototype visual baseline.

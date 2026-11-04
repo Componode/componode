@@ -8,8 +8,12 @@ import {
   ShieldIcon,
 } from "lucide-react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
+import type { ComponentType } from "react"
 import { Logo, LogoMark } from "@/ux/components/app/logo"
+import { useAgents } from "@/api/hooks/agents"
 import { useLogout } from "@/api/hooks/auth"
+import { useSuggestions } from "@/api/hooks/suggestions"
+import { mapAgentAttentionCount, mapPendingSuggestionCount } from "@/api/mappers/nav-cues"
 import { useSession } from "@/ux/components/app/session-context"
 import { Avatar, AvatarFallback } from "@/ux/components/ui/avatar"
 import {
@@ -30,13 +34,14 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
 } from "@/ux/components/ui/sidebar"
 import { ROLE_META } from "@/ux/lib/domain"
 import { initials } from "@/ux/lib/format"
-import { canAccess, NAV_SECTIONS } from "@/ux/lib/nav"
+import { canAccess, NAV_SECTIONS, type NavItem } from "@/ux/lib/nav"
 import { useCommandMenu } from "./command-menu"
 import { ux } from "@/ux/lib/paths"
 
@@ -95,6 +100,7 @@ export function AppSidebar() {
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
+                    {item.badgeKey && <NavBadge badgeKey={item.badgeKey} />}
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
@@ -109,6 +115,30 @@ export function AppSidebar() {
       <SidebarRail />
     </Sidebar>
   )
+}
+
+const NAV_BADGES: Record<NonNullable<NavItem["badgeKey"]>, ComponentType> = {
+  pendingSuggestions: PendingSuggestionsBadge,
+  agentsAttention: AgentsAttentionBadge,
+}
+
+function NavBadge({ badgeKey }: { badgeKey: NonNullable<NavItem["badgeKey"]> }) {
+  const Badge = NAV_BADGES[badgeKey]
+  return <Badge />
+}
+
+function CountBadge({ count }: { count: number }) {
+  return count > 0 ? <SidebarMenuBadge>{count}</SidebarMenuBadge> : null
+}
+
+function PendingSuggestionsBadge() {
+  const { data } = useSuggestions("PENDING", 0, 1)
+  return <CountBadge count={mapPendingSuggestionCount(data)} />
+}
+
+function AgentsAttentionBadge() {
+  const { data } = useAgents({ refetchInterval: false })
+  return <CountBadge count={mapAgentAttentionCount(data?.agents)} />
 }
 
 function UserMenu() {

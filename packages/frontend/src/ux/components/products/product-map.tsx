@@ -13,8 +13,8 @@ import { ux } from "@/ux/lib/paths"
 import { cn } from "@/ux/lib/utils"
 
 /**
- * Spec 059 / ADR-127 — read-only one-hop topology at the top of the
- * Dependencies tab. Lanes preserve each relation's actual source/target
+ * Spec 059/062 / ADR-127 — read-only one-hop topology on the dedicated
+ * Product Map tab. Lanes preserve each relation's actual source/target
  * direction; pan/zoom/drag and edge authoring stay out of scope.
  * Spec 061 / ADR-127 Amendment 2 — direct DEPENDS_ON Component targets render
  * as typed nodes in their own outgoing lane.
@@ -306,7 +306,7 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
             {topology.unavailableGroups.length > 0 ? (
               <p>Some relation families could not be loaded — the map may be incomplete.</p>
             ) : (
-              <p>This product has no composition, consumption, component, or group relations yet. Author edges below.</p>
+              <p>This product has no composition, consumption, component, or group relations yet. Add edges on Dependencies.</p>
             )}
           </div>
         ) : (

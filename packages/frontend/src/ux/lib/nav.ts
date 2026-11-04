@@ -26,7 +26,9 @@ export interface NavItem {
   icon: LucideIcon
   /** Minimum role. Hide (don't disable) items the user cannot reach. */
   minRole?: Role
-  }
+  /** Optional live count rendered as a nav pill. */
+  badgeKey?: "pendingSuggestions" | "agentsAttention"
+}
 
 export interface NavSection {
   label: string
@@ -45,7 +47,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { title: "Products", href: ux("/products"), icon: PackageIcon },
       { title: "Components", href: ux("/components"), icon: BoxesIcon },
       { title: "Component groups", href: ux("/component-groups"), icon: LayersIcon },
-      { title: "Suggestions", href: ux("/suggestions"), icon: SparklesIcon },
+      { title: "Suggestions", href: ux("/suggestions"), icon: SparklesIcon, badgeKey: "pendingSuggestions" },
     ],
   },
   {
@@ -59,7 +61,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Sources",
     items: [
       { title: "Importers", href: ux("/importers"), icon: DownloadCloudIcon },
-      { title: "Import agents", href: ux("/agents"), icon: RadioTowerIcon, minRole: "ADMIN" },
+      { title: "Import agents", href: ux("/agents"), icon: RadioTowerIcon, minRole: "ADMIN", badgeKey: "agentsAttention" },
       { title: "Importer sources", href: ux("/sources"), icon: DatabaseIcon },
     ],
   },

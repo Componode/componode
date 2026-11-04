@@ -357,12 +357,11 @@ them into specs when scheduled. G29/G31/G32 shipped as spec
 - The Product Map needed related-Product `criticality`, derived `health`
   (ADR-112), and `componentCount` for its inspection panel, but the detail
   read's ProductRefs carried only id/name/slug/type/lifecycle. The
-  `productMapTopology` flag ships ON with the complete contract: the
-  `GET /products/{slug}` read enriches every related ProductRef in a
-  bounded batch (no request-per-node), reports failed relation families
-  via `unavailableRelationGroups`, and the read-only topology renders at
-  the top of the Dependencies tab (ADR-127) — the Map tab is removed and
-  `?tab=map` resolves to `dependencies`.
+  complete contract shipped: the `GET /products/{slug}` read enriches
+  every related ProductRef in a bounded batch (no request-per-node) and
+  reports failed relation families via `unavailableRelationGroups`. The
+  read-only topology now lives on the dedicated Map tab after spec 062
+  restored the tab through ADR-127 Amendment 3.
 
 ## G35 — Component Relationships tab — RESOLVED by spec 060
 

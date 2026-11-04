@@ -18,11 +18,11 @@ import type {
 // same cadence so a status change surfaces within ~15 s.
 const AGENT_POLL_INTERVAL_MS = 15_000;
 
-export function useAgents() {
+export function useAgents(options?: { refetchInterval?: number | false }) {
   return useQuery({
     queryKey: ["agents"],
     queryFn: () => api<{ agents: ImportAgent[] }>("/agents"),
-    refetchInterval: AGENT_POLL_INTERVAL_MS,
+    refetchInterval: options?.refetchInterval ?? AGENT_POLL_INTERVAL_MS,
   });
 }
 

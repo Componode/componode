@@ -76,7 +76,6 @@
   --sidebar-border: oklch(0.922 0.009 255);
   --sidebar-ring: oklch(0.596 0.127 163.225);
 
-  font-family: ui-sans-serif, system-ui, sans-serif;
   font-feature-settings: "cv11", "ss01";
 }
 

@@ -1,5 +1,5 @@
 
-import { MoonIcon, SunIcon } from "lucide-react"
+import { BellIcon, CircleHelpIcon, MoonIcon, SunIcon, type LucideIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useLocation } from "react-router-dom"
 import { useTheme } from "next-themes"
@@ -19,6 +19,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/ux/components/ui/tool
 import { SEGMENT_LABELS } from "@/ux/lib/nav"
 import { ux } from "@/ux/lib/paths"
 import { useGlobalSearch } from "@/api/hooks/search"
+import { ExternalLink } from "@/ux/components/patterns/external-link"
+
+const DOCS_URL = "https://componode.github.io/componode/"
 
 function labelFor(segment: string): string {
   return SEGMENT_LABELS[segment] ?? segment
@@ -81,9 +84,37 @@ export function AppHeader() {
         </BreadcrumbList>
       </Breadcrumb>
       <div className="flex items-center gap-1">
+        <HeaderIconButton label="Help & docs" icon={CircleHelpIcon} kind="external" href={DOCS_URL} />
+        <HeaderIconButton label="Notifications" icon={BellIcon} kind="internal" to="/settings/notifications" />
         <ThemeToggle />
       </div>
     </header>
+  )
+}
+
+type HeaderIconDestination =
+  | { kind: "internal"; to: string }
+  | { kind: "external"; href: string }
+
+function HeaderIconButton({
+  label,
+  icon: Icon,
+  ...destination
+}: { label: string; icon: LucideIcon } & HeaderIconDestination) {
+  const icon = <Icon />
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label={label} asChild>
+          {destination.kind === "external" ? (
+            <ExternalLink href={destination.href}>{icon}</ExternalLink>
+          ) : (
+            <Link to={ux(destination.to)}>{icon}</Link>
+          )}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   )
 }
 

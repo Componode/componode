@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+﻿import { Component, type ErrorInfo, type ReactNode } from "react";
 import {
   QueryClient,
   QueryClientProvider,
@@ -12,6 +12,7 @@ import { ThemeProvider } from "@/ux/components/app/theme-provider";
 import { Toaster } from "@/ux/components/ui/sonner";
 import { TooltipProvider } from "@/ux/components/ui/tooltip";
 import { ErrorState } from "@/ux/components/patterns/states";
+import { UxPrefsSync } from "@/ux/lib/prefs";
 import type { ApiError } from "@/api/client";
 
 // Global default error UX per ADR-072: 401 → login redirect, 403 → permission
@@ -91,6 +92,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
 export function App() {
   return (
     <ErrorBoundary>
+      <UxPrefsSync />
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         <QueryClientProvider client={queryClient}>
           <TooltipProvider><RouterProvider router={router} /></TooltipProvider>
