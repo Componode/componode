@@ -1,7 +1,9 @@
 import { useParams } from "react-router-dom";
 import { useCredentials } from "@/api/hooks/credentials";
 import { useImporterConfig, useImporterRuns } from "@/api/hooks/importers";
+import { useUsers } from "@/api/hooks/users";
 import { mapImporterConfig, mapImportRun } from "@/api/mappers/operations";
+import { useLeafCrumb } from "@/ux/components/app/app-header";
 import { ImporterDetail } from "@/ux/components/importers/importer-detail";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, ForbiddenState, NotFoundState, TableSkeleton } from "@/ux/components/patterns/states";
@@ -14,6 +16,8 @@ export function UxImporterDetailPage() {
   const config = useImporterConfig(id ?? null);
   const runs = useImporterRuns(id ?? null);
   const credentials = useCredentials();
+  const users = useUsers();
+  useLeafCrumb(config.data?.config?.label ?? null);
 
   if (config.isPending || runs.isPending) {
     return (
@@ -56,7 +60,12 @@ export function UxImporterDetailPage() {
   return (
     <ImporterDetail
       importer={mapImporterConfig(config.data.config, credentials.data?.credentials ?? [])}
-      runs={(runs.data?.runs ?? []).map(mapImportRun)}
+      runs={(runs.data?.runs ?? []).map((r) =>
+        mapImportRun(
+          r,
+          new Map((users.data?.users ?? []).map((u) => [u.id, u.displayName ?? u.username])),
+        ),
+      )}
     />
   );
 }
