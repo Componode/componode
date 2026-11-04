@@ -74,7 +74,10 @@ export function UxProductDetailPage() {
 
   return (
     <ProductDetail
-      product={mapProduct(d.product, { componentCount: d.counts.components })}
+      product={mapProduct(d.product, {
+        componentCount: d.counts.components,
+        consumedByCount: (d.consumedBy ?? []).length,
+      })}
       components={rows}
       consumers={d.consumedBy.map((p) => {
         const m = mapRelatedProduct(p);

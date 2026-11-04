@@ -106,6 +106,11 @@ describe("mapProduct", () => {
     expect(view.type).toBe("CUSTOMER_FACING");
     expect(view.lifecycle).toBe("ACTIVE");
   });
+
+  it("takes consumedByCount from the detail derivation, else the list row", () => {
+    expect(mapProduct(product, { consumedByCount: 3 }).consumedByCount).toBe(3);
+    expect(mapProduct({ ...product, consumedByCount: 7 }).consumedByCount).toBe(7);
+  });
 });
 
 describe("mapComponent", () => {

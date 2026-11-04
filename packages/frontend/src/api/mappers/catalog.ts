@@ -90,7 +90,7 @@ export function narrowOrNull<T extends string>(
 
 export function mapProduct(
   p: DigitalProduct,
-  detail?: { componentCount?: number },
+  detail?: { componentCount?: number; consumedByCount?: number },
 ): Product {
   return {
     id: p.id,
@@ -108,7 +108,7 @@ export function mapProduct(
     tags: p.tags ?? [],
     links: p.links ?? [],
     sunsetAt: p.sunsetAt ?? null,
-    consumedByCount: p.consumedByCount,
+    consumedByCount: detail?.consumedByCount ?? p.consumedByCount,
     componentCount: detail?.componentCount ?? p.componentCount ?? 0,
     completeness: p.completeness ?? {
       owner: false,
