@@ -6,8 +6,8 @@ import { useComponentRelationships } from "@/api/hooks/components"
 import { mapComponentRelationships } from "@/api/mappers/catalog"
 import { ErrorState, ForbiddenState, TableSkeleton } from "@/ux/components/patterns/states"
 import { errorMessage, isForbidden, isNotFound } from "@/ux/lib/api-state"
-import { CATEGORY_LABELS, PROVIDER_META } from "@/ux/lib/domain"
-import { EnvironmentBadge, HealthBadge, LifecycleBadge, ProductTypeBadge } from "@/ux/components/patterns/status-badge"
+import { CATEGORY_LABELS, HEALTH_META, PROVIDER_META } from "@/ux/lib/domain"
+import { EnvironmentBadge, HealthBadge, LifecycleBadge, ProductTypeBadge, TONE_DOT } from "@/ux/components/patterns/status-badge"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Badge } from "@/ux/components/ui/badge"
 import { Button } from "@/ux/components/ui/button"
@@ -47,7 +47,7 @@ type RelationNode =
   | { kind: "component"; key: string; data: RelatedComponentNode; relation: string; lane: LaneKey }
   | { kind: "product"; key: string; data: ProductDependent; relation: string; lane: LaneKey }
 
-type Edge = { id: string; from: string; to: string }
+type Edge = { id: string; from: string; to: string; tone: "default" | "error" }
 type DrawnEdge = Edge & { d: string }
 
 const LANE_LIMIT = 4
@@ -195,19 +195,25 @@ export function ComponentRelationships({
     return keys
   }, [lanes, expanded])
 
+  // Related nodes carry no health of their own — the only failure signal is
+  // the focused component's instances. When one is ERROR, every path leads to
+  // a failing instance and strokes destructive (spec 062).
+  const centerFailing = view.instances.some((i) => i.status === "ERROR")
+
   const edges = useMemo<Edge[]>(() => {
     const list: Edge[] = []
     for (const n of allNodes.values()) {
       if (!visibleKeys.has(n.key)) continue
       const incoming = LANE_META[n.lane].incoming
+      const tone = centerFailing ? ("error" as const) : ("default" as const)
       list.push(
         incoming
-          ? { id: `e-${n.key}`, from: n.key, to: "component" }
-          : { id: `e-${n.key}`, from: "component", to: n.key },
+          ? { id: `e-${n.key}`, from: n.key, to: "component", tone }
+          : { id: `e-${n.key}`, from: "component", to: n.key, tone },
       )
     }
     return list
-  }, [allNodes, visibleKeys])
+  }, [allNodes, visibleKeys, centerFailing])
 
   const measure = useCallback(() => {
     const root = rootRef.current
@@ -222,7 +228,7 @@ export function ComponentRelationships({
     const next: DrawnEdge[] = []
     for (const e of edges) {
       // Source exits its right side; target enters its left side. Edge paths
-      // always run source → target so the arrowhead marks the real target.
+      // always run source → target so the curve ends on the real target.
       const a = anchor(e.from, "right")
       const b = anchor(e.to, "left")
       if (!a || !b) continue
@@ -302,9 +308,15 @@ export function ComponentRelationships({
     )
   }
 
+  // Lanes render only for relation families that have data — except families
+  // the backend could not load, whose header stays so the alert has context.
+  const laneVisible = (key: LaneKey) =>
+    lanes[key].length > 0 || view.unavailableKinds.includes(key)
+
   const laneColumn = (key: LaneKey) => {
     const meta = LANE_META[key]
     const nodes = lanes[key]
+    if (!laneVisible(key)) return null
     const limit = expanded[key] ? nodes.length : LANE_LIMIT
     const visible = nodes.slice(0, limit)
     const overflow = nodes.length - visible.length
@@ -314,9 +326,7 @@ export function ComponentRelationships({
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{meta.title}</p>
           <p className="text-xs text-muted-foreground/80">{meta.hint(component.name)}</p>
         </div>
-        {nodes.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">None</div>
-        ) : (
+        {nodes.length > 0 && (
           <div className="flex flex-col gap-1.5">
             {visible.map(nodeButton)}
             {overflow > 0 && (
@@ -338,6 +348,9 @@ export function ComponentRelationships({
   const empty =
     totalNodes === 0 && view.instances.length === 0
 
+  const incomingLanes: LaneKey[] = ["dependedOnBy", "sourcedBy", "exposedBy", "productDependents"]
+  const outgoingLanes: LaneKey[] = ["dependsOn", "sourcesFrom", "exposes"]
+
   return (
     <Card onKeyDown={onCanvasKeyDown}>
       <CardHeader>
@@ -346,6 +359,20 @@ export function ComponentRelationships({
           One-hop relations around {component.name} — typed Component edges,
           Product dependencies, and operational instances. Read-only.
         </CardDescription>
+        {!empty && (
+          <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground" aria-label="Legend">
+            {(["RUNNING", "STOPPED", "ERROR"] as const).map((s) => (
+              <li key={s} className="flex items-center gap-1.5">
+                <span className={cn("size-2 rounded-full", TONE_DOT[HEALTH_META[s].tone])} aria-hidden="true" />
+                {HEALTH_META[s].label}
+              </li>
+            ))}
+            <li className="flex items-center gap-1.5">
+              <span className="h-px w-4 bg-destructive" aria-hidden="true" />
+              Path with a failing instance
+            </li>
+          </ul>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {view.unavailableKinds.length > 0 && (
@@ -375,7 +402,7 @@ export function ComponentRelationships({
           </div>
         )}
 
-        {
+        {!empty && (
           <div
             ref={rootRef}
             onClick={(e) => {
@@ -384,11 +411,6 @@ export function ComponentRelationships({
             className="relative isolate flex min-w-0 flex-col gap-6 py-2 lg:flex-row lg:items-center lg:gap-8"
           >
             <svg className="pointer-events-none absolute inset-0 -z-10 hidden size-full lg:block" aria-hidden="true">
-              <defs>
-                <marker id="cr-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-                  <path d="M 0 0 L 10 5 L 0 10 z" className="fill-border" />
-                </marker>
-              </defs>
               {drawn.map((e) => (
                 <path
                   key={e.id}
@@ -396,21 +418,19 @@ export function ComponentRelationships({
                   fill="none"
                   strokeWidth={1.5}
                   strokeLinecap="round"
-                  markerEnd="url(#cr-arrow)"
                   className={cn(
-                    "stroke-border",
+                    e.tone === "error" ? "stroke-destructive" : "stroke-border",
                     selected !== null && e.from !== selected && e.to !== selected && "opacity-20",
                   )}
                 />
               ))}
             </svg>
 
-            <div className="flex flex-col gap-5 lg:w-52 lg:shrink-0">
-              {laneColumn("dependedOnBy")}
-              {laneColumn("sourcedBy")}
-              {laneColumn("exposedBy")}
-              {laneColumn("productDependents")}
-            </div>
+            {incomingLanes.some(laneVisible) && (
+              <div className="flex flex-col gap-5 lg:w-52 lg:shrink-0">
+                {incomingLanes.map(laneColumn)}
+              </div>
+            )}
 
             <div className="lg:w-56 lg:shrink-0">
               <div data-node="component" className="flex flex-col gap-3 rounded-xl border-2 border-primary bg-card p-4 shadow-sm">
@@ -453,13 +473,13 @@ export function ComponentRelationships({
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col gap-5">
-              {laneColumn("dependsOn")}
-              {laneColumn("sourcesFrom")}
-              {laneColumn("exposes")}
-            </div>
+            {outgoingLanes.some(laneVisible) && (
+              <div className="flex min-w-0 flex-1 flex-col gap-5">
+                {outgoingLanes.map(laneColumn)}
+              </div>
+            )}
           </div>
-        }
+        )}
 
         {selectedNode && (
           <div className="flex items-start justify-between gap-4 rounded-lg border bg-muted/30 p-4">
