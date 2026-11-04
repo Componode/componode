@@ -46,6 +46,14 @@ describe("theme tokens (US1 emerald identity)", () => {
     expect(css).toContain('[data-state="open"]');
   });
 
+  it("keeps the universal border-color default inside @layer base", () => {
+    // Unlayered author CSS beats @layer utilities — an unlayered `*` border
+    // rule silently overrides `border-transparent` (spec 062 tab dividers).
+    expect(css).toMatch(
+      /@layer\s+base\s*\{\s*\*\s*\{\s*border-color:\s*var\(--color-border\)/,
+    );
+  });
+
   it("status green keeps its ~142° hue in both themes (brand/status separation)", () => {
     expect(lightBlock).toMatch(/--color-success: hsl\(142\s/);
     expect(darkBlock).toMatch(/--color-success: hsl\(142\s/);

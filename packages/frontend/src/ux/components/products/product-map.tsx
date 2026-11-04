@@ -27,7 +27,7 @@ type TopologyNode =
   | { kind: "group"; key: string; data: TopologyGroup; relation: string; lane: LaneKey }
   | { kind: "component"; key: string; data: TopologyComponent; relation: string; lane: LaneKey }
 
-type Edge = { id: string; from: string; to: string }
+type Edge = { id: string; from: string; to: string; tone: "default" | "error" }
 type DrawnEdge = Edge & { d: string }
 
 const LANE_LIMIT = 4
@@ -126,10 +126,11 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
     for (const n of allNodes.values()) {
       if (!visibleKeys.has(n.key)) continue
       const incoming = LANE_META[n.lane].incoming
+      const tone = nodeStatus(n) === "ERROR" ? "error" as const : "default" as const
       list.push(
         incoming
-          ? { id: `e-${n.key}`, from: n.key, to: "product" }
-          : { id: `e-${n.key}`, from: "product", to: n.key },
+          ? { id: `e-${n.key}`, from: n.key, to: "product", tone }
+          : { id: `e-${n.key}`, from: "product", to: n.key, tone },
       )
     }
     return list
@@ -148,7 +149,7 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
     const next: DrawnEdge[] = []
     for (const e of edges) {
       // Source exits its right side; target enters its left side. Edge paths
-      // always run source → target so the arrowhead marks the real target.
+      // always run source → target so the curve ends on the real target.
       const a = anchor(e.from, "right")
       const b = anchor(e.to, "left")
       if (!a || !b) continue
@@ -245,9 +246,15 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
     )
   }
 
+  // Lanes render only for relation families that have data — except families
+  // the backend could not load, whose header stays so the alert has context.
+  const laneVisible = (key: LaneKey) =>
+    lanes[key].length > 0 || topology.unavailableGroups.includes(key)
+
   const laneColumn = (key: LaneKey) => {
     const meta = LANE_META[key]
     const nodes = lanes[key]
+    if (!laneVisible(key)) return null
     const limit = expanded[key] ? nodes.length : LANE_LIMIT
     const visible = nodes.slice(0, limit)
     const overflow = nodes.length - visible.length
@@ -257,9 +264,7 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{meta.title}</p>
           <p className="text-xs text-muted-foreground/80">{meta.hint(product.name)}</p>
         </div>
-        {nodes.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">None</div>
-        ) : (
+        {nodes.length > 0 && (
           <div className="flex flex-col gap-1.5">
             {visible.map(nodeButton)}
             {overflow > 0 && (
@@ -278,6 +283,9 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
     )
   }
 
+  const incomingLanes: LaneKey[] = ["composedBy", "consumedBy"]
+  const outgoingLanes: LaneKey[] = ["composes", "consumesFrom", "dependsOnComponents", "dependsOnGroups"]
+
   return (
     <Card onKeyDown={onCanvasKeyDown}>
       <CardHeader>
@@ -285,6 +293,20 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
         <CardDescription>
           One-hop relations around {product.name} — the products that compose or consume it, and the components and groups it depends on.
         </CardDescription>
+        {totalNodes > 0 && (
+          <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground" aria-label="Legend">
+            {(["RUNNING", "STOPPED", "ERROR"] as const).map((s) => (
+              <li key={s} className="flex items-center gap-1.5">
+                <span className={cn("size-2 rounded-full", TONE_DOT[HEALTH_META[s].tone])} aria-hidden="true" />
+                {HEALTH_META[s].label}
+              </li>
+            ))}
+            <li className="flex items-center gap-1.5">
+              <span className="h-px w-4 bg-destructive" aria-hidden="true" />
+              Path with a failing instance
+            </li>
+          </ul>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {topology.unavailableGroups.length > 0 && (
@@ -318,11 +340,6 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
             className="relative isolate flex min-w-0 flex-col gap-6 py-2 lg:flex-row lg:items-center lg:gap-8"
           >
             <svg className="pointer-events-none absolute inset-0 -z-10 hidden size-full lg:block" aria-hidden="true">
-              <defs>
-                <marker id="pm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-                  <path d="M 0 0 L 10 5 L 0 10 z" className="fill-border" />
-                </marker>
-              </defs>
               {drawn.map((e) => (
                 <path
                   key={e.id}
@@ -330,19 +347,19 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
                   fill="none"
                   strokeWidth={1.5}
                   strokeLinecap="round"
-                  markerEnd="url(#pm-arrow)"
                   className={cn(
-                    "stroke-border",
+                    e.tone === "error" ? "stroke-destructive" : "stroke-border",
                     selected !== null && e.from !== selected && e.to !== selected && "opacity-20",
                   )}
                 />
               ))}
             </svg>
 
-            <div className="flex flex-col gap-5 lg:w-44 lg:shrink-0">
-              {laneColumn("composedBy")}
-              {laneColumn("consumedBy")}
-            </div>
+            {incomingLanes.some(laneVisible) && (
+              <div className="flex flex-col gap-5 lg:w-44 lg:shrink-0">
+                {incomingLanes.map(laneColumn)}
+              </div>
+            )}
 
             <div className="lg:w-48 lg:shrink-0">
               <div data-node="product" className="flex flex-col gap-3 rounded-xl border-2 border-primary bg-card p-4 shadow-sm">
@@ -367,12 +384,11 @@ export function ProductMap({ product, topology }: { product: Product; topology: 
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col gap-5">
-              {laneColumn("composes")}
-              {laneColumn("consumesFrom")}
-              {laneColumn("dependsOnComponents")}
-              {laneColumn("dependsOnGroups")}
-            </div>
+            {outgoingLanes.some(laneVisible) && (
+              <div className="flex min-w-0 flex-1 flex-col gap-5">
+                {outgoingLanes.map(laneColumn)}
+              </div>
+            )}
           </div>
         )}
 

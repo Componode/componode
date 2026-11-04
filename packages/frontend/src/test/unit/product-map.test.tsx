@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { render, cleanup, screen, fireEvent } from "@testing-library/react";
+import { render, cleanup, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { TooltipProvider } from "@/ux/components/ui/tooltip";
 import { ProductMap } from "@/ux/components/products/product-map";
@@ -202,6 +202,54 @@ describe("ProductMap topology (spec 059)", () => {
       screen.getByRole("button", { name: /topo-child.*composed by Topo Hub/i }),
     );
     expect(screen.getByRole("status").textContent).toMatch(/topo-child/);
+  });
+
+  it("shows the status legend for a populated map", () => {
+    renderMap();
+    const legend = screen.getByRole("list", { name: "Legend" });
+    for (const label of ["Running", "Stopped", "Error"]) {
+      expect(within(legend).getByText(label)).toBeTruthy();
+    }
+    expect(within(legend).getByText("Path with a failing instance")).toBeTruthy();
+  });
+
+  it("omits the legend when the product has no relations", () => {
+    renderMap(emptyTopology);
+    expect(screen.queryByRole("list", { name: "Legend" })).toBeNull();
+  });
+
+  it("hides relation lanes that have no data", () => {
+    renderMap(componentOnlyTopology);
+    for (const label of [
+      "Composed by",
+      "Consumed by",
+      "Composes",
+      "Consumes from",
+      "Depends on groups",
+    ]) {
+      expect(screen.queryByText(label)).toBeNull();
+    }
+    expect(screen.getByText("Depends on components")).toBeTruthy();
+  });
+
+  it("keeps an unavailable lane's header visible even with no data", () => {
+    renderMap({ ...componentOnlyTopology, unavailableGroups: ["consumesFrom"] });
+    expect(screen.getByText("Consumes from")).toBeTruthy();
+  });
+
+  it("marks edges that reach a failing node in the destructive tone", () => {
+    const { container } = renderMap();
+    // topo-consumer (product status ERROR) and landing-page (worstStatus ERROR).
+    const failing = container.querySelectorAll("svg path.stroke-destructive");
+    expect(failing.length).toBe(2);
+  });
+
+  it("draws plain bezier connectors without arrowheads", () => {
+    const { container } = renderMap();
+    expect(container.querySelector("svg marker")).toBeNull();
+    for (const p of container.querySelectorAll("svg path")) {
+      expect(p.getAttribute("marker-end")).toBeNull();
+    }
   });
 
   it("shows an explicit empty state when the product has no relations", () => {
