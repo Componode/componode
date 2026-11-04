@@ -49,6 +49,8 @@ API yet. Their pages describe what a real connection will require.
    instead of duplicating them. Resources that disappear are marked gone by
    the backend, not deleted.
 
+![Importer configs on the hub: run history, schedule, credential, and Run now](../assets/importers.png)
+
 ## Common concepts
 
 - **Coverage summary** — cloud importers record on the account/organization

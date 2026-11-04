@@ -28,6 +28,8 @@ features:
     link: /openapi-reference
 ---
 
+![The Componode dashboard: catalog totals, attention items, instance health, and completeness](./assets/dashboard.png)
+
 ::: tip About this project
 Componode is a personal learning project. It was built to explore, hands-on,
 how applications are developed today with AI coding assistants — the tooling,

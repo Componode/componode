@@ -42,6 +42,8 @@ endpoint, the smallest authenticated request available.
 
 ## Configuration
 
+![Creating a GitHub importer config — importer type, credential, execution, and scope fields](../assets/importers-new.png)
+
 <!-- GENERATED:contract -->
 **Secrets:** `token` (required)
 **Execution:** hub or Import Agent

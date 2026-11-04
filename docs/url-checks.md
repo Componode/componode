@@ -194,6 +194,8 @@ history.
   loads through a single bounded list request; the card never issues a
   per-check observations request.
 
+![A component detail page with the URL checks card: per-check availability, p95, and recent outcomes](./assets/component-detail.png)
+
 ## Authenticated checks (API Components only)
 
 Checks on an `API`-category Component may authenticate per check —
