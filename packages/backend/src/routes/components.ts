@@ -29,7 +29,14 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
   app.get("/components/:id/dependents", {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const { id } = req.params as { id: string };
+    const params = componentIdParam.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid path parameters",
+      });
+    }
+    const { id } = params.data;
     const component = await getComponentById(id);
     if (!component) {
       return reply.status(404).send({ code: "NOT_FOUND", message: "Component not found" });
@@ -132,9 +139,15 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
   app.post("/components/:id/promote-to-platform", {
     preHandler: [app.verifySession, requireRole("product:create")],
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
-    const { id } = req.params as { id: string };
+    const params = componentIdParam.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid path parameters",
+      });
+    }
     try {
-      const result = await promoteComponentToPlatform(id, req.body, toActor(req));
+      const result = await promoteComponentToPlatform(params.data.id, req.body, toActor(req));
       return reply.status(201).send(result);
     } catch (err) {
       return sendServiceError(reply, err);
@@ -144,8 +157,14 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
   app.get("/components/:id", {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const { id } = req.params as { id: string };
-    const component = await getComponentById(id);
+    const params = componentIdParam.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid path parameters",
+      });
+    }
+    const component = await getComponentById(params.data.id);
     if (!component) {
       return reply.status(404).send({ code: "NOT_FOUND", message: "Component not found" });
     }
@@ -155,7 +174,13 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
   app.patch("/components/:id", {
     preHandler: [app.verifySession, requireRole("component:update")],
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
-    const { id } = req.params as { id: string };
+    const params = componentIdParam.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid path parameters",
+      });
+    }
     const parsed = updateComponentSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -166,7 +191,7 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
-      const result = await updateComponent(id, parsed.data, toActor(req));
+      const result = await updateComponent(params.data.id, parsed.data, toActor(req));
       return reply.status(200).send({ component: result });
     } catch (err) {
       const error = err as { statusCode?: number; code?: string; message?: string };
