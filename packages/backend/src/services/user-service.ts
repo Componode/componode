@@ -107,7 +107,21 @@ export async function listUsers(filters: { role?: string; isActive?: boolean; se
     query = query.where("persons.username", "ilike", `%${filters.search}%`);
   }
 
-  return query.orderBy("persons.createdAt", "desc").execute();
+  const rows = await query.orderBy("persons.createdAt", "desc").execute();
+  const ids = rows.map((r) => r.id);
+  // Last activity = the user's most recent session sighting (bounded
+  // grouped query — no per-user fan-out).
+  const lastSeen = ids.length
+    ? await db
+        .selectFrom("sessions")
+        .select("userId")
+        .select((eb) => eb.fn.max("lastSeenAt").as("m"))
+        .where("userId", "in", ids)
+        .groupBy("userId")
+        .execute()
+    : [];
+  const byUser = new Map(lastSeen.map((r) => [r.userId, r.m]));
+  return rows.map((r) => ({ ...r, lastActiveAt: byUser.get(r.id) ?? null }));
 }
 
 export async function getUserById(id: string) {

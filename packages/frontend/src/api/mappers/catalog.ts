@@ -90,7 +90,7 @@ export function narrowOrNull<T extends string>(
 
 export function mapProduct(
   p: DigitalProduct,
-  detail?: { componentCount?: number },
+  detail?: { componentCount?: number; consumedByCount?: number; status?: string | null },
 ): Product {
   return {
     id: p.id,
@@ -98,7 +98,7 @@ export function mapProduct(
     slug: p.slug,
     type: narrow<ProductType>(p.type, PRODUCT_TYPES, "CUSTOMER_FACING"),
     lifecycle: narrow<Lifecycle>(p.lifecycle, LIFECYCLES, "ACTIVE"),
-    status: narrowOrNull<HealthStatus>(p.status, HEALTH),
+    status: detail?.status !== undefined ? narrowOrNull<HealthStatus>(detail.status, HEALTH) : narrowOrNull<HealthStatus>(p.status, HEALTH),
     criticality: narrowOrNull<Criticality>(p.criticality, CRITICALITIES),
     description: p.description ?? null,
     lobOwnerId: p.lobOwnerId ?? null,
@@ -108,8 +108,8 @@ export function mapProduct(
     tags: p.tags ?? [],
     links: p.links ?? [],
     sunsetAt: p.sunsetAt ?? null,
-    consumedByCount: p.consumedByCount,
-    componentCount: detail?.componentCount ?? 0,
+    consumedByCount: detail?.consumedByCount ?? p.consumedByCount,
+    componentCount: detail?.componentCount ?? p.componentCount ?? 0,
     completeness: p.completeness ?? {
       owner: false,
       description: false,
@@ -318,7 +318,7 @@ export function mapDepComponent(
     resourceType: full?.resourceType ?? null,
     instanceCount: full?.instanceCount ?? null,
     componentGroupName: full?.componentGroupName ?? null,
-    lastSeenAt: null,
+    lastSeenAt: full?.lastSeenAt ?? null,
     sources: ref.sources.map(depSourceLabel),
     worstStatus: worstInstanceStatus(instances, ref.id),
   };

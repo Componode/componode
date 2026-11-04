@@ -42,21 +42,11 @@ describe("useValidatedTab", () => {
     expect(result.current[0]).toBe("activity");
   });
 
-  it("resolves legacy ?tab= values through an alias map", () => {
-    const PRODUCT_TABS = ["overview", "components", "dependencies", "activity"] as const;
-    const { result } = renderHook(
-      () => useValidatedTab(PRODUCT_TABS, { map: "dependencies" }),
-      { wrapper: makeWrapper("/products/topo-hub?tab=map") },
-    );
-    expect(result.current[0]).toBe("dependencies");
-  });
-
-  it("still falls back to the first tab for unknown values when aliases exist", () => {
-    const PRODUCT_TABS = ["overview", "components", "dependencies", "activity"] as const;
-    const { result } = renderHook(
-      () => useValidatedTab(PRODUCT_TABS, { map: "dependencies" }),
-      { wrapper: makeWrapper("/products/topo-hub?tab=zzz") },
-    );
+  it("falls back to the first tab for a retired ?tab= value", () => {
+    const PRODUCT_TABS = ["overview", "map", "components", "dependencies", "activity"] as const;
+    const { result } = renderHook(() => useValidatedTab(PRODUCT_TABS), {
+      wrapper: makeWrapper("/products/topo-hub?tab=retired"),
+    });
     expect(result.current[0]).toBe("overview");
   });
 });

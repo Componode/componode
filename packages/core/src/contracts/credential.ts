@@ -28,7 +28,11 @@ export interface Credential {
 // List rows omit `secretRefMap` entirely (ADR-117 Amendment 1): references
 // are names, not values, but the hub only exposes them on detail/mutation
 // responses so list payloads stay minimal.
-export type CredentialListItem = Omit<Credential, "secretRefMap">;
+export type CredentialListItem = Omit<Credential, "secretRefMap"> & {
+  /** Dependent count — importer configs + OIDC + URL checks bound to this
+   *  credential, matching `dependents` cardinality on the detail read. */
+  usedByCount?: number;
+};
 
 export interface CredentialDependents {
   importerConfigs: Array<{ id: string; label: string }>;

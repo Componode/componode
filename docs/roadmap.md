@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–061)
+## Shipped (features 001–062)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -364,6 +364,11 @@ file tracks shipped and upcoming work — update it when a spec completes.
   has no relations of any kind, and card copy distinguishes composition,
   platform consumption, component, and group dependencies. No API change —
   frontend-only, reusing the existing detail read.
+- `062-prototype-ux-parity` — Prototype visual identity is applied
+  end-to-end: bundled Geist Sans/Mono, document-level `.ux-root` tokens and
+  canvas (including portals and auth routes), a dedicated read-only Product
+  Map tab, real Help/docs and Notifications destinations, and live
+  pending-suggestion/attention-agent nav pills. No API change.
 
 ## Next — post-v1.1
 
@@ -372,8 +377,9 @@ The Docker importer program's mapped waves (A–E) plus Hub execution
 (051), operational bounds (052), the Component-level summary (053),
 onboarding completion (054), the repeated-failure auto-disable
 policy (056), and importer-managed checks (058) — has shipped, as has the Product Map
-topology (059), the Component Relationships view (060), and component
-dependencies in the Product topology (061). See
+topology (059), the Component Relationships view (060), component
+dependencies in the Product topology (061), and prototype UX parity (062).
+See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new
 importer wave).

@@ -106,6 +106,16 @@ describe("mapProduct", () => {
     expect(view.type).toBe("CUSTOMER_FACING");
     expect(view.lifecycle).toBe("ACTIVE");
   });
+
+  it("takes consumedByCount from the detail derivation, else the list row", () => {
+    expect(mapProduct(product, { consumedByCount: 3 }).consumedByCount).toBe(3);
+    expect(mapProduct({ ...product, consumedByCount: 7 }).consumedByCount).toBe(7);
+  });
+
+  it("takes status from the detail health field, preserving null no-data", () => {
+    expect(mapProduct(product, { status: "RUNNING" }).status).toBe("RUNNING");
+    expect(mapProduct({ ...product, status: "ERROR" }, { status: null }).status).toBeNull();
+  });
 });
 
 describe("mapComponent", () => {
@@ -677,11 +687,12 @@ describe("mapDepComponent", () => {
   it("joins the dep ref with catalog rows for provider/resourceType", () => {
     const row = mapDepComponent(
       { id: "c1", name: "pg", slug: "pg", category: "database", lifecycle: "ACTIVE", sources: ["COMPOSES"] } as never,
-      [{ id: "c1", provider: "AWS", resourceType: "rds", instanceCount: 2, componentGroupName: "data" } as never],
+      [{ id: "c1", provider: "AWS", resourceType: "rds", instanceCount: 2, componentGroupName: "data", lastSeenAt: "2026-11-01T00:00:00Z" } as never],
     );
     expect(row.provider).toBe("AWS");
     expect(row.resourceType).toBe("rds");
     expect(row.componentGroupName).toBe("data");
+    expect(row.lastSeenAt).toBe("2026-11-01T00:00:00Z");
   });
 });
 

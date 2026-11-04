@@ -379,4 +379,61 @@ describe("dashboard summary", () => {
     expect(orgScan.assetsProcessed).toBe(10);
     expect(body.lastImportAt).not.toBeNull();
   });
+
+  it("clears a FAILED_RUN attention item once the config completes a newer run", async () => {
+    const configId = uuidv7();
+    await testDb.db
+      .insertInto("importer_configs")
+      .values({
+        id: configId,
+        importerName: "github",
+        label: "recovered-scan",
+        scope: {},
+        secretRefs: null,
+        schedule: null,
+        enabled: true,
+        createdBy: null,
+        updatedBy: null,
+        createdAt: now(),
+        updatedAt: now(),
+      } as any)
+      .execute();
+    const mk = (status: string, createdAt: string) => ({
+      id: uuidv7(),
+      configId,
+      status,
+      triggeredBy: null,
+      startedAt: createdAt,
+      completedAt: createdAt,
+      assetsProcessed: 1,
+      assetsCreated: 0,
+      assetsUpdated: 1,
+      instancesOrphaned: 0,
+      componentsRetired: 0,
+      errorMessage: status === "FAILED" ? "boom" : null,
+      errorStack: null,
+      errorType: status === "FAILED" ? "RUNTIME_ERROR" : null,
+      createdAt,
+    });
+    await testDb.db
+      .insertInto("import_runs")
+      .values([
+        mk("FAILED", new Date(Date.now() - 7200_000).toISOString()) as any,
+        mk("COMPLETED", new Date(Date.now() - 3600_000).toISOString()) as any,
+      ])
+      .execute();
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/dashboard/summary",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession },
+    });
+    const body = res.json();
+    const failedRuns = body.attention.filter((a: any) => a.kind === "FAILED_RUN");
+    expect(failedRuns.every((a: any) => !a.label.includes("recovered-scan"))).toBe(true);
+    // And its failed run no longer counts toward the importer-issue badge.
+    expect(body.importerIssues).toBe(
+      body.attention.filter((a: any) => a.kind === "FAILED_RUN" || a.kind === "OFFLINE_AGENT").length,
+    );
+  });
 });

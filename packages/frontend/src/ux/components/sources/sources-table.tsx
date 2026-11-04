@@ -74,7 +74,7 @@ export function SourcesTable({ rows }: { rows: ImporterSource[] }) {
                     <div className="flex flex-col gap-0.5">
                       <Link
                         to={ux(`/sources/${s.id}`)}
-                        className="font-medium hover:underline"
+                        className="break-all font-medium hover:underline"
                         onClick={(e: React.MouseEvent) => e.stopPropagation()}
                       >
                         {s.label ?? s.externalIdentity}

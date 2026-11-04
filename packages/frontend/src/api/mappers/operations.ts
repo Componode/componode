@@ -117,12 +117,12 @@ export function mapImporterConfig(
   };
 }
 
-export function mapImportRun(r: ApiImportRun): ImportRun {
+export function mapImportRun(r: ApiImportRun, usersById?: Map<string, string>): ImportRun {
   return {
     id: r.id,
     configId: r.configId,
     status: narrowOrRaw<RunStatus>(r.status, RUN_STATUSES),
-    triggeredBy: r.triggeredBy ?? "system",
+    triggeredBy: r.triggeredBy ? (usersById?.get(r.triggeredBy) ?? r.triggeredBy) : "system",
     startedAt: r.startedAt,
     durationSec: runDurationSec(r.startedAt, r.completedAt),
     assetsProcessed: r.assetsProcessed,
@@ -245,7 +245,7 @@ export function mapCredentialStatus(status: string | null | undefined): Credenti
 
 const ROLES: readonly string[] = ["VIEWER", "EDITOR", "ADMIN"];
 
-/** API User → view. `lastActiveAt` is not exposed by the API yet (null). */
+/** API User → view. `lastActiveAt` = most recent session sighting (null for never-signed-in). */
 export function mapUser(u: {
   id: string;
   username: string;
@@ -253,6 +253,7 @@ export function mapUser(u: {
   displayName: string | null;
   email: string | null;
   isActive: boolean;
+  lastActiveAt?: string | null;
   createdAt: string;
 }): import("@/ux/lib/view-types").User {
   return {
@@ -262,7 +263,7 @@ export function mapUser(u: {
     email: u.email,
     role: narrow(u.role, ROLES, "VIEWER"),
     isActive: u.isActive,
-    lastActiveAt: null,
+    lastActiveAt: u.lastActiveAt ?? null,
     createdAt: u.createdAt,
   };
 }
@@ -314,8 +315,9 @@ export function mapCredential(
     expiresAt: string | null;
     lastUsedAt: string | null;
     updatedBy?: string | null;
+    usedByCount?: number;
   },
-  usedBy = 0,
+  usedBy?: number,
 ): import("@/ux/lib/view-types").Credential {
   return {
     id: c.id,
@@ -326,7 +328,7 @@ export function mapCredential(
     keyHints: c.keyHints ?? {},
     expiresAt: c.expiresAt,
     lastUsedAt: c.lastUsedAt,
-    usedBy,
+    usedBy: usedBy ?? c.usedByCount ?? 0,
     updatedBy: c.updatedBy ?? "—",
   };
 }

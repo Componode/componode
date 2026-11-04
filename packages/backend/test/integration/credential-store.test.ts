@@ -175,6 +175,37 @@ describe("credential store", () => {
       expect(raw).not.toContain("ghp_first");
       expect(raw).not.toContain("ghp_second");
     });
+
+    it("reports usedByCount for bound importer configs", async () => {
+      const credRes = await app.inject({
+        method: "POST",
+        url: "/api/v1/credentials",
+        ...authed({ label: "Bound", secrets: { token: "ghp_bound" } }),
+      });
+      const cred = { id: credRes.json().credential.id };
+      const configRes = await app.inject({
+        method: "POST",
+        url: "/api/v1/importer-configs",
+        ...authed({
+          importerName: "github",
+          label: "GH org",
+          scope: { org: "acme" },
+          credentialIds: [cred.id],
+        }),
+      });
+      expect(configRes.statusCode).toBe(201);
+
+      const res = await app.inject({
+        method: "GET",
+        url: "/api/v1/credentials",
+        cookies: { ...csrfCookie, [SESSION_COOKIE_NAME]: adminSession },
+      });
+      expect(res.statusCode).toBe(200);
+      const row = res
+        .json()
+        .credentials.find((c: { id: string }) => c.id === cred.id);
+      expect(row.usedByCount).toBe(1);
+    });
   });
 
   describe("GET /api/v1/credentials/:id", () => {

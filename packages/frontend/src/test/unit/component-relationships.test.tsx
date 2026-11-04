@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { render, cleanup, screen, fireEvent } from "@testing-library/react";
+import { render, cleanup, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { TooltipProvider } from "@/ux/components/ui/tooltip";
 import { ComponentRelationships } from "@/ux/components/catalog/component-relationships";
@@ -206,9 +206,10 @@ describe("ComponentRelationships view (spec 060)", () => {
     // Instances are nested children, not peer lane nodes.
     expect(screen.getByText("Instances")).toBeTruthy();
     expect(screen.getByText("Production")).toBeTruthy();
-    expect(screen.getByText("Running")).toBeTruthy();
+    // Status labels also appear in the map legend — assert at least one each.
+    expect(screen.getAllByText("Running").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Development")).toBeTruthy();
-    expect(screen.getByText("Stopped")).toBeTruthy();
+    expect(screen.getAllByText("Stopped").length).toBeGreaterThanOrEqual(1);
     // Instance names never appear as lane nodes.
     expect(screen.queryByRole("button", { name: /i-prod/ })).toBeNull();
   });
@@ -277,14 +278,84 @@ describe("ComponentRelationships view (spec 060)", () => {
     expect(screen.getByRole("status").textContent).toMatch(/dep-target/);
   });
 
-  it("renders honest empty lanes when the catalog has no edge rows", () => {
+  it("renders an honest empty state when the catalog has no edge rows", () => {
     renderView(emptyView);
     expect(screen.getByText(/no relationships/i)).toBeTruthy();
-    // Every typed lane still renders its explicit empty state (US1/AC1.5).
+    // Empty lanes are hidden — only the empty state renders (spec 062).
     for (const label of ["Depended on by", "Depends on", "Product dependents"]) {
-      expect(screen.getByText(label)).toBeTruthy();
+      expect(screen.queryByText(label)).toBeNull();
     }
-    expect(screen.getAllByText("None")).toHaveLength(7);
+    expect(screen.queryByText("None")).toBeNull();
+  });
+
+  it("hides relation lanes that have no data", () => {
+    renderView({
+      ...emptyView,
+      dependsOn: [rel("only-dep")],
+      instances: fullView.instances,
+    });
+    for (const label of [
+      "Depended on by",
+      "Sourced by",
+      "Exposed by",
+      "Product dependents",
+      "Sources from",
+      "Exposes",
+    ]) {
+      expect(screen.queryByText(label)).toBeNull();
+    }
+    expect(screen.getByText("Depends on")).toBeTruthy();
+    expect(screen.getByText("only-dep")).toBeTruthy();
+    // The focused card and its instances still render.
+    expect(screen.getByText("Instances")).toBeTruthy();
+    expect(screen.getByText("Production")).toBeTruthy();
+  });
+
+  it("keeps an unavailable lane's header visible even with no data", () => {
+    renderView({
+      ...emptyView,
+      instances: fullView.instances,
+      unavailableKinds: ["exposes"],
+    });
+    expect(screen.getByText("Exposes")).toBeTruthy();
+  });
+
+  it("shows the status legend when the canvas renders", () => {
+    renderView();
+    const legend = screen.getByRole("list", { name: "Legend" });
+    for (const label of ["Running", "Stopped", "Error"]) {
+      expect(within(legend).getByText(label)).toBeTruthy();
+    }
+    expect(within(legend).getByText("Path with a failing instance")).toBeTruthy();
+  });
+
+  it("omits the legend in the empty state", () => {
+    renderView(emptyView);
+    expect(screen.queryByRole("list", { name: "Legend" })).toBeNull();
+  });
+
+  it("marks every path destructive when the focused component has a failing instance", () => {
+    const { container } = renderView({
+      ...fullView,
+      instances: [{ ...fullView.instances[0]!, status: "ERROR" }],
+    });
+    const all = container.querySelectorAll("svg path");
+    const failing = container.querySelectorAll("svg path.stroke-destructive");
+    expect(all.length).toBeGreaterThan(0);
+    expect(failing.length).toBe(all.length);
+  });
+
+  it("keeps path strokes neutral when no instance fails", () => {
+    const { container } = renderView();
+    expect(container.querySelectorAll("svg path.stroke-destructive")).toHaveLength(0);
+  });
+
+  it("draws plain bezier connectors without arrowheads", () => {
+    const { container } = renderView();
+    expect(container.querySelector("svg marker")).toBeNull();
+    for (const p of container.querySelectorAll("svg path")) {
+      expect(p.getAttribute("marker-end")).toBeNull();
+    }
   });
 
   it("still shows instances and products when Component edges are empty", () => {

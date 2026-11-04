@@ -136,6 +136,9 @@ export async function listUserSessions(
     ])
     .where("sessions.userId", "=", userId)
     .where("sessions.revokedAt", "is", null)
+    // Active sign-ins only — an expired row can't authenticate, so it
+    // isn't manageable state (the audit feed retains the history).
+    .where("sessions.expiresAt", ">", new Date().toISOString())
     .orderBy("sessions.createdAt", "desc")
     .execute();
 

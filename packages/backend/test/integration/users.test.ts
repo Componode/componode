@@ -120,6 +120,13 @@ describe("users CRUD", () => {
     const body = res.json();
     expect(Array.isArray(body.users)).toBe(true);
     expect(body.users.length).toBeGreaterThanOrEqual(2);
+
+    // lastActiveAt = most recent session sighting — the calling admin
+    // just logged in, so it must be set; the fresh user never signed in.
+    const admin = body.users.find((u: { username: string }) => u.username === ADMIN_USERNAME);
+    const listed = body.users.find((u: { username: string }) => u.username === "listeduser");
+    expect(admin.lastActiveAt).toBeTruthy();
+    expect(listed.lastActiveAt).toBeNull();
   });
 
   it("admin updates a user role via PATCH /api/v1/users/:id → 200", async () => {

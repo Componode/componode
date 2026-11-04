@@ -6,7 +6,8 @@ import { ErrorState, ForbiddenState, NotFoundState } from "@/ux/components/patte
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import { useLob, useUpdateLob, useDeleteLob, useTeams } from "@/api/hooks/org";
 import { useProducts } from "@/api/hooks/products";
-import { mapProduct } from "@/api/mappers/catalog";
+import { useAllComponents } from "@/api/hooks/components";
+import { mapComponent, mapProduct } from "@/api/mappers/catalog";
 import { errorMessage, isForbidden, isNotFound } from "@/ux/lib/api-state";
 import { ux } from "@/ux/lib/paths";
 
@@ -20,6 +21,7 @@ export function UxLobDetailPage() {
   const deleteLob = useDeleteLob();
   const products = useProducts({ includeRetired: true });
   const teams = useTeams();
+  const components = useAllComponents();
 
   if (lobQ.isPending) {
     return (
@@ -55,6 +57,13 @@ export function UxLobDetailPage() {
     ? undefined
     : (teams.data?.teams ?? []).filter((t) => t.lobId === lob.id);
 
+  // Components have no direct LOB owner — they roll up through the LOB's
+  // teams (component.teamOwnerId → team.lobId).
+  const teamIds = new Set((associatedTeams ?? []).map((t) => t.id));
+  const ownedComponents = (components.data ?? [])
+    .filter((c) => c.teamOwnerId && teamIds.has(c.teamOwnerId))
+    .map((c) => mapComponent(c));
+
   return (
     <OrgDetail
       noun="line of business"
@@ -67,7 +76,7 @@ export function UxLobDetailPage() {
       ]}
       associatedTeams={associatedTeams}
       ownedProducts={ownedProducts}
-      ownedComponents={[]}
+      ownedComponents={ownedComponents}
       ownedTotal={ownedProducts.length + (associatedTeams?.length ?? 0)}
       blockedReason={`Move its ${associatedTeams?.length ?? 0} team${(associatedTeams?.length ?? 0) === 1 ? "" : "s"} and ${ownedProducts.length} product${ownedProducts.length === 1 ? "" : "s"} elsewhere before deleting.`}
       editPending={updateLob.isPending}

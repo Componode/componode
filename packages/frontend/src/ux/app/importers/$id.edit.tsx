@@ -1,4 +1,5 @@
 import { useParams } from "react-router-dom";
+import { useCrumbLabel } from "@/ux/components/app/app-header";
 import { useAgents } from "@/api/hooks/agents";
 import { useCredentials } from "@/api/hooks/credentials";
 import { useImporterConfig, useImporters } from "@/api/hooks/importers";
@@ -13,6 +14,7 @@ import { ux } from "@/ux/lib/paths";
 export function UxImporterEditPage() {
   const { id } = useParams<{ id: string }>();
   const config = useImporterConfig(id ?? null);
+  useCrumbLabel(id, config.data?.config?.label ?? null);
   const manifests = useImporters();
   const credentials = useCredentials();
   const agents = useAgents();

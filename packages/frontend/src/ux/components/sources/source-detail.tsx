@@ -18,6 +18,7 @@ import { canAccess } from "@/ux/lib/nav"
 import { PROVIDER_META, RUN_STATUS_META, SOURCE_STATUS_META } from "@/ux/lib/domain"
 import { formatDateTime } from "@/ux/lib/format"
 import { useReactivateSource, useRetireSource } from "@/api/hooks/importer-sources"
+import { useUsers } from "@/api/hooks/users"
 import { mapImportRun } from "@/api/mappers/operations"
 import type { AuditEvent, ImporterSource } from "@/ux/lib/view-types"
 import type { ImportRun as ApiImportRun, SourceMembershipsResponse } from "@/api/types"
@@ -51,7 +52,9 @@ export function SourceDetail({ source, runs, memberships, events }: SourceDetail
   const isAdmin = canAccess(session.data?.role ?? "VIEWER", "ADMIN")
   const retireSource = useRetireSource()
   const reactivateSource = useReactivateSource()
-  const viewRuns = runs.map(mapImportRun)
+  const users = useUsers()
+  const usersById = new Map((users.data?.users ?? []).map((u) => [u.id, u.displayName ?? u.username]))
+  const viewRuns = runs.map((r) => mapImportRun(r, usersById))
   const retired = source.status === "RETIRED"
   const componentMemberships = memberships?.components ?? []
   const instanceMemberships = memberships?.instances ?? []

@@ -27,18 +27,19 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ux/components/ui/tabs"
 import { CATEGORY_LABELS, type Criticality } from "@/ux/lib/domain"
-import { flags } from "@/ux/lib/flags"
 import { ux } from "@/ux/lib/paths"
 import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import type { AuditEvent, Product, ProductComponentRow, ProductTopology, Suggestion } from "@/ux/lib/view-types"
 
-const TABS = ["overview", "components", "dependencies", "activity"] as const
+const TABS = ["overview", "map", "components", "dependencies", "activity"] as const
 
 export interface ProductDetailProps {
   product: Product
   components: ProductComponentRow[]
   consumers: { id: string; name: string; slug: string; criticality?: Criticality | null }[]
-  /** Spec 059: complete one-hop topology rendered at the top of Dependencies. */
+  /** Incoming COMPOSES parents — read-only (the edge is authored on the parent). */
+  parents: { id: string; name: string; slug: string; criticality?: Criticality | null }[]
+  /** Spec 059/062: complete one-hop topology rendered on the dedicated Map tab. */
   topology: ProductTopology
   /** G31 edge authoring (spec 042): raw edge refs for the relations card. */
   edges?: Omit<EdgeAuthoringProps, "product">
@@ -46,10 +47,9 @@ export interface ProductDetailProps {
   activity: AuditEvent[]
 }
 
-export function ProductDetail({ product, components, consumers, topology, edges, suggestions, activity }: ProductDetailProps) {
+export function ProductDetail({ product, components, consumers, parents, topology, edges, suggestions, activity }: ProductDetailProps) {
   const navigate = useNavigate()
-  // Legacy `?tab=map` deep links resolve to Dependencies (ADR-127).
-  const [tab, setTab] = useValidatedTab(TABS, { map: "dependencies" })
+  const [tab, setTab] = useValidatedTab(TABS)
   const updateProduct = useUpdateProduct()
   const deleteProduct = useDeleteProduct()
   const acceptSuggestion = useAcceptSuggestion()
@@ -158,6 +158,7 @@ export function ProductDetail({ product, components, consumers, topology, edges,
       <Tabs value={tab} onValueChange={(v) => setTab(v as (typeof TABS)[number])} className="gap-6">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="map">Map</TabsTrigger>
           <TabsTrigger value="components">
             Components <span className="tabular text-muted-foreground">{components.length}</span>
           </TabsTrigger>
@@ -248,17 +249,37 @@ export function ProductDetail({ product, components, consumers, topology, edges,
           </Card>
         </TabsContent>
 
+        <TabsContent value="map">
+          <ProductMap product={product} topology={topology} />
+        </TabsContent>
+
         <TabsContent value="dependencies" className="grid gap-6 lg:grid-cols-2">
-          {flags.productMapTopology && (
-            <div className="lg:col-span-2">
-              <ProductMap product={product} topology={topology} />
-            </div>
-          )}
           {edges && (
             <div className="lg:col-span-2">
               <EdgeAuthoring product={{ id: product.id, name: product.name, slug: product.slug }} {...edges} />
             </div>
           )}
+          <Card>
+            <CardHeader>
+              <CardTitle>Composed by</CardTitle>
+              <CardDescription>Products that compose {product.name}. Managed on the parent's side.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {parents.length ? (
+                <ul className="flex flex-col divide-y">
+                  {parents.map((p) => (
+                    <li key={p.id} className="flex items-center justify-between py-2.5">
+                      <Link to={ux(`/products/${p.slug}`)} className="text-sm font-medium underline-offset-4 hover:underline">
+                        {p.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">No products compose this one yet.</p>
+              )}
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Consumed by</CardTitle>

@@ -110,12 +110,49 @@ export async function listCredentials(): Promise<CredentialListItem[]> {
     .selectAll()
     .orderBy("createdAt", "desc")
     .execute();
+  const ids = rows.map((r) => r.id);
+  // Dependent counts in three bounded queries — same sources as
+  // getDependents (importer configs, OIDC, URL checks).
+  const [configCounts, oidcIds, urlCheckCounts] = await Promise.all([
+    ids.length
+      ? db
+          .selectFrom("importer_config_credentials")
+          .select("credentialId")
+          .select((eb) => eb.fn.countAll<number>().as("n"))
+          .where("credentialId", "in", ids)
+          .groupBy("credentialId")
+          .execute()
+      : Promise.resolve([]),
+    ids.length
+      ? db
+          .selectFrom("oidc_config")
+          .select("clientSecretCredentialId")
+          .where("clientSecretCredentialId", "in", ids)
+          .execute()
+      : Promise.resolve([]),
+    ids.length
+      ? db
+          .selectFrom("url_checks")
+          .select("credentialId")
+          .select((eb) => eb.fn.countAll<number>().as("n"))
+          .where("credentialId", "in", ids)
+          .groupBy("credentialId")
+          .execute()
+      : Promise.resolve([]),
+  ]);
+  const byConfig = new Map(configCounts.map((r) => [r.credentialId, Number(r.n)]));
+  const oidcSet = new Set(oidcIds.map((r) => r.clientSecretCredentialId));
+  const byCheck = new Map(urlCheckCounts.map((r) => [r.credentialId, Number(r.n)]));
   // ADR-117 Amendment 1: list views get `keyHints` (key + source type)
   // only — reference names stay visible in `secretRefMap` on detail.
   return rows.map((row): CredentialListItem => {
     const credential = toApi(row);
     delete credential.secretRefMap;
-    return credential;
+    return {
+      ...credential,
+      usedByCount:
+        (byConfig.get(row.id) ?? 0) + (oidcSet.has(row.id) ? 1 : 0) + (byCheck.get(row.id) ?? 0),
+    };
   });
 }
 

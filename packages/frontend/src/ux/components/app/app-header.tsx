@@ -1,5 +1,5 @@
 
-import { MoonIcon, SunIcon } from "lucide-react"
+import { BellIcon, CircleHelpIcon, MoonIcon, SunIcon, type LucideIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useLocation } from "react-router-dom"
 import { useTheme } from "next-themes"
@@ -19,15 +19,63 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/ux/components/ui/tool
 import { SEGMENT_LABELS } from "@/ux/lib/nav"
 import { ux } from "@/ux/lib/paths"
 import { useGlobalSearch } from "@/api/hooks/search"
+import { ExternalLink } from "@/ux/components/patterns/external-link"
+
+const DOCS_URL = "https://componode.github.io/componode/"
 
 function labelFor(segment: string): string {
   return SEGMENT_LABELS[segment] ?? segment
 }
 
+/** Detail pages register labels keyed by URL segment so crumbs show entity
+ *  names instead of raw ids — needed for UUID-keyed segments (users,
+ *  sources, checks, importer configs) that global search can't resolve. */
+const CrumbLabelsContext = React.createContext<{
+  labels: Record<string, string>
+  set: (seg: string, label: string | null) => void
+} | null>(null)
+
+export function CrumbLabelsProvider({ children }: { children: React.ReactNode }) {
+  const [labels, setLabels] = React.useState<Record<string, string>>({})
+  const set = React.useCallback(
+    (seg: string, label: string | null) =>
+      setLabels((m) => {
+        if (label == null) {
+          if (!(seg in m)) return m
+          const n = { ...m }
+          delete n[seg]
+          return n
+        }
+        return m[seg] === label ? m : { ...m, [seg]: label }
+      }),
+    [],
+  )
+  const value = React.useMemo(() => ({ labels, set }), [labels, set])
+  return <CrumbLabelsContext.Provider value={value}>{children}</CrumbLabelsContext.Provider>
+}
+
+export function useCrumbLabel(segment: string | undefined, label: string | null | undefined) {
+  const ctx = React.useContext(CrumbLabelsContext)
+  React.useEffect(() => {
+    if (!segment) return
+    ctx?.set(segment, label ?? null)
+    return () => ctx?.set(segment, null)
+  }, [ctx, segment, label])
+}
+
+/** Label the trailing path segment — the common detail-page case. */
+export function useLeafCrumb(label: string | null | undefined) {
+  const { pathname } = useLocation()
+  const leaf = pathname.split("/").filter(Boolean).filter((s) => s !== "ux").at(-1)
+  useCrumbLabel(leaf, label)
+}
+
 /** Resolve a URL segment to an entity display name via global search (exact slug/id match). */
 function useEntityName(segment: string): string {
+  const custom = React.useContext(CrumbLabelsContext)?.labels[segment]
   const isStatic = segment in SEGMENT_LABELS || segment === "ux"
-  const search = useGlobalSearch(isStatic ? "" : segment)
+  const search = useGlobalSearch(isStatic || custom ? "" : segment)
+  if (custom) return custom
   if (isStatic) return labelFor(segment)
   for (const hits of Object.values(search.data ?? {})) {
     const hit = (hits as { name?: string; slug?: string; id?: string }[]).find(
@@ -81,9 +129,37 @@ export function AppHeader() {
         </BreadcrumbList>
       </Breadcrumb>
       <div className="flex items-center gap-1">
+        <HeaderIconButton label="Help & docs" icon={CircleHelpIcon} kind="external" href={DOCS_URL} />
+        <HeaderIconButton label="Notifications" icon={BellIcon} kind="internal" to="/settings/notifications" />
         <ThemeToggle />
       </div>
     </header>
+  )
+}
+
+type HeaderIconDestination =
+  | { kind: "internal"; to: string }
+  | { kind: "external"; href: string }
+
+function HeaderIconButton({
+  label,
+  icon: Icon,
+  ...destination
+}: { label: string; icon: LucideIcon } & HeaderIconDestination) {
+  const icon = <Icon />
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label={label} asChild>
+          {destination.kind === "external" ? (
+            <ExternalLink href={destination.href}>{icon}</ExternalLink>
+          ) : (
+            <Link to={ux(destination.to)}>{icon}</Link>
+          )}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   )
 }
 

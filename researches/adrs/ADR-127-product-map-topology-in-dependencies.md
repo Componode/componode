@@ -107,6 +107,29 @@ dependency targets only. The Components tab remains the inventory surface.
 
 ---
 
-**Amended by ADR-127**: Product Map topology is placed in Dependencies with
-typed relation coverage and bounded read-only focus/expansion; see Amendment 1
-to ADR-118. Amendment 2 adds direct Component dependency nodes.
+## Amendment 3 — Dedicated Product Map tab restored (2026-11-03)
+
+**Spec:** `specs/062-prototype-ux-parity`
+
+**Context**: The consolidated Dependencies placement met the topology goal but
+buried the map behind a label that reads as authoring/list work. The parity
+review found that a first-class Map tab is the discoverable affordance users
+expect when inspecting product hierarchy.
+
+**Decision**: Product detail exposes `overview`, `map`, `components`,
+`dependencies`, and `activity` tabs. The read-only topology renders only in
+Map; Dependencies keeps `EdgeAuthoring`, consumers, and suggested-edge
+actions. `?tab=map` is a first-class deep link, not an alias. Amendment 1's
+complete relation coverage and Amendment 2's direct Component dependency
+nodes remain binding.
+
+**Supersedes**: the original placement of topology at the top of Dependencies,
+the "Map tab is removed" consequence, and the `?tab=map` → `dependencies`
+fallback. It does not supersede read-only topology bounds or relation coverage.
+
+---
+
+**Amended by ADR-127**: Product Map topology is a bounded, data-true,
+read-only surface. Amendment 2 adds direct Component dependency nodes;
+Amendment 3 restores its dedicated Map tab while Dependencies retains
+edge-authoring controls.

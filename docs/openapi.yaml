@@ -3880,6 +3880,13 @@ components:
         teamId: { type: string, format: uuid, nullable: true }
         slug: { type: string }
         isActive: { type: boolean }
+        lastActiveAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Most recent session sighting (max `sessions.lastSeenAt`) —
+            `null` when the user has never signed in.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     Session:
@@ -3978,6 +3985,13 @@ components:
             Derived product health headline (ADR-112), present on list
             responses — `null` when there are no contributing instances
         completeness: { $ref: "#/components/schemas/ProductCompleteness" }
+        componentCount:
+          type: integer
+          description: >-
+            Declared+inherited DEPENDS_ON components — the product's own
+            direct and group-expanded edges plus every COMPOSES
+            descendant's, deduplicated. Matches `counts.components` on the
+            detail payload.
         consumedByCount:
           type: integer
           description: >-
@@ -4784,6 +4798,12 @@ components:
             (`env`/`file`) per key.
         expiresAt: { type: string, format: date-time, nullable: true }
         lastUsedAt: { type: string, format: date-time, nullable: true }
+        usedByCount:
+          type: integer
+          description: >-
+            Dependent count — importer configs, OIDC binding, and URL
+            checks referencing this credential. Matches `dependents`
+            cardinality on the detail payload.
         createdBy: { type: string, format: uuid, nullable: true }
         updatedBy: { type: string, format: uuid, nullable: true }
         createdAt: { type: string, format: date-time }

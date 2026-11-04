@@ -107,11 +107,11 @@ function MetricColumn({
         <dt className="text-muted-foreground">Error rate</dt>
         <dd className="tabular text-right">{pct(metrics.errorRate)}</dd>
         <dt className="text-muted-foreground">p50</dt>
-        <dd className="tabular text-right">{ms(metrics.p50)} ms</dd>
+        <dd className="tabular text-right">{ms(metrics.p50)}</dd>
         <dt className="text-muted-foreground">p95</dt>
-        <dd className="tabular text-right">{ms(metrics.p95)} ms</dd>
+        <dd className="tabular text-right">{ms(metrics.p95)}</dd>
         <dt className="text-muted-foreground">p99</dt>
-        <dd className="tabular text-right">{ms(metrics.p99)} ms</dd>
+        <dd className="tabular text-right">{ms(metrics.p99)}</dd>
         <dt className="text-muted-foreground">Probes</dt>
         <dd className="tabular text-right">
           {metrics.counts.success} ok · {metrics.counts.failure} failed

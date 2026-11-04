@@ -50,9 +50,10 @@ hex or palette utilities (`bg-amber-500`, `text-red-600`) in components.
 
 - **Dark mode** ships via `next-themes`; tokens carry dark values. Default
   follows `prefers-color-scheme`; a picker lives in Settings → Appearance.
-- **Typeface** is the system stack (no bundled font payload) — ratified
-  over the prototype's Geist; `font-mono` resolves to the platform mono
-  stack.
+- **Typeface** is bundled Geist Sans/Mono (`Geist Variable` /
+  `Geist Mono Variable`, self-hosted through Fontsource) — matching the
+  adopted prototype across auth and shell routes; `font-mono` resolves to
+  Geist Mono with platform fallbacks.
 - **Status tone mapping is centralized** in `src/ux/lib/domain.ts`
   (`*_META` tables: label + tone per enum). New enums get a META entry;
   components render `StatusBadge`/`*Badge` wrappers, never ad-hoc colors.
@@ -87,9 +88,13 @@ hex or palette utilities (`bg-amber-500`, `text-red-600`) in components.
 
 Persistent collapsible sidebar (grouped: Catalog, Organization, Sources,
 Administration; Admin hidden below `ADMIN`), slim header with breadcrumbs +
-`Ctrl+K` command palette (real `/search` results + nav actions), theme
-toggle, user menu. The sidebar collapses to icons; the state persists per
-tab (`sessionStorage`).
+`Ctrl+K` command palette (real `/search` results + nav actions), Help/docs,
+Notifications, theme toggle, user menu. Help opens the published docs;
+Notifications links to Settings → Notifications (currently a governed G15
+preview, with no unread count). Live nav pills are limited to real counts —
+pending Suggestions and Import Agents needing attention — and are omitted
+while loading, on error, at zero, or when the nav item is role-hidden. The
+sidebar collapses to icons; the state persists per tab (`sessionStorage`).
 
 ### Route map (post-cutover `/` tree)
 
@@ -130,11 +135,11 @@ List pages: `PageHeader` (title/description/primary action) → `ListToolbar`
 ### `?tab=` convention
 
 Every tabbed detail page keeps the active tab in `?tab=` (replace, not
-push) via the **`useValidatedTab` hook** — unknown/missing values fall back
-to the first tab so deep links never render an empty panel; retired tab
-names resolve through the hook's alias map (e.g. the removed Product "Map"
-tab resolves to `dependencies` — spec 059). Never hand-roll
-`searchParams.get("tab")`.
+push) via the **`useValidatedTab` hook** — unknown or retired values fall
+back to the first tab so deep links never render an empty panel. Product
+detail's canonical tabs are `overview`, `map`, `components`, `dependencies`,
+and `activity`; `?tab=map` is a first-class deep link (spec 062). Never
+hand-roll `searchParams.get("tab")`.
 
 ### State matrix
 
@@ -212,13 +217,14 @@ detailed entry in **`researches/ux-rewrite-gaps.md`**:
 ## 8. Scope boundaries
 
 - ≥1280px optimized, ~768px usable; sub-`md` = nav drawer only (ADR-108).
-- Product topology is a **read-only** view at the top of the Dependencies
-  tab (ADR-118 Amendment 1 / ADR-127). It shows related Products,
-  ComponentGroup dependencies, and direct Component `DEPENDS_ON` targets as
-  typed lanes (ADR-127 Amendment 2); Components reached only through a group
-  stay inside the group node. Keyboard focus, selection, inspection,
-  and `+N` expansion are view affordances; pan/zoom/drag/layout editing and
-  edge authoring remain out of scope.
+- Product topology is a **read-only** view on the dedicated Product Map
+  tab (ADR-118 Amendment 1 / ADR-127 Amendment 3). It shows related
+  Products, ComponentGroup dependencies, and direct Component `DEPENDS_ON`
+  targets as typed lanes (ADR-127 Amendment 2); Components reached only
+  through a group stay inside the group node. Keyboard focus, selection,
+  inspection, and `+N` expansion are view affordances; pan/zoom/drag/layout
+  editing and edge authoring remain out of scope. Dependencies retains the
+  list-form edge-authoring surface.
 - Component detail has a separate **read-only Relationships** tab
   (ADR-128). It reuses the Product Map's accessibility patterns while
   preserving typed Component relation semantics; ComponentInstances remain

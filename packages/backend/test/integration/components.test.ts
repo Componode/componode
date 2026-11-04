@@ -698,4 +698,29 @@ describe("GET /components/:id/relationships — read-only view (spec 060)", () =
     expect(edgeRows).toHaveLength(0);
   });
 });
+
+describe("non-UUID :id params", () => {
+  // A slug or malformed id must fail validation (400), never reach the
+  // uuid column and blow up as a 500.
+  it.each([
+    "GET /api/v1/components/not-a-uuid",
+    "GET /api/v1/components/not-a-uuid/dependents",
+    "PATCH /api/v1/components/not-a-uuid",
+    "POST /api/v1/components/not-a-uuid/promote-to-platform",
+  ])("%s → 400", async (req) => {
+    const [method, url] = req.split(" ");
+    const res = await app.inject({
+      method: method as "GET" | "PATCH" | "POST",
+      url,
+      cookies: { [SESSION_COOKIE_NAME]: viewerSession },
+      ...(method === "POST" || method === "PATCH"
+        ? { headers: csrfHeader, cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie }, payload: {} }
+        : {}),
+    });
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.payload).code).toBe("VALIDATION_FAILED");
+  });
+});
+
+
 });

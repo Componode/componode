@@ -20,6 +20,8 @@ export interface User {
   displayName: string | null;
   email: string | null;
   isActive: boolean;
+  /** Most recent session sighting — null when the user never signed in. */
+  lastActiveAt?: string | null;
   createdAt: string;
 }
 
@@ -292,7 +294,8 @@ export interface ProductRef {
   slug: string;
   type: string;
   lifecycle: string;
-  /** Spec 059 topology enrichment — present on product-detail relations only. */
+  /** Spec 059 topology enrichment — criticality/health on product-detail
+   *  relations; componentCount also on list rows (declared+inherited). */
   criticality?: string | null;
   health?: ProductHealth | null;
   componentCount?: number;
