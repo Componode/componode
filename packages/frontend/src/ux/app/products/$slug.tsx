@@ -77,6 +77,7 @@ export function UxProductDetailPage() {
       product={mapProduct(d.product, {
         componentCount: d.counts.components,
         consumedByCount: (d.consumedBy ?? []).length,
+        status: d.health?.status ?? null,
       })}
       components={rows}
       consumers={d.consumedBy.map((p) => {
