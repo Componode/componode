@@ -181,6 +181,40 @@ describe("product hierarchy API", () => {
     expect(filtered.json().products).toHaveLength(1);
   });
 
+  it("GET /products returns declared+inherited componentCount per row", async () => {
+    const parent = await mkProduct(testDb, { name: "Count Parent", slug: "count-parent" });
+    const child = await mkProduct(testDb, { name: "Count Child", slug: "count-child" });
+    const lonely = await mkProduct(testDb, { name: "Count Lonely", slug: "count-lonely" });
+    await testDb.db
+      .insertInto("product_composes")
+      .values({ parentId: parent, childId: child })
+      .execute();
+    const ownComp = await mkComponent(testDb, "count-own");
+    const childComp = await mkComponent(testDb, "count-child");
+    await testDb.db
+      .insertInto("product_depends_on_component")
+      .values([
+        { productId: parent, componentId: ownComp },
+        { productId: child, componentId: childComp },
+      ])
+      .execute();
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/products",
+      ...authed(viewerSession),
+    });
+    expect(res.statusCode).toBe(200);
+    const bySlug = new Map(
+      res.json().products.map((p: { slug: string; componentCount?: number }) => [p.slug, p]),
+    );
+    // Same semantics as the detail's counts.components: own DEPENDS_ON
+    // components plus every COMPOSES descendant's, deduplicated.
+    expect(bySlug.get("count-parent")?.componentCount).toBe(2);
+    expect(bySlug.get("count-child")?.componentCount).toBe(1);
+    expect(bySlug.get("count-lonely")?.componentCount).toBe(0);
+  });
+
   it("POST /products creates with derived slug; duplicate slug → 409", async () => {
     const res = await app.inject({
       method: "POST",

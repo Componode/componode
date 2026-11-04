@@ -80,6 +80,10 @@ export function UxProductDetailPage() {
         const m = mapRelatedProduct(p);
         return { id: m.id, name: m.name, slug: m.slug, criticality: m.criticality };
       })}
+      parents={(d.composedBy ?? []).map((p) => {
+        const m = mapRelatedProduct(p);
+        return { id: m.id, name: m.name, slug: m.slug, criticality: m.criticality };
+      })}
       edges={{
         composes: d.composes ?? [],
         consumesFrom: d.consumesFrom ?? [],

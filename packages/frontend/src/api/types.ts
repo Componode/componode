@@ -292,7 +292,8 @@ export interface ProductRef {
   slug: string;
   type: string;
   lifecycle: string;
-  /** Spec 059 topology enrichment — present on product-detail relations only. */
+  /** Spec 059 topology enrichment — criticality/health on product-detail
+   *  relations; componentCount also on list rows (declared+inherited). */
   criticality?: string | null;
   health?: ProductHealth | null;
   componentCount?: number;

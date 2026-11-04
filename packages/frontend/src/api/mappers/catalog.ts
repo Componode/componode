@@ -109,7 +109,7 @@ export function mapProduct(
     links: p.links ?? [],
     sunsetAt: p.sunsetAt ?? null,
     consumedByCount: p.consumedByCount,
-    componentCount: detail?.componentCount ?? 0,
+    componentCount: detail?.componentCount ?? p.componentCount ?? 0,
     completeness: p.completeness ?? {
       owner: false,
       description: false,

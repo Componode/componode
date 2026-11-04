@@ -3978,6 +3978,13 @@ components:
             Derived product health headline (ADR-112), present on list
             responses — `null` when there are no contributing instances
         completeness: { $ref: "#/components/schemas/ProductCompleteness" }
+        componentCount:
+          type: integer
+          description: >-
+            Declared+inherited DEPENDS_ON components — the product's own
+            direct and group-expanded edges plus every COMPOSES
+            descendant's, deduplicated. Matches `counts.components` on the
+            detail payload.
         consumedByCount:
           type: integer
           description: >-

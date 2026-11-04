@@ -122,7 +122,7 @@ export async function listProducts(parsed: ListProductsQuery) {
     : products;
 
   const ids = rows.map((p) => p.id);
-  const [edges, healthByProduct, consumedByRows] = await Promise.all([
+  const [edges, healthByProduct, componentCounts, consumedByRows] = await Promise.all([
     ids.length
       ? db
           .selectFrom("product_composes")
@@ -132,6 +132,9 @@ export async function listProducts(parsed: ListProductsQuery) {
           .execute()
       : Promise.resolve([]),
     computeHealthForProducts(ids),
+    // Same declared+inherited semantics as the detail's counts.components so
+    // the list column agrees with the Components tab badge.
+    computeComponentCountsForProducts(ids),
     // Spec 023 US5: CONSUMES_FROM in-degree for the listed products.
     ids.length
       ? db
@@ -153,6 +156,7 @@ export async function listProducts(parsed: ListProductsQuery) {
     products: rows.map((p) => ({
       ...p,
       status: healthByProduct.get(p.id)?.status ?? null,
+      componentCount: componentCounts.get(p.id) ?? 0,
       consumedByCount: consumedByCount.get(p.id) ?? 0,
       completeness: productCompleteness(p, surfaces),
     })),

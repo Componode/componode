@@ -194,6 +194,7 @@ describe("Product detail map parity (spec 062)", () => {
         product={product}
         components={[]}
         consumers={[]}
+        parents={[]}
         topology={topology}
         suggestions={[]}
         activity={[]}
@@ -212,6 +213,7 @@ describe("Product detail map parity (spec 062)", () => {
         product={product}
         components={[]}
         consumers={[]}
+        parents={[]}
         topology={topology}
         suggestions={[]}
         activity={[]}
@@ -221,5 +223,23 @@ describe("Product detail map parity (spec 062)", () => {
     expect(screen.getByRole("tab", { name: "Dependencies" }).getAttribute("data-state")).toBe("active");
     expect(screen.queryByText("Product topology")).toBeNull();
     expect(screen.getByText("Suggested edges")).toBeTruthy();
+  });
+
+  it("lists incoming COMPOSES parents on Dependencies alongside consumers", () => {
+    wrap(
+      <ProductDetail
+        product={product}
+        components={[]}
+        consumers={[]}
+        parents={[{ id: "p-parent", name: "Parent Suite", slug: "parent-suite" }]}
+        topology={topology}
+        suggestions={[]}
+        activity={[]}
+      />,
+      "/products/topo-hub?tab=dependencies",
+    );
+    expect(screen.getByText("Composed by")).toBeTruthy();
+    const link = screen.getByRole("link", { name: "Parent Suite" });
+    expect(link.getAttribute("href")).toContain("/products/parent-suite");
   });
 });
