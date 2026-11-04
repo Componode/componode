@@ -145,4 +145,38 @@ describe("session visibility metadata (spec 032, gap G2)", () => {
     expect(legacy.ip).toBeNull();
     expect(legacy.current).toBe(false);
   });
+
+  it("excludes expired sessions — only active sign-ins are listed", async () => {
+    const admin = await loginAs(app, ADMIN_USERNAME, ADMIN_PASSWORD);
+    const me = await app.inject({
+      method: "GET",
+      url: "/api/v1/users/me",
+      cookies: { [SESSION_COOKIE_NAME]: admin! },
+    });
+    const userId = me.json().user.id;
+
+    await db
+      .insertInto("sessions")
+      .values({
+        id: "expired-" + uuidv7(),
+        publicId: uuidv7(),
+        userId,
+        tokenLast4: "9999",
+        createdAt: new Date(Date.now() - 7200_000).toISOString(),
+        lastSeenAt: new Date(Date.now() - 3600_000).toISOString(),
+        expiresAt: new Date(Date.now() - 60_000).toISOString(),
+      })
+      .execute();
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/sessions",
+      cookies: { [SESSION_COOKIE_NAME]: admin! },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(
+      res.json().sessions.find((s: any) => s.tokenLast4 === "9999"),
+    ).toBeUndefined();
+    expect(res.json().sessions.length).toBeGreaterThanOrEqual(1);
+  });
 });
