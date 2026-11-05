@@ -13,6 +13,7 @@ import {
   DOCKER_SETUP_TRANSPORTS,
   TRANSPORT_SECRET_KEYS,
   buildTargetProfile,
+  SECRET_LABELS,
   credentialCoversKeys,
   isSecretRefField,
   suggestTargetId,
@@ -37,14 +38,6 @@ const STEP_TITLES: Record<Step, string> = {
   secrets: "Secrets",
   identity: "Name & schedule",
   create: "Verify & create",
-};
-
-const SECRET_LABELS: Record<string, string> = {
-  caCert: "CA certificate (PEM)",
-  clientCert: "Client certificate (PEM)",
-  clientKey: "Client private key (PEM)",
-  sshPrivateKey: "SSH private key (PEM/OpenSSH)",
-  sshPassphrase: "Key passphrase",
 };
 
 interface Artifacts {
@@ -102,6 +95,9 @@ export function DockerSetupWizard() {
     );
   }, [credentials.data, needsSecrets, requiredSecretKeys]);
 
+  // Once the target row exists its profile is immutable — freeze every input
+  // that feeds buildTargetProfile so a retry cannot desync probe vs. target.
+  const profileLocked = Boolean(artifacts.targetRowId);
   const usingReuse = needsSecrets && secretMode === "reuse" && reuseCredentialId.length > 0;
   const reuseCredential = reuseCandidates.find((c) => c.id === reuseCredentialId);
 
@@ -282,6 +278,14 @@ export function DockerSetupWizard() {
     setRunning(false);
   };
 
+  // Creation steps not yet completed — named in the failure panel so the
+  // user sees what a retry still has to do (spec edge case).
+  const pendingCreationSteps = [
+    !artifacts.targetRowId && "create the Docker target",
+    needsSecrets && !usingReuse && !artifacts.credentialId && "store the credential",
+    !artifacts.configId && "create the importer",
+  ].filter((x): x is string => Boolean(x));
+
   const stepIndex = visibleSteps.indexOf(step);
 
   return (
@@ -298,7 +302,7 @@ export function DockerSetupWizard() {
             <FieldGroup>
               <Field>
                 <FieldLabel>Connection type</FieldLabel>
-                <Select value={transport} onValueChange={(v) => { setTransport(v as SetupTransport); setRouteFields({}); setSecretValues({}); setReuseCredentialId(""); setSecretMode("new"); setErrors({}); }}>
+                <Select value={transport} onValueChange={(v) => { setTransport(v as SetupTransport); setRouteFields({}); setSecretValues({}); setReuseCredentialId(""); setSecretMode("new"); setErrors({}); }} disabled={profileLocked}>
                   <SelectTrigger id="ds-transport" className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {DOCKER_SETUP_TRANSPORTS.map((t) => (
@@ -316,6 +320,13 @@ export function DockerSetupWizard() {
                 <AlertDescription>{transportDef.guidance}</AlertDescription>
               </Alert>
             )}
+            {profileLocked && (
+              <Alert>
+                <AlertDescription>
+                  The Docker target was already created with these connection settings — they are locked. To change engines, delete the target under Administration → Docker targets and start over.
+                </AlertDescription>
+              </Alert>
+            )}
             <FieldGroup>
               {routeFieldsForInput.map((f) => (
                 <Field key={f.key} data-invalid={errors[f.key] ? true : undefined}>
@@ -327,6 +338,7 @@ export function DockerSetupWizard() {
                     inputMode={f.number ? "numeric" : undefined}
                     onChange={(e) => setRouteFields((r) => ({ ...r, [f.key]: e.target.value }))}
                     aria-invalid={errors[f.key] ? true : undefined}
+                    disabled={profileLocked}
                   />
                   {errors[f.key] ? <FieldError>{errors[f.key]}</FieldError> : f.hint ? <FieldDescription>{f.hint}</FieldDescription> : null}
                 </Field>
@@ -341,7 +353,7 @@ export function DockerSetupWizard() {
               <FieldGroup>
                 <Field>
                   <FieldLabel>Secret source</FieldLabel>
-                  <Select value={secretMode} onValueChange={(v) => setSecretMode(v as "new" | "reuse")}>
+                  <Select value={secretMode} onValueChange={(v) => setSecretMode(v as "new" | "reuse")} disabled={profileLocked}>
                     <SelectTrigger id="ds-secretmode" className="w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="new">Enter new values (stored as a new credential)</SelectItem>
@@ -355,7 +367,7 @@ export function DockerSetupWizard() {
               <FieldGroup>
                 <Field data-invalid={errors.credential ? true : undefined}>
                   <FieldLabel>Credential</FieldLabel>
-                  <Select value={reuseCredentialId} onValueChange={setReuseCredentialId}>
+                  <Select value={reuseCredentialId} onValueChange={setReuseCredentialId} disabled={profileLocked}>
                     <SelectTrigger id="ds-reusecred" className="w-full"><SelectValue placeholder="Select a credential" /></SelectTrigger>
                     <SelectContent>
                       {reuseCandidates.map((c) => (
@@ -378,6 +390,7 @@ export function DockerSetupWizard() {
                   <FieldLabel htmlFor="ds-credlabel">Credential name</FieldLabel>
                   <Input
                     id="ds-credlabel"
+                    disabled={profileLocked}
                     value={credentialLabel}
                     onChange={(e) => setCredentialLabel(e.target.value)}
                     placeholder={`Docker — ${label.trim() || "importer"}`}
@@ -392,6 +405,7 @@ export function DockerSetupWizard() {
                       <Input
                         id={`ds-sec-${k}`}
                         type="password"
+                        disabled={profileLocked}
                         autoComplete="off"
                         value={secretValues[k] ?? ""}
                         onChange={(e) => setSecretValues((s) => ({ ...s, [k]: e.target.value }))}
@@ -475,6 +489,9 @@ export function DockerSetupWizard() {
                 <AlertTitle>{failure.step} failed</AlertTitle>
                 <AlertDescription className="grid gap-2">
                   <span>{failure.message}</span>
+                  {pendingCreationSteps.length > 0 && (
+                    <span>Still to do: {pendingCreationSteps.join(", ")}.</span>
+                  )}
                   <span>
                     Completed steps are kept — use Retry to continue, or finish manually:{" "}
                     {artifacts.targetRowId && <Link className="underline" to={ux(`/docker-targets/${artifacts.targetRowId}`)}>target</Link>}

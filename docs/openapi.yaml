@@ -2612,6 +2612,16 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Credential revoked (`CREDENTIAL_REVOKED`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "503":
+          description: Credential key unavailable (`CREDENTIAL_KEY_UNAVAILABLE`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
   /lobs:
     get:
       tags: [Organization]

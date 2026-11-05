@@ -3,6 +3,8 @@
  * No React, no API calls — everything here is unit-testable in isolation.
  */
 
+import { deriveSlug } from "@/ux/lib/slug";
+
 export type SetupTransport = "socket" | "tcp" | "ssh" | "context";
 
 export interface RouteFieldDef {
@@ -12,6 +14,8 @@ export interface RouteFieldDef {
   number?: boolean;
   placeholder?: string;
   hint?: string;
+  /** Marks a `*Key` pseudo-field whose value is a canonical secret key name, not a literal. */
+  secretRef?: boolean;
 }
 
 export interface TransportDef {
@@ -54,9 +58,9 @@ export const DOCKER_SETUP_TRANSPORTS: TransportDef[] = [
     fields: [
       { key: "host", label: "Host", required: true, placeholder: "engine.example.com" },
       { key: "port", label: "Port", required: true, number: true, placeholder: "2376" },
-      { key: "caCertKey", label: "CA certificate", hint: "Optional — only for private CAs." },
-      { key: "clientCertKey", label: "Client certificate", required: true },
-      { key: "clientKeyKey", label: "Client private key", required: true },
+      { key: "caCertKey", label: "CA certificate", hint: "Optional — only for private CAs.", secretRef: true },
+      { key: "clientCertKey", label: "Client certificate", required: true, secretRef: true },
+      { key: "clientKeyKey", label: "Client private key", required: true, secretRef: true },
     ],
   },
   {
@@ -70,8 +74,8 @@ export const DOCKER_SETUP_TRANSPORTS: TransportDef[] = [
       { key: "port", label: "Port", number: true, placeholder: "22" },
       { key: "user", label: "User", required: true, placeholder: "docker" },
       { key: "hostKeySha256", label: "Host key SHA-256 pin", required: true, placeholder: "SHA256:…" },
-      { key: "privateKeyKey", label: "Private key", required: true },
-      { key: "passphraseKey", label: "Passphrase", hint: "Optional." },
+      { key: "privateKeyKey", label: "Private key", required: true, secretRef: true },
+      { key: "passphraseKey", label: "Passphrase", hint: "Optional.", secretRef: true },
     ],
   },
   {
@@ -125,10 +129,9 @@ export function buildTargetProfile(
   const def = DOCKER_SETUP_TRANSPORTS.find((t) => t.value === transport);
   if (!def) return null;
   const out: Record<string, unknown> = { transport };
-  const secretRefFields = new Set(Object.values(SECRET_KEY_REF));
   for (const f of def.fields) {
-    // *Key-labelled fields are secret references handled below, not literals.
-    if (secretRefFields.has(f.key)) continue;
+    // secretRef fields carry canonical secret key names, not literals.
+    if (f.secretRef) continue;
     const raw = (routeFields[f.key] ?? "").trim();
     if (f.required && !raw) return null;
     if (!raw) continue;
@@ -146,17 +149,11 @@ export function buildTargetProfile(
 /** Route-field keys that carry secret references (excluded from literal copy). */
 export function isSecretRefField(transport: SetupTransport, fieldKey: string): boolean {
   const def = DOCKER_SETUP_TRANSPORTS.find((t) => t.value === transport);
-  return Boolean(def?.fields.some((f) => f.key === fieldKey && f.key.endsWith("Key")));
+  return Boolean(def?.fields.some((f) => f.key === fieldKey && f.secretRef));
 }
 
-const SLUG_RE = /[^a-z0-9]+/g;
-
 export function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .replace(SLUG_RE, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 200);
+  return deriveSlug(input).slice(0, 200);
 }
 
 /**
@@ -182,6 +179,15 @@ export function credentialCoversKeys(
   const provided = new Set(Object.keys(keyHints));
   return requiredKeys.every((k) => provided.has(k));
 }
+
+/** Human labels for canonical secret keys, shown on the masked inputs. */
+export const SECRET_LABELS: Record<string, string> = {
+  caCert: "CA certificate (PEM)",
+  clientCert: "Client certificate (PEM)",
+  clientKey: "Client private key (PEM)",
+  sshPrivateKey: "SSH private key (PEM/OpenSSH)",
+  sshPassphrase: "Key passphrase",
+};
 
 export const DOCKER_SETUP_SCHEDULES = [
   { value: "0 * * * *", label: "Every hour" },

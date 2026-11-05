@@ -125,3 +125,13 @@ verifiable via `quickstart.md` scenarios.
 - [X] T032 Accepted divergence: `DOCKER_SETUP_TRANSPORTS` intentionally differs from `TRANSPORT_FIELDS` — wizard fields carry plain-language guidance and omit `*Key` refs (canonical secrets instead); merging would couple two different UX contracts (code-review: standards)
 - [X] T033 Accepted divergence: `runCreate` keeps four explicit step blocks rather than a `runStep` helper — steps differ in inputs, artifact writes, and resume semantics; a helper would obscure the ordering contract (code-review: standards)
 - [X] T034 Accepted: unconditional `useCredentials()` in the wizard (one cached GET) and non-dismissible hint Alert — spec requires a "hint", not a dismissible one (code-review: standards)
+
+## Phase 11: Review (round 2)
+
+- [X] T035 Accept `schedule: null` in `createImporterConfigSchema`/`updateImporterConfigSchema` via `.nullish()` — wizard and generic form both send null for "Manual only", which previously 400'd at the final create step after target+credential existed (code-review: spec)
+- [X] T036 Freeze profile-feeding inputs (transport, route fields, secret source, credential picker, secret values, credential name) once `artifacts.targetRowId` exists so a retry cannot desync the probe from the immutable persisted target profile; show a locked-settings note (code-review: spec)
+- [X] T037 Name pending creation steps in the failure panel ("Still to do: …") per the spec edge case requiring completed + pending steps (code-review: spec)
+- [X] T038 Document probe `409 CREDENTIAL_REVOKED` and `503 CREDENTIAL_KEY_UNAVAILABLE` responses in `docs/openapi.yaml` (code-review: spec)
+- [X] T039 Replace `slugify`'s local regex copy with shared `deriveSlug` from `ux/lib/slug` (code-review: standards)
+- [X] T040 Replace `*Key`-suffix/`SECRET_KEY_REF`-value detection with an explicit `secretRef` flag on `RouteFieldDef`; move `SECRET_LABELS` into the logic module (code-review: standards)
+- [X] T041 Accepted divergence: `RouteFieldDef`/`validateStep`/`DOCKER_SETUP_SCHEDULES` intentionally differ from the admin target form and generic importer form — the wizard validates a reduced field set (no `*Key` literals) with guided presets incl. the `manual` sentinel; sharing would couple two UX contracts (code-review: standards)

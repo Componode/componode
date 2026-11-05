@@ -31,7 +31,7 @@ const importerConfigBaseSchema = z.object({
   // Agent binding (spec 027, ADR-116): the Import Agent that executes this
   // config's runs. null/absent = in-process execution on the hub.
   agentId: z.string().uuid().nullable(),
-  schedule: z.string().optional(),
+  schedule: z.string().nullish(),
   enabled: z.boolean(),
 });
 
