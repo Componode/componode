@@ -113,3 +113,15 @@ verifiable via `quickstart.md` scenarios.
 ## Phase 9: Convergence
 
 - [X] T025 Add an editable credential-name input on the wizard secrets step (new-values mode), defaulting to `Docker — <target label>` and used for the created STORED credential per FR-005 (partial)
+
+## Phase 10: Review
+
+- [X] T026 Emit `*Key` profile references in credential-reuse mode for every canonical key the selected credential covers (required always, optional only when covered) so reuse probes/persists valid profiles per FR-006/US3 (code-review: spec)
+- [X] T027 Document `CREDENTIAL_REVOKED` (409) and `CREDENTIAL_KEY_UNAVAILABLE` (503) in `contracts/docker-target-probe-api.md` per FR-016 (code-review: spec)
+- [X] T028 Disable the targetId input once a target row exists so a retried run cannot link the config to a different selector per FR-010 (code-review: spec)
+- [X] T029 Align probe error statuses with the canonical error-types map — `CREDENTIAL_REVOKED`→409, `CREDENTIAL_KEY_UNAVAILABLE`→503 per ADR-071 (code-review: standards)
+- [X] T030 Reuse `ProbeDockerTargetInput` from `@componode/core` in `api/hooks/docker-targets.ts` instead of re-declaring it (code-review: standards)
+- [X] T031 Surface validation errors on collapsed Advanced scope fields via a "fix required" indicator on the disclosure trigger (code-review: standards)
+- [X] T032 Accepted divergence: `DOCKER_SETUP_TRANSPORTS` intentionally differs from `TRANSPORT_FIELDS` — wizard fields carry plain-language guidance and omit `*Key` refs (canonical secrets instead); merging would couple two different UX contracts (code-review: standards)
+- [X] T033 Accepted divergence: `runCreate` keeps four explicit step blocks rather than a `runStep` helper — steps differ in inputs, artifact writes, and resume semantics; a helper would obscure the ordering contract (code-review: standards)
+- [X] T034 Accepted: unconditional `useCredentials()` in the wizard (one cached GET) and non-dismissible hint Alert — spec requires a "hint", not a dismissible one (code-review: standards)

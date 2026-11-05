@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { DockerTarget } from "@/api/types";
+import type { ProbeDockerTargetInput } from "@componode/core";
+
+export type { ProbeDockerTargetInput };
 
 export function useDockerTargets() {
   return useQuery({ queryKey: ["docker-targets"], queryFn: () => api<{ targets: DockerTarget[] }>("/docker-targets") });
@@ -52,12 +55,6 @@ export function useTestDockerTarget(id: string) {
     mutationFn: (configId?: string) => api<{ ok: boolean; error?: string }>(`/docker-targets/${id}/test`, { method: "POST", body: JSON.stringify(configId ? { configId } : {}) }),
     onSuccess: () => invalidate(qc),
   });
-}
-
-export interface ProbeDockerTargetInput {
-  profile: Record<string, unknown>;
-  secrets?: Record<string, string>;
-  credentialId?: string;
 }
 
 export function useProbeDockerTarget() {

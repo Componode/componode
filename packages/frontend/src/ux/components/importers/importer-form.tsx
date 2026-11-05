@@ -780,6 +780,9 @@ export function ImporterForm({ config, manifests, credentials, agents, dockerTar
                     <Button type="button" variant="ghost" size="sm">
                       <ChevronDownIcon data-icon="inline-start" className="group-data-[state=open]/collapsible:rotate-180" />
                       Advanced options ({advancedScopeFields.length})
+                      {advancedScopeFields.some((f) => scopeFieldErrors[f.key]) && (
+                        <span className="text-destructive"> — fix required</span>
+                      )}
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent>

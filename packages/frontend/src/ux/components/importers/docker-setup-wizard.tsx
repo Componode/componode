@@ -92,8 +92,7 @@ export function DockerSetupWizard() {
   const needsSecrets = allSecretKeys.length > 0;
   const requiredSecretKeys = secretSpec.required;
 
-  const providedSecretKeys = allSecretKeys.filter((k) => (secretValues[k] ?? "").trim().length > 0);
-  const profile = buildTargetProfile(transport, routeFields, providedSecretKeys);
+  const typedSecretKeys = allSecretKeys.filter((k) => (secretValues[k] ?? "").trim().length > 0);
 
   const reuseCandidates = React.useMemo(() => {
     if (!needsSecrets) return [];
@@ -104,6 +103,15 @@ export function DockerSetupWizard() {
   }, [credentials.data, needsSecrets, requiredSecretKeys]);
 
   const usingReuse = needsSecrets && secretMode === "reuse" && reuseCredentialId.length > 0;
+  const reuseCredential = reuseCandidates.find((c) => c.id === reuseCredentialId);
+
+  // Reuse mode emits *Key refs for every canonical key the selected
+  // credential covers — required keys always, optional keys only when the
+  // credential actually has them (a dangling ref would fail coverage).
+  const providedSecretKeys = usingReuse
+    ? allSecretKeys.filter((k) => credentialCoversKeys(reuseCredential?.keyHints, [k]))
+    : typedSecretKeys;
+  const profile = buildTargetProfile(transport, routeFields, providedSecretKeys);
 
   // Suggested targetId tracks label/host until the user edits it.
   React.useEffect(() => {
@@ -413,8 +421,11 @@ export function DockerSetupWizard() {
                 onChange={(e) => { setTargetIdTouched(true); setTargetId(e.target.value); }}
                 aria-invalid={errors.targetId ? true : undefined}
                 className="font-mono"
+                disabled={Boolean(artifacts.targetRowId)}
               />
-              {errors.targetId ? <FieldError>{errors.targetId}</FieldError> : (
+              {errors.targetId ? <FieldError>{errors.targetId}</FieldError> : artifacts.targetRowId ? (
+                <FieldDescription>This target was already created — its selector is immutable. Delete it under Administration → Docker targets to start over.</FieldDescription>
+              ) : (
                 <FieldDescription>Suggested from your label — editable now, immutable after creation. Changing engines later means a new target.</FieldDescription>
               )}
             </Field>

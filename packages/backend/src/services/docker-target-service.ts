@@ -147,9 +147,9 @@ export async function probeDockerTarget(input: ProbeDockerTargetInput) {
   if (input.credentialId) {
     const cred = await db.selectFrom("credentials").selectAll().where("id", "=", input.credentialId).executeTakeFirst();
     if (!cred || cred.kind !== "STORED") throw err(404, "CREDENTIAL_NOT_FOUND", "Credential not found");
-    if (cred.status === "REVOKED") throw err(400, "CREDENTIAL_REVOKED", "Credential is revoked");
+    if (cred.status === "REVOKED") throw err(409, "CREDENTIAL_REVOKED", "Credential is revoked");
     const keyring = await loadKeyring();
-    if (!keyring || !cred.encryptedPayload) throw err(400, "CREDENTIAL_KEY_UNAVAILABLE", "Credential key is unavailable");
+    if (!keyring || !cred.encryptedPayload) throw err(503, "CREDENTIAL_KEY_UNAVAILABLE", "Credential key is unavailable");
     secrets = decryptSecrets(cred.encryptedPayload, keyring);
     const provided = new Set(Object.keys(secrets));
     const missing = required.filter((k) => !provided.has(k));

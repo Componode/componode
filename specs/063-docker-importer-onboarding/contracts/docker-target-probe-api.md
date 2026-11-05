@@ -53,6 +53,10 @@ Schema (core `probeDockerTargetSchema`, `.strict()`):
 - `401` / `403` — unauthenticated / non-admin.
 - `404 CREDENTIAL_NOT_FOUND` — `credentialId` does not resolve to a
   credential.
+- `409 CREDENTIAL_REVOKED` — `credentialId` resolves to a revoked
+  credential.
+- `503 CREDENTIAL_KEY_UNAVAILABLE` — the credential store key is
+  unavailable for decrypting the referenced credential.
 - `400 CREDENTIAL_MISSING_KEY` — `credentialId` credential exists but its
   key set does not cover the profile's `*Key` references.
 

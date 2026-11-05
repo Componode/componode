@@ -174,8 +174,15 @@ describe("DockerSetupWizard (spec 063)", () => {
     next();
     fireEvent.click(screen.getByRole("button", { name: /verify & create/i }));
     await waitFor(() => expect(probeMutate).toHaveBeenCalled());
+    // Reuse mode must still emit *Key refs for the keys the credential covers.
     expect(probeMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ credentialId: "cred-cover" }),
+      expect.objectContaining({
+        credentialId: "cred-cover",
+        profile: expect.objectContaining({
+          clientCertKey: "clientCert",
+          clientKeyKey: "clientKey",
+        }),
+      }),
     );
     expect(probeMutate.mock.calls[0]![0]).not.toHaveProperty("secrets");
     // No new credential created; config links the reused one.
