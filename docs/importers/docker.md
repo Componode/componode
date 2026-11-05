@@ -29,9 +29,9 @@ The happy path — the Hub imports from a Docker Engine on the same host.
 3. **Verify & create.** The wizard probes the engine (`/version` only),
    then creates the Docker target and importer config in one pass —
    nothing is persisted if the probe fails. For `tcp`/`ssh` transports
-   the secrets step captures certificates/keys inline (stored encrypted
-   as a credential) or reuses an existing credential that already has
-   the required keys.
+   the secrets step accepts the certificate/key **files** (upload or
+   paste — PEM armor must stay intact) stored encrypted as a credential,
+   or reuses an existing credential that already has the required keys.
 4. **Run it.** Open the new importer and choose **Run now** — discovered
    workloads appear in the catalog on the next reconciliation.
 

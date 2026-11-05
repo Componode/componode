@@ -98,24 +98,32 @@ describe("DockerSetupWizard (spec 063)", () => {
     expect(createTargetMutate.mock.invocationCallOrder[0]!).toBeLessThan(createConfigMutate.mock.invocationCallOrder[0]!);
   });
 
-  it("tcp shows masked secret inputs and creates a credential with canonical keys", async () => {
+  const CERT_PEM = "-----BEGIN CERTIFICATE-----\nMIIB-client\n-----END CERTIFICATE-----\n";
+  const KEY_PEM = "-----BEGIN EC PRIVATE KEY-----\nMHc-client\n-----END EC PRIVATE KEY-----\n";
+
+  it("tcp shows secret textareas and preserves pasted PEM newlines end-to-end", async () => {
     renderWizard();
     pick("ds-transport", "TCP (mutual TLS)");
     fill("ds-host", "engine.example.com");
     fill("ds-port", "2376");
     next();
-    // Secrets step — masked inputs for canonical keys.
-    const cert = document.getElementById("ds-sec-clientCert") as HTMLInputElement;
-    const key = document.getElementById("ds-sec-clientKey") as HTMLInputElement;
-    const ca = document.getElementById("ds-sec-caCert") as HTMLInputElement;
-    expect(cert.type).toBe("password");
-    expect(key.type).toBe("password");
-    expect(ca.type).toBe("password");
+    // Secrets step — multi-line textareas for canonical keys (single-line
+    // inputs strip PEM newlines — spec 063 bugfix).
+    const cert = document.getElementById("ds-sec-clientCert") as HTMLTextAreaElement;
+    const key = document.getElementById("ds-sec-clientKey") as HTMLTextAreaElement;
+    const ca = document.getElementById("ds-sec-caCert") as HTMLTextAreaElement;
+    expect(cert.tagName).toBe("TEXTAREA");
+    expect(key.tagName).toBe("TEXTAREA");
+    expect(ca.tagName).toBe("TEXTAREA");
+    // Each file-shaped secret offers an upload picker.
+    expect(document.getElementById("ds-sec-clientCert-file")).toBeTruthy();
+    expect(document.getElementById("ds-sec-clientKey-file")).toBeTruthy();
+    expect(document.getElementById("ds-sec-caCert-file")).toBeTruthy();
     // Required validation blocks advancing without values.
     next();
     expect(screen.getByText(/Client certificate \(PEM\) is required/i)).toBeTruthy();
-    fireEvent.change(cert, { target: { value: "CERT" } });
-    fireEvent.change(key, { target: { value: "KEY" } });
+    fireEvent.change(cert, { target: { value: CERT_PEM } });
+    fireEvent.change(key, { target: { value: KEY_PEM } });
     // caCert left empty — optional.
     next();
     fill("ds-label", "MTLS engine");
@@ -130,13 +138,14 @@ describe("DockerSetupWizard (spec 063)", () => {
         clientCertKey: "clientCert",
         clientKeyKey: "clientKey",
       },
-      secrets: { clientCert: "CERT", clientKey: "KEY" },
+      // Trailing newline trimmed at submit; interior newlines preserved.
+      secrets: { clientCert: CERT_PEM.trimEnd(), clientKey: KEY_PEM.trimEnd() },
     });
     await waitFor(() => expect(createCredMutate).toHaveBeenCalled());
     expect(createCredMutate).toHaveBeenCalledWith({
       kind: "STORED",
       label: "Docker — MTLS engine",
-      secrets: { clientCert: "CERT", clientKey: "KEY" },
+      secrets: { clientCert: CERT_PEM.trimEnd(), clientKey: KEY_PEM.trimEnd() },
     });
     expect(createTargetMutate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -147,6 +156,77 @@ describe("DockerSetupWizard (spec 063)", () => {
     await waitFor(() => expect(createConfigMutate).toHaveBeenCalledWith(
       expect.objectContaining({ credentialIds: ["cred-1"] }),
     ));
+  });
+
+  it("loads PEM secrets from uploaded files and sends their contents", async () => {
+    renderWizard();
+    pick("ds-transport", "TCP (mutual TLS)");
+    fill("ds-host", "engine.example.com");
+    fill("ds-port", "2376");
+    next();
+    // Upload clientCert + caCert; paste clientKey.
+    const certFile = new File([CERT_PEM], "cert.pem", { type: "application/x-pem-file" });
+    const caFile = new File(["-----BEGIN CERTIFICATE-----\nMIIB-ca\n-----END CERTIFICATE-----\n"], "ca.pem");
+    fireEvent.change(document.getElementById("ds-sec-clientCert-file")!, { target: { files: [certFile] } });
+    fireEvent.change(document.getElementById("ds-sec-caCert-file")!, { target: { files: [caFile] } });
+    await waitFor(() => expect((document.getElementById("ds-sec-clientCert") as HTMLTextAreaElement).value).toBe(CERT_PEM));
+    await waitFor(() => expect((document.getElementById("ds-sec-caCert") as HTMLTextAreaElement).value).toContain("MIIB-ca"));
+    // File names surface next to the picker.
+    expect(screen.getByText("cert.pem")).toBeTruthy();
+    expect(screen.getByText("ca.pem")).toBeTruthy();
+    fireEvent.change(document.getElementById("ds-sec-clientKey")!, { target: { value: KEY_PEM } });
+    next();
+    fill("ds-label", "MTLS upload");
+    next();
+    fireEvent.click(screen.getByRole("button", { name: /verify & create/i }));
+    await waitFor(() => expect(probeMutate).toHaveBeenCalled());
+    expect(probeMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        secrets: {
+          clientCert: CERT_PEM.trimEnd(),
+          clientKey: KEY_PEM.trimEnd(),
+          caCert: "-----BEGIN CERTIFICATE-----\nMIIB-ca\n-----END CERTIFICATE-----",
+        },
+      }),
+    );
+    expect(probeMutate.mock.calls[0]![0].profile).toMatchObject({ caCertKey: "caCert" });
+  });
+
+  it("blocks non-PEM values on file-shaped secrets before probing", async () => {
+    renderWizard();
+    pick("ds-transport", "TCP (mutual TLS)");
+    fill("ds-host", "engine.example.com");
+    fill("ds-port", "2376");
+    next();
+    // Mangeled paste — BEGIN marker present but armor not on its own line.
+    fireEvent.change(document.getElementById("ds-sec-clientCert")!, {
+      target: { value: "-----BEGIN CERTIFICATE----- MIIB -----END CERTIFICATE-----" },
+    });
+    fireEvent.change(document.getElementById("ds-sec-clientKey")!, { target: { value: KEY_PEM } });
+    next();
+    expect(screen.getByText(/not PEM|PEM-formatted/i)).toBeTruthy();
+    // Still on the secrets step — no probe, no identity fields.
+    expect(document.getElementById("ds-label")).toBeNull();
+    expect(probeMutate).not.toHaveBeenCalled();
+  });
+
+  it("keeps ssh passphrase a single-line masked input (not file-shaped)", async () => {
+    renderWizard();
+    pick("ds-transport", "SSH (pinned host key)");
+    fill("ds-host", "engine.example.com");
+    fill("ds-user", "docker");
+    fill("ds-hostKeySha256", "SHA256:abc");
+    next();
+    const priv = document.getElementById("ds-sec-sshPrivateKey") as HTMLTextAreaElement;
+    const pass = document.getElementById("ds-sec-sshPassphrase") as HTMLInputElement;
+    expect(priv.tagName).toBe("TEXTAREA");
+    expect(pass.tagName).toBe("INPUT");
+    expect(pass.type).toBe("password");
+    // Passphrase is exempt from PEM validation — a plain string advances.
+    fireEvent.change(priv, { target: { value: "-----BEGIN OPENSSH PRIVATE KEY-----\nb3Bl\n-----END OPENSSH PRIVATE KEY-----" } });
+    fireEvent.change(pass, { target: { value: "correct horse" } });
+    next();
+    expect(document.getElementById("ds-label")).toBeTruthy();
   });
 
   it("offers covering STORED credentials for reuse and probes with credentialId", async () => {

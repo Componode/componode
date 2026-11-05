@@ -3,6 +3,7 @@ import {
   EnvSecretResolver,
   SecretRefError,
   SecretResolutionError,
+  hasPemArmor,
   maskSecretValues,
   refSource,
   resolveSecretsFromMap,
@@ -250,6 +251,23 @@ describe("shared secret resolver", () => {
       expect(maskSecretValues(text, { pin: "1 of" })).toBe(
         "error 1 occurred on attempt *** 3",
       );
+    });
+  });
+
+  describe("hasPemArmor", () => {
+    it("accepts armor markers on their own line (LF, CRLF, indented, leading text)", () => {
+      expect(hasPemArmor("-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----")).toBe(true);
+      expect(hasPemArmor("-----BEGIN CERTIFICATE-----\r\nMIIB\r\n-----END CERTIFICATE-----\r\n")).toBe(true);
+      expect(hasPemArmor("  -----BEGIN EC PRIVATE KEY-----  \nMHc\n-----END EC PRIVATE KEY-----")).toBe(true);
+      expect(hasPemArmor("Certificate:\nData:\n-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----")).toBe(true);
+      expect(hasPemArmor("-----BEGIN OPENSSH PRIVATE KEY-----\nb3Bl\n-----END OPENSSH PRIVATE KEY-----")).toBe(true);
+    });
+
+    it("rejects plain text and paste-mangled armor (spec 063: single-line inputs strip newlines)", () => {
+      expect(hasPemArmor("CERT")).toBe(false);
+      expect(hasPemArmor("")).toBe(false);
+      expect(hasPemArmor("-----BEGIN CERTIFICATE----- MIIB -----END CERTIFICATE-----")).toBe(false);
+      expect(hasPemArmor("-----BEGIN CERTIFICATE-----MIIB-----END CERTIFICATE-----")).toBe(false);
     });
   });
 });

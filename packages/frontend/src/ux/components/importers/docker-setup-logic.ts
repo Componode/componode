@@ -3,6 +3,7 @@
  * No React, no API calls — everything here is unit-testable in isolation.
  */
 
+import { hasPemArmor } from "@componode/core/secrets";
 import { deriveSlug } from "@/ux/lib/slug";
 
 export type SetupTransport = "socket" | "tcp" | "ssh" | "context";
@@ -173,6 +174,25 @@ export const SECRET_LABELS: Record<string, string> = {
   sshPrivateKey: "SSH private key (PEM/OpenSSH)",
   sshPassphrase: "Key passphrase",
 };
+
+/**
+ * Secret keys whose values are file-shaped key/cert material — the wizard
+ * offers file upload and PEM-armor validation for these (spec 063 bugfix:
+ * single-line inputs strip PEM newlines on paste). `sshPassphrase` stays a
+ * plain text secret.
+ */
+export const FILE_SECRET_KEYS: ReadonlySet<string> = new Set([
+  "caCert",
+  "clientCert",
+  "clientKey",
+  "sshPrivateKey",
+]);
+
+/** File-picker filter shown for PEM-shaped secrets. */
+export const PEM_FILE_ACCEPT = ".pem,.key,.crt,.cer";
+
+/** True when a secret value carries PEM/OpenSSH armor (shared core check). */
+export const looksLikePem = hasPemArmor;
 
 export const DOCKER_SETUP_SCHEDULES = [
   { value: "0 * * * *", label: "Every hour" },

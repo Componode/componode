@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   DOCKER_SETUP_TRANSPORTS,
+  FILE_SECRET_KEYS,
+  PEM_FILE_ACCEPT,
   TRANSPORT_SECRET_KEYS,
   buildTargetProfile,
   credentialCoversKeys,
+  looksLikePem,
   slugify,
   suggestTargetId,
   transportSecretKeys,
@@ -93,5 +96,26 @@ describe("docker-setup-logic", () => {
   it("exposes all four transports with guidance", () => {
     expect(DOCKER_SETUP_TRANSPORTS.map((t) => t.value)).toEqual(["socket", "tcp", "ssh", "context"]);
     expect(DOCKER_SETUP_TRANSPORTS.find((t) => t.value === "socket")?.guidance).toMatch(/socket/i);
+  });
+
+  it("marks exactly the file-shaped secret keys for upload + PEM checks", () => {
+    expect([...FILE_SECRET_KEYS].sort()).toEqual(["caCert", "clientCert", "clientKey", "sshPrivateKey"]);
+    expect(PEM_FILE_ACCEPT).toContain(".pem");
+    // Passphrase is a text secret — never file-shaped.
+    expect(FILE_SECRET_KEYS.has("sshPassphrase")).toBe(false);
+  });
+
+  it("looksLikePem detects armor headers and rejects plain/mangled text", () => {
+    expect(looksLikePem("-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----")).toBe(true);
+    expect(looksLikePem("-----BEGIN OPENSSH PRIVATE KEY-----\nb3Bl\n-----END OPENSSH PRIVATE KEY-----")).toBe(true);
+    expect(looksLikePem("  \n-----BEGIN EC PRIVATE KEY-----\nMHc\n-----END EC PRIVATE KEY-----\n")).toBe(true);
+    expect(looksLikePem("-----BEGIN CERTIFICATE-----\r\nMIIB\r\n-----END CERTIFICATE-----\r\n")).toBe(true);
+    // Leading text is tolerated (e.g. openssl -text output with a PEM block).
+    expect(looksLikePem("Certificate:\n  Data:\n-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----")).toBe(true);
+    expect(looksLikePem("CERT")).toBe(false);
+    // The reported bug: newlines lost on paste leave the armor inline — not PEM.
+    expect(looksLikePem("-----BEGIN CERTIFICATE----- MIIB -----END CERTIFICATE-----")).toBe(false);
+    expect(looksLikePem("-----BEGIN CERTIFICATE-----MIIB-----END CERTIFICATE-----")).toBe(false);
+    expect(looksLikePem("")).toBe(false);
   });
 });

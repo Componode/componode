@@ -42,6 +42,9 @@ token or an Alibaba AccessKey pair).
 
 - **Write-only** — you submit secret values once; afterwards the UI shows
   only masked key hints. The API never returns values.
+- **Multi-line and file entry** — each value accepts pasted multi-line
+  content (PEM blocks, kubeconfigs) or an uploaded file read entirely in
+  the browser; the content is sent once through the same encrypted path.
 - **Encrypted at rest** — AES-256-GCM with a master key from
   `COMPONODE_SECRETS_KEY` (or `SECRETS_DIR/master.key`). Without a key the
   store is read-only — see

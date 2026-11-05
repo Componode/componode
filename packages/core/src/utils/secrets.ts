@@ -161,6 +161,18 @@ export async function resolveSecretsFromMap(
   return resolved;
 }
 
+// PEM armor sanity check (spec 063 bugfix): true when the text carries a
+// `-----BEGIN <label>-----` marker alone on its own line. Requiring the
+// marker on its own line distinguishes real PEM — including CRLF files and
+// openssl output with leading text — from paste-mangled content where the
+// armor got inlined with the base64 body (single-line inputs strip \n).
+// This is a heuristic guard, not a parser: OpenSSL remains the authority.
+const PEM_ARMOR_LINE = /^[^\S\n]*-----BEGIN [^-\r\n]+-----[^\S\n]*$/m;
+
+export function hasPemArmor(value: string): boolean {
+  return PEM_ARMOR_LINE.test(value);
+}
+
 // Masks resolved secret VALUES inside arbitrary text (e.g. an exception
 // message) before it reaches logs — an importer that echoes a secret into
 // a thrown error must not leak it into agent log output (FR-012, ADR-090).

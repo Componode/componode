@@ -42,7 +42,8 @@ profiles — all before any record exists. Verify zero rows in
 5. Create → lands on the new importer detail → **Run now** → components
    appear under the catalog.
 
-Repeat for `tcp`/`ssh` to exercise the secrets step: paste PEM values →
+Repeat for `tcp`/`ssh` to exercise the secrets step: upload the PEM files
+(or paste them — armor must stay intact) →
 probe → create (a STORED credential appears under **Credentials** with
 canonical keys) → config links it. Pick an existing credential instead to
 exercise the coverage-gated reuse path.
