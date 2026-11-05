@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–062)
+## Shipped (features 001–063)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -369,6 +369,16 @@ file tracks shipped and upcoming work — update it when a spec completes.
   canvas (including portals and auth routes), a dedicated read-only Product
   Map tab, real Help/docs and Notifications destinations, and live
   pending-suggestion/attention-agent nav pills. No API change.
+- `063-docker-importer-onboarding` — Guided Docker importer setup:
+  a dedicated wizard (`/importers/new/docker`) walks Hub admins through
+  transport → route → secrets → identity → probe → create, with inline
+  masked secret capture under canonical credential keys, coverage-gated
+  reuse of existing STORED credentials, and a stateless
+  `POST /docker-targets/probe` endpoint that verifies a prospective
+  route before anything persists. The generic importer form gains an
+  Advanced disclosure for Docker's power-user scope keys, and
+  `docs/importers/docker.md` opens with a five-minute quickstart.
+  Agent-side setup simplification remains deferred.
 
 ## Next — post-v1.1
 
@@ -378,7 +388,8 @@ The Docker importer program's mapped waves (A–E) plus Hub execution
 onboarding completion (054), the repeated-failure auto-disable
 policy (056), and importer-managed checks (058) — has shipped, as has the Product Map
 topology (059), the Component Relationships view (060), component
-dependencies in the Product topology (061), and prototype UX parity (062).
+dependencies in the Product topology (061), prototype UX parity (062),
+and guided Docker importer onboarding (063).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new

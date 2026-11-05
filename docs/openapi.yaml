@@ -2567,6 +2567,51 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /docker-targets/probe:
+    post:
+      tags: [Importers]
+      summary: Probe a prospective Docker target profile without persisting anything
+      description: >-
+        Stateless pre-persistence connectivity check for the guided setup flow.
+        Validates the profile against the Docker target profile schema, resolves
+        secret material from either inline `secrets` or a STORED `credentialId`
+        (mutually exclusive), then runs the importer's `/version` probe only.
+        Writes no rows and no audit events.
+      x-permission: "importer:target:test"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profile]
+              properties:
+                profile:
+                  type: object
+                  description: Non-secret transport profile (socket/tcp/ssh/context)
+                secrets:
+                  type: object
+                  additionalProperties: { type: string }
+                  description: Inline secret values keyed by the profile's *Key names; mutually exclusive with credentialId
+                credentialId:
+                  type: string
+                  format: uuid
+                  description: STORED credential whose keys must cover the profile's *Key names; mutually exclusive with secrets
+      responses:
+        "200":
+          description: Probe result — ok:false carries a sanitized reason
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+                  error: { type: string }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /lobs:
     get:
       tags: [Organization]

@@ -1,13 +1,14 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { randomBytes } from "crypto";
 import { uuidv7 } from "uuidv7";
 
 vi.mock("../../src/services/importer-registry.js", async () => {
   const actual = await vi.importActual<any>("../../src/services/importer-registry.js");
   return { ...actual, getImporter: vi.fn(), getManifest: vi.fn(async () => dockerManifest) };
 });
-import { getImporter } from "../../src/services/importer-registry.js";
+import { getImporter, getManifest } from "../../src/services/importer-registry.js";
 import { startTestDb, type TestDb } from "../helpers/testcontainers.js";
-import { loginAs, SESSION_COOKIE_NAME, csrfCookie, csrfHeader } from "../helpers/api.js";
+import { loginAs, SESSION_COOKIE_NAME, csrfCookie, csrfHeader, createPersonInDb, createSessionInDb } from "../helpers/api.js";
 
 const dockerManifest = {
   name: "docker", label: "Docker", description: "t", version: "1.0.0",
@@ -106,5 +107,140 @@ describe("docker target management API (spec 049)", () => {
     expect(res.json().ok).toBe(true);
     const audits = await testDb!.db.selectFrom("entity_changes").selectAll().where("entityType", "=", "docker_target").where("entityId", "=", t.id).where("action", "=", "tested").execute();
     expect(audits).toHaveLength(1);
+  });
+});
+
+describe("docker target probe API (spec 063)", () => {
+  let testDb: TestDb | null = null;
+  let app: any;
+  let adminSession: string | undefined;
+  let savedUrl: string | undefined;
+  let savedKey: string | undefined;
+
+  beforeEach(async () => {
+    savedUrl = process.env.DATABASE_URL;
+    savedKey = process.env.COMPONODE_SECRETS_KEY;
+    testDb = await startTestDb();
+    process.env.DATABASE_URL = testDb.container.getConnectionUri();
+    process.env.NODE_ENV = "test";
+    process.env.BOOTSTRAP_ADMIN_USERNAME = "admin";
+    process.env.BOOTSTRAP_ADMIN_PASSWORD = "admin-password-123";
+    process.env.COMPONODE_SECRETS_KEY = randomBytes(32).toString("base64");
+    vi.resetModules(); vi.clearAllMocks();
+    const { resetKeyringCache } = await import("../../src/utils/credential-crypto.js");
+    resetKeyringCache();
+    const { bootstrapAdmin } = await import("../../src/services/bootstrap-service.js");
+    await bootstrapAdmin();
+    const { buildApp } = await import("../../src/app.js");
+    app = await buildApp(); await app.ready();
+    adminSession = await loginAs(app, "admin", "admin-password-123");
+  });
+  afterEach(async () => {
+    if (app) await app.close();
+    if (testDb) await testDb.cleanup();
+    if (savedUrl !== undefined) process.env.DATABASE_URL = savedUrl;
+    if (savedKey !== undefined) process.env.COMPONODE_SECRETS_KEY = savedKey;
+    else delete process.env.COMPONODE_SECRETS_KEY;
+    vi.resetModules();
+  });
+
+  const authed = (payload?: unknown) => ({
+    cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie }, headers: csrfHeader, payload,
+  });
+  const probe = (payload: unknown) =>
+    app.inject({ method: "POST", url: "/api/v1/docker-targets/probe", ...authed(payload) });
+  const mockImporter = (testSecrets: unknown) =>
+    vi.mocked(getImporter).mockResolvedValue({ name: "docker", version: "1", testSecrets } as any);
+
+  it("returns ok for a valid secret-free profile and persists nothing", async () => {
+    const spy = vi.fn(async () => ({ ok: true }));
+    mockImporter(spy);
+    const res = await probe({ profile: { transport: "socket", path: "/var/run/docker.sock" } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ ok: true });
+    expect(spy).toHaveBeenCalledWith({}, {}, expect.objectContaining({ transport: "socket" }));
+    expect(await testDb!.db.selectFrom("docker_targets").selectAll().execute()).toHaveLength(0);
+    expect(await testDb!.db.selectFrom("credentials").selectAll().execute()).toHaveLength(0);
+    expect(await testDb!.db.selectFrom("importer_configs").selectAll().execute()).toHaveLength(0);
+    const audits = await testDb!.db.selectFrom("entity_changes").selectAll().where("entityType", "=", "docker_target").execute();
+    expect(audits).toHaveLength(0);
+  });
+
+  it("returns ok:false with the importer error on probe failure", async () => {
+    mockImporter(async () => ({ ok: false, error: "Docker probe failed: connect ECONNREFUSED" }));
+    const res = await probe({ profile: { transport: "socket", path: "/var/run/docker.sock" } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ ok: false, error: "Docker probe failed: connect ECONNREFUSED" });
+  });
+
+  it("rejects an invalid profile before any network call", async () => {
+    const spy = vi.fn(async () => ({ ok: true }));
+    mockImporter(spy);
+    vi.mocked(getManifest).mockResolvedValueOnce({
+      ...dockerManifest,
+      targetProfileSchema: { safeParse: () => ({ success: false }) },
+    } as any);
+    const res = await probe({ profile: { transport: "bogus" } });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("VALIDATION_FAILED");
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("rejects secrets and credentialId together", async () => {
+    const res = await probe({ profile: { transport: "socket" }, secrets: { a: "b" }, credentialId: uuidv7() });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("VALIDATION_FAILED");
+  });
+
+  it("404s on an unknown credentialId", async () => {
+    const res = await probe({ profile: { transport: "socket" }, credentialId: uuidv7() });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().code).toBe("CREDENTIAL_NOT_FOUND");
+  });
+
+  it("400s CREDENTIAL_MISSING_KEY when the credential lacks required keys", async () => {
+    const cred = await app.inject({
+      method: "POST", url: "/api/v1/credentials",
+      ...authed({ kind: "STORED", label: "partial", secrets: { unrelated: "x" } }),
+    });
+    expect(cred.statusCode).toBe(201);
+    const res = await probe({
+      profile: { transport: "tcp", host: "engine.example.com", clientCertKey: "clientCert", clientKeyKey: "clientKey" },
+      credentialId: cred.json().credential.id,
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("CREDENTIAL_MISSING_KEY");
+  });
+
+  it("probes successfully with a covering STORED credential", async () => {
+    const spy = vi.fn(async () => ({ ok: true }));
+    mockImporter(spy);
+    const cred = await app.inject({
+      method: "POST", url: "/api/v1/credentials",
+      ...authed({ kind: "STORED", label: "mtls", secrets: { clientCert: "CERT", clientKey: "KEY" } }),
+    });
+    expect(cred.statusCode).toBe(201);
+    const res = await probe({
+      profile: { transport: "tcp", host: "engine.example.com", clientCertKey: "clientCert", clientKeyKey: "clientKey" },
+      credentialId: cred.json().credential.id,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ ok: true });
+    expect(spy).toHaveBeenCalledWith(
+      { clientCert: "CERT", clientKey: "KEY" },
+      {},
+      expect.objectContaining({ transport: "tcp" }),
+    );
+  });
+
+  it("denies non-admin callers", async () => {
+    const viewerId = await createPersonInDb(testDb!.db, { username: "probe-viewer", role: "VIEWER" });
+    const { token } = await createSessionInDb(testDb!.db, viewerId);
+    const res = await app.inject({
+      method: "POST", url: "/api/v1/docker-targets/probe",
+      cookies: { [SESSION_COOKIE_NAME]: token, ...csrfCookie }, headers: csrfHeader,
+      payload: { profile: { transport: "socket" } },
+    });
+    expect(res.statusCode).toBe(403);
   });
 });

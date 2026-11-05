@@ -55,11 +55,13 @@ export {
   createDockerTargetSchema,
   updateDockerTargetSchema,
   testDockerTargetSchema,
+  probeDockerTargetSchema,
 } from "./schemas/docker-target.js";
 export type {
   CreateDockerTargetInput,
   UpdateDockerTargetInput,
   TestDockerTargetInput,
+  ProbeDockerTargetInput,
   DockerTarget,
 } from "./schemas/docker-target.js";
 export {

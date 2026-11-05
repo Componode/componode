@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { PlusIcon } from "lucide-react";
+import { ContainerIcon, PlusIcon } from "lucide-react";
+import { useSession } from "@/api/hooks/auth";
 import { useCredentials } from "@/api/hooks/credentials";
 import { useImporterConfigs } from "@/api/hooks/importers";
 import { useDashboardSummary } from "@/api/hooks/dashboard";
@@ -17,6 +18,8 @@ export function UxImportersPage() {
   const configs = useImporterConfigs();
   const credentials = useCredentials();
   const summary = useDashboardSummary();
+  const session = useSession();
+  const isAdmin = session.data?.role === "ADMIN";
 
   if (configs.isPending || credentials.isPending) {
     return (
@@ -49,12 +52,22 @@ export function UxImportersPage() {
         title="Importers"
         description="Scheduled connections that discover components and instances from your cloud providers and tools."
         actions={
-          <Button asChild>
-            <Link to={ux("/importers/new")}>
-              <PlusIcon data-icon="inline-start" />
-              Add importer
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Button asChild variant="outline">
+                <Link to={ux("/importers/new/docker")}>
+                  <ContainerIcon data-icon="inline-start" />
+                  Guided Docker setup
+                </Link>
+              </Button>
+            )}
+            <Button asChild>
+              <Link to={ux("/importers/new")}>
+                <PlusIcon data-icon="inline-start" />
+                Add importer
+              </Link>
+            </Button>
+          </div>
         }
       />
       {items.length === 0 ? (

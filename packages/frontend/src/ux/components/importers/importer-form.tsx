@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import * as React from "react"
 import { toast } from "sonner"
 import {
@@ -11,7 +11,7 @@ import type { ImportAgent } from "@componode/core"
 import { FormPage, FormSection } from "@/ux/components/forms/form-shell"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
-import { AlertTriangleIcon } from "lucide-react"
+import { AlertTriangleIcon, ChevronDownIcon } from "lucide-react"
 import { Button } from "@/ux/components/ui/button"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/ux/components/ui/field"
 import { Input } from "@/ux/components/ui/input"
@@ -27,6 +27,7 @@ import {
   scopeFromDraft,
   type CollectionDraft,
 } from "./collection-scope-builder"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/ux/components/ui/collapsible"
 import { ScopeFields } from "./scope-fields"
 import {
   fieldsForSchema,
@@ -49,6 +50,13 @@ const SCHEDULES = [
   { value: "manual", label: "Manual only" },
   { value: "custom", label: "Custom cron" },
 ] as const
+
+// Power-user scope keys hidden behind an "Advanced" disclosure per importer
+// (spec 063). Render-only — seeding, validation, and submit are unchanged,
+// and stored values round-trip whether expanded or not.
+const ADVANCED_SCOPE_KEYS: Record<string, string[]> = {
+  docker: ["environmentMap", "componentIdLabel", "sourceKey"],
+}
 
 const CRON_FIELD = /^(\*|\d+|\*\/\d+|\d+-\d+|\d+(,\d+)+)$/
 const isCron = (v: string) => {
@@ -148,6 +156,9 @@ export function ImporterForm({ config, manifests, credentials, agents, dockerTar
   const renderedScopeFields = hubTargetPicker
     ? scopeFields.filter((f) => f.key !== targetRefKey)
     : scopeFields
+  const advancedKeys = new Set(ADVANCED_SCOPE_KEYS[importerName] ?? [])
+  const primaryScopeFields = renderedScopeFields.filter((f) => !advancedKeys.has(f.key))
+  const advancedScopeFields = renderedScopeFields.filter((f) => advancedKeys.has(f.key))
   const scopeRequired = renderedScopeFields.filter((f) => f.required).map((f) => f.key)
 
   // Seed scope state once per (config, importer) pair — the seededFor ref
@@ -510,6 +521,15 @@ export function ImporterForm({ config, manifests, credentials, agents, dockerTar
           </AlertDescription>
         </Alert>
       )}
+      {!editing && importerName === "docker" && (
+        <Alert>
+          <AlertTriangleIcon />
+          <AlertTitle>Setting up Docker?</AlertTitle>
+          <AlertDescription>
+            The <Link className="underline" to={ux("/importers/new/docker")}>guided Docker setup</Link> walks you through the connection, secrets, and schedule in one flow. This form remains available for manual setup and edits.
+          </AlertDescription>
+        </Alert>
+      )}
       <FormPage
         onSubmit={handleSubmit}
         cancelHref={ux(editing ? `/importers/${config!.id}` : "/importers")}
@@ -744,7 +764,7 @@ export function ImporterForm({ config, manifests, credentials, agents, dockerTar
                 </p>
               )}
               <ScopeFields
-                fields={renderedScopeFields}
+                fields={primaryScopeFields}
                 values={scopeValues}
                 jsonTexts={jsonTexts}
                 fieldErrors={scopeFieldErrors}
@@ -754,6 +774,28 @@ export function ImporterForm({ config, manifests, credentials, agents, dockerTar
                 unknownError={scopeFieldErrors[UNKNOWN_FIELD]}
                 onUnknownText={setUnknownJson}
               />
+              {advancedScopeFields.length > 0 && (
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button type="button" variant="ghost" size="sm">
+                      <ChevronDownIcon data-icon="inline-start" className="group-data-[state=open]/collapsible:rotate-180" />
+                      Advanced options ({advancedScopeFields.length})
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <ScopeFields
+                      fields={advancedScopeFields}
+                      values={scopeValues}
+                      jsonTexts={jsonTexts}
+                      fieldErrors={scopeFieldErrors}
+                      onValue={setScopeValue}
+                      onJsonText={setJsonFieldText}
+                      unknownText=""
+                      onUnknownText={() => undefined}
+                    />
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
               {errors.scope && <FieldError>{errors.scope}</FieldError>}
             </>
           )}

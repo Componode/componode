@@ -123,3 +123,20 @@ Hub to keep trusted, non-secret Docker access routes (the Agent's
 - **ADR-121** — item 2's `requiresAgent` for Docker is lifted by item 1
   here; items 4–6 (profile schema, scope keys, identities) apply on both
   executors.
+
+## Amendment 1 — Stateless target probe (spec 063)
+
+The guided Docker setup wizard needs to verify a prospective route
+**before** any `docker_targets`/`credentials`/`importer_configs` rows
+exist — the persisted `POST /docker-targets/:id/test` cannot serve that
+(credential-requiring profiles demand a linked config). The API therefore
+gains `POST /api/v1/docker-targets/probe` (permission
+`importer:target:test`): request `{profile, secrets? | credentialId?}`
+→ `{ok, error?}`. It validates the profile via the manifest's
+`targetProfileSchema`, resolves secret material inline or from a STORED
+credential (coverage-checked against the profile's `*Key` names), runs
+the importer's existing `/version`-only `testSecrets` probe, and returns
+a sanitized result. It persists nothing and writes no audit event —
+probe attempts are ephemeral by design. Items 1–10 above are unchanged;
+the governed target lifecycle, credential contracts, and executor split
+are untouched.

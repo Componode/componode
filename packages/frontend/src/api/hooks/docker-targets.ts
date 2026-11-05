@@ -53,3 +53,16 @@ export function useTestDockerTarget(id: string) {
     onSuccess: () => invalidate(qc),
   });
 }
+
+export interface ProbeDockerTargetInput {
+  profile: Record<string, unknown>;
+  secrets?: Record<string, string>;
+  credentialId?: string;
+}
+
+export function useProbeDockerTarget() {
+  return useMutation({
+    mutationFn: (v: ProbeDockerTargetInput) =>
+      api<{ ok: boolean; error?: string }>("/docker-targets/probe", { method: "POST", body: JSON.stringify(v) }),
+  });
+}

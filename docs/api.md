@@ -315,6 +315,7 @@ same fields plus `lifecycle`.
 | POST | `/api/v1/docker-targets/:id/enable` | Re-enable a Docker target | `importer:target:update` |
 | POST | `/api/v1/docker-targets/:id/disable` | Disable a Docker target and request cancellation of active Hub work | `importer:target:update` |
 | POST | `/api/v1/docker-targets/:id/test` | Test a Docker target's connectivity (Docker /version only) | `importer:target:test` |
+| POST | `/api/v1/docker-targets/probe` | Probe a prospective Docker target profile without persisting anything | `importer:target:test` |
 | GET | `/api/v1/importer-configs/:configId/runs/:runId/changes` | Import-run consequential changes | Authenticated |
 <!-- /GENERATED:table:Importers -->
 
