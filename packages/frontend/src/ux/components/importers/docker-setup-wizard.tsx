@@ -118,8 +118,7 @@ export function DockerSetupWizard() {
     }
   }, [label, routeFields.host, routeFields.name, targetIdTouched, artifacts.targetRowId]);
 
-  const routeFieldsForInput = transportDef.fields;
-
+  
   const validateStep = (s: Step): boolean => {
     const e: Record<string, string> = {};
     if (s === "route") {
@@ -328,7 +327,7 @@ export function DockerSetupWizard() {
               </Alert>
             )}
             <FieldGroup>
-              {routeFieldsForInput.map((f) => (
+              {transportDef.fields.map((f) => (
                 <Field key={f.key} data-invalid={errors[f.key] ? true : undefined}>
                   <FieldLabel htmlFor={`ds-${f.key}`}>{f.label}{f.required ? "" : " (optional)"}</FieldLabel>
                   <Input
@@ -445,7 +444,7 @@ export function DockerSetupWizard() {
             </Field>
             <Field>
               <FieldLabel htmlFor="ds-desc">Description (optional)</FieldLabel>
-              <Textarea id="ds-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+              <Textarea id="ds-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} disabled={profileLocked} />
             </Field>
             <Field>
               <FieldLabel htmlFor="ds-schedule">Run</FieldLabel>

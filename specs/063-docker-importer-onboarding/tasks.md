@@ -142,3 +142,4 @@ verifiable via `quickstart.md` scenarios.
 - [X] T043 Declare `schedule` as `nullable: true` in the importer-config create/update OpenAPI request schemas now that `.nullish()` accepts null (code-review: spec)
 - [X] T044 Drop the dead `secretRef` pseudo-fields, the `secretRef` flag, and `isSecretRefField` — every consumer excluded them; `DOCKER_SETUP_TRANSPORTS[].fields` now contains only literal route fields (code-review: standards)
 - [X] T045 Accepted divergence: `SetupTransport`/`Transport` 4-member union stays declared locally in each frontend module — the contract lives in importer-docker (not importable per ADR-065) and core has no transport type; a shared ux type can follow when a third consumer appears (code-review: standards)
+- [X] T046 Inline `transportDef.fields` (dead `routeFieldsForInput` alias) and disable the Description field once the target exists — its edits feed only the skipped createTarget call (code-review: standards/spec, round 4 nits)
