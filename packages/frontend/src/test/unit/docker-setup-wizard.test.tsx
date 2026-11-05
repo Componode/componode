@@ -222,6 +222,32 @@ describe("DockerSetupWizard (spec 063)", () => {
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
+  it("keeps the persisted target selector on retry even if the label changes", async () => {
+    createConfigMutate.mockRejectedValueOnce(Object.assign(new Error("boom"), { code: "VALIDATION_FAILED" }));
+    renderWizard();
+    fill("ds-path", "/var/run/docker.sock");
+    next();
+    fill("ds-label", "Prod Docker");
+    next();
+    fireEvent.click(screen.getByRole("button", { name: /verify & create/i }));
+    await waitFor(() => expect(screen.getByText(/Create importer failed/i)).toBeTruthy());
+    // Go Back to identity and rename — the auto-suggestion must not rewrite
+    // the selector the already-created target persisted with.
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fill("ds-label", "Renamed Docker");
+    const targetInput = document.getElementById("ds-targetid") as HTMLInputElement;
+    expect(targetInput.value).toBe("prod-docker");
+    expect(targetInput.disabled).toBe(true);
+    next();
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    await waitFor(() => expect(createConfigMutate).toHaveBeenCalledTimes(2));
+    expect(createConfigMutate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ scope: { targetId: "prod-docker" } }),
+    );
+    // Target creation was skipped on retry.
+    expect(createTargetMutate).toHaveBeenCalledTimes(1);
+  });
+
   it("targetId suggestion is editable and validates length", async () => {
     renderWizard();
     fill("ds-path", "/var/run/docker.sock");

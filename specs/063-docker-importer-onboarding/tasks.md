@@ -135,3 +135,10 @@ verifiable via `quickstart.md` scenarios.
 - [X] T039 Replace `slugify`'s local regex copy with shared `deriveSlug` from `ux/lib/slug` (code-review: standards)
 - [X] T040 Replace `*Key`-suffix/`SECRET_KEY_REF`-value detection with an explicit `secretRef` flag on `RouteFieldDef`; move `SECRET_LABELS` into the logic module (code-review: standards)
 - [X] T041 Accepted divergence: `RouteFieldDef`/`validateStep`/`DOCKER_SETUP_SCHEDULES` intentionally differ from the admin target form and generic importer form — the wizard validates a reduced field set (no `*Key` literals) with guided presets incl. the `manual` sentinel; sharing would couple two UX contracts (code-review: standards)
+
+## Phase 12: Review (round 3)
+
+- [X] T042 Persist the created target's selector in `artifacts.targetSelector` and use it for `scope.targetId` + input display; guard the auto-suggest effect once a target exists — editing the importer label after partial creation previously rewrote `targetId` and made every retry fail `TARGET_NOT_FOUND` (code-review: spec)
+- [X] T043 Declare `schedule` as `nullable: true` in the importer-config create/update OpenAPI request schemas now that `.nullish()` accepts null (code-review: spec)
+- [X] T044 Drop the dead `secretRef` pseudo-fields, the `secretRef` flag, and `isSecretRefField` — every consumer excluded them; `DOCKER_SETUP_TRANSPORTS[].fields` now contains only literal route fields (code-review: standards)
+- [X] T045 Accepted divergence: `SetupTransport`/`Transport` 4-member union stays declared locally in each frontend module — the contract lives in importer-docker (not importable per ADR-065) and core has no transport type; a shared ux type can follow when a third consumer appears (code-review: standards)

@@ -1955,7 +1955,7 @@ paths:
                     agent's stream (spec 027). `null` (or omitted) = in-process.
                     Requires `AGENT_MANAGED` credentials; `STORED` credentials on
                     an agent-bound config are rejected `CREDENTIAL_KIND_MISMATCH`.
-                schedule: { type: string, description: Cron schedule }
+                schedule: { type: string, nullable: true, description: "Cron schedule; null = manual only" }
                 enabled: { type: boolean, default: true }
       responses:
         "201":
@@ -2024,7 +2024,7 @@ paths:
                   description: >-
                     Rebind to another agent or unbind with `null`. Credential
                     kinds are re-validated against the effective pair.
-                schedule: { type: string }
+                schedule: { type: string, nullable: true }
                 enabled: { type: boolean }
       responses:
         "200":

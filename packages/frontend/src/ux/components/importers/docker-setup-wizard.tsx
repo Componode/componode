@@ -15,7 +15,6 @@ import {
   buildTargetProfile,
   SECRET_LABELS,
   credentialCoversKeys,
-  isSecretRefField,
   suggestTargetId,
   transportSecretKeys,
   type SetupTransport,
@@ -42,6 +41,8 @@ const STEP_TITLES: Record<Step, string> = {
 
 interface Artifacts {
   targetRowId?: string;
+  /** Selector the created target actually persisted with — source of truth for scope.targetId on retry. */
+  targetSelector?: string;
   credentialId?: string;
   configId?: string;
 }
@@ -111,19 +112,18 @@ export function DockerSetupWizard() {
 
   // Suggested targetId tracks label/host until the user edits it.
   React.useEffect(() => {
-    if (!targetIdTouched) {
+    if (!targetIdTouched && !artifacts.targetRowId) {
       const host = routeFields.host ?? routeFields.name;
       setTargetId(suggestTargetId(label, host));
     }
-  }, [label, routeFields.host, routeFields.name, targetIdTouched]);
+  }, [label, routeFields.host, routeFields.name, targetIdTouched, artifacts.targetRowId]);
 
-  const routeFieldsForInput = transportDef.fields.filter((f) => !isSecretRefField(transport, f.key));
+  const routeFieldsForInput = transportDef.fields;
 
   const validateStep = (s: Step): boolean => {
     const e: Record<string, string> = {};
     if (s === "route") {
       for (const f of transportDef.fields) {
-        if (isSecretRefField(transport, f.key)) continue;
         const raw = (routeFields[f.key] ?? "").trim();
         if (f.required && !raw) e[f.key] = `${f.label} is required.`;
         else if (f.number && raw && !/^\d+$/.test(raw)) e[f.key] = `${f.label} must be a number.`;
@@ -214,7 +214,7 @@ export function DockerSetupWizard() {
           profile,
         });
         targetRowId = t.target.id;
-        setArtifacts((a) => ({ ...a, targetRowId }));
+        setArtifacts((a) => ({ ...a, targetRowId, targetSelector: t.target.targetId }));
         setStepState("Create Docker target", "done");
       } catch (e) {
         setStepState("Create Docker target", "error");
@@ -256,7 +256,7 @@ export function DockerSetupWizard() {
         const cfg = await createConfig.mutateAsync({
           importerName: "docker",
           label: label.trim(),
-          scope: { targetId: targetId.trim() },
+          scope: { targetId: artifacts.targetSelector ?? targetId.trim() },
           secretRefs: [],
           credentialIds: credentialId ? [credentialId] : [],
           agentId: null,
@@ -431,7 +431,7 @@ export function DockerSetupWizard() {
               <FieldLabel htmlFor="ds-targetid">Target ID</FieldLabel>
               <Input
                 id="ds-targetid"
-                value={targetId}
+                value={artifacts.targetSelector ?? targetId}
                 onChange={(e) => { setTargetIdTouched(true); setTargetId(e.target.value); }}
                 aria-invalid={errors.targetId ? true : undefined}
                 className="font-mono"

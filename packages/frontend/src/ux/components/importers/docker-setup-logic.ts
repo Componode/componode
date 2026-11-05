@@ -14,8 +14,6 @@ export interface RouteFieldDef {
   number?: boolean;
   placeholder?: string;
   hint?: string;
-  /** Marks a `*Key` pseudo-field whose value is a canonical secret key name, not a literal. */
-  secretRef?: boolean;
 }
 
 export interface TransportDef {
@@ -28,9 +26,9 @@ export interface TransportDef {
 }
 
 /**
- * Guided-setup transports mirror the manual target form, minus the `*Key`
- * credential-name fields — the wizard derives canonical secret key names
- * itself (TRANSPORT_SECRET_KEYS / SECRET_KEY_REF below).
+ * Guided-setup transports carry only literal route fields — secret `*Key`
+ * references are derived from canonical secret names (TRANSPORT_SECRET_KEYS /
+ * SECRET_KEY_REF below), never typed by the user.
  */
 export const DOCKER_SETUP_TRANSPORTS: TransportDef[] = [
   {
@@ -58,9 +56,6 @@ export const DOCKER_SETUP_TRANSPORTS: TransportDef[] = [
     fields: [
       { key: "host", label: "Host", required: true, placeholder: "engine.example.com" },
       { key: "port", label: "Port", required: true, number: true, placeholder: "2376" },
-      { key: "caCertKey", label: "CA certificate", hint: "Optional — only for private CAs.", secretRef: true },
-      { key: "clientCertKey", label: "Client certificate", required: true, secretRef: true },
-      { key: "clientKeyKey", label: "Client private key", required: true, secretRef: true },
     ],
   },
   {
@@ -74,8 +69,6 @@ export const DOCKER_SETUP_TRANSPORTS: TransportDef[] = [
       { key: "port", label: "Port", number: true, placeholder: "22" },
       { key: "user", label: "User", required: true, placeholder: "docker" },
       { key: "hostKeySha256", label: "Host key SHA-256 pin", required: true, placeholder: "SHA256:…" },
-      { key: "privateKeyKey", label: "Private key", required: true, secretRef: true },
-      { key: "passphraseKey", label: "Passphrase", hint: "Optional.", secretRef: true },
     ],
   },
   {
@@ -130,8 +123,6 @@ export function buildTargetProfile(
   if (!def) return null;
   const out: Record<string, unknown> = { transport };
   for (const f of def.fields) {
-    // secretRef fields carry canonical secret key names, not literals.
-    if (f.secretRef) continue;
     const raw = (routeFields[f.key] ?? "").trim();
     if (f.required && !raw) return null;
     if (!raw) continue;
@@ -144,12 +135,6 @@ export function buildTargetProfile(
     }
   }
   return out;
-}
-
-/** Route-field keys that carry secret references (excluded from literal copy). */
-export function isSecretRefField(transport: SetupTransport, fieldKey: string): boolean {
-  const def = DOCKER_SETUP_TRANSPORTS.find((t) => t.value === transport);
-  return Boolean(def?.fields.some((f) => f.key === fieldKey && f.secretRef));
 }
 
 export function slugify(input: string): string {
