@@ -46,6 +46,7 @@ import { UxSettingsAdvancedPage } from "@/ux/app/settings/advanced";
 import { UxImportersPage } from "@/ux/app/importers/index";
 import { UxImporterDetailPage } from "@/ux/app/importers/$id";
 import { UxImporterNewPage } from "@/ux/app/importers/new";
+import { UxDockerSetupPage } from "@/ux/app/importers/docker-setup";
 import { UxImporterEditPage } from "@/ux/app/importers/$id.edit";
 import { UxRunDetailPage } from "@/ux/app/importers/$id.runs.$runId";
 import { UxAgentsPage } from "@/ux/app/agents/index";
@@ -94,6 +95,7 @@ export const routes: RouteObject[] = [
       { path: "suggestions", element: authed(<UxSuggestionsPage />) },
       { path: "importers", element: authed(<UxImportersPage />) },
       { path: "importers/new", element: authed(<UxImporterNewPage />) },
+      { path: "importers/new/docker", element: authed(<UxDockerSetupPage />, "ADMIN") },
       { path: "importers/:id", element: authed(<UxImporterDetailPage />) },
       { path: "importers/:id/edit", element: authed(<UxImporterEditPage />) },
       { path: "importers/:id/runs/:runId", element: authed(<UxRunDetailPage />) },

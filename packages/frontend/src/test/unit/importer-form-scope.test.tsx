@@ -483,3 +483,73 @@ describe("ImporterForm — schema-driven scope fields (G13)", () => {
     expect((document.getElementById("i-scope-org") as HTMLInputElement).value).toBe("acme");
   });
 });
+
+const DOCKER = {
+  name: "docker",
+  label: "Docker",
+  description: "Import Docker workloads",
+  targetRefKey: "targetId",
+  configSchema: {
+    type: "object",
+    required: ["targetId"],
+    properties: {
+      targetId: { type: "string", minLength: 1 },
+      environmentLabel: { type: "string" },
+      environmentMap: { type: "object", additionalProperties: { type: "string" } },
+      includeImages: { type: "boolean", default: false },
+      componentIdLabel: { type: "string", default: "componode.component-id" },
+      sourceKey: { type: "string" },
+    },
+  },
+};
+
+const DOCKER_TARGET = { id: "t1", targetId: "prod", label: "Prod engine", enabled: true, profile: { transport: "socket" } };
+
+describe("ImporterForm — advanced scope disclosure (spec 063)", () => {
+  afterEach(() => {
+    cleanup();
+    createMutate.mockClear();
+    updateMutate.mockClear();
+  });
+
+  it("hides docker advanced keys until expanded; primary fields stay visible", () => {
+    renderForm({ dockerTargets: [DOCKER_TARGET] }, [DOCKER]);
+    pickImporter("Docker");
+    expect(document.getElementById("i-scope-componentIdLabel")).toBeNull();
+    expect(document.getElementById("i-scope-sourceKey")).toBeNull();
+    expect(document.getElementById("i-scope-environmentLabel")).toBeTruthy();
+    expect(document.getElementById("i-scope-includeImages")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /advanced options \(3\)/i }));
+    expect(document.getElementById("i-scope-componentIdLabel")).toBeTruthy();
+    expect(document.getElementById("i-scope-sourceKey")).toBeTruthy();
+    expect(document.getElementById("i-scope-environmentMap")).toBeTruthy();
+  });
+
+  it("preserves stored advanced values when editing", () => {
+    renderForm(
+      {
+        dockerTargets: [DOCKER_TARGET],
+        config: {
+          id: "c1",
+          importerName: "docker",
+          label: "cfg",
+          scope: { targetId: "prod", componentIdLabel: "custom.component" },
+          credentialIds: [],
+          agentId: null,
+          schedule: null,
+          enabled: true,
+        },
+      },
+      [DOCKER],
+    );
+    fireEvent.click(screen.getByRole("button", { name: /advanced options/i }));
+    expect((document.getElementById("i-scope-componentIdLabel") as HTMLInputElement).value).toBe("custom.component");
+  });
+
+  it("leaves non-docker importers without an advanced section", () => {
+    renderForm();
+    pickImporter("GitHub");
+    expect(screen.queryByRole("button", { name: /advanced options/i })).toBeNull();
+    expect(document.getElementById("i-scope-environmentMapping")).toBeTruthy();
+  });
+});

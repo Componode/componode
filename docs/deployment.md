@@ -280,7 +280,10 @@ credential keys. Agent-local `docker-targets.json` registries are
 unchanged and never synced to the Hub.
 
 The default Compose stack deliberately does **not** mount the host
-Docker socket. To let the Hub reach a Docker Engine:
+Docker socket. For a guided end-to-end setup (probe → target →
+credential → importer) see the
+[Docker importer quickstart](importers/docker.md#quickstart-hub--local-socket-about-5-minutes).
+To let the Hub reach a Docker Engine manually:
 
 - **Local socket** — mount the daemon socket read-write into `app`
   (`/var/run/docker.sock:/var/run/docker.sock`) and ensure the backend

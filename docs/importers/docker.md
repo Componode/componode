@@ -11,6 +11,35 @@ assigned **Import Agent** (ADR-121, ADR-122). Use the Hub for engines the
 backend can reach directly; use an Agent for daemons inside restricted
 networks.
 
+## Quickstart: Hub + local socket (about 5 minutes)
+
+The happy path — the Hub imports from a Docker Engine on the same host.
+
+1. **Mount the socket (one-time).** The default Compose stack does *not*
+   mount the Docker socket. Add the opt-in mount described in
+   [deployment.md → Docker importer on the Hub](../deployment.md#docker-importer-on-the-hub)
+   and recreate the backend container. Socket access is
+   **root-equivalent on the host** — only enable it for engines you
+   trust the Hub to control.
+2. **Guided setup.** Sign in as an administrator → **Importers →
+   Guided Docker setup** (or the hint shown on *Add importer* when
+   Docker is selected). Pick **Local socket / named pipe**, enter
+   `/var/run/docker.sock`, give the importer a label, choose a schedule,
+   and continue.
+3. **Verify & create.** The wizard probes the engine (`/version` only),
+   then creates the Docker target and importer config in one pass —
+   nothing is persisted if the probe fails. For `tcp`/`ssh` transports
+   the secrets step captures certificates/keys inline (stored encrypted
+   as a credential) or reuses an existing credential that already has
+   the required keys.
+4. **Run it.** Open the new importer and choose **Run now** — discovered
+   workloads appear in the catalog on the next reconciliation.
+
+Everything below covers the manual path: target transports, credential
+key contracts, lifecycle rules, and the Agent executor. Non-socket
+setups are covered in [deployment.md](../deployment.md) (Hub) and
+[import-agents.md](../import-agents.md) (Agent).
+
 ## What it imports
 
 - One **CONTAINER** Component per logical workload: a Compose service

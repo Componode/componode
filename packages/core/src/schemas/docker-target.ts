@@ -22,6 +22,31 @@ export type CreateDockerTargetInput = z.infer<typeof createDockerTargetSchema>;
 export type UpdateDockerTargetInput = z.infer<typeof updateDockerTargetSchema>;
 export type TestDockerTargetInput = z.infer<typeof testDockerTargetSchema>;
 
+const probeSecretsSchema = z
+  .record(z.string().min(1).max(100), z.string().min(1))
+  .refine(
+    (d) => new TextEncoder().encode(JSON.stringify(d)).length <= 64 * 1024,
+    { message: "Secret payload exceeds 64 KB" },
+  );
+
+/**
+ * Stateless pre-persistence probe input (spec 063): a prospective non-secret
+ * profile plus either inline secret values or a STORED credential id — never
+ * both. Persisted target tests keep using {@link testDockerTargetSchema}.
+ */
+export const probeDockerTargetSchema = z
+  .object({
+    profile: z.record(z.string(), z.unknown()),
+    secrets: probeSecretsSchema.optional(),
+    credentialId: z.string().uuid().optional(),
+  })
+  .strict()
+  .refine((v) => !(v.secrets !== undefined && v.credentialId !== undefined), {
+    message: "Provide either secrets or credentialId, not both",
+  });
+
+export type ProbeDockerTargetInput = z.infer<typeof probeDockerTargetSchema>;
+
 export interface DockerTarget {
   id: string;
   targetId: string;

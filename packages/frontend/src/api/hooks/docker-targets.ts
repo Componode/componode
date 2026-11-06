@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { DockerTarget } from "@/api/types";
+import type { ProbeDockerTargetInput } from "@componode/core";
+
+export type { ProbeDockerTargetInput };
 
 export function useDockerTargets() {
   return useQuery({ queryKey: ["docker-targets"], queryFn: () => api<{ targets: DockerTarget[] }>("/docker-targets") });
@@ -51,5 +54,12 @@ export function useTestDockerTarget(id: string) {
   return useMutation({
     mutationFn: (configId?: string) => api<{ ok: boolean; error?: string }>(`/docker-targets/${id}/test`, { method: "POST", body: JSON.stringify(configId ? { configId } : {}) }),
     onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useProbeDockerTarget() {
+  return useMutation({
+    mutationFn: (v: ProbeDockerTargetInput) =>
+      api<{ ok: boolean; error?: string }>("/docker-targets/probe", { method: "POST", body: JSON.stringify(v) }),
   });
 }

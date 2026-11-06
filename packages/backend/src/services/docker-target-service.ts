@@ -9,6 +9,7 @@ import { getImporter, getManifest } from "./importer-registry.js";
 import { decryptSecrets, loadKeyring } from "../utils/credential-crypto.js";
 import type {
   CreateDockerTargetInput,
+  ProbeDockerTargetInput,
   TestDockerTargetInput,
   UpdateDockerTargetInput,
 } from "@componode/core";
@@ -132,4 +133,29 @@ export async function testDockerTarget(id: string, input: TestDockerTargetInput,
   try { const importer = await getImporter("docker"); const result = await Promise.race([importer.testSecrets!(secrets, scope, profile), abort]); return await finish(result.ok, result.error); }
   catch (e) { return await finish(false, (e as { code?: string }).code ?? "TARGET_RESOLUTION_FAILED"); }
   finally { set.delete(ctl); }
+}
+
+/**
+ * Stateless pre-persistence probe (spec 063): validates a prospective profile
+ * and secret material, then runs the importer's /version probe. Writes no
+ * rows and no audit events — the caller may discard the result freely.
+ */
+export async function probeDockerTarget(input: ProbeDockerTargetInput) {
+  const profile = await validateProfile(input.profile);
+  const required = profileSecretKeys(profile);
+  let secrets: Record<string, string> = input.secrets ?? {};
+  if (input.credentialId) {
+    const cred = await db.selectFrom("credentials").selectAll().where("id", "=", input.credentialId).executeTakeFirst();
+    if (!cred || cred.kind !== "STORED") throw err(404, "CREDENTIAL_NOT_FOUND", "Credential not found");
+    if (cred.status === "REVOKED") throw err(409, "CREDENTIAL_REVOKED", "Credential is revoked");
+    const keyring = await loadKeyring();
+    if (!keyring || !cred.encryptedPayload) throw err(503, "CREDENTIAL_KEY_UNAVAILABLE", "Credential key is unavailable");
+    secrets = decryptSecrets(cred.encryptedPayload, keyring);
+    const provided = new Set(Object.keys(secrets));
+    const missing = required.filter((k) => !provided.has(k));
+    if (missing.length) throw err(400, "CREDENTIAL_MISSING_KEY", `Missing required secret key ${missing.map((k) => `"${k}"`).join(", ")}`);
+  }
+  const importer = await getImporter("docker");
+  if (!importer.testSecrets) return { ok: false, error: "Docker importer does not support connectivity tests" };
+  return importer.testSecrets(secrets, {}, profile);
 }
