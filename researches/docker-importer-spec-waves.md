@@ -57,6 +57,49 @@ Migrate existing in-tree importers in explicit, documented waves; do not silentl
 - Do not infer per-task health: Task objects lack health-check status and worker container inspect is node-local. Use manager service counts/task states; preserve node availability settings as observations.
 - Treat Compose-to-Swarm transition as distinct Components because the categories differ; no automatic Product edge transfer.
 
+## Wave F - Docker observation enrichment and engine/image metadata
+
+Design ratified in `researches/docker-importer-enrichment-pack.md` (grilled
+2026-12; awaiting spec-kit artifacts as spec 064). No new endpoints, config
+keys, or contract changes — bounded `rawConfig`/`details` additions inside
+the ADR-121 allowlist philosophy.
+
+- Enrich container instances: `imageId` (inspect.Image → image-component
+  join), `hostConfig` limits/restart-policy/posture booleans, and
+  `healthcheck` timing definition (test command stays excluded).
+- Enrich Swarm service instances from already-fetched `Spec`:
+  `EndpointSpec` published ports, network attachments, and job-mode
+  detection (`replicated-job`/`global-job`) as observations — no `JOB`
+  components.
+- Emit one `COMPUTE`/`docker-engine` Component per source carrying
+  `/info`+`/version` facts (server/api versions, os/arch, kernel,
+  runtimes, registry mirrors, Swarm manager state); proxy vars,
+  `DockerRootDir`, plugins, and warnings excluded.
+- When `includeImages=true`, inspect each unique image ID and merge OCI
+  labels (bounded `org.opencontainers.image.*` allowlist), exposed ports,
+  user, entrypoint, volumes, arch/os into image `details`.
+- Bounded UI surfacing for the new fields (allowlist-style rendering; no
+  generic rawConfig dump).
+
+## Wave G - Docker infrastructure inventory
+
+Design ratified in `researches/docker-importer-enrichment-pack.md`
+(awaiting spec-kit artifacts as spec 065). Continues after Wave F.
+
+- `GET /networks` → `NETWORK` components and `GET /volumes` → `STORAGE`
+  components, both `instances: []`, always emitted (cheap list calls, low
+  cardinality, no opt-in flags). Identities are source+scope/name
+  qualified.
+- Strict field allowlists: network driver/scope/flags/attachment names;
+  volume driver/scope/`UsageData` size+refCount. Excluded: IPAM
+  subnets/gateways, per-endpoint addresses, network/volume `Options`,
+  volume `Mountpoint`, `Status` — host-layout, address-plan, and
+  credential-adjacent data never leaves the engine boundary.
+- Fail closed on endpoint errors (partial-inventory rule, ADR-121);
+  research must verify minimum Engine API versions for both endpoints.
+- Swarm `/configs` stay service-detail refs only — no `CONFIG` category
+  exists and Wave E's exclusion stands.
+
 ## Cross-cutting delivery requirements
 
 Every implementation wave follows `docs/importer-development.md`: core-only importer dependency, manifest/config schema, mode-aware credential validation, `testSecrets`, AbortSignal, `validateDiscoveredAsset` tests, backend integration tests, and a user guide at `docs/importers/docker.md`. Any API/manifest/source-ownership contract change requires ADR updates and OpenAPI synchronization where applicable.
