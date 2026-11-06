@@ -1,8 +1,9 @@
 # Docker Importer — Enrichment Pack (specs 064 + 065)
 
-**Status:** Grilled and ratified (design decisions settled in agent session;
-awaiting spec-kit artifacts). Not yet specced — no `specs/064-*` or
-`specs/065-*` directories exist. Feature numbering is sequential
+**Status:** Grilled and ratified (design decisions settled in agent session).
+Specced — `specs/064-docker-importer-enrichment/` exists and implements
+this pack's Wave F scope; `specs/065-*` (infra inventory) remains
+unspecced. Feature numbering is sequential
 (`.specify/init-options.json`), so these take 064 and 065 after
 `063-docker-importer-onboarding`.
 

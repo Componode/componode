@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { mapStatus, mapContainer, type ContainerInspect } from "../src/mapping.js";
+import { validateDiscoveredAsset } from "@componode/core";
+import {
+  mapStatus,
+  mapContainer,
+  buildAsset,
+  type ContainerInspect,
+} from "../src/mapping.js";
 
 // spec 047 / contracts/docker-observation.md — state×health→status table.
 describe("mapStatus (health-aware, ADR-121 Amendment 1)", () => {
@@ -126,5 +132,151 @@ describe("dockerObservation allowlist (spec 047)", () => {
       "componode.component-id",
     );
     expect(instance.status).toBe("ERROR");
+  });
+});
+
+// spec 064 / contracts/enriched-instance-fields.md — bounded enrichment
+// facts on container instances; exclusions per ADR-121 Amendment 3.
+describe("container enrichment fields (spec 064)", () => {
+  function rawOf(inspect: ContainerInspect) {
+    const { instance } = mapContainer(
+      inspect,
+      "docker-engine:e1",
+      undefined,
+      undefined,
+      "componode.component-id",
+    );
+    return instance.rawConfig as Record<string, unknown>;
+  }
+
+  it("emits imageId from inspect.Image", () => {
+    const raw = rawOf({ ...BASE_INSPECT, Image: "sha256:img1" } as ContainerInspect);
+    expect(raw.imageId).toBe("sha256:img1");
+  });
+
+  it("emits the full bounded hostConfig mapping", () => {
+    const raw = rawOf({
+      ...BASE_INSPECT,
+      HostConfig: {
+        Memory: 536870912,
+        NanoCpus: 1500000000,
+        PidsLimit: 512,
+        RestartPolicy: { Name: "on-failure", MaximumRetryCount: 5 },
+        Privileged: true,
+        ReadonlyRootfs: true,
+        LogConfig: { Type: "json-file", Config: { "max-size": "10m" } },
+      },
+    } as ContainerInspect);
+    expect(raw.hostConfig).toEqual({
+      memoryBytes: 536870912,
+      nanoCpus: 1500000000,
+      pidsLimit: 512,
+      restartPolicy: { mode: "on-failure", maxRetries: 5 },
+      privileged: true,
+      readOnlyRootfs: true,
+      logDriver: "json-file",
+    });
+  });
+
+  it("emits only reported hostConfig fields; booleans only when true", () => {
+    const raw = rawOf({
+      ...BASE_INSPECT,
+      HostConfig: {
+        RestartPolicy: { Name: "no" },
+        Privileged: false,
+        ReadonlyRootfs: false,
+      },
+    } as ContainerInspect);
+    expect(raw.hostConfig).toEqual({
+      restartPolicy: { mode: "no" },
+    });
+  });
+
+  it("converts healthcheck nanoseconds to seconds; never reads Test", () => {
+    const raw = rawOf({
+      ...BASE_INSPECT,
+      Config: {
+        Image: "web:1",
+        Healthcheck: {
+          Test: ["CMD-SHELL", "curl -f http://localhost || exit 1"],
+          Interval: 30000000000,
+          Timeout: 10000000000,
+          Retries: 3,
+          StartPeriod: 15000000000,
+        },
+      },
+    } as ContainerInspect);
+    expect(raw.healthcheck).toEqual({
+      intervalSeconds: 30,
+      timeoutSeconds: 10,
+      retries: 3,
+      startPeriodSeconds: 15,
+    });
+    expect(JSON.stringify(raw)).not.toContain("curl -f");
+  });
+
+  it("omits hostConfig/healthcheck/imageId entirely when unreported", () => {
+    const raw = rawOf(BASE_INSPECT);
+    expect(raw).not.toHaveProperty("hostConfig");
+    expect(raw).not.toHaveProperty("healthcheck");
+    expect(raw).not.toHaveProperty("imageId");
+    // dockerObservation stays pure state/health — no config facts leak in
+    expect(raw.dockerObservation).not.toHaveProperty("hostConfig");
+  });
+
+  it("treats Docker unset sentinels as absent — no zeroed limit facts", () => {
+    const raw = rawOf({
+      ...BASE_INSPECT,
+      HostConfig: { Memory: 0, NanoCpus: 0, PidsLimit: -1 },
+    } as ContainerInspect);
+    expect(raw).not.toHaveProperty("hostConfig");
+    const partial = rawOf({
+      ...BASE_INSPECT,
+      HostConfig: { Memory: 0, NanoCpus: 0, PidsLimit: -1, LogConfig: { Type: "json-file" } },
+    } as ContainerInspect);
+    expect(partial.hostConfig).toEqual({ logDriver: "json-file" });
+  });
+
+  it("emitted asset passes validateDiscoveredAsset", () => {
+    const { identity, instance } = mapContainer(
+      {
+        ...BASE_INSPECT,
+        Image: "sha256:img1",
+        HostConfig: { Memory: 1024, RestartPolicy: { Name: "always" } },
+        Config: {
+          Image: "web:1",
+          Healthcheck: { Interval: 5000000000, Retries: 2 },
+        },
+      } as ContainerInspect,
+      "docker-engine:e1",
+      undefined,
+      undefined,
+      "componode.component-id",
+    );
+    const asset = buildAsset(identity, [instance], "web:1");
+    expect(validateDiscoveredAsset(asset)).toBe(true);
+  });
+
+  it("never carries env vars, bind sources, or log-driver config detail", () => {
+    const raw = rawOf({
+      ...BASE_INSPECT,
+      Config: {
+        Image: "web:1",
+        Env: ["SECRET=hunter2"],
+        Healthcheck: { Test: ["CMD", "secret-cmd"], Interval: 1000000000 },
+      },
+      HostConfig: {
+        Binds: ["/host/secret:/container"],
+        LogConfig: { Type: "syslog", Config: { "syslog-address": "tcp://10.0.0.1:514" } },
+      },
+    } as unknown as ContainerInspect);
+    const json = JSON.stringify(raw);
+    expect(json).not.toContain("hunter2");
+    expect(json).not.toContain("/host/secret");
+    expect(json).not.toContain("secret-cmd");
+    expect(json).not.toContain("syslog-address");
+    expect(json).not.toContain("10.0.0.1");
+    // logDriver keeps only the driver name, never LogConfig.Config
+    expect((raw.hostConfig as Record<string, unknown>).logDriver).toBe("syslog");
   });
 });

@@ -16,61 +16,17 @@ import { formatDate } from "@/ux/lib/format"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ux/components/ui/tabs"
 import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import { ComponentEditDialog } from "@/ux/components/catalog/component-edit-dialog"
+import {
+  EngineDetailsSection,
+  hasInstanceDetails,
+  ImageDetailsSection,
+  InstanceDetails,
+} from "@/ux/components/catalog/docker-details"
 import { ComponentRelationshipsPanel } from "@/ux/components/catalog/component-relationships"
 import { UrlChecksCard } from "@/ux/components/catalog/url-checks-card"
-import type { Component, ComponentInstance } from "@/ux/lib/view-types"
+import type { Component } from "@/ux/lib/view-types"
 import { ux } from "@/ux/lib/paths"
 import { cn } from "@/ux/lib/utils"
-
-/** Allowlisted `rawConfig.dockerObservation` shape (ADR-121 A1) — loosely
- *  typed on purpose: unknown importers simply don't set it. */
-interface DockerObservation {
-  state?: string;
-  exitCode?: number;
-  oomKilled?: boolean;
-  restarting?: boolean;
-  startedAt?: string | null;
-  finishedAt?: string | null;
-  health?: { status?: string; failingStreak?: number } | null;
-}
-
-function dockerObservationOf(i: ComponentInstance): DockerObservation | null {
-  const o = i.rawConfig?.dockerObservation;
-  return o && typeof o === "object" ? (o as DockerObservation) : null;
-}
-
-function ObservationDetails({ obs }: { obs: DockerObservation }) {
-  const health = obs.health ?? null;
-  return (
-    <DescriptionList
-      className="sm:grid-cols-[minmax(10rem,auto)_1fr]"
-      items={[
-        { label: "Observed state", value: <code className="font-mono text-xs">{obs.state ?? "unknown"}</code> },
-        {
-          label: "Health check",
-          value: health ? (
-            <Badge
-              variant={health.status === "unhealthy" ? "destructive" : "secondary"}
-              className="font-mono"
-            >
-              {health.status}
-              {health.failingStreak ? ` ×${health.failingStreak}` : ""}
-            </Badge>
-          ) : (
-            <span className="text-muted-foreground">No health check configured</span>
-          ),
-        },
-        ...(obs.exitCode !== undefined
-          ? [{ label: "Exit code", value: <code className="font-mono text-xs">{obs.exitCode}</code> }]
-          : []),
-        ...(obs.oomKilled ? [{ label: "OOM killed", value: "Yes" }] : []),
-        ...(obs.restarting ? [{ label: "Restarting", value: "Yes" }] : []),
-        { label: "Started", value: <RelativeTime iso={obs.startedAt ?? null} /> },
-        { label: "Finished", value: <RelativeTime iso={obs.finishedAt ?? null} /> },
-      ]}
-    />
-  );
-}
 
 const TABS = ["overview", "relationships"] as const
 
@@ -161,18 +117,18 @@ export function ComponentDetail({ component: c }: { component: Component }) {
             </TableHeader>
             <TableBody>
               {c.instances.map((i) => {
-                const obs = dockerObservationOf(i);
+                const hasDetails = hasInstanceDetails(i);
                 const open = expanded.has(i.id);
                 return (
                   <React.Fragment key={i.id}>
                     <TableRow>
                       <TableCell className="pl-6">
                         <span className="inline-flex items-center gap-1">
-                          {obs ? (
+                          {hasDetails ? (
                             <Button
                               variant="ghost"
                               size="icon-xs"
-                              aria-label={open ? "Hide observation" : "Show observation"}
+                              aria-label={open ? "Hide details" : "Show details"}
                               aria-expanded={open}
                               onClick={() => toggle(i.id)}
                             >
@@ -197,10 +153,10 @@ export function ComponentDetail({ component: c }: { component: Component }) {
                         <RelativeTime iso={i.lastSeenAt} />
                       </TableCell>
                     </TableRow>
-                    {open && obs ? (
+                    {open && hasDetails ? (
                       <TableRow className="bg-muted/20 hover:bg-muted/20">
                         <TableCell colSpan={6} className="px-10 py-4">
-                          <ObservationDetails obs={obs} />
+                          <InstanceDetails instance={i} />
                         </TableCell>
                       </TableRow>
                     ) : null}
@@ -214,7 +170,7 @@ export function ComponentDetail({ component: c }: { component: Component }) {
           <CardHeader>
             <CardTitle>Details</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
             <DescriptionList
               className="sm:grid-cols-1"
               items={[
@@ -225,6 +181,12 @@ export function ComponentDetail({ component: c }: { component: Component }) {
                 { label: "Last seen", value: <RelativeTime iso={c.lastSeenAt} /> },
               ]}
             />
+            {c.resourceType === "docker-engine" ? (
+              <EngineDetailsSection details={c.details} />
+            ) : null}
+            {c.resourceType === "image" ? (
+              <ImageDetailsSection details={c.details} />
+            ) : null}
           </CardContent>
         </Card>
         <UrlChecksCard component={c} />

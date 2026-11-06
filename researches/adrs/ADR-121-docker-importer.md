@@ -152,6 +152,53 @@ Wave E extends the importer's emitted surfaces on Swarm managers:
    produce distinct components — no automatic product-edge transfer.
 6. Item 9's deferred list now stands at `ssh://` context endpoints only.
 
+## Amendment 3 — Observation enrichment, engine component, image inspect (spec 064)
+
+Extends items 6/8 and the Amendment-2 Swarm surfaces:
+
+1. **Container instance `rawConfig` additions** — `imageId` (the
+   immutable `sha256:` `inspect.Image`, joining image assets), bounded
+   `hostConfig` (`memoryBytes`, `nanoCpus`, `pidsLimit`,
+   `restartPolicy{mode, maxRetries?}`, `privileged`/`readOnlyRootfs`
+   only when true, `logDriver`), and `healthcheck` timings in seconds
+   (`intervalSeconds`, `timeoutSeconds`, `retries`,
+   `startPeriodSeconds`). `Config.Env`, `Healthcheck.Test`,
+   `HostConfig.Binds`, and `LogConfig.Config` remain undeclared —
+   never collected. `dockerObservation` stays state/health-status only;
+   configuration facts live outside it.
+2. **Swarm service enrichment** — instance `rawConfig` gains `ports[]`
+   (`protocol`/`target`/`published`/`publishMode?` from
+   `Spec.EndpointSpec.Ports`) and `networks[]`
+   (`Spec.Networks[].Target`); `swarmObservation.mode` and
+   `details.mode` gain `replicated-job`/`global-job` (job `Mode`
+   members checked before replicated/global). Job services remain
+   `CONTAINER_ORCHESTRATION` — mode is an observation, not a category.
+3. **Engine component** — exactly one `COMPUTE`/`docker-engine`
+   Component per source on every transport and executor, emitted after
+   `reportSourceIdentity` and before inventory; `externalId` is the
+   source identity verbatim (no `::` qualifier, no double-prefixing);
+   one `OTHER`/`RUNNING` Instance with empty `rawConfig`. `details`
+   carries bounded `/info` + one `/version`-per-run facts:
+   `serverVersion`, `apiVersion`, `os`, `arch`, `kernelVersion`,
+   `cgroupDriver?`, `runtimes?`, `registryMirrors?`, `swarmNodeState?`,
+   `swarmControlAvailable?`, `swarmManagers?`. Still never:
+   `DockerRootDir`, proxy variables (any case), `Plugins`,
+   `SecurityOptions`, `Warnings`, or any other unapproved
+   `/info`/`/version` field.
+4. **Image inspect (opt-in)** — `includeImages` on → each unique
+   `image.Id` inspected once (`GET /images/{id}/json`, concurrency ≤ 8)
+   and a bounded merge added to every ref asset's `details`:
+   `ociLabels` (exactly the 10-key `org.opencontainers.image.*`
+   allowlist), `exposedPorts`, and when reported `user`, `entrypoint`,
+   `workingDir`, `volumes`, `architecture`, `os`. A failed inspect
+   omits the merge for that image only — the asset still emits and the
+   run is unaffected (ratified degrade-per-image). Off → zero inspect
+   calls and byte-identical image output.
+5. **UI** — named allowlist sections only (observation, host config,
+   health-check definition, ports, networks on instances; engine and
+   image-provenance sections on the Details card); no generic
+   `rawConfig`/`details` dump.
+
 ---
 
 **Amended by ADR-122**: item 2 — Docker is no longer `requiresAgent`; Hub execution resolves managed `docker_targets` profiles (spec 049).

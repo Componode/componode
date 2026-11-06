@@ -12,7 +12,13 @@ import { maskSecretValues } from "@componode/core/secrets";
 import { dockerConfigSchema } from "./config.js";
 import { validateTargetProfile } from "./target-profile.js";
 import { buildDockerOptions } from "./transport.js";
-import { mapContainer, buildAsset, type ContainerInspect } from "./mapping.js";
+import {
+  mapContainer,
+  buildAsset,
+  mapImageInspectDetails,
+  type ContainerInspect,
+  type ImageInspect,
+} from "./mapping.js";
 import {
   mapSwarmNode,
   mapSwarmSecret,
@@ -22,6 +28,7 @@ import {
   type SwarmService,
 } from "./swarm.js";
 import { type WorkloadIdentity } from "./identity.js";
+import { mapEngineAsset, type EngineInfo, type EngineVersion } from "./engine.js";
 
 const INSPECT_CONCURRENCY = 8;
 
@@ -63,11 +70,7 @@ export class DockerImporter implements Importer {
     const docker = new Docker(buildDockerOptions(profile, secrets));
 
     context.reportPhase("Identifying source");
-    const info = (await docker.info()) as {
-      ID?: string;
-      Name?: string;
-      Swarm?: { LocalNodeState?: string; ControlAvailable?: boolean };
-    };
+    const info = (await docker.info()) as EngineInfo;
     const engineId = info?.ID;
     if (!engineId && !parsed.sourceKey) {
       throw new Error(
@@ -85,6 +88,18 @@ export class DockerImporter implements Importer {
       label: info?.Name ?? parsed.sourceKey,
     });
 
+    // Engine component (spec 064): one COMPUTE asset per source, emitted
+    // before inventory — the engine is the root of the run's facts.
+    // /version is fetched once per run here and shared with the Swarm
+    // API-floor gate below (non-Swarm engines gain this single call).
+    context.reportPhase("Reading engine facts");
+    const version = (await docker.version()) as EngineVersion;
+    const engineAsset = mapEngineAsset(info, version, sourceIdentity);
+    if (!validateDiscoveredAsset(engineAsset)) {
+      throw new Error("Invalid discovered asset for docker engine");
+    }
+    yield engineAsset;
+
     // Swarm inventory gate (ADR-121 Amendment 2): gated entirely on the
     // already-fetched /info — non-Swarm and worker-only endpoints make
     // zero additional calls. Below the 1.41 floor the run fails visibly;
@@ -92,7 +107,6 @@ export class DockerImporter implements Importer {
     const swarm = info?.Swarm;
     if (swarm?.LocalNodeState === "active" && swarm?.ControlAvailable === true) {
       context.reportPhase("Inventorying Swarm");
-      const version = (await docker.version()) as { ApiVersion?: string };
       const [apiMajor = 0, apiMinor = 0] = (version?.ApiVersion ?? "0.0")
         .split(".")
         .map(Number);
@@ -193,9 +207,17 @@ export class DockerImporter implements Importer {
       if (context.signal.aborted) return;
       context.reportPhase("Listing images");
       const images = await docker.listImages();
+
+      // Resolve every emitted ref first, then inspect each unique image
+      // Id once (spec 064) — a failed inspect degrades that image only:
+      // the asset still emits with its pre-feature details.
+      const emitted: Array<{
+        image: (typeof images)[number];
+        externalId: string;
+        name: string;
+      }> = [];
       const seen = new Set<string>();
       for (const image of images) {
-        if (context.signal.aborted) return;
         // External IDs carry the raw ref — `docker-image:{repo@sha256:…}`
         // for digests, `docker-image:{repo:tag}` for tags (ADR-121 #6).
         const refs = image.RepoDigests?.length
@@ -205,24 +227,53 @@ export class DockerImporter implements Importer {
           const externalId = `docker-image:${ref}`;
           if (seen.has(externalId)) continue;
           seen.add(externalId);
-          const asset: DiscoveredAsset = {
-            category: "PACKAGE_REGISTRY",
-            provider: "DOCKER",
-            resourceType: "image",
-            name: ref,
-            externalId,
-            details: {
-              imageId: image.Id,
-              size: image.Size,
-              created: image.Created,
-            },
-            instances: [],
-          };
-          if (!validateDiscoveredAsset(asset)) {
-            throw new Error(`Invalid discovered asset for image ${ref}`);
-          }
-          yield asset;
+          emitted.push({ image, externalId, name: ref });
         }
+      }
+
+      const uniqueIds = [
+        ...new Set(
+          emitted
+            .map((e) => e.image.Id)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ];
+      const inspectDetails = new Map<string, Record<string, unknown>>();
+      await mapWithConcurrency(
+        uniqueIds,
+        INSPECT_CONCURRENCY,
+        async (id) => {
+          try {
+            const insp = (await docker.getImage(id).inspect()) as ImageInspect;
+            inspectDetails.set(id, mapImageInspectDetails(insp));
+          } catch {
+            // Per-image degradation (ratified): no merge for this image.
+          }
+        },
+        context.signal,
+      );
+
+      context.reportPhase("Emitting images");
+      for (const { image, externalId, name } of emitted) {
+        if (context.signal.aborted) return;
+        const asset: DiscoveredAsset = {
+          category: "PACKAGE_REGISTRY",
+          provider: "DOCKER",
+          resourceType: "image",
+          name,
+          externalId,
+          details: {
+            imageId: image.Id,
+            size: image.Size,
+            created: image.Created,
+            ...(image.Id ? inspectDetails.get(image.Id) : undefined),
+          },
+          instances: [],
+        };
+        if (!validateDiscoveredAsset(asset)) {
+          throw new Error(`Invalid discovered asset for image ${externalId}`);
+        }
+        yield asset;
       }
     }
 

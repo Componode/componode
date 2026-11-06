@@ -76,12 +76,12 @@ describe("instance dockerObservation render (spec 047)", () => {
       }),
     ]);
     wrap(<ComponentDetail component={c} />);
-    const toggle = screen.getByRole("button", { name: /show observation/i });
+    const toggle = screen.getByRole("button", { name: /show details/i });
     fireEvent.click(toggle);
     expect(screen.getByText("running")).toBeTruthy();
     expect(screen.getByText(/unhealthy/)).toBeTruthy();
     expect(screen.getByText("OOM killed")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /hide observation/i }));
+    fireEvent.click(screen.getByRole("button", { name: /hide details/i }));
     expect(screen.queryByText("OOM killed")).toBeNull();
   });
 
@@ -90,7 +90,7 @@ describe("instance dockerObservation render (spec 047)", () => {
       instance({ dockerObservation: { state: "exited", health: null } }),
     ]);
     wrap(<ComponentDetail component={c} />);
-    fireEvent.click(screen.getByRole("button", { name: /show observation/i }));
+    fireEvent.click(screen.getByRole("button", { name: /show details/i }));
     expect(screen.getByText("No health check configured")).toBeTruthy();
     expect(screen.getByText("exited")).toBeTruthy();
   });
@@ -98,6 +98,6 @@ describe("instance dockerObservation render (spec 047)", () => {
   it("shows no expand control for instances without an observation", () => {
     const c = component([instance(null), instance({ containerName: "x" })]);
     wrap(<ComponentDetail component={c} />);
-    expect(screen.queryByRole("button", { name: /observation/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /details/i })).toBeNull();
   });
 });
