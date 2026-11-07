@@ -2,7 +2,7 @@
 
 **Feature Branch**: `063-docker-importer-onboarding`
 **Created**: 2026-11-05
-**Status**: Draft
+**Status**: Shipped
 **Input**: Expert assessment found Docker importer setup too complex: Hub setup requires three screens in three admin areas (Docker targets → Credentials → Importer config) with a manual naming contract between target profile `*Key` fields and credential keys, a test chicken-and-egg for credential-requiring transports, immutable hand-invented `targetId`s, and power-user knobs shown to every user. Resolved through a grilling session into a guided wizard, a stateless connectivity probe, progressive disclosure, and a docs quickstart — Hub execution only; agent-side simplification deferred.
 
 ## Clarifications

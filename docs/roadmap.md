@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–064)
+## Shipped (features 001–064, bugfix 066)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -388,6 +388,10 @@ file tracks shipped and upcoming work — update it when a spec completes.
   provenance per unique image. Component detail renders all of it in
   named allowlist sections — env vars, host paths, health output, and
   unbounded engine fields remain excluded (ADR-121 Amendment 3).
+- `066-bugfix-component-group-detail` — Component group detail page
+  fixes: members now render (the list filter contract is slug-based, not
+  id), the Edit group Owning team dropdown lists teams, and owning
+  team/description can be cleared via explicit nulls.
 
 ## Next — post-v1.1
 
@@ -398,8 +402,8 @@ onboarding completion (054), the repeated-failure auto-disable
 policy (056), and importer-managed checks (058) — has shipped, as has the Product Map
 topology (059), the Component Relationships view (060), component
 dependencies in the Product topology (061), prototype UX parity (062),
-guided Docker importer onboarding (063), and Docker importer enrichment
-(064).
+guided Docker importer onboarding (063), Docker importer enrichment
+(064), and a component-group detail bugfix (066).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new

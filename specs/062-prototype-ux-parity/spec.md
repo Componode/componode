@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-03
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User description: "Address the auth-grid regression and map discoverability first, then revisit typography and add real, data-backed context cues. I want the same font, UX disposition-style, headers, pills, and canvas as the prototype."
 
