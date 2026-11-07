@@ -20,3 +20,13 @@ deserves a first-class entity, not an edge or a column. The group's lifecycle
 is separate (a group is `ACTIVE` as long as it has ≥1 `ACTIVE` component, or
 the human sets it explicitly). Ownership at the group level is distinct from
 ownership of individual components.
+
+> **AMENDMENT ([ADR-129](./ADR-129-source-scoped-auto-component-groups.md),
+> ratified 2026-11-07)**: ComponentGroup gains a second provisioning mode —
+> **system-provisioned, source-scoped groups**. For importers declaring the
+> capability, each ImporterSource gets at most one auto-managed group linked
+> by `importer_sources.componentGroupId`, whose membership is derived from
+> source memberships (sole effective-active reporter), not human assignment.
+> "Human-declared" remains the default origin; the lifecycle rule extends to
+> auto-managed groups deriving `ACTIVE`/`RETIRED` from member activity, with
+> human `lifecycle` writes rejected on them.

@@ -34,10 +34,21 @@ executed outcomes also update the current operational status under ADR-126;
 _Avoid_: URL Importer when referring to a monitoring check
 
 **Component Group**:
-A human-declared equivalence across distinct source assets (e.g. three EC2
-instances in three accounts considered the same logical component). A
-first-class entity with its own name, slug, description, and owner.
+A declared grouping of Components — either human-declared (a curator assigns
+`componentGroupId` one component at a time) or system-provisioned and
+source-scoped (an auto-managed group whose membership the backend derives
+from ImporterSource memberships, ADR-129). A first-class entity with its
+own name, slug, description, and owner.
 _Avoid_: folder, collection
+
+**Source-scoped ComponentGroup** (auto group):
+A ComponentGroup provisioned by the backend for one ImporterSource under
+ADR-129 — membership is derived (the component's sole effective-active
+reporter is that source), lifecycle is derived from active members, and
+humans cannot edit its lifecycle or membership. Linked durably via
+`importer_sources.componentGroupId`.
+_Avoid_: auto folder, importer group, cluster (when precision matters, say
+"the source's auto-group")
 
 **COMPOSES**:
 A product→product edge meaning "parent is composed of child." A DAG with
