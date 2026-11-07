@@ -101,7 +101,7 @@ test.describe('docker importer infra inventory (spec 065)', () => {
 
     // ---- volumes ----
     const volumes = list.filter((c: any) => c.resourceType === 'volume');
-    expect(volumes.map((c: any) => c.name).sort()).toEqual(['pw-cache', 'pw-data']);
+    expect(volumes.map((c: any) => c.name).sort()).toEqual(['pw-cache', 'pw-data', 'pw-orphan']);
     for (const v of volumes) {
       const detail = await componentDetail(api, v.id);
       expect(detail.category).toBe('STORAGE');
@@ -136,6 +136,13 @@ test.describe('docker importer infra inventory (spec 065)', () => {
     expect(cache.details.refCount).toBeUndefined();
     expect(cache.details.reclaimable).toBeUndefined();
     expect(cache.details.driver).toBe('local');
+
+    // pw-orphan has no /system/df entry — usage fields omitted as well.
+    const orphanItem = volumes.find((c: any) => c.name === 'pw-orphan');
+    const orphan = await componentDetail(api, orphanItem.id);
+    expect(orphan.details.sizeBytes).toBeUndefined();
+    expect(orphan.details.refCount).toBeUndefined();
+    expect(orphan.details.driver).toBe('local');
   });
 
   test('component detail renders named Network and Volume sections', async ({ page, request }) => {

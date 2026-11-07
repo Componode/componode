@@ -104,7 +104,9 @@ export function mapVolume(
 ): DiscoveredAsset {
   const details: Record<string, unknown> = {};
   setDetail(details, "driver", volume.Driver);
-  details.scope = volume.Scope ?? "local";
+  // scope is not identity-bearing for volumes (unlike networks) — emit
+  // verbatim, omit when unreported (engine.test.ts precedent)
+  setDetail(details, "scope", volume.Scope);
   setDetail(details, "createdAt", volume.CreatedAt);
   if (typeof usage?.Size === "number" && usage.Size >= 0) {
     details.sizeBytes = usage.Size;

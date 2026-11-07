@@ -223,11 +223,18 @@ const VOLUMES = [
     Mountpoint: '/var/lib/docker/volumes/pw-cache/_data',
     Options: {}, Status: {},
   },
+  {
+    // pw-orphan: present in /volumes but absent from /system/df — the
+    // join-gap case (usage fields must be omitted, not zeroed).
+    Name: 'pw-orphan', Driver: 'local', CreatedAt: '2026-01-03T00:00:00Z',
+    Scope: 'local', Labels: {},
+    Mountpoint: '/var/lib/docker/volumes/pw-orphan/_data',
+    Options: {}, Status: {},
+  },
 ];
 
 // GET /system/df usage join — pw-data reports real usage; pw-cache
-// reports the -1 "not available" sentinels; pw-orphan is absent from
-// the volume list entirely (join is by Name).
+// reports the -1 "not available" sentinels; pw-orphan has no df entry.
 const DF_VOLUMES = [
   { ...VOLUMES[0], UsageData: { Size: 5242880, RefCount: 2, Reclaimable: true } },
   { ...VOLUMES[1], UsageData: { Size: -1, RefCount: -1 } },

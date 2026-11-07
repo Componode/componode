@@ -249,3 +249,11 @@ describe("label boundary (spec 065 / ADR-121 A4)", () => {
     expect(onlyDropped.details).not.toHaveProperty("labels");
   });
 });
+
+describe("unreported optional facts (spec 065 review)", () => {
+  it("omits volume scope/driver/createdAt when the engine does not report them", () => {
+    const a = mapVolume({ Name: "bare" }, undefined, SRC);
+    expect(a.details).toEqual({});
+    expect(validateDiscoveredAsset(a)).toBe(true);
+  });
+});

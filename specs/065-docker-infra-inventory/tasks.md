@@ -197,3 +197,10 @@ Task: "Failing importer.test.ts network run-level cases"
 - [X] T02[6-9] Emit `attachedCount` as `Object.keys(Containers ?? {}).length` per `contracts/infra-assets.md` (count attachments, not only named endpoints) per code-review: spec
 - [X] T02[6-9] Fail closed on network list rows lacking both `Id` and `Name` — inspect by `Id ?? Name` and throw on unidentifiable rows instead of silently filtering, preserving SC-001's 100%-of-networks guarantee per code-review: spec
 - [X] T02[6-9] Hoist the duplicated `put` closure in `packages/importer-docker/src/infra.ts` to a module-level helper per code-review: standards
+
+## Phase 9: Review — Round 2
+
+- [X] Emit volume `scope` verbatim via `setDetail` (omit when unreported — not identity-bearing, unlike networks) per code-review: standards
+- [X] Add `pw-orphan` volume fixture (present in `/volumes`, absent from `/system/df`) so the e2e join-gap case is covered; stale mock comment corrected per code-review: standards
+- [X] Skip: four-way `resourceType` ternary chain in `component-detail.tsx` — ratified `contracts/frontend-surfaces.md` pattern, consistent with existing `docker-engine`/`image` sections per code-review: standards
+- [X] Skip: `NetworkEndpoint` export unused outside infra.ts — harmless public shape of `NetworkInspect.Containers`, consistent with exported mapper interfaces per code-review: standards
