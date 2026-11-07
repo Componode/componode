@@ -251,6 +251,15 @@ constitution.
   `constitution.md` VI.
 - `validateDiscoveredAsset` in `packages/core` is the enforceable importer
   contract. Every importer unit test MUST exercise it.
+- Every spec — feature or bugfix — ships Playwright coverage for the
+  surface it changed: specs under `playwright/tests/` exercising the
+  browsing flows, CRUD, integrations, and catalog data integrity the
+  change touches (whichever apply — unit tests alone do not satisfy
+  this), tracked as tasks in `tasks.md` like any other work. Run the
+  workload before the PR: `pnpm e2e` in `playwright/` runs the full
+  suite; extra args forward to `playwright test` for a targeted subset
+  (e.g. `--grep <pattern>` or a spec path). `e2e:debug` retains the
+  stack; `e2e:down` removes it.
 - Test/workload branches never modify application source (`packages/**`).
   Defects surfaced by tests are raised as GitHub issues — revert any
   test-branch app change and link the filed issue instead of patching the
