@@ -21,6 +21,8 @@ import {
   hasInstanceDetails,
   ImageDetailsSection,
   InstanceDetails,
+  NetworkDetailsSection,
+  VolumeDetailsSection,
 } from "@/ux/components/catalog/docker-details"
 import { ComponentRelationshipsPanel } from "@/ux/components/catalog/component-relationships"
 import { UrlChecksCard } from "@/ux/components/catalog/url-checks-card"
@@ -186,6 +188,12 @@ export function ComponentDetail({ component: c }: { component: Component }) {
             ) : null}
             {c.resourceType === "image" ? (
               <ImageDetailsSection details={c.details} />
+            ) : null}
+            {c.resourceType === "network" ? (
+              <NetworkDetailsSection details={c.details} />
+            ) : null}
+            {c.resourceType === "volume" ? (
+              <VolumeDetailsSection details={c.details} />
             ) : null}
           </CardContent>
         </Card>

@@ -10,9 +10,13 @@ const mocks = vi.hoisted(() => ({
   listServices: vi.fn(),
   listNodes: vi.fn(),
   listSecrets: vi.fn(),
+  listNetworks: vi.fn(),
+  listVolumes: vi.fn(),
+  df: vi.fn(),
   ping: vi.fn(),
   getContainer: vi.fn(),
   getImage: vi.fn(),
+  getNetwork: vi.fn(),
   ctor: vi.fn(),
 }));
 
@@ -28,9 +32,13 @@ vi.mock("dockerode", () => {
     listServices = mocks.listServices;
     listNodes = mocks.listNodes;
     listSecrets = mocks.listSecrets;
+    listNetworks = mocks.listNetworks;
+    listVolumes = mocks.listVolumes;
+    df = mocks.df;
     ping = mocks.ping;
     getContainer = mocks.getContainer;
     getImage = mocks.getImage;
+    getNetwork = mocks.getNetwork;
   }
   return { default: DockerMock };
 });
@@ -99,6 +107,12 @@ beforeEach(() => {
   mocks.listImages.mockResolvedValue([]);
   mocks.version.mockResolvedValue({ ApiVersion: "1.45" });
   mocks.getImage.mockImplementation(() => ({
+    inspect: vi.fn(async () => ({})),
+  }));
+  mocks.listNetworks.mockResolvedValue([]);
+  mocks.listVolumes.mockResolvedValue({ Volumes: [] });
+  mocks.df.mockResolvedValue({ Volumes: [] });
+  mocks.getNetwork.mockImplementation(() => ({
     inspect: vi.fn(async () => ({})),
   }));
 });
@@ -482,5 +496,133 @@ describe("testSecrets", () => {
     const bad = await importer.testSecrets({ clientKey: "PEMMATERIAL" }, {}, { transport: "socket", path: "/x" });
     expect(bad.ok).toBe(false);
     expect(bad.error).not.toContain("PEMMATERIAL");
+  });
+});
+
+describe("infra inventory — networks (spec 065)", () => {
+  const NET_ROW = {
+    Id: "net-1",
+    Name: "frontend",
+    Scope: "swarm",
+    Driver: "overlay",
+    Created: "2026-10-01T00:00:00Z",
+    Labels: { "com.docker.compose.project": "myapp" },
+  };
+  const NET_INSPECT = {
+    ...NET_ROW,
+    Containers: { "ep-1": { Name: "web-1", MacAddress: "02:42:00:00:00:01", IPv4Address: "10.0.0.2/24" } },
+  };
+
+  it("emits one validated NETWORK asset per listed network and inspects each by Id", async () => {
+    mocks.listNetworks.mockResolvedValue([
+      NET_ROW,
+      { Id: "net-2", Name: "data", Scope: "local", Driver: "local" },
+    ]);
+    mocks.getNetwork.mockImplementation((id: string) => ({
+      inspect: vi.fn(async () =>
+        id === "net-1"
+          ? NET_INSPECT
+          : { Id: "net-2", Name: "data", Scope: "local", Driver: "local", Containers: {} },
+      ),
+    }));
+    const { assets } = await run({ targetId: "local" });
+    const nets = assets.filter((a) => a.resourceType === "network");
+    expect(nets).toHaveLength(2);
+    expect(nets[0]!.externalId).toBe("docker-engine:engine-1::network:swarm:frontend");
+    expect(nets[0]!.category).toBe("NETWORK");
+    expect(nets[0]!.instances).toEqual([]);
+    expect(nets[0]!.details?.attachedContainers).toEqual(["web-1"]);
+    expect(validateDiscoveredAsset(nets[0]!)).toBe(true);
+    expect(mocks.getNetwork).toHaveBeenCalledWith("net-1");
+    expect(mocks.getNetwork).toHaveBeenCalledWith("net-2");
+    // endpoint addressing never leaves the boundary
+    expect(JSON.stringify(nets[0])).not.toContain("10.0.0.2");
+    expect(JSON.stringify(nets[0])).not.toContain("02:42:00:00:00:01");
+  });
+
+  it("normalizes the {Networks:[…]} wrapped list shape", async () => {
+    mocks.listNetworks.mockResolvedValue({ Networks: [NET_ROW] });
+    mocks.getNetwork.mockImplementation(() => ({ inspect: vi.fn(async () => NET_INSPECT) }));
+    const { assets } = await run({ targetId: "local" });
+    expect(assets.filter((a) => a.resourceType === "network")).toHaveLength(1);
+  });
+
+  it("fails the run when a network inspect rejects", async () => {
+    mocks.listNetworks.mockResolvedValue([NET_ROW]);
+    mocks.getNetwork.mockImplementation(() => ({
+      inspect: vi.fn(async () => {
+        throw new Error("network inspect boom");
+      }),
+    }));
+    await expect(run({ targetId: "local" })).rejects.toThrow("network inspect boom");
+  });
+
+  it("fails the run when listNetworks rejects", async () => {
+    mocks.listNetworks.mockRejectedValue(new Error("networks unavailable"));
+    await expect(run({ targetId: "local" })).rejects.toThrow("networks unavailable");
+  });
+});
+
+describe("infra inventory — volumes (spec 065)", () => {
+  const VOL = {
+    Name: "pgdata",
+    Driver: "local",
+    CreatedAt: "2026-09-15T08:30:00Z",
+    Scope: "local",
+    Labels: { "com.docker.compose.project": "shop" },
+    Mountpoint: "/var/lib/docker/volumes/pgdata/_data",
+    Options: { type: "nfs", device: ":/srv/pg" },
+    Status: { secret: "x" },
+  };
+  const DF_VOL = { ...VOL, UsageData: { Size: 4096, RefCount: 1, Reclaimable: true } };
+
+  it("emits one validated STORAGE asset per volume joined to df usage by Name", async () => {
+    mocks.listVolumes.mockResolvedValue({
+      Volumes: [VOL, { Name: "cache", Driver: "local" }],
+    });
+    mocks.df.mockResolvedValue({
+      Volumes: [DF_VOL, { Name: "cache", Driver: "local", UsageData: { Size: -1, RefCount: -1 } }],
+    });
+    const { assets } = await run({ targetId: "local" });
+    const vols = assets.filter((a) => a.resourceType === "volume");
+    expect(vols).toHaveLength(2);
+    expect(vols[0]!.externalId).toBe("docker-engine:engine-1::volume:pgdata");
+    expect(vols[0]!.category).toBe("STORAGE");
+    expect(vols[0]!.instances).toEqual([]);
+    expect(vols[0]!.details).toMatchObject({
+      sizeBytes: 4096,
+      refCount: 1,
+      reclaimable: true,
+    });
+    expect(validateDiscoveredAsset(vols[0]!)).toBe(true);
+    // dockerode's df() accepts no query params — the Name join scopes usage
+    expect(mocks.df).toHaveBeenCalledTimes(1);
+    // exclusions never leak into emitted assets
+    const json = JSON.stringify(vols);
+    expect(json).not.toContain("/var/lib/docker/volumes");
+    expect(json).not.toContain(":/srv/pg");
+    expect(json).not.toContain('"Status"');
+  });
+
+  it("emits volume assets without usage fields when a name is absent from df", async () => {
+    mocks.listVolumes.mockResolvedValue({ Volumes: [VOL] });
+    mocks.df.mockResolvedValue({ Volumes: [] });
+    const { assets } = await run({ targetId: "local" });
+    const vol = assets.find((a) => a.resourceType === "volume");
+    expect(vol).toBeDefined();
+    expect(vol!.details).not.toHaveProperty("sizeBytes");
+    expect(vol!.details).not.toHaveProperty("refCount");
+  });
+
+  it("fails the run when df rejects — no partial infra inventory", async () => {
+    mocks.listNetworks.mockResolvedValue([]);
+    mocks.listVolumes.mockResolvedValue({ Volumes: [VOL] });
+    mocks.df.mockRejectedValue(new Error("df boom"));
+    await expect(run({ targetId: "local" })).rejects.toThrow("df boom");
+  });
+
+  it("fails the run when listVolumes rejects", async () => {
+    mocks.listVolumes.mockRejectedValue(new Error("volumes unavailable"));
+    await expect(run({ targetId: "local" })).rejects.toThrow("volumes unavailable");
   });
 });

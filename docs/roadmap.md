@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–064, bugfix 066)
+## Shipped (features 001–067, bugfix 066)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -388,10 +388,23 @@ file tracks shipped and upcoming work — update it when a spec completes.
   provenance per unique image. Component detail renders all of it in
   named allowlist sections — env vars, host paths, health output, and
   unbounded engine fields remain excluded (ADR-121 Amendment 3).
+- `065-docker-infra-inventory` — Docker imports now inventory
+  infrastructure alongside workloads under the same bounded,
+  fail-closed rules: every run emits one NETWORK Component per Docker
+  network (driver, scope, posture flags, attachment names) and one
+  STORAGE Component per volume (driver, scope, `df` usage facts), with
+  scope/name-qualified identities, `instances: []`, and the standing
+  exclusions — IPAM/addressing, options, mountpoints, status, and
+  unbounded labels never leave the boundary (ADR-121 Amendment 4).
 - `066-bugfix-component-group-detail` — Component group detail page
   fixes: members now render (the list filter contract is slug-based, not
   id), the Edit group Owning team dropdown lists teams, and owning
   team/description can be cleared via explicit nulls.
+- `067-auto-component-groups` — Source-scoped auto ComponentGroups
+  (ADR-129): a generic pass assigns each ImporterSource's
+  sole-reported components to a system-provisioned ComponentGroup —
+  Docker is the first strategy; membership is recomputed every run,
+  lifecycle is derived, and human-managed groups are never touched.
 
 ## Next — post-v1.1
 
@@ -403,7 +416,8 @@ policy (056), and importer-managed checks (058) — has shipped, as has the Prod
 topology (059), the Component Relationships view (060), component
 dependencies in the Product topology (061), prototype UX parity (062),
 guided Docker importer onboarding (063), Docker importer enrichment
-(064), and a component-group detail bugfix (066).
+(064), Docker infrastructure inventory (065), a component-group detail
+bugfix (066), and source-scoped auto ComponentGroups (067).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new
@@ -439,8 +453,6 @@ Engine workload inventory, Docker observations + Source UI, then Swarm
 inventory. Alongside:
 
 - Runtime-loaded importer plugins
-- Source-scoped auto ComponentGroups (spec 067, ADR-129 — grilled and
-  documented; implementation scheduled separately)
 - Invite-based registration
 - E2E tests
 - Per-environment blast-radius traversal

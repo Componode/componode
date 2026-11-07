@@ -29,6 +29,13 @@ import {
 } from "./swarm.js";
 import { type WorkloadIdentity } from "./identity.js";
 import { mapEngineAsset, type EngineInfo, type EngineVersion } from "./engine.js";
+import {
+  mapNetwork,
+  mapVolume,
+  type NetworkInspect,
+  type VolumeSummary,
+  type VolumeUsageData,
+} from "./infra.js";
 
 const INSPECT_CONCURRENCY = 8;
 
@@ -275,6 +282,55 @@ export class DockerImporter implements Importer {
         }
         yield asset;
       }
+    }
+
+    // Infrastructure inventory (spec 065): NETWORK components from
+    // /networks + per-network inspect (the list omits Containers on
+    // API >= 1.28) and STORAGE components from /volumes joined to
+    // /system/df usage by Name. All three fetches complete before any
+    // yield — fail-closed: any list/inspect/df error fails the run and
+    // partial infra inventory is never emitted (FR-012).
+    if (context.signal.aborted) return;
+    context.reportPhase("Inventorying infrastructure");
+    const [networks, volumesResp, dfResp] = await Promise.all([
+      docker.listNetworks() as Promise<
+        NetworkInspect[] | { Networks?: NetworkInspect[] }
+      >,
+      docker.listVolumes() as Promise<{ Volumes?: VolumeSummary[] }>,
+      docker.df() as Promise<{
+        Volumes?: (VolumeSummary & { UsageData?: VolumeUsageData })[];
+      }>,
+    ]);
+    const networkList = Array.isArray(networks)
+      ? networks
+      : (networks.Networks ?? []);
+    const volumeList = volumesResp.Volumes ?? [];
+    const usageByName = new Map(
+      (dfResp.Volumes ?? []).map((v) => [v.Name, v.UsageData]),
+    );
+
+    const networkInspects = await mapWithConcurrency(
+      networkList.filter((n) => n?.Id),
+      INSPECT_CONCURRENCY,
+      (n) =>
+        docker.getNetwork(n.Id as string).inspect() as Promise<NetworkInspect>,
+      context.signal,
+    );
+    for (const net of networkInspects) {
+      if (context.signal.aborted) return;
+      const asset = mapNetwork(net, sourceIdentity);
+      if (!validateDiscoveredAsset(asset)) {
+        throw new Error(`Invalid discovered asset for network ${net.Name ?? net.Id}`);
+      }
+      yield asset;
+    }
+    for (const vol of volumeList) {
+      if (context.signal.aborted) return;
+      const asset = mapVolume(vol, usageByName.get(vol.Name), sourceIdentity);
+      if (!validateDiscoveredAsset(asset)) {
+        throw new Error(`Invalid discovered asset for volume ${vol.Name}`);
+      }
+      yield asset;
     }
 
     context.reportPhase("Completed");
