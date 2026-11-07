@@ -25,6 +25,11 @@ function makeJob(runId: string, agentId: string): RemoteJobContext {
     credentialIds: [],
     revokedCredentialLabel: null,
     missingSecretKeys: [],
+    targetRefKey: null,
+    missingTarget: false,
+    reportsSourceIdentity: false,
+    sourceId: null,
+    sourceIdentity: null,
     cancelRequestedAt: null,
     runCreatedAt: new Date().toISOString(),
     agent: {
@@ -53,6 +58,7 @@ function fakeStore(jobs: Record<string, RemoteJobContext>) {
     })),
     reconcile: vi.fn(async () => 0),
     stageSuggestions: vi.fn(async () => {}),
+    maintainAutoGroups: vi.fn(async () => {}),
     touchCredentials: vi.fn(async () => {}),
     markRunRunning: vi.fn(async () => true),
     recordSourceIdentity: vi.fn(async () => "src-1"),
@@ -287,12 +293,44 @@ describe("RemoteRunService dispatch mechanics", () => {
     });
     expect(handled).toBe(true);
     expect(store.recordSourceIdentity).not.toHaveBeenCalled();
-    expect(job.sourceId).toBeUndefined();
+    expect(job.sourceId).toBeNull();
 
     // A COMPLETED confirmation still reconciles config-scoped — no
     // CONTRACT_VIOLATION for the ignored frame.
     await svc.onRunComplete("agent-1", "run-1", { result: "COMPLETED" });
     const failed = store.updates.filter((u) => u.patch.status === "FAILED");
     expect(failed).toHaveLength(0);
+  });
+
+  it("runs the auto-group pass before staging suggestions on COMPLETED (ADR-129)", async () => {
+    const store = fakeStore({ "run-1": makeJob("run-1", "agent-1") });
+    const svc = new RemoteRunService(sessions, { store });
+    sessions.connected.add("agent-1");
+
+    await svc.enqueue("run-1");
+    await svc.onJobAck("agent-1", "run-1", { accepted: true });
+    await svc.onRunComplete("agent-1", "run-1", { result: "COMPLETED" });
+
+    expect(store.maintainAutoGroups).toHaveBeenCalledTimes(1);
+    expect(store.stageSuggestions).toHaveBeenCalledTimes(1);
+    expect(
+      store.maintainAutoGroups.mock.invocationCallOrder[0],
+    ).toBeLessThan(store.stageSuggestions.mock.invocationCallOrder[0]);
+  });
+
+  it("a failing auto-group pass never flips a completed run", async () => {
+    const store = fakeStore({ "run-1": makeJob("run-1", "agent-1") });
+    store.maintainAutoGroups.mockRejectedValue(new Error("grouping boom"));
+    const svc = new RemoteRunService(sessions, { store });
+    sessions.connected.add("agent-1");
+
+    await svc.enqueue("run-1");
+    await svc.onJobAck("agent-1", "run-1", { accepted: true });
+    await svc.onRunComplete("agent-1", "run-1", { result: "COMPLETED" });
+
+    const done = store.updates.at(-1)!;
+    expect(done.patch.status).toBe("COMPLETED");
+    // Suggestions still stage — the grouping failure is isolated.
+    expect(store.stageSuggestions).toHaveBeenCalledTimes(1);
   });
 });

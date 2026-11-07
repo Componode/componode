@@ -139,6 +139,26 @@ const suggestionPassErrorsTotal = getOrCreateCounter(
   [],
 );
 
+// Source auto-grouping metrics (ADR-129, spec 067)
+const autoGroupPassesTotal = getOrCreateCounter(
+  "auto_group_passes_total",
+  "Total source auto-grouping passes",
+  ["trigger"],
+);
+
+const autoGroupPassDurationSeconds = getOrCreateHistogram(
+  "auto_group_pass_duration_seconds",
+  "Source auto-grouping pass duration",
+  ["trigger"],
+  [0.05, 0.1, 0.5, 1, 2.5, 5, 10, 30, 60],
+);
+
+const autoGroupPassErrorsTotal = getOrCreateCounter(
+  "auto_group_pass_errors_total",
+  "Total failed source auto-grouping passes",
+  [],
+);
+
 // Import Agent metrics (ADR-116, spec 025)
 const importAgentsConnected = getOrCreateGauge(
   "import_agents_connected",
@@ -261,6 +281,9 @@ export const metrics = {
   suggestionStagedTotal,
   suggestionSupersededTotal,
   suggestionPassErrorsTotal,
+  autoGroupPassesTotal,
+  autoGroupPassDurationSeconds,
+  autoGroupPassErrorsTotal,
   importAgentsConnected,
   agentSessionsTotal,
   agentStreamRejectedTotal,

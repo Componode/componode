@@ -13,6 +13,7 @@ export const manifest = {
   implPath: "@componode/importer-docker/importer",
   reportsSourceIdentity: true,
   targetRefKey: "targetId",
+  autoGroups: "source",
   configSchema: dockerConfigSchema,
   targetProfileSchema: dockerTargetProfileSchema,
   secrets: [

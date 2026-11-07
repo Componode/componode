@@ -29,4 +29,5 @@ ownership of individual components.
 > source memberships (sole effective-active reporter), not human assignment.
 > "Human-declared" remains the default origin; the lifecycle rule extends to
 > auto-managed groups deriving `ACTIVE`/`RETIRED` from member activity, with
-> human `lifecycle` writes rejected on them.
+> human `lifecycle` writes and `DELETE` both rejected (`409
+> GROUP_AUTO_MANAGED`) — the group retires via its source, never by hand.

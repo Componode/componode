@@ -59,6 +59,7 @@ export const ERROR_CODES = [
   "URL_CHECK_NOT_FOUND",
   "MONITORING_SETUP_NOT_FOUND",
   "URL_CHECK_WRITE_DEPRECATED",
+  "GROUP_AUTO_MANAGED",
 ] as const;
 
 export type ErrorCode = typeof ERROR_CODES[number];

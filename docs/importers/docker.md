@@ -261,7 +261,27 @@ never a full inventory.
 | `includeImages` | bool | no | `false` | Import cached images as PACKAGE_REGISTRY components |
 | `componentIdLabel` | string | no | `componode.component-id` | Workload-identity override label |
 | `sourceKey` | string | no | — | Fallback source identity when the engine reports no /info.ID |
+| `autoGroup` | bool | no | — | Automatically maintain a ComponentGroup for this source's exclusively reported components (default true) |
 <!-- /GENERATED:contract -->
+
+## Auto-grouping
+
+With `autoGroup` enabled (the default), each ImporterSource this importer
+reports gets at most one auto-managed ComponentGroup — named after the
+source label (falling back to the engine component), slugged
+`docker-cluster-{hash}`, and linked back to the source. After every
+completed run the backend recomputes membership: a component joins the
+group only while this source is its **sole** effective-active reporter, so
+components shared with another importer stay ungrouped. Two Docker configs
+pointed at managers of the same swarm still produce two source-scoped
+groups.
+
+The group's lifecycle is derived (`ACTIVE` while it has active members) —
+humans can rename, re-describe, or re-own it, but `lifecycle` writes and
+deletion are rejected (`409 GROUP_AUTO_MANAGED`); retire the source instead.
+Set `autoGroup: false` to opt a config out — its source's group is frozen
+as-is, never torn down, and resumes maintenance if a later bound config
+re-enables it.
 
 
 ## Common failures

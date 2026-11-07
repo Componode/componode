@@ -47,3 +47,7 @@ ADR-104.
 
 **Amended by ADR-126**: `URL_CHECK_WRITE_DEPRECATED` identifies direct
 URL Check write attempts rejected by the importer-managed authoring model.
+
+**Amended by ADR-129**: the error-code set gains `GROUP_AUTO_MANAGED`
+(409) — controlled conflict for lifecycle/delete writes on
+system-provisioned ComponentGroups (spec 067).

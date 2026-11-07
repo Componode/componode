@@ -41,6 +41,30 @@ function actorName(actor: Actor): string | null {
   return actor.name ?? actor.id;
 }
 
+/**
+ * ADR-129 / spec 067: a group linked from `importer_sources.componentGroupId`
+ * is auto-managed — its lifecycle and membership are derived by the
+ * source-grouping pass. Humans may still rename/re-describe/re-own it, but
+ * lifecycle writes and deletion are rejected with a controlled conflict.
+ */
+async function isAutoManagedGroup(groupId: string): Promise<boolean> {
+  const link = await db
+    .selectFrom("importer_sources")
+    .select("id")
+    .where("componentGroupId", "=", groupId)
+    .executeTakeFirst();
+  return link !== undefined;
+}
+
+function autoManagedConflict(): never {
+  throw Object.assign(
+    new Error(
+      "Component group is managed by an importer source — its lifecycle and membership are derived automatically",
+    ),
+    { statusCode: 409, code: "GROUP_AUTO_MANAGED" },
+  );
+}
+
 export async function listComponentGroups(rawQuery: unknown) {
   const parsed = listComponentGroupsQuerySchema.parse(rawQuery);
   let query = db
@@ -198,6 +222,9 @@ export async function updateComponentGroup(
   }
 
   const parsed = updateComponentGroupSchema.parse(input);
+  if (parsed.lifecycle !== undefined && (await isAutoManagedGroup(id))) {
+    autoManagedConflict();
+  }
   if (parsed.slug && !isValidSlug(parsed.slug)) {
     throw Object.assign(new Error("Invalid slug"), {
       statusCode: 400,
@@ -263,6 +290,9 @@ export async function deleteComponentGroup(id: string, actor: Actor) {
   const existing = await getComponentGroupById(id);
   if (!existing) {
     return null;
+  }
+  if (await isAutoManagedGroup(id)) {
+    autoManagedConflict();
   }
 
   // Spec 019 / FR-009: a group that products depend on must not be deleted —

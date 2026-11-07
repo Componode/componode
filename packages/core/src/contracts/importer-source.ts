@@ -15,6 +15,9 @@ export interface ImporterSource {
   label: string | null;
   status: ImporterSourceStatus;
   boundConfigId: string | null;
+  /** Auto-managed ComponentGroup provisioned for this Source (ADR-129);
+   *  null when the Source has no group or grouping is not applicable. */
+  componentGroupId: string | null;
   firstSeenInRunId: string | null;
   lastSeenInRunId: string | null;
   createdAt: string;

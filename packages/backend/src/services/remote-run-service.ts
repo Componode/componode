@@ -32,6 +32,7 @@ import {
   updateRun,
 } from "./import-run-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
+import { runAutoGroupPass } from "./source-group-service.js";
 import { recordRunSourceIdentity } from "./importer-source-service.js";
 import { runActor } from "./import-run-service.js";
 
@@ -114,6 +115,9 @@ export interface RemoteRunStore {
     yieldedComponentIds: Set<string>,
   ): Promise<{ componentsRetired: number; instancesOrphaned: number }>;
   stageSuggestions(componentIds: string[], runId: string): Promise<void>;
+  /** ADR-129: refresh source-scoped auto groups after a completed run —
+   *  runs before suggestion staging so group coverage applies. */
+  maintainAutoGroups(job: RemoteJobContext): Promise<void>;
   touchCredentials(credentialIds: string[]): Promise<void>;
   /** Conditional PENDING→RUNNING transition; false = the run left PENDING
    *  underneath us (a cancel that raced dispatch). */
@@ -710,6 +714,14 @@ export class RemoteRunService implements RemoteRunHandler {
       // cancel request landing during reconcile still wins below.
       if (this.inFlight.get(runId) !== entry) return true;
       if (!entry.cancelRequested) {
+        // ADR-129: refresh auto groups before the run reports COMPLETED and
+        // before suggestion staging — group coverage suppresses stale
+        // component-pair suggestions. Failure-isolated.
+        try {
+          await this.store.maintainAutoGroups(entry.job);
+        } catch (err) {
+          this.log.warn({ runId, err }, "source auto-group pass failed after remote run");
+        }
         await this.finalize(entry, "completed", {
         ...base,
         status: "COMPLETED",
@@ -1091,6 +1103,13 @@ export function createDbRemoteRunStore(): RemoteRunStore {
       if (report) {
         appLogger.info({ runId, ...report }, "edge suggestions staged after remote run");
       }
+    },
+    async maintainAutoGroups(job) {
+      await runAutoGroupPass({
+        actor: runActor(job.importerName),
+        runId: job.runId,
+        trigger: "agent-run",
+      });
     },
     async touchCredentials(credentialIds) {
       await db

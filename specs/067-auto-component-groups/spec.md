@@ -21,6 +21,7 @@ All decisions resolved in the grilling session — no open markers:
 - **Identity**: `name` = source label → engine component name fallback; slug = `docker-cluster-{hash12(sourceIdentity)}` for Docker; `description` records source provenance; `teamOwnerId` = `NULL`.
 - **Accepted limitation**: per-source grouping — two configs on managers of the same swarm produce two sources → two overlapping groups; `Swarm.Cluster.ClusterID` merging is a documented future refinement.
 - **Packaging**: backend-only v1 — no UI badge or dedicated surface; auto-groups are ordinary `component_groups` rows visible everywhere groups already render.
+- **Q: What happens when a human DELETEs an auto-managed ComponentGroup? → A: `DELETE /component-groups/{id}` on an auto-managed group is rejected with a controlled conflict, same as `lifecycle` writes — auto-managed groups are retired via their source, never destroyed by hand.**
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -53,7 +54,7 @@ The auto-group's lifecycle reflects reality — `ACTIVE` while it has active mem
 **Acceptance Scenarios**:
 
 1. **Given** an auto-group with ≥1 `ACTIVE` member, **When** a pass runs, **Then** its lifecycle is `ACTIVE`; **given** zero active members, **Then** `RETIRED`.
-2. **Given** an auto-managed group, **When** a human PATCHes `lifecycle`, **Then** the API rejects with a controlled conflict; PATCHes to name/description/teamOwnerId succeed.
+2. **Given** an auto-managed group, **When** a human PATCHes `lifecycle`, **Then** the API rejects with a controlled conflict; PATCHes to name/description/teamOwnerId succeed. **When** a human DELETEs the group, **Then** the API likewise rejects with a controlled conflict.
 3. **Given** source retirement (components retired outside any run), **When** `retireSource` completes, **Then** the group's derived lifecycle/membership reflects it without waiting for another import.
 4. **Given** a human who manually places an ineligible (shared or manual) component inside the auto-group, **When** the next pass runs, **Then** it is evicted — the group is automation-owned.
 
@@ -86,6 +87,7 @@ A Docker importer config can opt out (`autoGroup: false`), and the group's name/
 - **Same swarm, two manager endpoints** — two sources, two overlapping groups (accepted v1 limitation; `ClusterID` merging deferred).
 - **Component retires** — `RETIRED` members don't count toward the ACTIVE-member lifecycle rule; component lifecycle changes outside runs still leave group state correct at next evaluation.
 - **Slug collision on create** — deterministic template + unique slug constraint; conflict resolves via the existing slug path without duplicating the group (FK link is authoritative, not slug).
+- **Human DELETE attempt** — rejected with a controlled conflict while the source link exists; there is no manual destroy path for auto-managed groups.
 - **Pre-existing components** — first pass after deploy retroactively assigns eligible existing components (no migration of membership needed; evaluation is derived).
 
 ## Requirements *(mandatory)*
@@ -110,7 +112,7 @@ A Docker importer config can opt out (`autoGroup: false`), and the group's name/
 **Lifecycle & edits**
 
 - **FR-010**: Auto-group lifecycle MUST be derived: `ACTIVE` iff ≥1 member component is `ACTIVE`, else `RETIRED`, recomputed each pass.
-- **FR-011**: `PATCH /component-groups/{id}` MUST reject `lifecycle` writes on auto-managed groups with a controlled conflict; name/description/teamOwnerId edits MUST remain allowed.
+- **FR-011**: `PATCH /component-groups/{id}` MUST reject `lifecycle` writes on auto-managed groups with a controlled conflict; name/description/teamOwnerId edits MUST remain allowed. `DELETE /component-groups/{id}` on an auto-managed group MUST likewise be rejected with a controlled conflict — the group is retired via its source, never destroyed by hand.
 
 **Enablement & identity**
 
@@ -127,7 +129,7 @@ A Docker importer config can opt out (`autoGroup: false`), and the group's name/
 - **FR-016**: This feature MUST NOT change the importer contract — no `DiscoveredAsset` field, no importer-declared groups or edges.
 - **FR-017**: This feature MUST NOT create product edges or modify any existing edge; `product_depends_on_component_group` wiring remains human-authored.
 - **FR-018**: Auto-groups MUST be ordinary `component_groups` rows — group edges, read-time expansion, and all existing group surfaces work unchanged.
-- **FR-019**: Implementation MUST update `docs/openapi.yaml` for the lifecycle-conflict response and any schema-visible changes (ADR-104), and `docs/importers/docker.md` for the `autoGroup` key.
+- **FR-019**: Implementation MUST update `docs/openapi.yaml` for the lifecycle/delete conflict responses and any schema-visible changes (ADR-104), and `docs/importers/docker.md` for the `autoGroup` key.
 - **FR-020**: Test-first development applies; grouping tests MUST cover Hub and Agent run paths, source retire/reactivate, and the human-conflict matrix.
 
 ### Key Entities *(include if feature involves data)*

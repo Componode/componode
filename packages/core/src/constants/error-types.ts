@@ -67,6 +67,7 @@ export const ERROR_TYPES: Record<ErrorCode, ErrorType> = {
   TARGET_DISABLED: { code: "TARGET_DISABLED", status: 409, title: "Target is disabled" },
   TARGET_IN_USE: { code: "TARGET_IN_USE", status: 409, title: "Target is in use" },
   TARGET_RESOLUTION_FAILED: { code: "TARGET_RESOLUTION_FAILED", status: 400, title: "Target resolution failed" },
+  GROUP_AUTO_MANAGED: { code: "GROUP_AUTO_MANAGED", status: 409, title: "Component group is managed by an importer source" },
 };
 
 export function getErrorType(code: ErrorCode): ErrorType {

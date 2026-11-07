@@ -26,6 +26,7 @@ import { sql, type Kysely } from "kysely";
 import type { DB } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
+import { runAutoGroupPass } from "./source-group-service.js";
 import {
   hasEffectiveActiveComponentMembership,
   markOrphanedInstancesGone,
@@ -1195,6 +1196,17 @@ async function worker(runId: string): Promise<void> {
     const rec = await reconcileRetiredComponents(runId, importerName!, config.id, yieldedComponentIds, reportedSourceId);
     componentsRetired = rec.componentsRetired;
     instancesOrphaned += rec.instancesOrphaned;
+
+    // ADR-129: refresh source-scoped auto groups before the run reports
+    // COMPLETED and before suggestions, so group coverage can suppress stale
+    // component-pair suggestions. Self-isolating — never fails the run.
+    // Runs on every completed import run (FR-002); the pass itself skips
+    // when no capable source exists.
+    await runAutoGroupPass({
+      actor: runActor(importerName!),
+      runId,
+      trigger: "hub-run",
+    });
 
     terminalStatus = "COMPLETED";
     await updateRun(runId, {
