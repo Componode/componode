@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   listSecrets: vi.fn(),
   ping: vi.fn(),
   getContainer: vi.fn(),
+  getImage: vi.fn(),
   ctor: vi.fn(),
 }));
 
@@ -29,6 +30,7 @@ vi.mock("dockerode", () => {
     listSecrets = mocks.listSecrets;
     ping = mocks.ping;
     getContainer = mocks.getContainer;
+    getImage = mocks.getImage;
   }
   return { default: DockerMock };
 });
@@ -96,6 +98,9 @@ beforeEach(() => {
   mocks.ping.mockResolvedValue("OK");
   mocks.listImages.mockResolvedValue([]);
   mocks.version.mockResolvedValue({ ApiVersion: "1.45" });
+  mocks.getImage.mockImplementation(() => ({
+    inspect: vi.fn(async () => ({})),
+  }));
 });
 
 describe("DockerImporter.run", () => {
@@ -106,8 +111,8 @@ describe("DockerImporter.run", () => {
       externalIdentity: "docker-engine:engine-1",
       label: "docker-1",
     });
-    expect(assets).toHaveLength(1);
-    const asset = assets[0];
+    expect(assets).toHaveLength(2); // engine component + container workload
+    const asset = assets.find((a) => a.category === "CONTAINER")!;
     expect(asset.externalId).toBe("compose:commerce:web");
     expect(asset.category).toBe("CONTAINER");
     expect(asset.provider).toBe("DOCKER");
@@ -123,7 +128,10 @@ describe("DockerImporter.run", () => {
     mocks.listContainers.mockResolvedValue([]);
     const { assets, context } = await run({ targetId: "local" });
     expect(context.reportSourceIdentity).toHaveBeenCalledOnce();
-    expect(assets).toHaveLength(0);
+    // spec 064: the engine component is always emitted — an empty
+    // container inventory still yields exactly the engine asset.
+    expect(assets).toHaveLength(1);
+    expect(assets[0].resourceType).toBe("docker-engine");
   });
 
   it("falls back to sourceKey when /info.ID is absent; fails when neither", async () => {
@@ -143,10 +151,11 @@ describe("DockerImporter.run", () => {
   it("never persists env vars, raw bind paths, or health output", async () => {
     inspects.set("abc123", inspectFixture());
     const { assets } = await run({ targetId: "local" });
-    const json = JSON.stringify(assets);
+    const container = assets.find((a) => a.category === "CONTAINER")!;
+    const json = JSON.stringify(container);
     expect(json).not.toContain("hunter2");
     expect(json).not.toContain("/home/user/data");
-    const mount = (assets[0].instances[0].rawConfig as any).mounts[0];
+    const mount = (container.instances[0].rawConfig as any).mounts[0];
     expect(mount.type).toBe("bind");
     expect(mount.ref).toBe("bind:abc123:/data");
     expect(mount.destination).toBe("/data");
@@ -170,7 +179,8 @@ describe("DockerImporter.run", () => {
     for (const [state, expected] of cases) {
       inspects.set("abc123", inspectFixture({ State: state }));
       const { assets } = await run({ targetId: "local" });
-      expect(assets[0].instances[0].status).toBe(expected);
+      const container = assets.find((a) => a.category === "CONTAINER")!;
+      expect(container.instances[0].status).toBe(expected);
     }
   });
 
@@ -197,8 +207,9 @@ describe("DockerImporter.run", () => {
       }),
     );
     const { assets } = await run({ targetId: "local" });
-    expect(validateDiscoveredAsset(assets[0])).toBe(true);
-    const obs = (assets[0].instances[0].rawConfig as any).dockerObservation;
+    const container = assets.find((a) => a.category === "CONTAINER")!;
+    expect(validateDiscoveredAsset(container)).toBe(true);
+    const obs = (container.instances[0].rawConfig as any).dockerObservation;
     expect(obs).toMatchObject({
       state: "running",
       health: { status: "unhealthy", failingStreak: 2 },
@@ -206,6 +217,98 @@ describe("DockerImporter.run", () => {
     const json = JSON.stringify(assets);
     expect(json).not.toContain("connection refused");
     expect(json).not.toContain("nc -z");
+  });
+
+  it("emits exactly one engine component per run on non-Swarm engines (spec 064)", async () => {
+    mocks.info.mockResolvedValue({
+      ID: "engine-1",
+      Name: "docker-1",
+      ServerVersion: "27.3.1",
+      OperatingSystem: "linux",
+      Architecture: "x86_64",
+      KernelVersion: "6.8.0",
+      DockerRootDir: "/var/lib/docker",
+      HTTPProxy: "http://user:pass@proxy:3128",
+      Plugins: [{ Name: "leaky" }],
+      Warnings: ["warn"],
+    });
+    mocks.version.mockResolvedValue({ ApiVersion: "1.45", Version: "27.3.1" });
+    const { assets } = await run({ targetId: "local" });
+    const engines = assets.filter((a) => a.resourceType === "docker-engine");
+    expect(engines).toHaveLength(1);
+    const engine = engines[0];
+    expect(engine.category).toBe("COMPUTE");
+    expect(engine.externalId).toBe("docker-engine:engine-1");
+    expect(engine.instances).toHaveLength(1);
+    expect(engine.instances[0].status).toBe("RUNNING");
+    expect(engine.details).toMatchObject({
+      serverVersion: "27.3.1",
+      apiVersion: "1.45",
+      os: "linux",
+      arch: "x86_64",
+    });
+    const json = JSON.stringify(engine);
+    expect(json).not.toContain("user:pass@proxy");
+    expect(json).not.toContain("/var/lib/docker");
+    expect(json).not.toContain("leaky");
+    expect(validateDiscoveredAsset(engine)).toBe(true);
+    // one /version call per run feeds both engine facts and the Swarm gate
+    expect(mocks.version).toHaveBeenCalledTimes(1);
+  });
+
+  it("enriches container instances with imageId/hostConfig/healthcheck (spec 064)", async () => {
+    inspects.set(
+      "abc123",
+      inspectFixture({
+        Image: "sha256:img-abc",
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped", MaximumRetryCount: 0 },
+          Memory: 268435456,
+          NanoCpus: 500000000,
+          PidsLimit: 256,
+          ReadonlyRootfs: true,
+          LogConfig: { Type: "json-file" },
+          Binds: ["/srv/data:/data"],
+        },
+        Config: {
+          Image: "registry.local/commerce/web:1.2.3",
+          Labels: {
+            "com.docker.compose.project": "commerce",
+            "com.docker.compose.service": "web",
+          },
+          Healthcheck: {
+            Test: ["CMD-SHELL", "curl -fsS localhost || exit 1"],
+            Interval: 30000000000,
+            Timeout: 5000000000,
+            Retries: 3,
+            StartPeriod: 10000000000,
+          },
+        },
+      }),
+    );
+    const { assets } = await run({ targetId: "local" });
+    const container = assets.find((a) => a.category === "CONTAINER");
+    expect(container).toBeDefined();
+    expect(validateDiscoveredAsset(container)).toBe(true);
+    const raw = container!.instances[0].rawConfig as Record<string, any>;
+    expect(raw.imageId).toBe("sha256:img-abc");
+    expect(raw.hostConfig).toEqual({
+      memoryBytes: 268435456,
+      nanoCpus: 500000000,
+      pidsLimit: 256,
+      restartPolicy: { mode: "unless-stopped" },
+      readOnlyRootfs: true,
+      logDriver: "json-file",
+    });
+    expect(raw.healthcheck).toEqual({
+      intervalSeconds: 30,
+      timeoutSeconds: 5,
+      retries: 3,
+      startPeriodSeconds: 10,
+    });
+    const json = JSON.stringify(container);
+    expect(json).not.toContain("curl -fsS");
+    expect(json).not.toContain("/srv/data");
   });
 
   it("skips image inventory by default; emits PACKAGE_REGISTRY assets when opted in", async () => {
@@ -219,6 +322,112 @@ describe("DockerImporter.run", () => {
     expect(image?.externalId).toBe("docker-image:app:latest");
     expect(image?.instances).toEqual([]);
     expect(validateDiscoveredAsset(image)).toBe(true);
+  });
+
+  // spec 064 / contracts/engine-and-image-assets.md — opt-in inspect
+  // merge: dedupe by image Id, bounded OCI allowlist, degrade per image.
+  describe("image inspect enrichment (spec 064)", () => {
+    const IMAGE_INSPECT = {
+      Id: "sha256:img1",
+      Architecture: "amd64",
+      Os: "linux",
+      Config: {
+        Labels: {
+          "org.opencontainers.image.source": "https://github.com/org/repo",
+          "org.opencontainers.image.revision": "abc123",
+          "org.opencontainers.image.version": "1.2.3",
+          "org.opencontainers.image.vendor": "Acme",
+          "org.opencontainers.image.licenses": "Apache-2.0",
+          "org.opencontainers.image.description": "demo",
+          "org.opencontainers.image.title": "Demo",
+          "org.opencontainers.image.url": "https://example.com",
+          "org.opencontainers.image.documentation": "https://docs.example.com",
+          "org.opencontainers.image.source-label": "org/repo",
+          "com.example.custom": "not-allowlisted",
+          "org.opencontainers.image.random": "not-allowlisted",
+        },
+        User: "node",
+        ExposedPorts: { "8080/tcp": {}, "443/tcp": {} },
+        Entrypoint: ["node", "server.js"],
+        WorkingDir: "/app",
+        Volumes: { "/data": {} },
+      },
+    };
+
+    function mockImages() {
+      mocks.listImages.mockResolvedValue([
+        {
+          Id: "sha256:img1",
+          RepoTags: ["app:latest"],
+          RepoDigests: ["registry/app@sha256:a", "registry/app@sha256:b"],
+          Size: 100,
+          Created: 123,
+        },
+      ]);
+      mocks.getImage.mockImplementation((id: string) => ({
+        inspect: vi.fn(async () => (id === "sha256:img1" ? IMAGE_INSPECT : {})),
+      }));
+    }
+
+    it("inspects each unique image Id once and merges bounded details into every ref asset", async () => {
+      mockImages();
+      const { assets } = await run({ targetId: "local", includeImages: true });
+      const images = assets.filter((a) => a.category === "PACKAGE_REGISTRY");
+      // RepoDigests preferred over RepoTags → two ref assets, one Id
+      expect(images.map((a) => a.externalId).sort()).toEqual([
+        "docker-image:registry/app@sha256:a",
+        "docker-image:registry/app@sha256:b",
+      ]);
+      expect(mocks.getImage).toHaveBeenCalledTimes(1);
+      expect(mocks.getImage).toHaveBeenCalledWith("sha256:img1");
+      for (const img of images) {
+        expect(img.details).toMatchObject({
+          imageId: "sha256:img1",
+          size: 100,
+          created: 123,
+          architecture: "amd64",
+          os: "linux",
+          user: "node",
+          entrypoint: ["node", "server.js"],
+          workingDir: "/app",
+          exposedPorts: ["8080/tcp", "443/tcp"],
+          volumes: ["/data"],
+        });
+        const labels = (img.details as any).ociLabels;
+        expect(labels["org.opencontainers.image.source"]).toBe("https://github.com/org/repo");
+        expect(labels["org.opencontainers.image.revision"]).toBe("abc123");
+        expect(Object.keys(labels)).toHaveLength(10);
+        expect(labels["com.example.custom"]).toBeUndefined();
+        expect(labels["org.opencontainers.image.random"]).toBeUndefined();
+        expect(validateDiscoveredAsset(img)).toBe(true);
+      }
+    });
+
+    it("degrades per image — a failed inspect still emits the asset without details", async () => {
+      mocks.listImages.mockResolvedValue([
+        { Id: "sha256:good", RepoTags: ["ok:1"], RepoDigests: [], Size: 1, Created: 1 },
+        { Id: "sha256:bad", RepoTags: ["bad:1"], RepoDigests: [], Size: 1, Created: 1 },
+      ]);
+      mocks.getImage.mockImplementation((id: string) => ({
+        inspect: vi.fn(async () => {
+          if (id === "sha256:bad") throw new Error("inspect denied");
+          return { ...IMAGE_INSPECT, Id: id };
+        }),
+      }));
+      const { assets } = await run({ targetId: "local", includeImages: true });
+      const good = assets.find((a) => a.externalId === "docker-image:ok:1")!;
+      const bad = assets.find((a) => a.externalId === "docker-image:bad:1")!;
+      expect((good.details as any).architecture).toBe("amd64");
+      expect(bad.details).toEqual({ imageId: "sha256:bad", size: 1, created: 1 });
+      expect(validateDiscoveredAsset(bad)).toBe(true);
+    });
+
+    it("makes zero inspect calls when includeImages is off", async () => {
+      mockImages();
+      await run({ targetId: "local" });
+      expect(mocks.listImages).not.toHaveBeenCalled();
+      expect(mocks.getImage).not.toHaveBeenCalled();
+    });
   });
 
   it("an aborted signal short-circuits run() before listing", async () => {

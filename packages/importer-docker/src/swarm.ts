@@ -17,7 +17,21 @@ export interface SwarmService {
   Spec?: {
     Name?: string;
     Labels?: Record<string, string>;
-    Mode?: { Replicated?: { Replicas?: number }; Global?: object };
+    Mode?: {
+      Replicated?: { Replicas?: number };
+      Global?: object;
+      ReplicatedJob?: object;
+      GlobalJob?: object;
+    };
+    EndpointSpec?: {
+      Ports?: {
+        Protocol?: string;
+        TargetPort?: number;
+        PublishedPort?: number;
+        PublishMode?: string;
+      }[];
+    };
+    Networks?: { Target?: string }[];
     TaskTemplate?: {
       ContainerSpec?: { Image?: string };
       Secrets?: { SecretID?: string; SecretName?: string }[];
@@ -68,6 +82,38 @@ export function swarmNodeStatus(node: SwarmNode): InstanceStatus {
   return ready && active && reachable ? "RUNNING" : "ERROR";
 }
 
+// Service mode (spec 064): job types checked before the replicated/global
+// fallbacks — ReplicatedJob/GlobalJob are distinct Mode members, and job
+// services stay CONTAINER_ORCHESTRATION (mode is an observation only).
+export function swarmServiceMode(svc: SwarmService): string {
+  const mode = svc.Spec?.Mode;
+  if (mode?.ReplicatedJob !== undefined) return "replicated-job";
+  if (mode?.GlobalJob !== undefined) return "global-job";
+  return mode?.Global !== undefined ? "global" : "replicated";
+}
+
+// Published ports from Spec.EndpointSpec — flat entries carrying
+// protocol/target/published(/publishMode); shares the `ports` key with
+// container instances (entry shape differs by design).
+function mapSwarmPorts(svc: SwarmService) {
+  const ports = (svc.Spec?.EndpointSpec?.Ports ?? [])
+    .filter((p) => p.TargetPort !== undefined)
+    .map((p) => ({
+      protocol: p.Protocol ?? "tcp",
+      target: p.TargetPort,
+      ...(p.PublishedPort !== undefined ? { published: p.PublishedPort } : {}),
+      ...(p.PublishMode ? { publishMode: p.PublishMode } : {}),
+    }));
+  return ports.length ? ports : undefined;
+}
+
+function mapSwarmNetworks(svc: SwarmService) {
+  const networks = (svc.Spec?.Networks ?? [])
+    .map((n) => n.Target)
+    .filter((t): t is string => Boolean(t));
+  return networks.length ? networks : undefined;
+}
+
 export function mapSwarmService(
   svc: SwarmService,
   sourceIdentity: string,
@@ -77,7 +123,7 @@ export function mapSwarmService(
   const name = svc.Spec?.Name ?? svc.ID;
   const labels = svc.Spec?.Labels ?? {};
   const stack = labels["com.docker.stack.namespace"] ?? null;
-  const mode = svc.Spec?.Mode?.Global !== undefined ? "global" : "replicated";
+  const mode = swarmServiceMode(svc);
   // Manager-reported ServiceStatus counts are the contract's source of
   // truth for both modes; Spec.Replicas is only a fallback when the
   // manager didn't report (never during normal `status=1` listing).
@@ -96,6 +142,8 @@ export function mapSwarmService(
   const configRefs = (svc.Spec?.TaskTemplate?.Configs ?? [])
     .map((c) => ({ id: c.ConfigID ?? "", name: c.ConfigName ?? "" }))
     .filter((r) => r.id && r.name);
+  const ports = mapSwarmPorts(svc);
+  const networks = mapSwarmNetworks(svc);
 
   const instance: DiscoveredAssetInstance = {
     externalId: instanceExternalId(sourceIdentity, `swarm-service:${svc.ID}`),
@@ -112,6 +160,8 @@ export function mapSwarmService(
         ...(updateState ? { updateState } : {}),
         observedAt: new Date().toISOString(),
       },
+      ...(ports ? { ports } : {}),
+      ...(networks ? { networks } : {}),
     },
     sourceDetails: { stack, serviceId: svc.ID },
   };

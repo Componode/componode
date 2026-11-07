@@ -96,6 +96,14 @@ export const createComponentGroupSchema = z.object({
 export const updateComponentGroupSchema = createComponentGroupSchema
   .partial()
   .extend({
+    // Bugfix 066: explicit null clears description/teamOwnerId — the service
+    // already persists `?? null`; create stays non-nullable.
+    description: z
+      .string()
+      .max(500, "Description must be 500 characters or less")
+      .nullable()
+      .optional(),
+    teamOwnerId: z.string().uuid().nullable().optional(),
     lifecycle: z.enum(lifecycleEnum).optional(),
   });
 

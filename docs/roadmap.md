@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–063)
+## Shipped (features 001–064)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -379,6 +379,15 @@ file tracks shipped and upcoming work — update it when a spec completes.
   Advanced disclosure for Docker's power-user scope keys, and
   `docs/importers/docker.md` opens with a five-minute quickstart.
   Agent-side setup simplification remains deferred.
+- `064-docker-importer-enrichment` — Docker imports now keep bounded
+  operational truth the Engine API already returns: container instances
+  carry `imageId`, host-config limits/posture, and health-check timings;
+  Swarm services carry published ports, network names, and job modes;
+  every run emits one `docker-engine` component with version/platform/
+  Swarm-manager facts; and opt-in image inventory merges allowlisted OCI
+  provenance per unique image. Component detail renders all of it in
+  named allowlist sections — env vars, host paths, health output, and
+  unbounded engine fields remain excluded (ADR-121 Amendment 3).
 
 ## Next — post-v1.1
 
@@ -389,7 +398,8 @@ onboarding completion (054), the repeated-failure auto-disable
 policy (056), and importer-managed checks (058) — has shipped, as has the Product Map
 topology (059), the Component Relationships view (060), component
 dependencies in the Product topology (061), prototype UX parity (062),
-and guided Docker importer onboarding (063).
+guided Docker importer onboarding (063), and Docker importer enrichment
+(064).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new

@@ -125,7 +125,9 @@ describe("swarm discovery gate (ADR-121 A2)", () => {
     expect(mocks.listServices).not.toHaveBeenCalled();
     expect(mocks.listNodes).not.toHaveBeenCalled();
     expect(mocks.listSecrets).not.toHaveBeenCalled();
-    expect(mocks.version).not.toHaveBeenCalled();
+    // spec 064: /version is still called once per run for engine facts —
+    // it is no longer Swarm-gate-only.
+    expect(mocks.version).toHaveBeenCalledTimes(1);
   });
 
   it("skips swarm on a worker-only endpoint (ControlAvailable false)", async () => {
@@ -262,8 +264,66 @@ describe("importer swarm emission", () => {
     mocks.listSecrets.mockResolvedValue([secret()]);
     const assets = await collect();
     const kinds = assets.map((a) => a.resourceType).sort();
-    expect(kinds).toEqual(["swarm-node", "swarm-secret", "swarm-service"]);
+    // spec 064: the always-emitted engine component joins the swarm surfaces
+    expect(kinds).toEqual(["docker-engine", "swarm-node", "swarm-secret", "swarm-service"]);
     expect(assets.every((a) => validateDiscoveredAsset(a))).toBe(true);
     expect(mocks.listServices).toHaveBeenCalledWith({ status: true });
+  });
+});
+
+// spec 064 / contracts/enriched-instance-fields.md — Swarm service
+// exposure facts from the already-fetched Spec; job modes stay
+// CONTAINER_ORCHESTRATION.
+describe("swarm service enrichment (spec 064)", () => {
+  it("emits published ports and network names from Spec", () => {
+    const a = mapSwarmService(
+      service({
+        Spec: {
+          ...service().Spec!,
+          EndpointSpec: {
+            Ports: [
+              { Protocol: "tcp", TargetPort: 80, PublishedPort: 8080, PublishMode: "ingress" },
+              { Protocol: "udp", TargetPort: 53, PublishMode: "host" },
+            ],
+          },
+          Networks: [{ Target: "frontend" }, { Target: "backend" }],
+        },
+      } as SwarmService),
+      "src:e1",
+      undefined,
+      undefined,
+    );
+    const raw = a.instances[0]!.rawConfig as Record<string, unknown>;
+    expect(raw.ports).toEqual([
+      { protocol: "tcp", target: 80, published: 8080, publishMode: "ingress" },
+      { protocol: "udp", target: 53, publishMode: "host" },
+    ]);
+    expect(raw.networks).toEqual(["frontend", "backend"]);
+    expect(validateDiscoveredAsset(a)).toBe(true);
+  });
+
+  it("omits ports/networks when the spec reports none", () => {
+    const a = mapSwarmService(service(), "src:e1", undefined, undefined);
+    const raw = a.instances[0]!.rawConfig as Record<string, unknown>;
+    expect(raw).not.toHaveProperty("ports");
+    expect(raw).not.toHaveProperty("networks");
+  });
+
+  it.each([
+    [{ ReplicatedJob: { MaxConcurrent: 1 } }, "replicated-job"],
+    [{ GlobalJob: {} }, "global-job"],
+    [{ Global: {} }, "global"],
+    [{ Replicated: { Replicas: 2 } }, "replicated"],
+  ] as const)("Mode %j → mode %s on observation and details", (mode, expected) => {
+    const a = mapSwarmService(
+      service({ Spec: { ...service().Spec!, Mode: mode } } as SwarmService),
+      "src:e1",
+      undefined,
+      undefined,
+    );
+    expect(a.category).toBe("CONTAINER_ORCHESTRATION");
+    const obs = a.instances[0]!.rawConfig!.swarmObservation as { mode: string };
+    expect(obs.mode).toBe(expected);
+    expect((a.details as Record<string, unknown>).mode).toBe(expected);
   });
 });

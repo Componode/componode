@@ -58,8 +58,26 @@ setups are covered in [deployment.md](../deployment.md) (Hub) and
   is configured). Never collected: `/stats`, events, health-check
   output (`Health.Log`), health-check test commands, or history — the
   observation renders on the component detail's Instances table.
+- Each Instance also carries bounded **configuration facts** under
+  `rawConfig`: `imageId` (the immutable `sha256:` image ID, which joins
+  image assets), `hostConfig` (memory/CPU/PID limits, restart policy,
+  privileged and read-only-rootfs posture, log-driver name), and
+  `healthcheck` timings in seconds. Never collected: `Config.Env`,
+  health-check `Test` commands, bind mount sources, or log-driver
+  options.
+- One **COMPUTE** Component per source (`docker-engine`) — always
+  emitted on every transport and executor — carrying bounded engine
+  facts in `details`: server/API versions, OS, architecture, kernel,
+  cgroup driver, runtimes, registry mirrors, and Swarm manager state
+  when the engine reports it. Host root dir, proxy variables, plugins,
+  security options, and warnings are never collected.
 - Optionally (off by default): cached local images as metadata-only
-  **PACKAGE_REGISTRY** Components.
+  **PACKAGE_REGISTRY** Components. With `includeImages` on, each unique
+  image is inspected once and gains bounded provenance in `details` —
+  allowlisted `org.opencontainers.image.*` labels plus exposed ports,
+  user, entrypoint, working directory, volumes, and architecture/OS.
+  A failed inspect omits that image's enrichment only; the run is
+  unaffected.
 
 Compose project/service values are source metadata, not Components or
 edges; the component edit dialog offers them as user-confirmed
@@ -81,7 +99,12 @@ below the floor the run fails rather than emit a partial inventory):
   `GONE`. Per-task health is never inferred. Each Instance carries an
   allowlisted `swarmObservation` (`mode`, `desired`, `running`,
   optional `completed` and `updateState`, `observedAt`) — never task
-  lists, task inspect, or logs.
+  lists, task inspect, or logs. `mode` reports `replicated`, `global`,
+  `replicated-job`, or `global-job`; job services remain
+  `CONTAINER_ORCHESTRATION`. The Instance also carries the service
+  spec's published ports (`ports[]`: protocol/target/published/
+  publishMode) and attached network targets (`networks[]` — names or
+  IDs as reported by the service spec).
 - One **COMPUTE** Component per node (`swarm-node`) with a
   status-bearing Instance — `ready`+`active` → `RUNNING`,
   `drain`/`pause` → `STOPPED`, `down`/`disconnected`/unreachable/
@@ -92,8 +115,9 @@ below the floor the run fails rather than emit a partial inventory):
   read. Secret/config *references* appear on service details as
   bounded `{id,name}` pairs; no `CONFIG` Components.
 
-Non-Swarm endpoints make zero additional calls beyond the `/info` the
-importer already fetches.
+Non-Swarm endpoints make no Swarm calls — the run still makes one
+`/version` call for the engine component's facts (reused by the
+API-floor gate when Swarm is active).
 
 ## Instance status
 
