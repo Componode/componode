@@ -2,7 +2,7 @@
 
 **Feature Branch**: `064-docker-importer-enrichment`
 **Created**: 2026-11-06
-**Status**: Draft
+**Status**: Shipped
 **Input**: Operators cannot see deployed image provenance, engine versions, resource limits, or Swarm published ports — facts the Docker Engine API already returns and the importer discards. Design grilled and ratified in `researches/docker-importer-enrichment-pack.md` (Wave F of the Docker importer program): bounded observation enrichment, one engine component per source, opt-in image inspect, and bounded UI surfacing — zero new endpoints, zero new config keys, no API/contract changes. Governing docs: ADR-121 (data-minimization allowlist), ADR-122 (dual Hub/Agent executor parity).
 
 ## Clarifications

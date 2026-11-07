@@ -4,7 +4,7 @@
 
 **Created**: 2026-02-14
 
-**Status**: Draft
+**Status**: Shipped
 
 **Input**: User report — on `/component-groups/componode-dockers` the Members
 table never shows components, and the Edit group dialog's "Owning team"
