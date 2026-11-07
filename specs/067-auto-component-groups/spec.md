@@ -2,7 +2,7 @@
 
 **Feature Branch**: `067-auto-component-groups`
 **Created**: 2026-11-07
-**Status**: Draft
+**Status**: Shipped
 **Input**: Imported components — including the `docker-engine` COMPUTE component and every workload a Docker source reports — land in the catalog with no grouping, so a product that depends on "the cluster" must wire N individual components by hand. Design grilled and ratified in a two-round session (16 decisions, all approved) recorded in `researches/adrs/ADR-129-source-scoped-auto-component-groups.md` and `research.md`: a generic, source-scoped, system-provisioned ComponentGroup mechanism with Docker as the first strategy. Governing docs: ADR-129 (mechanism + Docker strategy), ADR-082 (amended — system-provisioned groups), ADR-019 (amended — `componentGroupId` system-derived carve-out), ADR-110 (group edges), ADR-113 (suppression interaction), ADR-119/120 (source identity/memberships).
 
 ## Clarifications
