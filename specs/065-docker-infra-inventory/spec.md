@@ -2,7 +2,7 @@
 
 **Feature Branch**: `065-docker-infra-inventory`
 **Created**: 2026-11-07
-**Status**: Draft
+**Status**: Shipped
 **Input**: Docker networks and volumes are infrastructure the catalog cannot see today — operators cannot answer "which networks do my workloads attach to" or "what persistent storage exists on this engine" even though the engine's network and volume list endpoints already return those facts. Design grilled and ratified in `researches/docker-importer-enrichment-pack.md` (Wave G of the Docker importer program): `NETWORK`/`STORAGE` components with `instances: []`, scope/name-qualified identities, strict field allowlists, a fail-closed error policy, and bounded UI surfacing — zero new endpoints, zero new config keys, no API/contract changes. Governing docs: ADR-121 (data-minimization allowlist), ADR-122 (dual Hub/Agent executor parity).
 
 ## Clarifications
