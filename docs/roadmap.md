@@ -435,6 +435,8 @@ Engine workload inventory, Docker observations + Source UI, then Swarm
 inventory. Alongside:
 
 - Runtime-loaded importer plugins
+- Source-scoped auto ComponentGroups (spec 067, ADR-129 — grilled and
+  documented; implementation scheduled separately)
 - Invite-based registration
 - E2E tests
 - Per-environment blast-radius traversal

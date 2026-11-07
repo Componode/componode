@@ -57,6 +57,7 @@
 | [ADR-112](./adrs/ADR-112-product-health-rollup.md)                                  | Derived product health from component instance status; Amendment 1 — monitored instance status may be URL Check-driven (ADR-126)                                                              |
 | [ADR-113](./adrs/ADR-113-staged-edge-suggestions.md)                                | Staged edge suggestions: server-generated DEPENDS_ON candidates (amends ADR-019); spec-042 amendment makes `DECIDED` queryable on `GET /suggestions` for the decided-history view             |
 | [ADR-114](./adrs/ADR-114-catalog-bootstrap-import.md)                               | Catalog bootstrap import: declarative product + dependency file                                                                                                                               |
+| [ADR-129](./adrs/ADR-129-source-scoped-auto-component-groups.md)                   | Source-scoped auto ComponentGroups: system-provisioned group per ImporterSource, sole-effective-reporter membership invariant, derived lifecycle (amends ADR-082, ADR-019); Docker first strategy — spec 067 (Draft)                                          |
 
 ### Monitoring
 

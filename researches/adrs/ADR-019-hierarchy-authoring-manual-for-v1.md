@@ -20,3 +20,13 @@ can reliably infer. v1 keeps the importer contract clean.
 > server-generated `DEPENDS_ON` candidates reviewed in a queue; every edge
 > still requires human acceptance. Importer-declared candidates remain a
 > distinct v2 mechanism per constitution V.
+>
+> **AMENDMENT ([ADR-129](./ADR-129-source-scoped-auto-component-groups.md),
+> ratified 2026-11-07)**: `components.componentGroupId` gains a
+> system-derived assignment path **for auto-managed, source-scoped
+> ComponentGroups only** — membership is recomputed from ImporterSource
+> memberships after each completed run, never touching components in
+> human-managed groups. Product hierarchy and every edge type
+> (`COMPOSES`/`CONSUMES_FROM`/`DEPENDS_ON*`) remain human-decided; a
+> ComponentGroup is a component attribute, not an edge, so this carve-out
+> does not weaken the manual-authoring rule for the meaning layer.
