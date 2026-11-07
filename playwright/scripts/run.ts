@@ -11,6 +11,7 @@ import { composeBuild, composeUp, composeDown, compose } from './compose.js';
 import { captureNormalStackState, diffNormalStack } from './normal-stack.js';
 
 const debug = process.argv.includes('--debug');
+const pwArgs = process.argv.slice(2).filter((a) => a !== '--debug' && a !== '--');
 
 async function main() {
   const env = loadWorkloadEnv();
@@ -64,7 +65,7 @@ async function main() {
     execFileSync('docker', [
       'compose', '-f', `${PLAYWRIGHT_DIR}/compose.test.yml`,
       '--project-name', COMPOSE_PROJECT, '--project-directory', PLAYWRIGHT_DIR,
-      'run', '--rm', 'runner', 'pnpm', 'exec', 'playwright', 'test',
+      'run', '--rm', 'runner', 'pnpm', 'exec', 'playwright', 'test', ...pwArgs,
     ], { env: composeEnv, stdio: 'inherit' });
     console.log('[e2e] suite finished');
   } finally {

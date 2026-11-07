@@ -18,3 +18,11 @@ enforceable — a contributor runs `pnpm test` and the harness tells them their
 `DiscoveredAsset` records are malformed without a maintainer reviewing for
 that. Integration tests for the core path (the maintainers' responsibility)
 catch schema/query bugs.
+
+## Amendment 1 — Per-spec Playwright coverage
+
+The "E2e: deferred to post-v1" deferral has ended. The `playwright/`
+workload (spec 055) is the standing e2e mechanism, and every spec —
+feature or bugfix — now ships Playwright coverage for the surface it
+changed (browsing flows, CRUD, integrations, data integrity as
+applicable). See `AGENTS.md` § Testing and constitution VI.

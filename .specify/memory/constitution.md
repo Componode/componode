@@ -118,10 +118,14 @@ principle.
 - **Forbids**: Shipping implementation without tests, bypassing
   `validateDiscoveredAsset` in importer packages, skipping the harness in
   importer unit tests, merging PRs without integration tests for core-path
-  changes.
+  changes, shipping a spec without Playwright coverage of the surface it
+  changed.
 - **Permits**: Unit tests for pure logic, the shared harness for importer
   contract validation, integration tests with testcontainers for DB-touching
-  code, deferring E2E tests to post-v1 (per ADR-029).
+  code, and Playwright specs under `playwright/` scoped to the spec's
+  changed surface — browsing flows, CRUD, integrations, and data integrity
+  as applicable (ADR-029's post-v1 E2E deferral ended with the 055
+  workload).
 
 ### VII. Observability from Day One
 
