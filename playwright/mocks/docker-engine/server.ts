@@ -13,6 +13,15 @@ const INFO = {
   ID: 'pw-engine-0001', Containers: 2, ContainersRunning: 2, Images: 3,
   Driver: 'overlay2', DockerRootDir: '/var/lib/docker', Name: 'pw-engine',
   ServerVersion: '24.0.7', OperatingSystem: 'pw-linux', Architecture: 'x86_64',
+  KernelVersion: '6.6.0-pw', CgroupDriver: 'systemd',
+  Runtimes: { runc: {}, 'io.containerd.runc.v2': {} },
+  RegistryConfig: { Mirrors: ['https://mirror.pw.test'] },
+  // Exclusion sentinels (spec 064): the importer must never surface these.
+  Plugins: { Volume: [{ Name: 'local' }] },
+  SecurityOptions: ['name=apparmor'],
+  Warnings: ['experimental feature enabled'],
+  HTTPProxy: 'http://proxy.corp:3128', HTTPSProxy: 'http://proxy.corp:3128',
+  NoProxy: 'localhost',
   Swarm: { LocalNodeState: 'inactive' },
 };
 
@@ -45,11 +54,107 @@ const IMAGES = [
   { Id: 'sha256:img2'.padEnd(71, 'b'), RepoTags: ['busybox:1.36'], Created: 1699000000, Size: 4500000, Labels: {} },
 ];
 
+// Per-image inspect payloads (spec 064): allowlisted OCI labels plus
+// sentinel fields (Env, non-allowlisted label) the importer must drop.
+// Index-parallel to IMAGES.
+const IMAGE_INSPECTS: unknown[] = [
+  {
+    Architecture: 'amd64', Os: 'linux',
+    Config: {
+      Labels: {
+        'org.opencontainers.image.source': 'https://github.com/nginx/nginx',
+        'org.opencontainers.image.revision': 'a1b2c3d',
+        'org.opencontainers.image.version': '1.25.4',
+        'org.opencontainers.image.vendor': 'NGINX',
+        'org.opencontainers.image.licenses': 'BSD-2-Clause',
+        'org.opencontainers.image.description': 'nginx web server',
+        'org.opencontainers.image.title': 'nginx',
+        'org.opencontainers.image.url': 'https://nginx.org',
+        'org.opencontainers.image.documentation': 'https://docs.nginx.com',
+        'org.opencontainers.image.source-label': 'org.opencontainers.image.source=nginx',
+        'com.example.internal': 'must-not-appear',
+      },
+      User: 'nginx',
+      ExposedPorts: { '80/tcp': {} },
+      Entrypoint: ['/docker-entrypoint.sh'],
+      WorkingDir: '/usr/share/nginx/html',
+      Volumes: { '/var/cache/nginx': {} },
+      Env: ['NGINX_VERSION=1.25.4'],
+    },
+  },
+  {
+    Architecture: 'arm64', Os: 'linux',
+    Config: { Labels: {}, Env: ['PATH=/usr/bin'] },
+  },
+];
+
+// Per-container inspect enrichment (spec 064): image id, bounded
+// HostConfig/Healthcheck, real Networks/Ports — plus sentinels the
+// importer must never surface (Config.Env, Healthcheck.Test, Binds,
+// host paths in Mounts).
+const CONTAINER_INSPECT_EXTRA: Record<string, Record<string, unknown>> = {
+  c001: {
+    Image: IMAGES[0].Id,
+    RepoDigests: ['nginx@sha256:feedfacecafe'],
+    Config: {
+      Image: 'nginx:1.25',
+      Labels: CONTAINERS[0].Labels,
+      Env: ['PATH=/usr/bin', 'APP_SECRET=do-not-leak'],
+      Healthcheck: {
+        Test: ['CMD', 'curl', '-f', 'http://localhost/'],
+        Interval: 30000000000, Timeout: 10000000000,
+        Retries: 3, StartPeriod: 5000000000,
+      },
+    },
+    HostConfig: {
+      Memory: 536870912, NanoCpus: 1500000000, PidsLimit: 100,
+      RestartPolicy: { Name: 'unless-stopped', MaximumRetryCount: 5 },
+      Privileged: true, ReadonlyRootfs: true,
+      LogConfig: { Type: 'json-file', Config: { 'max-size': '10m' } },
+      Binds: ['/host/secrets:/run/secrets:ro'],
+    },
+    NetworkSettings: {
+      Ports: { '80/tcp': [{ HostIp: '0.0.0.0', HostPort: '8080' }] },
+      Networks: {
+        bridge: { IPAddress: '172.17.0.2' },
+        'pw-overlay': { IPAddress: '10.0.0.5' },
+      },
+    },
+    Mounts: [{ Type: 'bind', Source: '/host/data', Destination: '/data' }],
+  },
+  c002: {
+    Image: IMAGES[1].Id,
+    Config: { Image: 'busybox:1.36', Labels: {}, Env: ['PATH=/usr/bin'] },
+    NetworkSettings: { Ports: {}, Networks: { bridge: { IPAddress: '172.17.0.3' } } },
+    Mounts: [],
+  },
+};
+
 const SERVICES = [
   {
     ID: 'svc-1', Version: { Index: 10 }, CreatedAt: '2026-01-01T00:00:00Z', UpdatedAt: '2026-01-01T00:00:00Z',
-    Spec: { Name: 'pw-svc', Labels: {}, TaskTemplate: { ContainerSpec: { Image: 'nginx:1.25' } }, Mode: { Replicated: { Replicas: 2 } } },
+    Spec: {
+      Name: 'pw-svc', Labels: {},
+      TaskTemplate: { ContainerSpec: { Image: 'nginx:1.25' } },
+      Mode: { Replicated: { Replicas: 2 } },
+      EndpointSpec: { Ports: [{ Protocol: 'tcp', TargetPort: 80, PublishedPort: 8080, PublishMode: 'ingress' }] },
+      Networks: [{ Target: 'pw-overlay' }, { Target: 'bridge' }],
+    },
     Endpoint: { Ports: [] },
+    ServiceStatus: { RunningTasks: 2, DesiredTasks: 2 },
+    UpdateStatus: { State: 'completed' },
+  },
+  {
+    ID: 'svc-2', Version: { Index: 11 }, CreatedAt: '2026-01-02T00:00:00Z', UpdatedAt: '2026-01-02T00:00:00Z',
+    Spec: {
+      Name: 'pw-batch', Labels: {},
+      TaskTemplate: { ContainerSpec: { Image: 'busybox:1.36', Command: ['sh', '-c', 'job'] } },
+      Mode: { ReplicatedJob: { MaxConcurrent: 1, TotalCompletions: 5 } },
+      EndpointSpec: { Ports: [] },
+      Networks: [{ Target: 'pw-overlay' }],
+    },
+    Endpoint: { Ports: [] },
+    ServiceStatus: { RunningTasks: 1, DesiredTasks: 5, CompletedTasks: 3 },
   },
 ];
 
@@ -101,13 +206,21 @@ const server = startDataServer({
     if (inspect) {
       const c = CONTAINERS.find((x) => x.Id.startsWith(inspect[1]!));
       if (!c) return json(res, 404, { message: 'No such container' });
+      const extra = CONTAINER_INSPECT_EXTRA[c.Id.slice(0, 4)] ?? {};
       return json(res, 200, {
-        ...c, State: { Status: 'running', Running: true, StartedAt: '2026-01-01T00:00:00Z' },
-        Config: { Labels: c.Labels, Env: ['PATH=/usr/bin'] }, Name: c.Names[0],
-        NetworkSettings: { Networks: {} }, Mounts: [],
+        ...c, ...extra,
+        State: { Status: 'running', Running: true, StartedAt: '2026-01-01T00:00:00Z' },
+        Name: c.Names[0],
       });
     }
     if (p === '/images/json') return json(res, 200, s === 'empty' ? [] : IMAGES);
+    const imgInspect = p.match(/^\/images\/([^/]+)\/json$/);
+    if (imgInspect) {
+      const id = decodeURIComponent(imgInspect[1]!);
+      const idx = IMAGES.findIndex((i) => i.Id === id || i.Id.startsWith(id));
+      if (idx < 0) return json(res, 404, { message: 'No such image' });
+      return json(res, 200, { Id: IMAGES[idx]!.Id, ...(IMAGE_INSPECTS[idx] as object) });
+    }
     if (p === '/services') return json(res, 200, s === 'swarm' ? SERVICES : []);
     if (p === '/nodes') return json(res, 200, s === 'swarm' ? NODES : []);
     if (p === '/secrets') return json(res, 200, s === 'swarm' ? SECRETS : []);
