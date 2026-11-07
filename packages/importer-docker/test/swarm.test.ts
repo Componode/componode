@@ -8,6 +8,10 @@ const mocks = vi.hoisted(() => ({
   listServices: vi.fn(),
   listNodes: vi.fn(),
   listSecrets: vi.fn(),
+  listNetworks: vi.fn(),
+  listVolumes: vi.fn(),
+  df: vi.fn(),
+  getNetwork: vi.fn(),
   ping: vi.fn(),
   getContainer: vi.fn(),
   ctor: vi.fn(),
@@ -25,6 +29,10 @@ vi.mock("dockerode", () => {
     listServices = mocks.listServices;
     listNodes = mocks.listNodes;
     listSecrets = mocks.listSecrets;
+    listNetworks = mocks.listNetworks;
+    listVolumes = mocks.listVolumes;
+    df = mocks.df;
+    getNetwork = mocks.getNetwork;
     ping = mocks.ping;
     getContainer = mocks.getContainer;
   }
@@ -116,6 +124,10 @@ beforeEach(() => {
   mocks.listSecrets.mockResolvedValue([]);
   mocks.listContainers.mockResolvedValue([]);
   mocks.listImages.mockResolvedValue([]);
+  mocks.listNetworks.mockResolvedValue([]);
+  mocks.listVolumes.mockResolvedValue({ Volumes: [] });
+  mocks.df.mockResolvedValue({ Volumes: [] });
+  mocks.getNetwork.mockImplementation(() => ({ inspect: vi.fn(async () => ({})) }));
 });
 
 describe("swarm discovery gate (ADR-121 A2)", () => {

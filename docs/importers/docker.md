@@ -78,6 +78,11 @@ setups are covered in [deployment.md](../deployment.md) (Hub) and
   user, entrypoint, working directory, volumes, and architecture/OS.
   A failed inspect omits that image's enrichment only; the run is
   unaffected.
+- Always on: infrastructure inventory — one **NETWORK** Component per
+  Docker network and one **STORAGE** Component per Docker volume,
+  metadata only (`instances: []`). See
+  [Infrastructure inventory](#infrastructure-inventory) for the exact
+  field bounds and exclusions.
 
 Compose project/service values are source metadata, not Components or
 edges; the component edit dialog offers them as user-confirmed
@@ -118,6 +123,36 @@ below the floor the run fails rather than emit a partial inventory):
 Non-Swarm endpoints make no Swarm calls — the run still makes one
 `/version` call for the engine component's facts (reused by the
 API-floor gate when Swarm is active).
+
+## Infrastructure inventory
+
+Every run also inventories Docker infrastructure — always on, no
+config flag, independent of Swarm state:
+
+- One **NETWORK** Component (`resourceType: network`) per entry in
+  `GET /networks`, enriched by `GET /networks/{id}` for attachment
+  names (the list omits `Containers` on API ≥ 1.28). `details` carries
+  `driver`, `scope`, `createdAt`, the posture flags `internal`,
+  `attachable`, `ingress`, `configOnly`, `enableIPv6` (emitted only
+  when true), `attachedCount`, `attachedContainers` (endpoint names),
+  and allowlisted `labels` (`com.docker.compose.*`, `componode.*`).
+- One **STORAGE** Component (`resourceType: volume`) per entry in
+  `GET /volumes`, joined by name to `GET /system/df` for usage facts.
+  `details` carries `driver`, `scope`, `createdAt`,
+  `sizeBytes`/`refCount`/`reclaimable` from `UsageData` (omitted when
+  unreported or reported as `-1`), and allowlisted `labels`.
+
+Identities are scope/name-qualified
+(`{source}::network:{scope}:{name}`, `{source}::volume:{name}`); both
+asset types emit `instances: []` — point-in-time infrastructure facts,
+not workloads.
+
+Never collected: network IPAM subnets/gateways/auxiliary addresses,
+per-endpoint IDs and MAC/IP/global-IPv6 addressing, network `Options`,
+volume `Mountpoint`/`Options`/`Status`, host paths, and any label
+outside the prefix allowlist. `GET /networks`, any per-network
+inspect, `GET /volumes`, or `GET /system/df` failing fails the whole
+run — partial infrastructure inventory is never emitted.
 
 ## Instance status
 

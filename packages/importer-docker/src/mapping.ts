@@ -93,7 +93,7 @@ export function mapStatus(
   }
 }
 
-function allowedLabels(
+export function allowedLabels(
   labels: Record<string, string> | undefined,
   envLabel?: string,
 ) {

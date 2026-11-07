@@ -420,6 +420,16 @@ const strArr = (v: unknown) => {
   return out.length ? out : undefined
 }
 
+const strRecord = (v: unknown) => {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined
+  const out = Object.fromEntries(
+    Object.entries(v as Record<string, unknown>).filter(
+      (e): e is [string, string] => typeof e[1] === "string",
+    ),
+  )
+  return Object.keys(out).length ? out : undefined
+}
+
 function engineDetailsOf(details: Component["details"]): EngineDetails | null {
   const d = asObj<Record<string, unknown>>(details)
   if (!d) return null
@@ -489,16 +499,8 @@ interface ImageDetails {
 function imageDetailsOf(details: Component["details"]): ImageDetails | null {
   const d = asObj<Record<string, unknown>>(details)
   if (!d) return null
-  const labels =
-    d.ociLabels && typeof d.ociLabels === "object"
-      ? Object.fromEntries(
-          Object.entries(d.ociLabels as Record<string, unknown>).filter(
-            (e): e is [string, string] => typeof e[1] === "string",
-          ),
-        )
-      : undefined
   const out: ImageDetails = {
-    ociLabels: labels && Object.keys(labels).length ? labels : undefined,
+    ociLabels: strRecord(d.ociLabels),
     exposedPorts: strArr(d.exposedPorts),
     user: str(d.user),
     entrypoint: strArr(d.entrypoint),
@@ -556,15 +558,157 @@ export function ImageDetailsSection({ details }: { details: Component["details"]
             ) : null}
           </div>
         ) : null}
-        {img.ociLabels ? (
-          <DescriptionList
-            className="sm:grid-cols-[minmax(14rem,auto)_1fr]"
-            items={Object.entries(img.ociLabels).map(([k, v]) => ({
-              label: k,
-              value: <code className="font-mono text-xs">{v}</code>,
-            }))}
-          />
+        {img.ociLabels ? <LabelPairs labels={img.ociLabels} /> : null}
+      </div>
+    </Section>
+  )
+}
+
+function LabelPairs({ labels }: { labels: Record<string, string> }) {
+  return (
+    <DescriptionList
+      className="sm:grid-cols-[minmax(14rem,auto)_1fr]"
+      items={Object.entries(labels).map(([k, v]) => ({
+        label: k,
+        value: <code className="font-mono text-xs">{v}</code>,
+      }))}
+    />
+  )
+}
+
+// ---- component details: infra inventory sections (spec 065) ----
+
+interface NetworkDetails {
+  driver?: string
+  scope?: string
+  createdAt?: string
+  internal?: boolean
+  attachable?: boolean
+  ingress?: boolean
+  configOnly?: boolean
+  enableIPv6?: boolean
+  attachedCount?: number
+  attachedContainers?: string[]
+  labels?: Record<string, string>
+}
+
+function networkDetailsOf(details: Component["details"]): NetworkDetails | null {
+  const d = asObj<Record<string, unknown>>(details)
+  if (!d) return null
+  const flag = (v: unknown) => (v === true ? true : undefined)
+  const out: NetworkDetails = {
+    driver: str(d.driver),
+    scope: str(d.scope),
+    createdAt: str(d.createdAt),
+    internal: flag(d.internal),
+    attachable: flag(d.attachable),
+    ingress: flag(d.ingress),
+    configOnly: flag(d.configOnly),
+    enableIPv6: flag(d.enableIPv6),
+    attachedCount: typeof d.attachedCount === "number" ? d.attachedCount : undefined,
+    attachedContainers: strArr(d.attachedContainers),
+    labels: strRecord(d.labels),
+  }
+  return hasDefined(out) ? out : null
+}
+
+export function NetworkDetailsSection({ details }: { details: Component["details"] }) {
+  const n = networkDetailsOf(details)
+  if (!n) return null
+  return (
+    <Section title="Network">
+      <div className="space-y-3">
+        <DescriptionList
+          className="sm:grid-cols-1"
+          items={[
+            ...(n.driver
+              ? [{ label: "Driver", value: <code className="font-mono text-xs">{n.driver}</code> }]
+              : []),
+            ...(n.scope ? [{ label: "Scope", value: n.scope }] : []),
+            ...(n.createdAt
+              ? [{ label: "Created", value: <RelativeTime iso={n.createdAt} /> }]
+              : []),
+            ...(n.internal ? [{ label: "Internal", value: "Yes" }] : []),
+            ...(n.attachable ? [{ label: "Attachable", value: "Yes" }] : []),
+            ...(n.ingress ? [{ label: "Ingress", value: "Yes" }] : []),
+            ...(n.configOnly ? [{ label: "Config only", value: "Yes" }] : []),
+            ...(n.enableIPv6 ? [{ label: "IPv6", value: "Yes" }] : []),
+            ...(n.attachedCount !== undefined
+              ? [{ label: "Attached", value: String(n.attachedCount) }]
+              : []),
+          ]}
+        />
+        {n.attachedContainers?.length ? (
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">Attached containers</p>
+            <div className="flex flex-wrap gap-1">
+              {n.attachedContainers.map((name) => (
+                <Badge key={name} variant="secondary" className="font-mono">
+                  {name}
+                </Badge>
+              ))}
+            </div>
+          </div>
         ) : null}
+        {n.labels ? <LabelPairs labels={n.labels} /> : null}
+      </div>
+    </Section>
+  )
+}
+
+interface VolumeDetails {
+  driver?: string
+  scope?: string
+  createdAt?: string
+  sizeBytes?: number
+  refCount?: number
+  reclaimable?: boolean
+  labels?: Record<string, string>
+}
+
+function volumeDetailsOf(details: Component["details"]): VolumeDetails | null {
+  const d = asObj<Record<string, unknown>>(details)
+  if (!d) return null
+  const out: VolumeDetails = {
+    driver: str(d.driver),
+    scope: str(d.scope),
+    createdAt: str(d.createdAt),
+    sizeBytes: typeof d.sizeBytes === "number" ? d.sizeBytes : undefined,
+    refCount: typeof d.refCount === "number" ? d.refCount : undefined,
+    reclaimable: typeof d.reclaimable === "boolean" ? d.reclaimable : undefined,
+    labels: strRecord(d.labels),
+  }
+  return hasDefined(out) ? out : null
+}
+
+export function VolumeDetailsSection({ details }: { details: Component["details"] }) {
+  const v = volumeDetailsOf(details)
+  if (!v) return null
+  return (
+    <Section title="Volume">
+      <div className="space-y-3">
+        <DescriptionList
+          className="sm:grid-cols-1"
+          items={[
+            ...(v.driver
+              ? [{ label: "Driver", value: <code className="font-mono text-xs">{v.driver}</code> }]
+              : []),
+            ...(v.scope ? [{ label: "Scope", value: v.scope }] : []),
+            ...(v.createdAt
+              ? [{ label: "Created", value: <RelativeTime iso={v.createdAt} /> }]
+              : []),
+            ...(v.sizeBytes !== undefined
+              ? [{ label: "Size", value: formatBytes(v.sizeBytes) }]
+              : []),
+            ...(v.refCount !== undefined
+              ? [{ label: "References", value: String(v.refCount) }]
+              : []),
+            ...(v.reclaimable !== undefined
+              ? [{ label: "Reclaimable", value: v.reclaimable ? "Yes" : "No" }]
+              : []),
+          ]}
+        />
+        {v.labels ? <LabelPairs labels={v.labels} /> : null}
       </div>
     </Section>
   )

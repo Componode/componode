@@ -199,6 +199,43 @@ Extends items 6/8 and the Amendment-2 Swarm surfaces:
    image-provenance sections on the Details card); no generic
    `rawConfig`/`details` dump.
 
+## Amendment 4 — Infrastructure inventory: networks and volumes (spec 065)
+
+Extends the item-8 allowlist with bounded infrastructure components:
+
+1. **NETWORK components** — one per `GET /networks` entry per source,
+   `provider: DOCKER`, `resourceType: network`, `category: NETWORK`,
+   `instances: []`. Identity is
+   `qualifyExternalId(sourceIdentity, "network:{scope}:{name}")` —
+   scope-qualified so same-named `local` and `swarm` networks stay
+   distinct. `details` carries only: `driver`, `scope`, `createdAt`,
+   `internal`/`attachable`/`ingress`/`configOnly`/`enableIPv6` (only
+   when true), `attachedCount`, `attachedContainers` (endpoint *names*
+   only), and `labels` through the shared prefix allowlist
+   (`com.docker.compose.*`, `componode.*`).
+   Attachment names come from `GET /networks/{id}` inspect — the list
+   omits `Containers` on API ≥ 1.28 — inspected once per network at
+   concurrency ≤ 8. Still never: IPAM subnets/gateways/auxiliary
+   addresses, per-endpoint `EndpointID`/`MacAddress`/`IPv4Address`/
+   `IPv6Address`/`GlobalIPv6Address`, network `Options`, or any other
+   unapproved field.
+2. **STORAGE components** — one per `GET /volumes` entry per source,
+   `resourceType: volume`, `category: STORAGE`, `instances: []`.
+   Identity is `qualifyExternalId(sourceIdentity, "volume:{name}")`.
+   `details` carries only: `driver`, `scope`, `createdAt`,
+   `sizeBytes`/`refCount`/`reclaimable` joined by `Name` from one
+   `GET /system/df` call per run (`UsageData`; omitted when absent or
+   `-1`), and allowlisted `labels`. Still never: `Mountpoint`,
+   `Options`, `Status`, host paths, or credential-adjacent driver
+   options.
+3. **Fail-closed sourcing** — `listNetworks`, `listVolumes`, and `df`
+   are fetched together before any infra yield, and all network
+   inspects complete first; any endpoint or inspect error fails the
+   run, so partial infrastructure inventory is never emitted.
+4. **UI** — named `Network`/`Volume` sections on the Details card via
+   allowlist shapers; unknown `details` keys never render, and
+   foreign shapes render nothing.
+
 ---
 
 **Amended by ADR-122**: item 2 — Docker is no longer `requiresAgent`; Hub execution resolves managed `docker_targets` profiles (spec 049).

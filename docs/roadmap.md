@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–064, bugfix 066)
+## Shipped (features 001–065, bugfix 066)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -388,10 +388,22 @@ file tracks shipped and upcoming work — update it when a spec completes.
   provenance per unique image. Component detail renders all of it in
   named allowlist sections — env vars, host paths, health output, and
   unbounded engine fields remain excluded (ADR-121 Amendment 3).
+- `065-docker-infra-inventory` — Docker imports now inventory
+  infrastructure alongside workloads under the same bounded,
+  fail-closed rules: every run emits one NETWORK Component per Docker
+  network (driver, scope, posture flags, attachment names) and one
+  STORAGE Component per volume (driver, scope, `df` usage facts), with
+  scope/name-qualified identities, `instances: []`, and the standing
+  exclusions — IPAM/addressing, options, mountpoints, status, and
+  unbounded labels never leave the boundary (ADR-121 Amendment 4).
 - `066-bugfix-component-group-detail` — Component group detail page
   fixes: members now render (the list filter contract is slug-based, not
   id), the Edit group Owning team dropdown lists teams, and owning
   team/description can be cleared via explicit nulls.
+
+In flight: `067-auto-component-groups` — source-scoped auto
+ComponentGroups (ADR-129); spec and ADR ratified, implementation
+scheduled separately.
 
 ## Next — post-v1.1
 
@@ -403,7 +415,8 @@ policy (056), and importer-managed checks (058) — has shipped, as has the Prod
 topology (059), the Component Relationships view (060), component
 dependencies in the Product topology (061), prototype UX parity (062),
 guided Docker importer onboarding (063), Docker importer enrichment
-(064), and a component-group detail bugfix (066).
+(064), Docker infrastructure inventory (065), and a component-group
+detail bugfix (066).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new
