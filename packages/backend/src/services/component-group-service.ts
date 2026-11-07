@@ -222,6 +222,9 @@ export async function updateComponentGroup(
   }
 
   const parsed = updateComponentGroupSchema.parse(input);
+  if (parsed.lifecycle !== undefined && (await isAutoManagedGroup(id))) {
+    autoManagedConflict();
+  }
   if (parsed.slug && !isValidSlug(parsed.slug)) {
     throw Object.assign(new Error("Invalid slug"), {
       statusCode: 400,
@@ -230,9 +233,6 @@ export async function updateComponentGroup(
   }
   if (parsed.slug) {
     await assertUniqueSlug(parsed.slug, id);
-  }
-  if (parsed.lifecycle !== undefined && (await isAutoManagedGroup(id))) {
-    autoManagedConflict();
   }
 
   const updates: Record<string, unknown> = {};

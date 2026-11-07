@@ -75,8 +75,9 @@ export function isAutoGroupEnabled(
 
 /**
  * Reduces effective-active membership pairs to sole-reporter sets:
- * componentId → the single sourceId that reports it, omitted when the
- * component has zero or multiple effective-active reporters.
+ * sourceId → the componentIds it is the SOLE effective-active reporter
+ * of; components with zero or multiple effective-active reporters are
+ * omitted.
  */
 export function reduceSoleReporters(
   pairs: ReadonlyArray<{ componentId: string; sourceId: string }>,
@@ -362,7 +363,10 @@ async function applyPass(
   // no longer eligible: `full` keeps its sole-reporter set, `cleanup` keeps
   // nothing (a retired source is nobody's effective-active reporter).
   const groupIdBySource = new Map<string, string>();
-  const evictions = new Map<string, null>();
+  // componentId → the auto-managed group it is being evicted from; the
+  // UPDATE guards on that group so a human reassignment landing mid-pass
+  // is never nulled.
+  const evictions = new Map<string, string>();
   for (const { source, mode } of plans) {
     const strategy = getSourceGroupStrategy(source.importerName);
     if (!strategy) continue;
@@ -397,7 +401,7 @@ async function applyPass(
 
     for (const comp of membersByGroup.get(groupId) ?? []) {
       if (eligible.has(comp.id)) continue;
-      evictions.set(comp.id, null);
+      evictions.set(comp.id, groupId);
     }
   }
 
@@ -423,15 +427,20 @@ async function applyPass(
   // component stale-membered in one source's group but sole-reported by
   // another lands directly in the right group.
   const now = new Date().toISOString();
-  const evictIds = [...evictions.keys()];
-  if (evictIds.length > 0) {
+  const evictByGroup = new Map<string, string[]>();
+  for (const [compId, fromGroup] of evictions) {
+    const bucket = evictByGroup.get(fromGroup) ?? [];
+    bucket.push(compId);
+    evictByGroup.set(fromGroup, bucket);
+  }
+  for (const [fromGroup, ids] of evictByGroup) {
     const res = await trx
       .updateTable("components")
       .set({ componentGroupId: null, updatedAt: now })
-      .where("id", "in", evictIds)
-      .where("componentGroupId", "is not", null)
+      .where("id", "in", ids)
+      .where("componentGroupId", "=", fromGroup)
       .execute();
-    report.membersEvicted = Number(res[0]?.numUpdatedRows ?? 0);
+    report.membersEvicted += Number(res[0]?.numUpdatedRows ?? 0);
   }
   const byTarget = new Map<string, string[]>();
   for (const [compId, groupId] of assignments) {

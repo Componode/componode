@@ -355,6 +355,7 @@ export async function listSources(filters?: {
     label: r.label,
     status: r.status,
     boundConfigId: r.boundConfigId,
+    componentGroupId: r.componentGroupId,
     firstSeenInRunId: r.firstSeenInRunId,
     lastSeenInRunId: r.lastSeenInRunId,
     createdAt: r.createdAt,
