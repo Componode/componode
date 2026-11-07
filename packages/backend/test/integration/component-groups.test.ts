@@ -217,4 +217,46 @@ describe("component groups", () => {
     const unassignBody = JSON.parse(unassign.payload);
     expect(unassignBody.component.componentGroupId).toBeNull();
   });
+
+  // Bugfix 066: the update schema must accept explicit nulls — the service
+  // already persists `?? null` for both fields (owner/description clearing).
+  it("clears teamOwnerId and description with explicit nulls", async () => {
+    const team = await app.inject({
+      method: "POST",
+      url: "/api/v1/teams",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
+      headers: csrfHeader,
+      payload: { name: "Group Owners" },
+    });
+    expect(team.statusCode).toBe(201);
+    const teamId = JSON.parse(team.payload).team.id;
+
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/v1/component-groups",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
+      headers: csrfHeader,
+      payload: {
+        name: "Owned Group",
+        slug: "owned-group",
+        description: "temporary notes",
+        teamOwnerId: teamId,
+      },
+    });
+    expect(create.statusCode).toBe(201);
+    const { id } = JSON.parse(create.payload).group;
+
+    const clear = await app.inject({
+      method: "PATCH",
+      url: `/api/v1/component-groups/${id}`,
+      cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
+      headers: csrfHeader,
+      payload: { teamOwnerId: null, description: null },
+    });
+    expect(clear.statusCode).toBe(200);
+    const clearBody = JSON.parse(clear.payload);
+    expect(clearBody.group.teamOwnerId).toBeNull();
+    expect(clearBody.group.teamOwnerName).toBeNull();
+    expect(clearBody.group.description).toBeNull();
+  });
 });

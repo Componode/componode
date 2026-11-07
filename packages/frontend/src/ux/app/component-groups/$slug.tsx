@@ -3,7 +3,7 @@ import * as React from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useComponentGroup, useDeleteComponentGroup, useUpdateComponentGroup } from "@/api/hooks/component-groups";
-import { useComponents } from "@/api/hooks/components";
+import { useAllComponents } from "@/api/hooks/components";
 import { useTeams } from "@/api/hooks/org";
 import { mapComponentGroup } from "@/api/mappers/catalog";
 import { DangerZone } from "@/ux/components/patterns/danger-zone";
@@ -24,13 +24,19 @@ import { errorMessage, isForbidden, isNotFound } from "@/ux/lib/api-state";
 import { CATEGORY_LABELS } from "@/ux/lib/domain";
 import { ux } from "@/ux/lib/paths";
 
+// Radix Select forbids empty-string item values — sentinel for "no owner".
+const NO_TEAM = "__none__";
+
 export function UxComponentGroupDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   // Direct detail read — `GET /component-groups/:id` accepts the route slug (spec 033).
   const groupQ = useComponentGroup(slug);
   const group = groupQ.data?.group;
-  const members = useComponents(
-    { group: group?.id, includeRetired: true, pageSize: 100 },
+  // The list filter contract is slug-based (?group= matches
+  // component_groups.slug) — never pass the group id (bugfix 066).
+  const members = useAllComponents(
+    { group: group?.slug, includeRetired: true },
+    !!group?.slug,
   );
   const deleteGroup = useDeleteComponentGroup();
   const updateGroup = useUpdateComponentGroup();
@@ -108,13 +114,14 @@ export function UxComponentGroupDetailPage() {
                 onSubmit={(e) => {
                   e.preventDefault();
                   const fd = new FormData(e.currentTarget);
+                  const team = String(fd.get("team") ?? "");
                   updateGroup.mutate(
                     {
                       id: group.id,
                       name: String(fd.get("name") ?? "").trim() || undefined,
-                      description: String(fd.get("description") ?? "").trim() || undefined,
+                      description: String(fd.get("description") ?? "").trim() || null,
                       lifecycle: String(fd.get("lifecycle") ?? "") || undefined,
-                      teamOwnerId: String(fd.get("team") ?? "") || undefined,
+                      teamOwnerId: team === NO_TEAM ? null : team || undefined,
                     },
                     {
                       onSuccess: () => {
@@ -137,10 +144,11 @@ export function UxComponentGroupDetailPage() {
                   </Field>
                   <Field>
                     <FieldLabel>Owning team</FieldLabel>
-                    <Select name="team" defaultValue={group.teamOwnerId ?? ""}>
+                    <Select name="team" defaultValue={group.teamOwnerId ?? NO_TEAM}>
                       <SelectTrigger aria-label="Owning team"><SelectValue placeholder="Unassigned" /></SelectTrigger>
                       <SelectContent>
-                        {(teams.data?.items ?? []).map((t) => (
+                        <SelectItem value={NO_TEAM}>Unassigned</SelectItem>
+                        {(teams.data?.teams ?? []).map((t) => (
                           <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                         ))}
                       </SelectContent>
@@ -195,7 +203,7 @@ export function UxComponentGroupDetailPage() {
             <TableSkeleton rows={4} columns={3} />
           ) : members.error ? (
             <ErrorState description={errorMessage(members.error)} onRetry={() => void members.refetch()} className="border-0" />
-          ) : (members.data?.data ?? []).length === 0 ? (
+          ) : (members.data ?? []).length === 0 ? (
             <EmptyState
               icon={LayersIcon}
               title="No components to show"
@@ -211,7 +219,7 @@ export function UxComponentGroupDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(members.data?.data ?? []).map((c) => (
+                {(members.data ?? []).map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="pl-4">
                       <Link to={ux(`/components/${c.slug}`)} className="font-medium hover:underline">

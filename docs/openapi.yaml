@@ -1811,8 +1811,8 @@ paths:
               properties:
                 name: { type: string, minLength: 1, maxLength: 100 }
                 slug: { type: string, minLength: 1, maxLength: 100 }
-                description: { type: string, maxLength: 500 }
-                teamOwnerId: { type: string, format: uuid }
+                description: { type: string, maxLength: 500, nullable: true }
+                teamOwnerId: { type: string, format: uuid, nullable: true }
                 lifecycle: { $ref: "#/components/schemas/Lifecycle" }
       responses:
         "200":

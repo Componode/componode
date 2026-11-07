@@ -12,9 +12,11 @@ export interface CreateComponentGroupInput {
 export interface UpdateComponentGroupInput {
   name?: string;
   slug?: string;
-  description?: string;
+  /** Explicit null clears the field (bugfix 066). */
+  description?: string | null;
   lifecycle?: string;
-  teamOwnerId?: string;
+  /** Explicit null clears the owning team (bugfix 066). */
+  teamOwnerId?: string | null;
 }
 
 export interface AssignComponentGroupInput {
