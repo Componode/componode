@@ -212,7 +212,7 @@ Extends the item-8 allowlist with bounded infrastructure components:
    `internal`/`attachable`/`ingress`/`configOnly`/`enableIPv6` (only
    when true), `attachedCount`, `attachedContainers` (endpoint *names*
    only), and `labels` through the shared prefix allowlist
-   (`com.docker.compose.*`, `componode.*`, configured env label).
+   (`com.docker.compose.*`, `componode.*`).
    Attachment names come from `GET /networks/{id}` inspect — the list
    omits `Containers` on API ≥ 1.28 — inspected once per network at
    concurrency ≤ 8. Still never: IPAM subnets/gateways/auxiliary

@@ -123,7 +123,7 @@
 - [X] T021 [P] Record **ADR-121 Amendment 4** in `researches/adrs/ADR-121-docker-importer.md` per research.md R10 outline (infra inventory allowlists, scope/name identities, inspect+df sourcing, fail-closed policy, restated exclusions)
 - [X] T022 Extend the mock Docker Engine (`playwright/mocks/docker-engine/server.ts`) to serve the infra surface: `GET /networks` + `GET /networks/{id}` (with `Containers` endpoint names + IPAM/Options/MAC/IP sentinels), `GET /volumes` (with Mountpoint/Options/Status sentinels), `GET /system/df?type=volume` (UsageData Size/RefCount + -1 cases), and labeled fixtures for compose attribution — per AGENTS.md § Testing (Playwright coverage rule)
 - [X] T023 Add `playwright/tests/importers/docker-infra.spec.ts`: run asserts NETWORK+STORAGE components with bounded details and exclusion non-leakage, UI journey asserts named detail sections render — per AGENTS.md § Testing (Playwright coverage rule)
-- [ ] T024 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build` in `packages/importer-docker` and `packages/frontend`, `pnpm e2e` in `playwright/`, then root `pnpm build`; confirm `docs/openapi.yaml` untouched and generated-docs checks pass
+- [X] T024 Verify: `pnpm lint && pnpm typecheck && pnpm test && pnpm build` in `packages/importer-docker` and `packages/frontend`, `pnpm e2e` in `playwright/`, then root `pnpm build`; confirm `docs/openapi.yaml` untouched and generated-docs checks pass
 - [X] T025 [P] Update `docs/roadmap.md` — mark `065-docker-infra-inventory` under Shipped and revise the Next entry (done at ship stage per AGENTS.md roadmap-sync rule)
 
 ---
@@ -190,3 +190,10 @@ Task: "Failing importer.test.ts network run-level cases"
 - Fail-closed is deliberate: list/inspect/df errors throw — do NOT copy the image-inspect degrade-per-image pattern (research.md R2/R3)
 - `docker.df({type:"volume"})` query serialization must be verified against dockerode's modem (T012) — fallback is unfiltered `df()` + client-side `Volumes` filter
 - `attachedContainers` carries endpoint **names** only — never endpoint IDs, MACs, or IPs (FR-004)
+
+## Phase 8: Review — Round 1
+
+- [X] T02[6-9] Fix ADR-121 Amendment 4 label-allowlist wording — it claims infra `labels` admit the "configured env label", but `mapNetwork`/`mapVolume` correctly pass only the prefix allowlist (spec FR-011 defines the allowlist as `com.docker.*`/`componode.*` prefixes; envLabel exists for workload environment derivation, which infra assets with `instances: []` never perform) per code-review: spec
+- [X] T02[6-9] Emit `attachedCount` as `Object.keys(Containers ?? {}).length` per `contracts/infra-assets.md` (count attachments, not only named endpoints) per code-review: spec
+- [X] T02[6-9] Fail closed on network list rows lacking both `Id` and `Name` — inspect by `Id ?? Name` and throw on unidentifiable rows instead of silently filtering, preserving SC-001's 100%-of-networks guarantee per code-review: spec
+- [X] T02[6-9] Hoist the duplicated `put` closure in `packages/importer-docker/src/infra.ts` to a module-level helper per code-review: standards

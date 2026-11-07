@@ -31,6 +31,14 @@ export interface NetworkInspect {
   Containers?: Record<string, NetworkEndpoint>;
 }
 
+const setDetail = (
+  details: Record<string, unknown>,
+  key: string,
+  value: unknown,
+) => {
+  if (value !== undefined) details[key] = value;
+};
+
 export function mapNetwork(
   network: NetworkInspect,
   sourceIdentity: string,
@@ -39,12 +47,9 @@ export function mapNetwork(
   const scope = network.Scope ?? "local";
 
   const details: Record<string, unknown> = {};
-  const put = (key: string, value: unknown) => {
-    if (value !== undefined) details[key] = value;
-  };
-  put("driver", network.Driver);
+  setDetail(details, "driver", network.Driver);
   details.scope = scope;
-  put("createdAt", network.Created);
+  setDetail(details, "createdAt", network.Created);
   if (network.Internal) details.internal = true;
   if (network.Attachable) details.attachable = true;
   if (network.Ingress) details.ingress = true;
@@ -54,7 +59,7 @@ export function mapNetwork(
   const attached = Object.values(network.Containers ?? {})
     .map((e) => e?.Name)
     .filter((n): n is string => Boolean(n));
-  details.attachedCount = attached.length;
+  details.attachedCount = Object.keys(network.Containers ?? {}).length;
   if (attached.length) details.attachedContainers = attached;
 
   const labels = allowedLabels(network.Labels);
@@ -98,12 +103,9 @@ export function mapVolume(
   sourceIdentity: string,
 ): DiscoveredAsset {
   const details: Record<string, unknown> = {};
-  const put = (key: string, value: unknown) => {
-    if (value !== undefined) details[key] = value;
-  };
-  put("driver", volume.Driver);
+  setDetail(details, "driver", volume.Driver);
   details.scope = volume.Scope ?? "local";
-  put("createdAt", volume.CreatedAt);
+  setDetail(details, "createdAt", volume.CreatedAt);
   if (typeof usage?.Size === "number" && usage.Size >= 0) {
     details.sizeBytes = usage.Size;
   }

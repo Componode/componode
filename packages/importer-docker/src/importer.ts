@@ -310,10 +310,15 @@ export class DockerImporter implements Importer {
     );
 
     const networkInspects = await mapWithConcurrency(
-      networkList.filter((n) => n?.Id),
+      networkList,
       INSPECT_CONCURRENCY,
-      (n) =>
-        docker.getNetwork(n.Id as string).inspect() as Promise<NetworkInspect>,
+      (n) => {
+        const key = n?.Id ?? n?.Name;
+        if (!key) {
+          throw new Error("network list row missing both Id and Name");
+        }
+        return docker.getNetwork(key).inspect() as Promise<NetworkInspect>;
+      },
       context.signal,
     );
     for (const net of networkInspects) {
