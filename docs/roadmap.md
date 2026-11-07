@@ -401,6 +401,10 @@ file tracks shipped and upcoming work — update it when a spec completes.
   id), the Edit group Owning team dropdown lists teams, and owning
   team/description can be cleared via explicit nulls.
 
+In flight: `067-auto-component-groups` — source-scoped auto
+ComponentGroups (ADR-129); spec and ADR ratified, implementation
+scheduled separately.
+
 ## Next — post-v1.1
 
 The Docker importer program's mapped waves (A–E) plus Hub execution
@@ -448,8 +452,8 @@ Engine workload inventory, Docker observations + Source UI, then Swarm
 inventory. Alongside:
 
 - Runtime-loaded importer plugins
-- Source-scoped auto ComponentGroups (`067-auto-component-groups`,
-  ADR-129 — grilled and documented; implementation scheduled separately)
+- Source-scoped auto ComponentGroups (spec 067, ADR-129 — grilled and
+  documented; implementation scheduled separately)
 - Invite-based registration
 - E2E tests
 - Per-environment blast-radius traversal
