@@ -34,6 +34,12 @@ export interface ImporterManifest {
   // Agent — create/update with agentId null is rejected and in-process
   // dispatch refuses to run it (ADR-121). Absent = hub-or-agent.
   requiresAgent?: boolean;
+  // Declares the importer adopts source-scoped auto ComponentGroups
+  // (ADR-129, spec 067): the backend maintains at most one auto-managed
+  // group per ImporterSource whose members are the components that source
+  // exclusively reports. `"source"` is the only strategy in v1.
+  // Absent = non-adopter, never evaluated.
+  autoGroups?: "source";
 }
 
 export interface ImporterRegistry {

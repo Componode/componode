@@ -5,6 +5,7 @@ import { canonicalizeSourceIdentity } from "@componode/core";
 import type { DB, ImporterSourceRow } from "../db/types.js";
 import { db } from "../db/connection.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
+import { runAutoGroupPass } from "./source-group-service.js";
 
 type DbOrTrx = Kysely<DB> | Transaction<DB>;
 
@@ -492,7 +493,7 @@ function stateConflict(message: string): never {
  * completed run applies.
  */
 export async function retireSource(id: string, actor: Actor) {
-  return db.transaction().execute(async (trx) => {
+  const result = await db.transaction().execute(async (trx) => {
     const source = await trx
       .selectFrom("importer_sources")
       .selectAll()
@@ -577,11 +578,15 @@ export async function retireSource(id: string, actor: Actor) {
       .where("id", "=", id)
       .executeTakeFirstOrThrow();
   });
+  // ADR-129: retirement changes effective-active reporter sets outside any
+  // run — re-derive auto groups now, failure-isolated like the run triggers.
+  await runAutoGroupPass({ actor, trigger: "source-retire" });
+  return result;
 }
 
 /** Reverse retirement: ACTIVE when bound, UNMONITORED when not. */
 export async function reactivateSource(id: string, actor: Actor) {
-  return db.transaction().execute(async (trx) => {
+  const result = await db.transaction().execute(async (trx) => {
     const source = await trx
       .selectFrom("importer_sources")
       .selectAll()
@@ -613,6 +618,8 @@ export async function reactivateSource(id: string, actor: Actor) {
       .where("id", "=", id)
       .executeTakeFirstOrThrow();
   });
+  await runAutoGroupPass({ actor, trigger: "source-reactivate" });
+  return result;
 }
 
 // ---------------------------------------------------------------------------

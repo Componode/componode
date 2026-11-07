@@ -58,13 +58,26 @@ identities) cannot belong to two cluster groups at once.
    rejects `lifecycle` writes on auto-managed groups (detected via the
    `importer_sources.componentGroupId` link) with a controlled conflict —
    name/description/teamOwnerId stay editable; retiring the group means
-   emptying it or retiring the source.
+   emptying it or retiring the source. `deleteComponentGroup` rejects
+   auto-managed groups with the same `409 GROUP_AUTO_MANAGED` conflict
+   (clarify-session decision): the group is retired via its source, never
+   destroyed by hand — checked before the `REFERENCED` product-dependency
+   guard.
 
 5. **Enablement** — the importer manifest declares capability (e.g.
    `autoGroups: "source"`); the importer config scope gains
-   `autoGroup?: boolean` **default `true`** (opt-out). Enablement is
-   per-config, grouping per-source: mixed configs on one source degrade to
-   "maintained while any enabling config runs" — never wrongly torn down.
+   `autoGroup?: boolean` **default `true`** (opt-out). Enablement is read
+   from the source's **bound** config (`boundConfigId` is single-valued, so
+   sequential binding means the most recently reporting config decides):
+   `autoGroup: false` freezes the source's group exactly as-is — members,
+   lifecycle, and link are never torn down — and maintenance resumes when
+   an enabling config binds again. An **unbound** source (config deleted →
+   `UNMONITORED`, `boundConfigId NULL`) has no scope to read and is skipped
+   entirely: its group freezes until a config rebinds. A `RETIRED` source
+   that is still bound and capable gets cleanup-only evaluation — every
+   member loses exclusivity (the source is nobody's effective-active
+   reporter), so members evict and lifecycle derives `RETIRED`; the link
+   survives so reactivation resumes full maintenance.
 
 6. **Identity** — `name` = ImporterSource `label` (already
    `info.Name ?? sourceKey` for docker) falling back to the engine

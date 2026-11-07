@@ -78,6 +78,8 @@ const CODE_MEANINGS: Record<string, string> = {
   URL_CHECK_NOT_FOUND: "URL check not found (404)",
   MONITORING_SETUP_NOT_FOUND: "Component monitoring setup not found (404)",
   URL_CHECK_WRITE_DEPRECATED: "Direct URL check writes are deprecated — manage checks through the ImporterConfig (410)",
+  GROUP_AUTO_MANAGED:
+    "Component group is managed by an importer source — lifecycle writes and delete rejected (409)",
   AGENT_TEST_TIMEOUT:
     "Agent did not answer the credential test in time (504)",
   CREDENTIAL_NO_BOUND_AGENT:

@@ -215,6 +215,9 @@ export interface ImporterSourceRow {
   label: string | null;
   status: string;
   boundConfigId: string | null;
+  // Auto-managed ComponentGroup link (ADR-129, spec 067): the source→group
+  // provenance marker and the auto-managed flag for write guards.
+  componentGroupId: string | null;
   firstSeenInRunId: string | null;
   lastSeenInRunId: string | null;
   createdAt: Generated<string>;

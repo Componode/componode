@@ -43,6 +43,14 @@ export const dockerConfigSchema = z
       .min(1)
       .optional()
       .describe("Fallback source identity when the engine reports no /info.ID"),
+    // Opt-out for source-scoped auto ComponentGroups (ADR-129, spec 067):
+    // absent/true maintains one auto-group per source; false freezes it.
+    autoGroup: z
+      .boolean()
+      .optional()
+      .describe(
+        "Automatically maintain a ComponentGroup for this source's exclusively reported components (default true)",
+      ),
   })
   .strict();
 

@@ -108,6 +108,7 @@ exception is `GET /metrics`, which is served at the root.
 | `URL_CHECK_NOT_FOUND` | URL check not found (404) |
 | `MONITORING_SETUP_NOT_FOUND` | Component monitoring setup not found (404) |
 | `URL_CHECK_WRITE_DEPRECATED` | Direct URL check writes are deprecated — manage checks through the ImporterConfig (410) |
+| `GROUP_AUTO_MANAGED` | Component group is managed by an importer source — lifecycle writes and delete rejected (409) |
 <!-- /GENERATED:error-codes -->
 
 ---

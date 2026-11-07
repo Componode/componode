@@ -1828,7 +1828,10 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          description: Slug already in use (`SLUG_CONFLICT`)
+          description: >-
+            Slug already in use (`SLUG_CONFLICT`), or a `lifecycle` write on
+            an auto-managed group (`GROUP_AUTO_MANAGED` — lifecycle is derived
+            from source reporting; name/description/teamOwnerId stay editable)
           content:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problem" }
@@ -1839,7 +1842,9 @@ paths:
       description: |
         Requires the `componentGroup:delete` role (Editor+). Deletion is
         blocked while products depend on the group via DEPENDS_ON (spec 019);
-        retire the group instead.
+        retire the group instead. Auto-managed groups (linked to an importer
+        source, ADR-129) cannot be deleted — they are retired via their
+        source.
       parameters:
         - { $ref: "#/components/parameters/Id" }
       responses:
@@ -1849,8 +1854,9 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           description: >-
-            Group is depended on by products (`REFERENCED`) —
-            `details.products` names the blocking products
+            Group is auto-managed by an importer source
+            (`GROUP_AUTO_MANAGED`), or is depended on by products
+            (`REFERENCED`) — `details.products` names the blocking products
           content:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problem" }
@@ -3842,6 +3848,7 @@ components:
             - URL_CHECK_NOT_FOUND
             - MONITORING_SETUP_NOT_FOUND
             - URL_CHECK_WRITE_DEPRECATED
+            - GROUP_AUTO_MANAGED
         message: { type: string }
         details:
           {
