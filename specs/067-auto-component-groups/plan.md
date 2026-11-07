@@ -168,8 +168,9 @@ metrics, post-run trigger ordering).
 - **Audit**: `writeEntityChange` for group `created` and `lifecycle`
   transitions only (rare, human-meaningful); per-component membership churn
   is derived state and stays unaudited (mirrors reconciliation precedent).
-- **Metrics**: `auto_group_passes_total` (counter, `scope` label =
-  `post-run`/`source-event`), `auto_group_pass_duration_seconds` (histogram),
+- **Metrics**: `auto_group_passes_total` (counter, `trigger` label =
+  `hub-run`/`agent-run`/`source-retire`/`source-reactivate`),
+  `auto_group_pass_duration_seconds` (histogram, `trigger` label),
   `auto_group_pass_errors_total` (counter) — mirrors the suggestion-pass
   trio.
 

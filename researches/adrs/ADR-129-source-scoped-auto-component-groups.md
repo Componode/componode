@@ -2,7 +2,7 @@
 
 > **Status:** Ratified (2026-11-07 grilling, spec 067)
 > **Supersedes**: none
-> **Amends**: ADR-082, ADR-019 (see "Amendments to earlier ADRs")
+> **Amends**: ADR-082, ADR-019, ADR-071 (see "Amendments to earlier ADRs")
 
 **Context**: `ComponentGroup` (ADR-082) is human-declared — a curator creates
 the group and assigns `components.componentGroupId` one PATCH at a time.
@@ -113,6 +113,9 @@ identities) cannot belong to two cluster groups at once.
   hierarchy and every edge type remain human-decided — a group is a
   component attribute, not an edge; `product_depends_on_component_group`
   wiring stays manual.
+- **ADR-071** (API error response format): the controlled `code` enum
+  gains `GROUP_AUTO_MANAGED` (409) for lifecycle/delete writes rejected
+  on system-provisioned groups.
 
 **Consequences**: one migration (`importer_sources.componentGroupId`), a
 provider-agnostic grouping service + strategy registry, hooks on both run

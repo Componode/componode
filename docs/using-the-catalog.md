@@ -97,8 +97,14 @@ states, not errors — the view never infers relations.
 ![The component Relationships tab: product dependents and instances around one component](./assets/component-relationships.png)
 
 **Component Groups** (`/component-groups`) — human-declared equivalences:
-"these three imported things are the same logical component." Products can
-depend on a group instead of a single component.
+"these three imported things are the same logical component," plus
+system-provisioned **auto-managed groups**: importers that declare the
+capability (e.g. Docker) get one group per source, and components that
+source exclusively reports are grouped automatically. Auto-managed groups
+derive their lifecycle from member activity — you can rename them, but
+lifecycle edits and deletion are rejected (`GROUP_AUTO_MANAGED`); retire
+the group through its source instead. Products can depend on a group
+instead of a single component.
 
 ![Component groups: human-declared equivalences across imported assets](./assets/component-groups.png)
 

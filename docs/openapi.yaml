@@ -4476,6 +4476,7 @@ components:
           properties:
             id: { type: string, format: uuid }
             label: { type: string }
+        componentGroupId: { type: string, format: uuid, nullable: true }
         lastCompletedRunAt: { type: string, format: date-time, nullable: true }
         activeComponentMemberships: { type: integer }
         activeInstanceMemberships: { type: integer }

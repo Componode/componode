@@ -1105,8 +1105,6 @@ export function createDbRemoteRunStore(): RemoteRunStore {
       }
     },
     async maintainAutoGroups(job) {
-      const manifest = await getManifest(job.importerName);
-      if (manifest.autoGroups !== "source") return;
       await runAutoGroupPass({
         actor: runActor(job.importerName),
         runId: job.runId,

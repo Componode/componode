@@ -1200,13 +1200,13 @@ async function worker(runId: string): Promise<void> {
     // ADR-129: refresh source-scoped auto groups before the run reports
     // COMPLETED and before suggestions, so group coverage can suppress stale
     // component-pair suggestions. Self-isolating — never fails the run.
-    if (manifest.autoGroups === "source") {
-      await runAutoGroupPass({
-        actor: runActor(importerName!),
-        runId,
-        trigger: "hub-run",
-      });
-    }
+    // Runs on every completed import run (FR-002); the pass itself skips
+    // when no capable source exists.
+    await runAutoGroupPass({
+      actor: runActor(importerName!),
+      runId,
+      trigger: "hub-run",
+    });
 
     terminalStatus = "COMPLETED";
     await updateRun(runId, {

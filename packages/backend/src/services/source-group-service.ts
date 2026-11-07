@@ -7,6 +7,7 @@ import { metrics } from "../plugins/metrics.js";
 import { logger as appLogger } from "../plugins/logging.js";
 import { getManifest } from "./importer-registry.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
+import { generateUniqueSlug } from "../utils/slug.js";
 
 /**
  * Source-scoped auto ComponentGroups (ADR-129, spec 067).
@@ -37,6 +38,10 @@ export interface SourceGroupStrategy {
   /** Display name at provision time; `engineName` may be null. */
   groupName(source: SourceGroupIdentity, engineName: string | null): string;
   groupDescription(source: SourceGroupIdentity): string;
+  /** Strategy-owned pick of the "engine" component name from eligible members. */
+  engineComponentName?(
+    members: ReadonlyArray<{ name: string; resourceType: string }>,
+  ): string | null;
 }
 
 const STRATEGIES: Record<string, SourceGroupStrategy> = {
@@ -49,6 +54,8 @@ const STRATEGIES: Record<string, SourceGroupStrategy> = {
     groupName: (s, engineName) => s.label ?? engineName ?? s.externalIdentity,
     groupDescription: (s) =>
       `Auto-managed group for Docker source "${s.externalIdentity}" — membership is derived from exclusive source reporting (ADR-129).`,
+    engineComponentName: (members) =>
+      members.find((c) => c.resourceType === "docker-engine")?.name ?? null,
   },
 };
 
@@ -136,7 +143,14 @@ async function loadSourcePlans(
 ): Promise<{
   plans: Array<{ source: EvaluatedSource; mode: MaintenanceMode }>;
 }> {
-  const sources = await trx.selectFrom("importer_sources").selectAll().execute();
+  // FOR UPDATE serializes overlapping passes: a concurrent trigger blocks
+  // on the shared source rows until the holder commits, then re-reads the
+  // committed componentGroupId links — no duplicate group provisioning.
+  const sources = await trx
+    .selectFrom("importer_sources")
+    .selectAll()
+    .forUpdate()
+    .execute();
   if (sources.length === 0) return { plans: [] };
 
   const configIds = [
@@ -210,8 +224,7 @@ async function ensureGroup(
   }
 
   const engineName =
-    eligibleComponents.find((c) => c.resourceType === "docker-engine")?.name ??
-    null;
+    strategy.engineComponentName?.(eligibleComponents) ?? null;
   const identity: SourceGroupIdentity = {
     importerName: source.importerName,
     externalIdentity: source.externalIdentity,
@@ -223,16 +236,14 @@ async function ensureGroup(
 
   // Slug is display identity only — the source link is the durable marker.
   // A taken base gets a numeric suffix; uniqueness is re-checked per attempt.
-  let slug = baseSlug;
-  for (let n = 2; ; n++) {
+  const slug = await generateUniqueSlug(baseSlug, async (candidate) => {
     const clash = await trx
       .selectFrom("component_groups")
       .select("id")
-      .where("slug", "=", slug)
+      .where("slug", "=", candidate)
       .executeTakeFirst();
-    if (!clash) break;
-    slug = `${baseSlug}-${n}`;
-  }
+    return clash !== undefined;
+  });
 
   await trx
     .insertInto("component_groups")
@@ -503,11 +514,8 @@ export async function runAutoGroupPass(
       { trigger, runId: context.runId, durationSeconds, ...report },
       "source auto-group pass complete",
     );
-    metrics.autoGroupPassesTotal.inc({ scope: trigger });
-    metrics.autoGroupPassDurationSeconds.observe(
-      { scope: trigger },
-      durationSeconds,
-    );
+    metrics.autoGroupPassesTotal.inc({ trigger });
+    metrics.autoGroupPassDurationSeconds.observe({ trigger }, durationSeconds);
     return report;
   } catch (err) {
     metrics.autoGroupPassErrorsTotal.inc();

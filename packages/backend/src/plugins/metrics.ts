@@ -143,13 +143,13 @@ const suggestionPassErrorsTotal = getOrCreateCounter(
 const autoGroupPassesTotal = getOrCreateCounter(
   "auto_group_passes_total",
   "Total source auto-grouping passes",
-  ["scope"],
+  ["trigger"],
 );
 
 const autoGroupPassDurationSeconds = getOrCreateHistogram(
   "auto_group_pass_duration_seconds",
   "Source auto-grouping pass duration",
-  ["scope"],
+  ["trigger"],
   [0.05, 0.1, 0.5, 1, 2.5, 5, 10, 30, 60],
 );
 
