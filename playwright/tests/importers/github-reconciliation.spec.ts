@@ -46,7 +46,7 @@ test.describe('github source-scoped reconciliation journey', () => {
     const run3 = await runAndWait(api, configId);
     expect(run3.status ?? run3.run?.status).toBe('COMPLETED');
     const srcList = await api('GET', '/api/v1/importer-sources');
-    const sources = srcList.body.items ?? srcList.body.sources ?? srcList.body;
+    const sources = srcList.body.items ?? srcList.body.sources ?? srcList.body.data ?? srcList.body;
     expect(Array.isArray(sources) ? sources.length : 0).toBeGreaterThan(0);
   });
 });

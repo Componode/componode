@@ -109,7 +109,7 @@ describe("tag filters", () => {
       ...authed(editorSession),
     });
     expect(res.statusCode).toBe(200);
-    const slugs = res.json().products.map((p: any) => p.slug);
+    const slugs = res.json().data.map((p: any) => p.slug);
     expect(slugs).toContain("tf-p1");
     expect(slugs).toContain("tf-p2");
     expect(slugs).not.toContain("tf-p3");

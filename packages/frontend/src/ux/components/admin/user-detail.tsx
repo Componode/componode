@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { ActivityFeed } from "@/ux/components/patterns/activity-feed"
 import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog"
 import { DangerZone } from "@/ux/components/patterns/danger-zone"
+import { ListPagination, type ListPaginationProps } from "@/ux/components/patterns/list-pagination"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { DescriptionList, MonoValue, RelativeTime } from "@/ux/components/patterns/primitives"
 import { RoleBadge, StatusBadge } from "@/ux/components/patterns/status-badge"
@@ -34,10 +35,12 @@ interface UserDetailProps {
   user: User
   sessions: Session[]
   events: AuditEvent[]
+  /** Server pagination for the activity feed (spec 068 review T065). */
+  activityPagination?: ListPaginationProps
   isSelf: boolean
 }
 
-export function UserDetail({ user, sessions, events, isSelf }: UserDetailProps) {
+export function UserDetail({ user, sessions, events, activityPagination, isSelf }: UserDetailProps) {
   const [tab, setTab] = useValidatedTab(TABS)
 
   const updateUser = useUpdateUser()
@@ -236,11 +239,14 @@ export function UserDetail({ user, sessions, events, isSelf }: UserDetailProps) 
 
         <TabsContent value="activity" className="mt-4">
           <Card>
-            <CardContent>
+            <CardContent className="flex flex-col gap-4">
               {events.length === 0 ? (
                 <EmptyState icon={HistoryIcon} title="No activity recorded" description="Changes made by this user show up here." />
               ) : (
                 <ActivityFeed events={events} />
+              )}
+              {activityPagination && activityPagination.total > 0 && (
+                <ListPagination {...activityPagination} />
               )}
             </CardContent>
             <CardFooter className="border-t">

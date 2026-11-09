@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/ux/components/ui/switch"
 import { Textarea } from "@/ux/components/ui/textarea"
 import { ux } from "@/ux/lib/paths"
-import { useImporterSources } from "@/api/hooks/importer-sources"
+import { useAllImporterSources } from "@/api/hooks/importer-sources"
 import {
   CollectionScopeBuilder,
   draftFromScope,
@@ -868,8 +868,10 @@ function ReattachSourceSelect({
   value: string
   onChange: (v: string) => void
 }) {
-  const sources = useImporterSources()
-  const orphaned = (sources.data?.sources ?? []).filter(
+  // The reattach picker needs every UNMONITORED Source — fetch-all sweep
+  // (spec 068 exempt surface).
+  const sources = useAllImporterSources()
+  const orphaned = (sources.data ?? []).filter(
     (s) =>
       s.importerName === importerName &&
       s.status === "UNMONITORED" &&

@@ -1,21 +1,33 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { listUserSessions, revokeSession } from "../services/session-service.js";
+import { listSessionsQuerySchema } from "@componode/core";
+import {
+  listOwnSessionsPage,
+  listUserSessions,
+  revokeSession,
+} from "../services/session-service.js";
 import { requireRole } from "../plugins/rbac.js";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { toActor } from "../services/actor.js";
+import { validationFailed } from "./route-helpers.js";
 
 export async function sessionRoutes(app: FastifyInstance): Promise<void> {
-  // GET /sessions — list current user's sessions
+  // GET /sessions — the caller's own active sessions. Spec 068 / ADR-130:
+  // strict query validation at the boundary; response is the
+  // {data, pagination} envelope.
   app.get("/sessions", {
     preHandler: [app.verifySession],
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     if (!req.user) {
       return reply.status(401).send({ code: "AUTH_NO_SESSION", message: "Not authenticated" });
     }
-    const sessions = await listUserSessions(req.user.id, {
+    const parsed = listSessionsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return validationFailed(reply, parsed.error.issues);
+    }
+    const result = await listOwnSessionsPage(req.user.id, parsed.data, {
       currentSessionHash: req.sessionId,
     });
-    return reply.status(200).send({ sessions });
+    return reply.status(200).send(result);
   });
 
   // POST /sessions/:id/revoke — revoke a session

@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
-import { createDockerTargetSchema, probeDockerTargetSchema, testDockerTargetSchema, updateDockerTargetSchema } from "@componode/core";
+import { createDockerTargetSchema, listDockerTargetsQuerySchema, probeDockerTargetSchema, testDockerTargetSchema, updateDockerTargetSchema } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
 import { toActor } from "../services/actor.js";
@@ -10,7 +10,11 @@ const missing = (reply: FastifyReply) => reply.status(404).send({ code: "TARGET_
 const id = (req: unknown) => (req as { params: { id: string } }).params.id;
 
 export async function dockerTargetRoutes(app: FastifyInstance) {
-  app.get("/docker-targets", { preHandler: [app.verifySession, requireRole("importer:target:read")] }, async () => ({ targets: await svc.listDockerTargets() }));
+  app.get("/docker-targets", { preHandler: [app.verifySession, requireRole("importer:target:read")] }, async (req, reply) => {
+    const p = listDockerTargetsQuerySchema.safeParse(req.query);
+    if (!p.success) return invalid(reply, p.error.issues);
+    return svc.listDockerTargets(p.data);
+  });
   app.post("/docker-targets", { preHandler: [app.verifySession, requireRole("importer:target:create")] }, async (req: AuthenticatedRequest, reply) => { const p = createDockerTargetSchema.safeParse(req.body); if (!p.success) return invalid(reply, p.error.issues); return reply.status(201).send({ target: await svc.createDockerTarget(p.data, toActor(req)) }); });
   app.get("/docker-targets/:id", { preHandler: [app.verifySession, requireRole("importer:target:read")] }, async (req, reply) => { const target = await svc.getDockerTarget(id(req)); return target ? { target } : missing(reply); });
   app.patch("/docker-targets/:id", { preHandler: [app.verifySession, requireRole("importer:target:update")] }, async (req: AuthenticatedRequest, reply) => { const p = updateDockerTargetSchema.safeParse(req.body); if (!p.success) return invalid(reply, p.error.issues); const target = await svc.updateDockerTarget(id(req), p.data, toActor(req)); return target ? { target } : missing(reply); });

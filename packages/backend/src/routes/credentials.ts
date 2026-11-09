@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import {
   createCredentialSchema,
+  listCredentialsQuerySchema,
   testCredentialSchema,
   updateCredentialSchema,
 } from "@componode/core";
@@ -19,9 +20,17 @@ import { toActor } from "../services/actor.js";
 export async function credentialRoutes(app: FastifyInstance): Promise<void> {
   app.get("/credentials", {
     preHandler: [app.verifySession, requireRole("credential:read")],
-  }, async (_req: FastifyRequest, reply: FastifyReply) => {
-    const credentials = await listCredentials();
-    return reply.status(200).send({ credentials });
+  }, async (req: FastifyRequest, reply: FastifyReply) => {
+    const parsed = listCredentialsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid query",
+        details: parsed.error.issues,
+      });
+    }
+    const result = await listCredentials(parsed.data);
+    return reply.status(200).send(result);
   });
 
   app.post("/credentials", {

@@ -3,7 +3,7 @@ import { PRODUCT_TYPES } from "../constants/product-types.js";
 import { COMPONENT_LIFECYCLE } from "../constants/lifecycle.js";
 import { CRITICALITIES } from "../constants/criticality.js";
 import { linksSchema, tagSchema, tagsSchema } from "./metadata.js";
-import { splitCsvParam } from "./components.js";
+import { listParamsBaseSchema, splitCsvParam } from "./list-params.js";
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -46,9 +46,13 @@ export const updateProductSchema = z
   })
   .strict();
 
-export const listProductsQuerySchema = z
-  .object({
-    q: z.string().trim().min(1).max(200).optional(),
+/**
+ * Spec 068 / ADR-130: standardized list contract. The legacy `q` param was
+ * renamed to the shared `search` param — `q` is intentionally NOT accepted
+ * (strict schema rejects it with 400).
+ */
+export const listProductsQuerySchema = listParamsBaseSchema
+  .extend({
     type: productTypeSchema.optional(),
     lifecycle: productLifecycleSchema.optional(),
     tag: tagSchema.optional(),
@@ -62,6 +66,9 @@ export const listProductsQuerySchema = z
       .union([z.literal("true"), z.literal("false")])
       .transform((v) => v === "true")
       .optional(),
+    // `health`, `components` count, and `completeness` are app-computed —
+    // deliberately absent from the sort whitelist.
+    sort: z.enum(["name", "type", "owner", "criticality", "updated"]).default("name"),
   })
   .strict();
 

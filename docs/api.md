@@ -151,7 +151,7 @@ Notes:
 <!-- GENERATED:table:Users -->
 | Method | Path | Description | Access |
 |---|---|---|---|
-| GET | `/api/v1/users` | List users | `user:list` |
+| GET | `/api/v1/users` | List users (paginated, spec 068) | `user:list` |
 | POST | `/api/v1/users` | Create a user | `user:create` |
 | GET | `/api/v1/users/me` | Get the current user's profile | Authenticated |
 | PATCH | `/api/v1/users/me` | Update the current user's profile (display name, email) | Authenticated |
@@ -169,7 +169,7 @@ returned).
 | Method | Path | Description | Access |
 |---|---|---|---|
 | GET | `/api/v1/users/:id/sessions` | List sessions for a user | `user:listSessions` |
-| GET | `/api/v1/sessions` | List the current user's sessions | Authenticated |
+| GET | `/api/v1/sessions` | List the current user's sessions (paginated, spec 068) | Authenticated |
 | POST | `/api/v1/sessions/:id/revoke` | Revoke a session by ID | Authenticated |
 <!-- /GENERATED:table:Sessions -->
 
@@ -209,7 +209,7 @@ production (Docker Compose internal network).
 <!-- GENERATED:table:Products -->
 | Method | Path | Description | Access |
 |---|---|---|---|
-| GET | `/api/v1/products` | List products | Authenticated |
+| GET | `/api/v1/products` | List products (paginated, spec 068) | Authenticated |
 | POST | `/api/v1/products` | Create a product | `product:create` |
 | POST | `/api/v1/products/bootstrap` | Bootstrap the catalog from a YAML/JSON document (ADR-114) | `product:create` |
 | GET | `/api/v1/products/:slug` | Get product detail by slug | Authenticated |
@@ -260,9 +260,10 @@ Notes:
 
 Query params for `GET /components`: `page`, `pageSize` (max 100), `category`,
 `provider`, `lifecycle`, `status`, `componentGroup`, `group`, `tag`, `search`,
-`sort` (`name`/`lastSeenAt`/`createdAt`), `order`, `includeRetired`,
-`includeGone`, `wired` (`wired`/`unwired`, CSV or repeated — coverage
-classification from spec 023; invalid values return `400 VALIDATION_FAILED`).
+`sort` (`name`/`category`/`resourceType`/`owner`/`health`/`instances`/
+`lastSeenAt`), `order`, `includeRetired`, `includeGone`, `wired`
+(`wired`/`unwired`, CSV or repeated — coverage classification from spec 023;
+invalid values return `400 VALIDATION_FAILED`).
 
 Components are created/updated by importers, not via the API — `PATCH` only
 reassigns `{ componentGroupId?, teamOwnerId? }` (nullable).
@@ -272,7 +273,7 @@ reassigns `{ componentGroupId?, teamOwnerId? }` (nullable).
 <!-- GENERATED:table:ComponentGroups -->
 | Method | Path | Description | Access |
 |---|---|---|---|
-| GET | `/api/v1/component-groups` | List component groups | Authenticated |
+| GET | `/api/v1/component-groups` | List component groups (paginated, spec 068) | Authenticated |
 | POST | `/api/v1/component-groups` | Create a component group | `componentGroup:create` |
 | GET | `/api/v1/component-groups/:id` | Get a component group by ID or slug | Authenticated |
 | PATCH | `/api/v1/component-groups/:id` | Update a component group | `componentGroup:update` |
@@ -289,7 +290,7 @@ same fields plus `lifecycle`.
 |---|---|---|---|
 | GET | `/api/v1/importers` | List available importer manifests | Authenticated |
 | GET | `/api/v1/importers/:name/schema` | Get an importer's config schema | Authenticated |
-| GET | `/api/v1/importer-configs` | List importer configurations | Authenticated |
+| GET | `/api/v1/importer-configs` | List importer configurations (paginated, spec 068) | Authenticated |
 | POST | `/api/v1/importer-configs` | Create an importer configuration | `importer:config:create` |
 | GET | `/api/v1/importer-configs/:id` | Get an importer configuration | Authenticated |
 | PATCH | `/api/v1/importer-configs/:id` | Update an importer configuration | `importer:config:update` |
@@ -297,18 +298,18 @@ same fields plus `lifecycle`.
 | POST | `/api/v1/importer-configs/:id/convert-secrets` | Convert legacy secret refs to a stored credential | `importer:config:update` |
 | POST | `/api/v1/importer-configs/:id/trigger` | Trigger an import run | `importer:run:trigger` |
 | GET | `/api/v1/importer-configs/:id/run-aggregates` | Per-day run aggregates for an importer configuration | Authenticated |
-| GET | `/api/v1/importer-configs/:id/runs` | List runs for an importer configuration | Authenticated |
+| GET | `/api/v1/importer-configs/:id/runs` | List runs for an importer configuration (paginated, spec 068) | Authenticated |
 | GET | `/api/v1/importer-configs/:configId/runs/:runId` | Get an import run | Authenticated |
-| GET | `/api/v1/importer-configs/:configId/runs/:runId/errors` | List errors for an import run | Authenticated |
+| GET | `/api/v1/importer-configs/:configId/runs/:runId/errors` | List errors for an import run (paginated, spec 068) | Authenticated |
 | POST | `/api/v1/importer-configs/:configId/runs/:runId/cancel` | Cancel a running or pending import run | `importer:run:cancel` |
-| GET | `/api/v1/importer-sources` | List importer sources | Authenticated |
+| GET | `/api/v1/importer-sources` | List importer sources (paginated, spec 068) | Authenticated |
 | GET | `/api/v1/importer-sources/:id` | Get an importer source | Authenticated |
 | GET | `/api/v1/importer-sources/:id/runs` | List runs attributed to an importer source | Authenticated |
 | GET | `/api/v1/importer-sources/:id/memberships` | List a source's component and instance memberships with per-source details | Authenticated |
 | GET | `/api/v1/importer-sources/:id/collection-scope` | Rehydrate a collection scope draft from a source's memberships (spec 058) | Authenticated |
 | POST | `/api/v1/importer-sources/:id/retire` | Explicitly retire an importer source | `importer:source:retire` |
 | POST | `/api/v1/importer-sources/:id/reactivate` | Reverse source retirement | `importer:source:reactivate` |
-| GET | `/api/v1/docker-targets` | List Hub-managed Docker targets | `importer:target:read` |
+| GET | `/api/v1/docker-targets` | List Hub-managed Docker targets (paginated, spec 068) | `importer:target:read` |
 | POST | `/api/v1/docker-targets` | Create a Docker target | `importer:target:create` |
 | GET | `/api/v1/docker-targets/:id` | Get a Docker target | `importer:target:read` |
 | PATCH | `/api/v1/docker-targets/:id` | Update a Docker target's display metadata | `importer:target:update` |
@@ -317,7 +318,7 @@ same fields plus `lifecycle`.
 | POST | `/api/v1/docker-targets/:id/disable` | Disable a Docker target and request cancellation of active Hub work | `importer:target:update` |
 | POST | `/api/v1/docker-targets/:id/test` | Test a Docker target's connectivity (Docker /version only) | `importer:target:test` |
 | POST | `/api/v1/docker-targets/probe` | Probe a prospective Docker target profile without persisting anything | `importer:target:test` |
-| GET | `/api/v1/importer-configs/:configId/runs/:runId/changes` | Import-run consequential changes | Authenticated |
+| GET | `/api/v1/importer-configs/:configId/runs/:runId/changes` | Import-run consequential changes (paginated, spec 068) | Authenticated |
 <!-- /GENERATED:table:Importers -->
 
 Notes:
@@ -335,7 +336,7 @@ Notes:
 <!-- GENERATED:table:Credentials -->
 | Method | Path | Description | Access |
 |---|---|---|---|
-| GET | `/api/v1/credentials` | List credentials | `credential:read` |
+| GET | `/api/v1/credentials` | List credentials (paginated, spec 068) | `credential:read` |
 | POST | `/api/v1/credentials` | Create a credential | `credential:create` |
 | GET | `/api/v1/credentials/:id` | Get credential detail | `credential:read` |
 | PATCH | `/api/v1/credentials/:id` | Update, rotate, or revoke a credential | `credential:update` |
@@ -362,12 +363,12 @@ Notes:
 <!-- GENERATED:table:Organization -->
 | Method | Path | Description | Access |
 |---|---|---|---|
-| GET | `/api/v1/lobs` | List lines of business | Authenticated |
+| GET | `/api/v1/lobs` | List lines of business (paginated, spec 068) | Authenticated |
 | POST | `/api/v1/lobs` | Create a line of business | `lob:create` |
 | GET | `/api/v1/lobs/:id` | Get a line of business by ID or slug | Authenticated |
 | PATCH | `/api/v1/lobs/:id` | Update a line of business | `lob:update` |
 | DELETE | `/api/v1/lobs/:id` | Delete a line of business | `lob:delete` |
-| GET | `/api/v1/teams` | List teams | Authenticated |
+| GET | `/api/v1/teams` | List teams (paginated, spec 068) | Authenticated |
 | POST | `/api/v1/teams` | Create a team | `team:create` |
 | GET | `/api/v1/teams/:id` | Get a team by ID or slug | Authenticated |
 | PATCH | `/api/v1/teams/:id` | Update a team | `team:update` |
@@ -405,8 +406,8 @@ Query params: `q` (required, ≤100 chars), `limit` (1–20, default 8).
 <!-- GENERATED:table:Audit -->
 | Method | Path | Description | Access |
 |---|---|---|---|
-| GET | `/api/v1/audit/activity` | Global activity feed | `audit:feed` |
-| GET | `/api/v1/audit/entities/:entityType/:entityId` | Per-entity history | Authenticated |
+| GET | `/api/v1/audit/activity` | Global activity feed (paginated, spec 068) | `audit:feed` |
+| GET | `/api/v1/audit/entities/:entityType/:entityId` | Per-entity history (paginated, spec 068) | Authenticated |
 | POST | `/api/v1/audit/corrections` | Append a correction entry | `audit:correct` |
 <!-- /GENERATED:table:Audit -->
 
@@ -421,7 +422,7 @@ and decided pairs never resurface.
 <!-- GENERATED:table:Suggestions -->
 | Method | Path | Description | Access |
 |---|---|---|---|
-| GET | `/api/v1/suggestions` | List staged edge suggestions (ADR-113) | Authenticated |
+| GET | `/api/v1/suggestions` | List staged edge suggestions (paginated, spec 068) | Authenticated |
 | POST | `/api/v1/suggestions/:id/accept` | Accept a suggestion — wires the real DEPENDS_ON edge | `product:edge:add` |
 | POST | `/api/v1/suggestions/:id/dismiss` | Dismiss a suggestion permanently | `product:edge:add` |
 | POST | `/api/v1/suggestions/rescan` | Run a whole-catalog generation pass | `product:edge:add` |
@@ -437,7 +438,7 @@ never retrievable from any endpoint.
 <!-- GENERATED:table:Agents -->
 | Method | Path | Description | Access |
 |---|---|---|---|
-| GET | `/api/v1/agents` | List import agents | `agent:read` |
+| GET | `/api/v1/agents` | List import agents (paginated, spec 068) | `agent:read` |
 | POST | `/api/v1/agents` | Create an import agent | `agent:create` |
 | GET | `/api/v1/agents/:id` | Get an import agent | `agent:read` |
 | PATCH | `/api/v1/agents/:id` | Update an import agent | `agent:update` |

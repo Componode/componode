@@ -125,7 +125,7 @@ describe("components catalog", () => {
     expect(body.data).toEqual([]);
     expect(body.pagination.total).toBe(0);
     expect(body.pagination.page).toBe(1);
-    expect(body.pagination.pageSize).toBe(50);
+    expect(body.pagination.pageSize).toBe(25);
     expect(body.pagination.pageCount).toBe(0);
     expect(body.pagination.hasNext).toBe(false);
   });
@@ -309,7 +309,7 @@ describe("components catalog", () => {
     expect(emptyBody.pagination.total).toBe(0);
   });
 
-  it("searches by name prefix", async () => {
+  it("searches by name substring", async () => {
     await insertComponent(testDb.db, {
       id: "018f0000-0000-7e10-a000-000000000005",
       name: "service-alpha",
@@ -722,5 +722,236 @@ describe("non-UUID :id params", () => {
   });
 });
 
+describe("spec 068 — standardized list contract", () => {
+  const get = (qs = "") =>
+    app.inject({
+      method: "GET",
+      url: `/api/v1/components${qs}`,
+      cookies: { [SESSION_COOKIE_NAME]: adminSession },
+    });
+
+  const seedPageComponents = async () => {
+    for (let i = 0; i < 5; i++) {
+      await insertComponent(testDb.db, {
+        id: `018f0000-0000-7e10-a000-${String(100 + i).padStart(12, "0")}`,
+        name: `page-comp-${i}`,
+        slug: `page-comp-${i}`,
+        category: "API",
+        provider: "GITHUB",
+        resourceType: "github:repository",
+      });
+    }
+  };
+
+  it("computes the pagination envelope across pages", async () => {
+    await seedPageComponents();
+
+    const p1 = JSON.parse((await get("?page=1&pageSize=2")).payload);
+    expect(p1.data).toHaveLength(2);
+    expect(p1.pagination).toMatchObject({
+      page: 1,
+      pageSize: 2,
+      total: 5,
+      pageCount: 3,
+      hasNext: true,
+    });
+
+    const p2 = JSON.parse((await get("?page=2&pageSize=2")).payload);
+    expect(p2.data).toHaveLength(2);
+    expect(p2.pagination).toMatchObject({ page: 2, total: 5, pageCount: 3, hasNext: true });
+    // Pages must not overlap.
+    expect(p2.data.map((c: any) => c.id)).not.toEqual(
+      expect.arrayContaining(p1.data.map((c: any) => c.id)),
+    );
+
+    const p3 = JSON.parse((await get("?page=3&pageSize=2")).payload);
+    expect(p3.data).toHaveLength(1);
+    expect(p3.pagination.hasNext).toBe(false);
+
+    // Contract default page size is 25.
+    const def = JSON.parse((await get("")).payload);
+    expect(def.pagination.pageSize).toBe(25);
+  });
+
+  it("rejects invalid pagination, sort, and unknown params with 400", async () => {
+    for (const qs of [
+      "?page=0",
+      "?page=-1",
+      "?page=abc",
+      "?pageSize=0",
+      "?pageSize=101",
+      "?sort=bogus",
+      "?order=sideways",
+      "?bogusParam=1",
+      "?q=legacy-param",
+    ]) {
+      const res = await get(qs);
+      expect(res.statusCode, qs).toBe(400);
+      expect(JSON.parse(res.payload).code).toBe("VALIDATION_FAILED");
+    }
+  });
+
+  it("sorts by whitelisted columns with a deterministic id tiebreak", async () => {
+    const id1 = "018f0000-0000-7e10-a000-000000000011";
+    const id2 = "018f0000-0000-7e10-a000-000000000012";
+    const id3 = "018f0000-0000-7e10-a000-000000000013";
+    await insertComponent(testDb.db, {
+      id: id1, name: "Bravo", slug: "bravo-sort",
+      category: "API", provider: "GITHUB", resourceType: "gamma-res",
+    });
+    await insertComponent(testDb.db, {
+      id: id2, name: "Alpha", slug: "alpha-sort",
+      category: "STORAGE", provider: "AWS", resourceType: "alpha-res",
+    });
+    await insertComponent(testDb.db, {
+      id: id3, name: "Charlie", slug: "charlie-sort",
+      category: "API", provider: "GITHUB", resourceType: "beta-res",
+    });
+
+    const slugs = (body: any) => body.data.map((c: any) => c.slug);
+
+    expect(slugs(JSON.parse((await get("?sort=name&order=asc")).payload)))
+      .toEqual(["alpha-sort", "bravo-sort", "charlie-sort"]);
+    expect(slugs(JSON.parse((await get("?sort=name&order=desc")).payload)))
+      .toEqual(["charlie-sort", "bravo-sort", "alpha-sort"]);
+    // category: API rows first (id tiebreak → bravo before charlie), then STORAGE.
+    expect(slugs(JSON.parse((await get("?sort=category&order=asc")).payload)))
+      .toEqual(["bravo-sort", "charlie-sort", "alpha-sort"]);
+    expect(slugs(JSON.parse((await get("?sort=resourceType&order=asc")).payload)))
+      .toEqual(["alpha-sort", "charlie-sort", "bravo-sort"]);
+  });
+
+  it("sorts owner by the joined team name and instances/health/lastSeenAt by their rollups", async () => {
+    const teamZ = "018f0000-0000-7e10-b000-0000000000a1";
+    const teamA = "018f0000-0000-7e10-b000-0000000000a2";
+    await testDb.db.insertInto("teams").values([
+      { id: teamZ, name: "Zeta Team", slug: "zeta-team", description: null, lobId: null, createdAt: now(), updatedAt: now() },
+      { id: teamA, name: "Alpha Team", slug: "alpha-team", description: null, lobId: null, createdAt: now(), updatedAt: now() },
+    ] as any).execute();
+
+    const owned = "018f0000-0000-7e10-a000-000000000021";
+    const otherOwned = "018f0000-0000-7e10-a000-000000000022";
+    const unowned = "018f0000-0000-7e10-a000-000000000023";
+    await insertComponent(testDb.db, {
+      id: owned, name: "Owned Z", slug: "owned-z",
+      category: "API", provider: "GITHUB", resourceType: "svc",
+      teamOwnerId: teamZ,
+    });
+    await insertComponent(testDb.db, {
+      id: otherOwned, name: "Owned A", slug: "owned-a",
+      category: "API", provider: "GITHUB", resourceType: "svc",
+      teamOwnerId: teamA,
+    });
+    await insertComponent(testDb.db, {
+      id: unowned, name: "Unowned", slug: "unowned",
+      category: "API", provider: "GITHUB", resourceType: "svc",
+    });
+
+    // instances: owned=2, otherOwned=1, unowned=0
+    await insertInstance(testDb.db, { id: "018f0000-0000-7e10-a000-000000000101", componentId: owned, status: "RUNNING", externalId: "o:0", slug: "o-0", lastSeenAt: "2026-10-01T00:00:00Z" });
+    await insertInstance(testDb.db, { id: "018f0000-0000-7e10-a000-000000000102", componentId: owned, status: "ERROR", externalId: "o:1", slug: "o-1", lastSeenAt: "2026-10-20T00:00:00Z" });
+    await insertInstance(testDb.db, { id: "018f0000-0000-7e10-a000-000000000103", componentId: otherOwned, status: "STOPPED", externalId: "oa:0", slug: "oa-0", lastSeenAt: "2026-10-10T00:00:00Z" });
+
+    const slugs = (body: any) => body.data.map((c: any) => c.slug);
+
+    // owner asc: Alpha Team, Zeta Team, NULL last.
+    expect(slugs(JSON.parse((await get("?sort=owner&order=asc")).payload)))
+      .toEqual(["owned-a", "owned-z", "unowned"]);
+    // instances asc: 0, 1, 2.
+    expect(slugs(JSON.parse((await get("?sort=instances&order=asc")).payload)))
+      .toEqual(["unowned", "owned-a", "owned-z"]);
+    // health asc (worstStatus string): ERROR < RUNNING? — owned-z=ERROR,
+    // owned-a=STOPPED, unowned=null → ERROR, STOPPED, NULL last.
+    expect(slugs(JSON.parse((await get("?sort=health&order=asc")).payload)))
+      .toEqual(["owned-z", "owned-a", "unowned"]);
+    // lastSeenAt asc: owned-a(10-10) < owned-z(10-20) < unowned(null last).
+    expect(slugs(JSON.parse((await get("?sort=lastSeenAt&order=asc")).payload)))
+      .toEqual(["owned-a", "owned-z", "unowned"]);
+  });
+
+  it("searches name, slug, resourceType, externalId, and tags", async () => {
+    await insertComponent(testDb.db, {
+      id: "018f0000-0000-7e10-a000-000000000031",
+      name: "Payments API", slug: "payments-api",
+      category: "API", provider: "GITHUB",
+      resourceType: "aws:s3:bucket", externalId: "ext-bucket-1",
+      tags: ["payments-core"],
+    });
+    await insertComponent(testDb.db, {
+      id: "018f0000-0000-7e10-a000-000000000032",
+      name: "Unrelated", slug: "unrelated-svc",
+      category: "API", provider: "OTHER",
+      resourceType: "service", tags: [],
+    });
+
+    const find = async (qs: string) =>
+      JSON.parse((await get(qs)).payload).data.map((c: any) => c.slug);
+
+    expect(await find("?search=bucket")).toEqual(["payments-api"]); // resourceType
+    expect(await find("?search=ext-bucket")).toEqual(["payments-api"]); // externalId
+    expect(await find("?search=payments")).toEqual(["payments-api"]); // name + tag
+    expect(await find("?search=PAYMENTS-CORE")).toEqual(["payments-api"]); // tag, case-insensitive
+    expect(await find("?search=unrelated")).toEqual(["unrelated-svc"]); // name substring
+    expect(await find("?search=zzz-no-match")).toEqual([]);
+  });
+
+  it("worstStatus omits the GONE rung when includeGone=false", async () => {
+    const comp = "018f0000-0000-7e10-a000-000000000041";
+    await insertComponent(testDb.db, {
+      id: comp, name: "Mixed Health", slug: "mixed-health",
+      category: "API", provider: "GITHUB", resourceType: "svc",
+    });
+    await insertInstance(testDb.db, {
+      id: "018f0000-0000-7e10-a000-000000000141",
+      componentId: comp, status: "RUNNING",
+      externalId: "mh:0", slug: "mh-0", lastSeenAt: "2026-10-01T00:00:00Z",
+    });
+    await insertInstance(testDb.db, {
+      id: "018f0000-0000-7e10-a000-000000000142",
+      componentId: comp, status: "GONE",
+      externalId: "mh:1", slug: "mh-1", lastSeenAt: "2026-10-20T00:00:00Z",
+    });
+
+    // includeGone=false: GONE instances are invisible — worstStatus must not
+    // report GONE and the instance count excludes them.
+    const hidden = JSON.parse((await get("")).payload);
+    const rowHidden = hidden.data.find((c: any) => c.slug === "mixed-health");
+    expect(rowHidden).toBeTruthy();
+    expect(rowHidden.worstStatus).toBe("RUNNING");
+    expect(rowHidden.instanceCount).toBe(1);
+
+    // includeGone=true: the GONE rung returns (ERROR > GONE > STOPPED > RUNNING).
+    const shown = JSON.parse((await get("?includeGone=true")).payload);
+    const rowShown = shown.data.find((c: any) => c.slug === "mixed-health");
+    expect(rowShown.worstStatus).toBe("GONE");
+    expect(rowShown.instanceCount).toBe(2);
+  });
+
+  it("explicit lifecycle filter overrides the default RETIRED exclusion", async () => {
+    await insertComponent(testDb.db, {
+      id: "018f0000-0000-7e10-a000-000000000051",
+      name: "Active One", slug: "active-one",
+      category: "API", provider: "GITHUB", resourceType: "svc",
+      lifecycle: "ACTIVE",
+    });
+    await insertComponent(testDb.db, {
+      id: "018f0000-0000-7e10-a000-000000000052",
+      name: "Retired One", slug: "retired-one",
+      category: "API", provider: "GITHUB", resourceType: "svc",
+      lifecycle: "RETIRED",
+    });
+
+    const slugs = async (qs: string) =>
+      JSON.parse((await get(qs)).payload).data.map((c: any) => c.slug);
+
+    // Bugfix: lifecycle=RETIRED must return rows WITHOUT includeRetired.
+    expect(await slugs("?lifecycle=RETIRED")).toEqual(["retired-one"]);
+    expect(await slugs("?lifecycle=RETIRED&includeRetired=true")).toEqual(["retired-one"]);
+    expect(await slugs("?lifecycle=ACTIVE")).toEqual(["active-one"]);
+    expect((await slugs("?lifecycle=RETIRED")).length).toBe(1);
+    const retiredOnly = JSON.parse((await get("?lifecycle=RETIRED")).payload);
+    expect(retiredOnly.pagination.total).toBe(1);
+  });
+});
 
 });

@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { BanIcon, CircleCheckIcon, Trash2Icon, ZapIcon } from "lucide-react";
 import { useDeleteDockerTarget, useDockerTarget, useSetDockerTargetEnabled, useTestDockerTarget, useUpdateDockerTarget } from "@/api/hooks/docker-targets";
-import { useImporterConfigs } from "@/api/hooks/importers";
+import { useAllImporterConfigs } from "@/api/hooks/importers";
 import { errorMessage } from "@/ux/lib/api-state";
 import { useLeafCrumb } from "@/ux/components/app/app-header";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
@@ -27,7 +27,7 @@ export function UxDockerTargetDetailPage() {
   const navigate = useNavigate();
   const target = useDockerTarget(id);
   useLeafCrumb(target.data?.target?.label ?? null);
-  const configs = useImporterConfigs();
+  const configs = useAllImporterConfigs();
   const update = useUpdateDockerTarget(id!);
   const setEnabled = useSetDockerTargetEnabled(id!);
   const del = useDeleteDockerTarget(id!);
@@ -40,7 +40,7 @@ export function UxDockerTargetDetailPage() {
   if (target.error) return <PageContainer><ErrorState description={errorMessage(target.error)} onRetry={() => void target.refetch()} /></PageContainer>;
   const t = target.data.target;
   const needsCredential = Object.keys(t.profile).some((k) => k.endsWith("Key"));
-  const hubConfigs = (configs.data?.configs ?? []).filter(
+  const hubConfigs = (configs.data ?? []).filter(
     (c) => c.importerName === "docker" && c.agentId === null && (c.scope as { targetId?: string }).targetId === t.targetId,
   );
 

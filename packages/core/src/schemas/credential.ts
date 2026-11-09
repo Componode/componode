@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { CREDENTIAL_STATUSES } from "../constants/credential-status.js";
+import { listParamsBaseSchema, listOrderSchema } from "./list-params.js";
 
 const secretKeyPattern = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/;
 const MAX_PAYLOAD_BYTES = 64 * 1024;
@@ -103,6 +105,23 @@ export const testCredentialSchema = z
   })
   .strict();
 
+/**
+ * Spec 068 / ADR-130: standardized list contract for GET /credentials
+ * (admin). `name` sorts by the credential's display `label` column;
+ * `usedByCount` orders by the same dependent-count expression the row
+ * exposes (FR-005).
+ */
+export const listCredentialsQuerySchema = listParamsBaseSchema
+  .extend({
+    status: z.enum(CREDENTIAL_STATUSES).optional(),
+    sort: z
+      .enum(["name", "status", "expiresAt", "lastUsedAt", "usedByCount", "createdAt"])
+      .default("createdAt"),
+    order: listOrderSchema.default("desc"),
+  })
+  .strict();
+
 export type CreateCredentialInput = z.infer<typeof createCredentialSchema>;
 export type UpdateCredentialInput = z.infer<typeof updateCredentialSchema>;
 export type TestCredentialInput = z.infer<typeof testCredentialSchema>;
+export type ListCredentialsQuery = z.infer<typeof listCredentialsQuerySchema>;

@@ -1,4 +1,5 @@
 import type { EdgeSuggestionReason, EdgeSuggestionStatus } from "../constants/edge-suggestion.js";
+import type { Paginated } from "../schemas/list-params.js";
 
 /** Persisted staged candidate DEPENDS_ON pair (ADR-113, spec 022). */
 export interface EdgeSuggestion {
@@ -24,10 +25,11 @@ export interface SuggestionQueueItem extends EdgeSuggestion {
   decidedByName: string | null;
 }
 
-export interface SuggestionListResult {
-  items: SuggestionQueueItem[];
-  total: number;
-}
+/**
+ * Spec 068 / ADR-130: the suggestions queue migrated to the standardized
+ * `{data, pagination}` envelope (`limit`/`offset` → `page`/`pageSize`).
+ */
+export type SuggestionListResult = Paginated<SuggestionQueueItem>;
 
 /** Result of a whole-catalog generation pass (POST /suggestions/rescan). */
 export interface SuggestionRescanReport {

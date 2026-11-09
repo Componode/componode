@@ -1,8 +1,10 @@
-
 import { LaptopIcon, LogOutIcon } from "lucide-react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog"
 import { RelativeTime } from "@/ux/components/patterns/primitives"
+import { SortableTableHead, type ListSortBindings } from "@/ux/components/patterns/sortable-header"
+import type { SummaryField } from "@/ux/components/patterns/title-with-summary"
+import { TitleWithSummary } from "@/ux/components/patterns/title-with-summary"
 import { EmptyState } from "@/ux/components/patterns/states"
 import { StatusBadge } from "@/ux/components/patterns/status-badge"
 import { Button } from "@/ux/components/ui/button"
@@ -12,7 +14,34 @@ import { useRevokeSession } from "@/api/hooks/sessions"
 import { flags } from "@/ux/lib/flags"
 import type { Session } from "@/ux/lib/view-types"
 
-export function SessionsTable({ data, showOwner = true }: { data: Session[]; showOwner?: boolean }) {
+const Dash = () => <span className="text-muted-foreground">—</span>
+const textOrDash = (v: string | null | undefined) => (v ? v : <Dash />)
+
+/**
+ * Curated hover-summary fields for a session row (spec 068 US4 / T062) —
+ * explicit allowlist of already-returned list fields; no secrets (the
+ * session token/id is never rendered).
+ */
+function sessionSummary(s: Session): SummaryField[] {
+  return [
+    { label: "Device", value: textOrDash(s.device) },
+    { label: "Location", value: textOrDash(s.location) },
+    { label: "User", value: textOrDash(s.displayName) },
+    { label: "Last seen", value: <RelativeTime iso={s.lastSeenAt} /> },
+    { label: "Expires", value: <RelativeTime iso={s.expiresAt} /> },
+    { label: "Signed in", value: <RelativeTime iso={s.createdAt} /> },
+  ]
+}
+
+/**
+ * Sessions table — spec 068: one server page at a time; sort is owned by
+ * the page's `useListState`. Sortable headers cover the contract keys
+ * (`location` orders by the stored ip column; `createdAt` is the endpoint
+ * default and has no column). The device label is app-computed from the
+ * user agent, so it has no sort key — it does carry the hover summary.
+ * Revoke actions are unchanged.
+ */
+export function SessionsTable({ data, showOwner = true, sort, order, onSortChange }: { data: Session[]; showOwner?: boolean } & ListSortBindings) {
   const revokeSession = useRevokeSession()
   const revoke = (s: Session) =>
     revokeSession.mutate(s.id, {
@@ -34,9 +63,17 @@ export function SessionsTable({ data, showOwner = true }: { data: Session[]; sho
             {flags.sessionDevice && <TableHead className="pl-4">Device</TableHead>}
             {!flags.sessionDevice && <TableHead className="pl-4">Session</TableHead>}
             {flags.sessionOwner && showOwner && <TableHead>User</TableHead>}
-            {flags.sessionLocation && <TableHead>Location</TableHead>}
-            <TableHead>Last seen</TableHead>
-            <TableHead>Expires</TableHead>
+            {flags.sessionLocation && (
+              <SortableTableHead sortKey="location" sort={sort} order={order} onSortChange={onSortChange}>
+                Location
+              </SortableTableHead>
+            )}
+            <SortableTableHead sortKey="lastSeenAt" sort={sort} order={order} onSortChange={onSortChange}>
+              Last seen
+            </SortableTableHead>
+            <SortableTableHead sortKey="expiresAt" sort={sort} order={order} onSortChange={onSortChange}>
+              Expires
+            </SortableTableHead>
             <TableHead className="pr-4 text-right">
               <span className="sr-only">Actions</span>
             </TableHead>
@@ -49,9 +86,21 @@ export function SessionsTable({ data, showOwner = true }: { data: Session[]; sho
                 <div className="flex items-center gap-2.5">
                   <LaptopIcon className="size-4 text-muted-foreground" aria-hidden="true" />
                   {flags.sessionDevice ? (
-                    <span className="font-medium">{s.device}</span>
+                    <TitleWithSummary
+                      className="max-w-56"
+                      title={<span className="block truncate font-medium">{s.device}</span>}
+                      titleText={s.device}
+                      summary={sessionSummary(s)}
+                      focusable
+                    />
                   ) : (
-                    <code className="font-mono text-xs text-muted-foreground">{s.id.slice(0, 8)}</code>
+                    <TitleWithSummary
+                      className="max-w-56"
+                      title={<code className="block truncate font-mono text-xs text-muted-foreground">{s.id.slice(0, 8)}</code>}
+                      titleText={s.id.slice(0, 8)}
+                      summary={sessionSummary(s)}
+                      focusable
+                    />
                   )}
                   {flags.sessionCurrent && s.current && <StatusBadge tone="brand" label="This device" />}
                 </div>

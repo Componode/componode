@@ -1,16 +1,19 @@
 import { uuidv7 } from "uuidv7";
-import type { Selectable } from "kysely";
+import { sql, type Selectable } from "kysely";
 import type {
   CreateCredentialInput,
   Credential,
   CredentialDependents,
   CredentialListItem,
   CredentialTestResult,
+  ListCredentialsQuery,
+  Paginated,
   TestCredentialInput,
   UpdateCredentialInput,
 } from "@componode/core";
 import { db } from "../db/connection.js";
 import type { CredentialRow } from "../db/types.js";
+import { paginateQuery } from "../utils/pagination.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import {
   decryptSecrets,
@@ -104,56 +107,82 @@ function toApi(row: Selectable<CredentialRow>): Credential {
   };
 }
 
-export async function listCredentials(): Promise<CredentialListItem[]> {
-  const rows = await db
+// Spec 068 / ADR-130: standardized list contract — page/pageSize/sort/order/
+// search + status filter. Secret material never leaves this service: rows
+// map through toApi (no encryptedPayload) and secretRefMap stays detail-only.
+export async function listCredentials(
+  query: ListCredentialsQuery,
+): Promise<Paginated<CredentialListItem>> {
+  let q = db
     .selectFrom("credentials")
     .selectAll()
-    .orderBy("createdAt", "desc")
-    .execute();
-  const ids = rows.map((r) => r.id);
-  // Dependent counts in three bounded queries — same sources as
-  // getDependents (importer configs, OIDC, URL checks).
-  const [configCounts, oidcIds, urlCheckCounts] = await Promise.all([
-    ids.length
-      ? db
+    // FR-005: `usedByCount` is the same dependent-count expression the row
+    // exposes (importer configs + OIDC client secret + URL checks) — one
+    // correlated-subquery sum per row so it can drive the sort.
+    .select((eb) => [
+      sql<number>`(
+        ${eb
           .selectFrom("importer_config_credentials")
-          .select("credentialId")
-          .select((eb) => eb.fn.countAll<number>().as("n"))
-          .where("credentialId", "in", ids)
-          .groupBy("credentialId")
-          .execute()
-      : Promise.resolve([]),
-    ids.length
-      ? db
+          .select((eb2) => eb2.fn.countAll().as("c"))
+          .whereRef("importer_config_credentials.credentialId", "=", "credentials.id")}
+        + ${eb
           .selectFrom("oidc_config")
-          .select("clientSecretCredentialId")
-          .where("clientSecretCredentialId", "in", ids)
-          .execute()
-      : Promise.resolve([]),
-    ids.length
-      ? db
+          .select((eb2) => eb2.fn.countAll().as("c"))
+          .whereRef("oidc_config.clientSecretCredentialId", "=", "credentials.id")}
+        + ${eb
           .selectFrom("url_checks")
-          .select("credentialId")
-          .select((eb) => eb.fn.countAll<number>().as("n"))
-          .where("credentialId", "in", ids)
-          .groupBy("credentialId")
-          .execute()
-      : Promise.resolve([]),
-  ]);
-  const byConfig = new Map(configCounts.map((r) => [r.credentialId, Number(r.n)]));
-  const oidcSet = new Set(oidcIds.map((r) => r.clientSecretCredentialId));
-  const byCheck = new Map(urlCheckCounts.map((r) => [r.credentialId, Number(r.n)]));
+          .select((eb2) => eb2.fn.countAll().as("c"))
+          .whereRef("url_checks.credentialId", "=", "credentials.id")}
+      )`.as("usedByCount"),
+    ]);
+
+  if (query.status) {
+    q = q.where("credentials.status", "=", query.status);
+  }
+  if (query.search) {
+    const term = `%${query.search}%`;
+    q = q.where((eb) =>
+      eb.or([
+        eb("credentials.label", "ilike", term),
+        eb("credentials.slug", "ilike", term),
+      ]),
+    );
+  }
+
+  const { data: rows, pagination } = await paginateQuery(
+    q,
+    { page: query.page, pageSize: query.pageSize },
+    {
+      orderBy: (qb) => {
+        // `name` sorts by the display `label` column (contract note).
+        const primary =
+          query.sort === "status"
+            ? qb.orderBy("credentials.status", query.order)
+            : query.sort === "expiresAt"
+              ? qb.orderBy("credentials.expiresAt", query.order)
+              : query.sort === "lastUsedAt"
+                ? qb.orderBy("credentials.lastUsedAt", query.order)
+                : query.sort === "usedByCount"
+                  ? qb.orderBy("usedByCount", query.order)
+                  : query.sort === "createdAt"
+                    ? qb.orderBy("credentials.createdAt", query.order)
+                    : qb.orderBy("credentials.label", query.order);
+        // Deterministic tie-break (ADR-130).
+        return primary.orderBy("credentials.id", query.order);
+      },
+    },
+  );
+
   // ADR-117 Amendment 1: list views get `keyHints` (key + source type)
   // only — reference names stay visible in `secretRefMap` on detail.
-  return rows.map((row): CredentialListItem => {
-    const credential = toApi(row);
-    delete credential.secretRefMap;
-    return {
-      ...credential,
-      usedByCount:
-        (byConfig.get(row.id) ?? 0) + (oidcSet.has(row.id) ? 1 : 0) + (byCheck.get(row.id) ?? 0),
-    };
-  });
+  return {
+    data: rows.map((row): CredentialListItem => {
+      const credential = toApi(row);
+      delete credential.secretRefMap;
+      return { ...credential, usedByCount: Number(row.usedByCount ?? 0) };
+    }),
+    pagination,
+  };
 }
 
 export async function getDependents(credentialId: string): Promise<CredentialDependents> {

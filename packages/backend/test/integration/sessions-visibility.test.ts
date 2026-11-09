@@ -68,7 +68,7 @@ describe("session visibility metadata (spec 032, gap G2)", () => {
       cookies: { [SESSION_COOKIE_NAME]: s2 },
     });
     expect(res.statusCode).toBe(200);
-    const sessions = res.json().sessions;
+    const sessions = res.json().data;
     expect(sessions.length).toBeGreaterThanOrEqual(2);
 
     const devices = sessions.map((s: any) => s.device);
@@ -140,7 +140,7 @@ describe("session visibility metadata (spec 032, gap G2)", () => {
       url: "/api/v1/sessions",
       cookies: { [SESSION_COOKIE_NAME]: admin! },
     });
-    const legacy = res.json().sessions.find((s: any) => s.tokenLast4 === "0000");
+    const legacy = res.json().data.find((s: any) => s.tokenLast4 === "0000");
     expect(legacy.device).toBeNull();
     expect(legacy.ip).toBeNull();
     expect(legacy.current).toBe(false);
@@ -175,8 +175,8 @@ describe("session visibility metadata (spec 032, gap G2)", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(
-      res.json().sessions.find((s: any) => s.tokenLast4 === "9999"),
+      res.json().data.find((s: any) => s.tokenLast4 === "9999"),
     ).toBeUndefined();
-    expect(res.json().sessions.length).toBeGreaterThanOrEqual(1);
+    expect(res.json().data.length).toBeGreaterThanOrEqual(1);
   });
 });

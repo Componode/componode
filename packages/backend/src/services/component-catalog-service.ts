@@ -6,6 +6,7 @@ import {
   hasNonGoneInstanceOrNone,
   wiredComponentIdsQuery,
 } from "./catalog-coverage-service.js";
+import { paginateQuery } from "../utils/pagination.js";
 
 function normalizeValues(value: string | string[] | undefined): string[] | undefined {
   if (value === undefined) return undefined;
@@ -16,20 +17,20 @@ function normalizeValues(value: string | string[] | undefined): string[] | undef
 
 export async function listComponents(rawQuery: ListComponentsQuery) {
   const parsed = listComponentsQuerySchema.parse(rawQuery);
-  const { page, pageSize, sort, order, includeRetired, includeGone } = parsed;
-  const offset = (page - 1) * pageSize;
+  const { page, pageSize, includeRetired, includeGone } = parsed;
 
   let query = db
     .selectFrom("components")
     .leftJoin("component_groups", "components.componentGroupId", "component_groups.id")
     .leftJoin("teams", "components.teamOwnerId", "teams.id");
 
-  // Default: hide RETIRED components unless explicitly requested
-  if (!includeRetired) {
+  const lifecycles = normalizeValues(parsed.lifecycle);
+  // Spec 068 bugfix: an explicit lifecycle filter overrides the default
+  // RETIRED exclusion — the two predicates must never combine (otherwise
+  // `lifecycle=RETIRED` could never match without includeRetired).
+  if (!includeRetired && !lifecycles) {
     query = query.where("components.lifecycle", "!=", "RETIRED");
   }
-
-  const lifecycles = normalizeValues(parsed.lifecycle);
   if (lifecycles) {
     query = query.where("components.lifecycle", "in", lifecycles);
   }
@@ -105,34 +106,51 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
     );
   }
 
+  // Spec 068: substring ILIKE across the displayed identity columns plus a
+  // tags unnest — replaces the old prefix-only name/slug/externalId match.
   if (parsed.search) {
-    const term = parsed.search;
+    const term = `%${parsed.search}%`;
     query = query.where((eb) =>
       eb.or([
-        eb("components.name", "ilike", `${term}%`),
-        eb("components.slug", "ilike", `${term}%`),
+        eb("components.name", "ilike", term),
+        eb("components.slug", "ilike", term),
+        eb("components.resourceType", "ilike", term),
         eb("components.externalId", "ilike", term),
+        sql<SqlBool>`EXISTS (
+          SELECT 1 FROM unnest(components.tags) AS t
+          WHERE t ILIKE ${term}
+        )`,
       ]),
     );
   }
 
-  const sortColumn =
-    sort === "lastSeenAt"
-      ? "components.lastSeenAt"
-      : sort === "createdAt"
-        ? "components.createdAt"
-        : "components.name";
-  const orderedQuery = query.orderBy(sortColumn, order);
+  const selected = query.select((eb) => {
+    const hasInstanceStatus = (status: string) =>
+      eb.exists(
+        eb
+          .selectFrom("component_instances")
+          .select("component_instances.id")
+          .whereRef("component_instances.componentId", "=", "components.id")
+          .where("component_instances.status", "=", status),
+      );
 
-  const countResult = await orderedQuery
-    .clearOrderBy()
-    .clearSelect()
-    .select(db.fn.count("components.id").as("count"))
-    .executeTakeFirst();
-  const total = Number(countResult?.count ?? 0);
+    // G21: per-row health rollup for the list's Health column — worst
+    // observed instance status. Spec 068 bugfix: the GONE rung exists only
+    // when includeGone=true, so hidden GONE instances can't mask the worst
+    // VISIBLE state (ERROR > GONE > STOPPED > RUNNING).
+    let worstStatus = eb.case().when(hasInstanceStatus("ERROR")).then("ERROR");
+    if (includeGone) {
+      worstStatus = worstStatus.when(hasInstanceStatus("GONE")).then("GONE");
+    }
+    const worstStatusExpr = worstStatus
+      .when(hasInstanceStatus("STOPPED"))
+      .then("STOPPED")
+      .when(hasInstanceStatus("RUNNING"))
+      .then("RUNNING")
+      .else(null)
+      .end();
 
-  const components = await orderedQuery
-    .select((eb) => [
+    return [
       "components.id",
       "components.name",
       "components.slug",
@@ -153,78 +171,51 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
         .whereRef("component_instances.componentId", "=", "components.id")
         .$if(!includeGone, (qb) => qb.where("component_instances.status", "!=", "GONE"))
         .as("instanceCount"),
-      // G21: per-row health rollup for the list's Health column —
-      // worst observed instance status (ERROR > GONE > STOPPED > RUNNING).
-      eb
-        .case()
-        .when(
-          eb.exists(
-            eb
-              .selectFrom("component_instances")
-              .select("component_instances.id")
-              .whereRef("component_instances.componentId", "=", "components.id")
-              .where("component_instances.status", "=", "ERROR"),
-          ),
-        )
-        .then("ERROR")
-        .when(
-          eb.exists(
-            eb
-              .selectFrom("component_instances")
-              .select("component_instances.id")
-              .whereRef("component_instances.componentId", "=", "components.id")
-              .where("component_instances.status", "=", "GONE"),
-          ),
-        )
-        .then("GONE")
-        .when(
-          eb.exists(
-            eb
-              .selectFrom("component_instances")
-              .select("component_instances.id")
-              .whereRef("component_instances.componentId", "=", "components.id")
-              .where("component_instances.status", "=", "STOPPED"),
-          ),
-        )
-        .then("STOPPED")
-        .when(
-          eb.exists(
-            eb
-              .selectFrom("component_instances")
-              .select("component_instances.id")
-              .whereRef("component_instances.componentId", "=", "components.id")
-              .where("component_instances.status", "=", "RUNNING"),
-          ),
-        )
-        .then("RUNNING")
-        .else(null)
-        .end()
-        .as("worstStatus"),
+      worstStatusExpr.as("worstStatus"),
       eb
         .selectFrom("component_instances")
         .select((eb2) => eb2.fn.max("component_instances.lastSeenAt").as("m"))
         .whereRef("component_instances.componentId", "=", "components.id")
         .as("lastSeenAt"),
-    ])
-    .limit(pageSize)
-    .offset(offset)
-    .execute();
+    ];
+  });
 
-  const pageCount = total === 0 ? 0 : Math.ceil(total / pageSize);
-  const hasNext = page * pageSize < total;
+  // Spec 068 / ADR-130 sort whitelist → ORDER BY. Computed sorts order by
+  // the SELECT aliases (`worstStatus`, `instanceCount`, `lastSeenAt`) so
+  // ordering matches the displayed rollup — notably `lastSeenAt` is the
+  // max(instance.lastSeenAt) subquery, NOT the components.lastSeenAt
+  // column. `components.id` is the deterministic tie-break and follows the
+  // requested direction.
+  const { data: components, pagination } = await paginateQuery(
+    selected,
+    { page, pageSize },
+    {
+      orderBy: (q) => {
+        const primary =
+          parsed.sort === "category"
+            ? q.orderBy("components.category", parsed.order)
+            : parsed.sort === "resourceType"
+              ? q.orderBy("components.resourceType", parsed.order)
+              : parsed.sort === "owner"
+                ? q.orderBy("teams.name", parsed.order)
+                : parsed.sort === "health"
+                  ? q.orderBy("worstStatus", parsed.order)
+                  : parsed.sort === "instances"
+                    ? q.orderBy("instanceCount", parsed.order)
+                    : parsed.sort === "lastSeenAt"
+                      ? q.orderBy("lastSeenAt", parsed.order)
+                      : q.orderBy("components.name", parsed.order);
+        return primary.orderBy("components.id", parsed.order);
+      },
+    },
+  );
 
   return {
     data: components.map((c) => ({
       ...c,
       instanceCount: Number(c.instanceCount),
     })),
-    pagination: {
-      page,
-      pageSize,
-      total,
-      pageCount,
-      hasNext,
-    },
+    pagination,
   };
 }
 

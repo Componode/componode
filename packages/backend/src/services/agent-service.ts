@@ -11,6 +11,8 @@ import {
   type AgentSession,
   type CreateImportAgentInput,
   type ImportAgent,
+  type ListAgentsQuery,
+  type Paginated,
   type UpdateImportAgentInput,
 } from "@componode/core";
 import { db } from "../db/connection.js";
@@ -19,6 +21,7 @@ import type { DB, ImportAgentRow } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { hashToken } from "../utils/crypto.js";
 import { getManifests } from "./importer-registry.js";
+import { paginateQuery } from "../utils/pagination.js";
 
 // Minimal seam so the session service can be injected without a circular
 // import (agent-channel route wires the real instance).
@@ -280,26 +283,70 @@ export async function createAgent(
   });
 }
 
+// Spec 068 / ADR-130: standardized list contract — page/pageSize/sort/order/
+// search + status filter; enrichments run on the page's rows only.
 export async function listAgents(
+  query: ListAgentsQuery,
   runs?: RemoteRunReader,
   sessions?: SessionReader,
-): Promise<ImportAgent[]> {
-  const rows = await db
+): Promise<Paginated<ImportAgent>> {
+  let q = db
     .selectFrom("import_agents")
     .selectAll()
-    .orderBy("name", "asc")
-    .execute();
+    // FR-005: the bound-config count is a correlated subquery on the same
+    // expression the row exposes — it can drive the `boundConfigCount`
+    // sort instead of the page-scoped grouped read used before.
+    .select((eb) => [
+      eb
+        .selectFrom("importer_configs")
+        .select((eb2) => eb2.fn.countAll().as("c"))
+        .whereRef("importer_configs.agentId", "=", "import_agents.id")
+        .as("boundConfigCount"),
+    ]);
+
+  if (query.status) {
+    q = q.where("import_agents.status", "=", query.status);
+  }
+  if (query.search) {
+    q = q.where("import_agents.name", "ilike", `%${query.search}%`);
+  }
+
+  const { data: rows, pagination } = await paginateQuery(
+    q,
+    { page: query.page, pageSize: query.pageSize },
+    {
+      orderBy: (qb) => {
+        const primary =
+          query.sort === "status"
+            ? qb.orderBy("import_agents.status", query.order)
+            : query.sort === "agentVersion"
+              ? qb.orderBy("import_agents.agentVersion", query.order)
+              : query.sort === "boundConfigCount"
+                ? qb.orderBy("boundConfigCount", query.order)
+                : query.sort === "lastSeenAt"
+                  ? qb.orderBy("import_agents.lastSeenAt", query.order)
+                  : query.sort === "createdAt"
+                    ? qb.orderBy("import_agents.createdAt", query.order)
+                    : qb.orderBy("import_agents.name", query.order);
+        // Deterministic tie-break (ADR-130).
+        return primary.orderBy("import_agents.id", query.order);
+      },
+    },
+  );
+
   const ids = rows.map((r) => r.id);
-  const counts = await boundConfigCounts(ids);
   const disconnects = await lastDisconnectReasons(ids);
   const creators = await creatorNames(rows.map((r) => r.createdBy));
   const jobCounts = runs?.runningJobCounts();
-  return rows.map((r) =>
-    toApi(r, counts.get(r.id) ?? 0, jobCounts?.get(r.id) ?? 0, {
-      lastHeartbeatAt: liveContact(sessions, r.id),
-      lastDisconnectReason: disconnects.get(r.id) ?? null,
-    }, creators.get(r.createdBy ?? "") ?? null),
-  );
+  return {
+    data: rows.map((r) =>
+      toApi(r, Number(r.boundConfigCount ?? 0), jobCounts?.get(r.id) ?? 0, {
+        lastHeartbeatAt: liveContact(sessions, r.id),
+        lastDisconnectReason: disconnects.get(r.id) ?? null,
+      }, creators.get(r.createdBy ?? "") ?? null),
+    ),
+    pagination,
+  };
 }
 
 function liveContact(sessions: SessionReader | undefined, agentId: string) {

@@ -233,7 +233,7 @@ describe("source-scoped auto ComponentGroups (spec 067)", () => {
       url: "/api/v1/component-groups",
       cookies: { [SESSION_COOKIE_NAME]: adminSession },
     });
-    const slugs = JSON.parse(list.payload).groups.map((g: any) => g.slug);
+    const slugs = JSON.parse(list.payload).data.map((g: any) => g.slug);
     expect(slugs).toContain(group.slug);
 
     const members = await app.inject({

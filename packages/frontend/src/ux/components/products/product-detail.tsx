@@ -10,6 +10,7 @@ import { DescriptionList, RelativeTime } from "@/ux/components/patterns/primitiv
 import { ProviderMark } from "@/ux/components/patterns/provider-mark"
 import { CriticalityBadge, HealthBadge, LifecycleBadge, ProductTypeBadge } from "@/ux/components/patterns/status-badge"
 import { ActivityFeed } from "@/ux/components/patterns/activity-feed"
+import { ListPagination, type ListPaginationProps } from "@/ux/components/patterns/list-pagination"
 import { EdgeAuthoring, type EdgeAuthoringProps } from "@/ux/components/products/edge-authoring"
 import { ProductMap } from "@/ux/components/products/product-map"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
@@ -45,9 +46,11 @@ export interface ProductDetailProps {
   edges?: Omit<EdgeAuthoringProps, "product">
   suggestions: Suggestion[]
   activity: AuditEvent[]
+  /** Server pagination for the activity feed (spec 068 review T065). */
+  activityPagination?: ListPaginationProps
 }
 
-export function ProductDetail({ product, components, consumers, parents, topology, edges, suggestions, activity }: ProductDetailProps) {
+export function ProductDetail({ product, components, consumers, parents, topology, edges, suggestions, activity, activityPagination }: ProductDetailProps) {
   const navigate = useNavigate()
   const [tab, setTab] = useValidatedTab(TABS)
   const updateProduct = useUpdateProduct()
@@ -342,11 +345,14 @@ export function ProductDetail({ product, components, consumers, parents, topolog
 
         <TabsContent value="activity">
           <Card>
-            <CardContent>
+            <CardContent className="flex flex-col gap-4">
               {activity.length ? (
                 <ActivityFeed events={activity} />
               ) : (
                 <p className="py-6 text-center text-sm text-muted-foreground">No activity recorded yet.</p>
+              )}
+              {activityPagination && activityPagination.total > 0 && (
+                <ListPagination {...activityPagination} />
               )}
             </CardContent>
           </Card>

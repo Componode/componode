@@ -4,17 +4,22 @@ import { EnrollAgentDialog } from "@/ux/components/agents/enroll-agent-dialog"
 import { AgentsTable } from "@/ux/components/agents/agents-table"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { EmptyState } from "@/ux/components/patterns/states"
-import { Summary } from "@/ux/components/patterns/summary-card"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Card } from "@/ux/components/ui/card"
+import type { PaginationMeta } from "@/api/types"
+import type { AgentsFilterKey, AgentsSortKey } from "@/api/hooks/agents"
+import type { ListState } from "@/ux/hooks/use-list-state"
 import type { ImportAgent } from "@/ux/lib/view-types"
 
-export function AgentsView({ agents: rows }: { agents: ImportAgent[] }) {
-  const live = rows.filter((a) => a.credentialState === "ACTIVE")
-  const connected = live.filter((a) => a.status === "CONNECTED").length
-  const offline = live.filter((a) => a.status === "OFFLINE").length
-  const pending = rows.filter((a) => a.credentialState === "PENDING_ENROLLMENT").length
-
+export function AgentsView({
+  agents: rows,
+  pagination,
+  list,
+}: {
+  agents: ImportAgent[]
+  pagination?: PaginationMeta
+  list: ListState<AgentsSortKey, AgentsFilterKey>
+}) {
   const enroll = <EnrollAgentDialog existingNames={rows.map((a) => a.name)} />
 
   return (
@@ -31,7 +36,9 @@ export function AgentsView({ agents: rows }: { agents: ImportAgent[] }) {
           Each agent opens a secure connection to the hub. No inbound firewall rules are needed, and secrets for private sources stay on the agent host.
         </AlertDescription>
       </Alert>
-      {rows.length === 0 ? (
+      {/* Fleet-wide status counts can't be computed from one page — the
+          status filter + server totals carry that signal now (spec 068). */}
+      {rows.length === 0 && !list.search && list.filters.status === "all" ? (
         <Card className="py-0">
           <EmptyState
             icon={RadioTowerIcon}
@@ -41,14 +48,7 @@ export function AgentsView({ agents: rows }: { agents: ImportAgent[] }) {
           />
         </Card>
       ) : (
-        <>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Summary label="Connected" value={connected} hint="Live session with the hub" />
-            <Summary label="Offline" value={offline} hint="Jobs queue until reconnect" />
-            <Summary label="Awaiting enrollment" value={pending} hint="Token issued, not yet used" />
-          </div>
-          <AgentsTable rows={rows} />
-        </>
+        <AgentsTable rows={rows} list={list} pagination={pagination} />
       )}
     </PageContainer>
   )

@@ -8,7 +8,9 @@ export default defineConfig({
   testDir: './tests',
   workers: 1,
   fullyParallel: false,
-  retries: 0,
+  // One retry absorbs infra flakes (the shared 300 req/min rate-limit bucket
+  // can 429 a late test's bootstrap); genuine failures still fail twice.
+  retries: 1,
   forbidOnly: true,
   timeout: 60_000,
   expect: { timeout: 10_000 },

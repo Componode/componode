@@ -38,7 +38,7 @@ export function CoverageCard({ coverage }: { coverage: CoverageFacets }) {
         })}
       </CardContent>
       <CardFooter>
-        <Link to={ux("/products?incomplete=1")} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+        <Link to={ux("/products?missing=incomplete")} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
           Review incomplete products
         </Link>
       </CardFooter>

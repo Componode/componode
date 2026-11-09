@@ -65,8 +65,12 @@ function autoManagedConflict(): never {
   );
 }
 
+import { paginateQuery } from "../utils/pagination.js";
+
 export async function listComponentGroups(rawQuery: unknown) {
   const parsed = listComponentGroupsQuerySchema.parse(rawQuery);
+  const { page, pageSize, order } = parsed;
+
   let query = db
     .selectFrom("component_groups")
     .leftJoin("teams", "component_groups.teamOwnerId", "teams.id")
@@ -88,14 +92,41 @@ export async function listComponentGroups(rawQuery: unknown) {
         .as("memberCount"),
     ]);
 
+  // Explicit lifecycle overrides the default RETIRED exclusion — same
+  // precedence rule as /components (spec 068).
   if (parsed.lifecycle) {
     query = query.where("component_groups.lifecycle", "=", parsed.lifecycle);
   } else if (!parsed.includeRetired) {
     query = query.where("component_groups.lifecycle", "!=", "RETIRED");
   }
 
-  const rows = await query.orderBy("component_groups.name").execute();
-  return rows.map((r) => ({ ...r, memberCount: Number(r.memberCount) }));
+  if (parsed.search) {
+    const term = `%${parsed.search}%`;
+    query = query.where((eb) =>
+      eb.or([
+        eb("component_groups.name", "ilike", term),
+        eb("component_groups.slug", "ilike", term),
+      ]),
+    );
+  }
+
+  const { data, pagination } = await paginateQuery(query, { page, pageSize }, {
+    orderBy: (q) => {
+      const primary =
+        parsed.sort === "lifecycle"
+          ? q.orderBy("component_groups.lifecycle", order)
+          : parsed.sort === "createdAt"
+            ? q.orderBy("component_groups.createdAt", order)
+            : q.orderBy("component_groups.name", order);
+      // Deterministic tie-break (ADR-130).
+      return primary.orderBy("component_groups.id", order);
+    },
+  });
+
+  return {
+    data: data.map((r) => ({ ...r, memberCount: Number(r.memberCount) })),
+    pagination,
+  };
 }
 
 function groupDetailQuery() {

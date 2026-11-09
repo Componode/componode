@@ -17,6 +17,7 @@ import {
   computeDependencySurfaces,
   productCompleteness,
 } from "./catalog-coverage-service.js";
+import { paginateQuery } from "../utils/pagination.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
 import { tagsDiffer } from "./suggestion-signals.js";
 import { supersedeSuggestionPairs } from "./product-edge-service.js";
@@ -75,10 +76,33 @@ async function assertUniqueSlug(slug: string, excludeId?: string) {
   }
 }
 
-/** FR-001: flat product list + COMPOSES edges; tree built client-side. */
+/**
+ * FR-001 + spec 068 / ADR-130: standardized `{data, pagination}` list.
+ *
+ * `missing` facets are SQL predicates — `owner`/`description` map to column
+ * checks and `dependencies` to `id NOT IN` over the computed surface set
+ * (the same Set that feeds every row's `completeness.dependencies`, so the
+ * facet and the chip can never drift — spec 023 FR-009/010). Health,
+ * componentCount, consumedByCount, and completeness stay app-computed but
+ * run only for the page's ids. `edges` stays top-level, scoped to the page
+ * ids (both endpoints must be listed rows — unchanged shape per contract).
+ */
 export async function listProducts(parsed: ListProductsQuery) {
+  const { page, pageSize, order } = parsed;
 
-  let query = productQuery().orderBy("digital_products.name");
+  // Spec 023: the dependency surface feeds both the `missing=dependencies`
+  // facet and every row's completeness.dependencies — compute once,
+  // catalog-wide (paginating the rows does not change its cost, research D8).
+  // Started eagerly so it overlaps the page fetch when it isn't needed as a
+  // predicate; the catch keeps a page-query failure from leaving an
+  // unhandled rejection — awaiters still see the real error.
+  const surfacesPromise = computeDependencySurfaces();
+  surfacesPromise.catch(() => {});
+
+  let query = productQuery();
+
+  // Explicit lifecycle overrides the default RETIRED exclusion — the two
+  // predicates must never combine (same precedence rule as /components).
   if (parsed.includeRetired !== true && !parsed.lifecycle) {
     query = query.where("digital_products.lifecycle", "!=", "RETIRED");
   }
@@ -96,31 +120,93 @@ export async function listProducts(parsed: ListProductsQuery) {
   if (parsed.criticality) {
     query = query.where("digital_products.criticality", "=", parsed.criticality);
   }
-  if (parsed.q) {
-    const like = `${parsed.q}%`;
+
+  // Spec 068: substring ILIKE across the displayed identity columns,
+  // description, both joined owner names, and a tags unnest — mirrors the
+  // products table's client-side search fields (research D7).
+  if (parsed.search) {
+    const term = `%${parsed.search}%`;
     query = query.where((eb) =>
       eb.or([
-        eb("digital_products.name", "ilike", like),
-        eb("digital_products.slug", "ilike", like),
+        eb("digital_products.name", "ilike", term),
+        eb("digital_products.slug", "ilike", term),
+        eb("digital_products.description", "ilike", term),
+        eb("teams.name", "ilike", term),
+        eb("line_of_businesses.name", "ilike", term),
+        sql<SqlBool>`EXISTS (
+          SELECT 1 FROM unnest(digital_products.tags) AS t
+          WHERE t ILIKE ${term}
+        )`,
       ]),
     );
   }
 
-  const products = await query.execute();
-
-  // Spec 023: the dependency surface feeds both the `missing=dependencies`
-  // facet and every row's completeness.dependencies — compute once.
-  const surfaces = await computeDependencySurfaces();
-
   // Schema-validated + CSV-split values; a gap facet matches when the
-  // corresponding completeness facet is false (shared derivation).
+  // corresponding completeness facet is false (shared derivation). Values
+  // combine with OR — same semantics the JS post-filter had.
   const missingValues = parsed.missing ?? [];
-  const rows = missingValues.length
-    ? products.filter((p) =>
-        missingValues.some((m) => !productCompleteness(p, surfaces)[m]),
-      )
-    : products;
+  if (missingValues.length) {
+    const surfaces = missingValues.includes("dependencies")
+      ? await surfacesPromise
+      : undefined;
+    // An empty surface set makes the dependencies facet vacuously true for
+    // every row — the OR then matches everything, so no predicate is added.
+    const depsVacuous =
+      surfaces !== undefined && surfaces.size === 0;
+    if (!depsVacuous) {
+      query = query.where((eb) =>
+        eb.or(
+          missingValues.map((m) => {
+            if (m === "owner") {
+              return eb.and([
+                eb("digital_products.lobOwnerId", "is", null),
+                eb("digital_products.teamOwnerId", "is", null),
+              ]);
+            }
+            if (m === "description") {
+              // Mirrors productCompleteness: null or whitespace-only.
+              return sql<SqlBool>`digital_products.description IS NULL OR digital_products.description !~ '\\S'`;
+            }
+            // dependencies — surface set computed above; NOT IN keeps only
+            // products whose surface is empty.
+            return eb(
+              "digital_products.id",
+              "not in",
+              [...(surfaces ?? new Set<string>())],
+            );
+          }),
+        ),
+      );
+    }
+  }
 
+  // Spec 068 / ADR-130 sort whitelist → ORDER BY on real columns/joins.
+  // `health`, componentCount, and completeness are app-computed and stay
+  // unsortable (absent from the schema enum → 400). `owner` sorts by the
+  // joined team name — the Owner cell's primary value (`teamOwnerName`,
+  // "Unowned" when null), same mapping as /components. `digital_products.id`
+  // is the deterministic tie-break and follows the requested direction.
+  const { data: rows, pagination } = await paginateQuery(
+    query,
+    { page, pageSize },
+    {
+      orderBy: (q) => {
+        const primary =
+          parsed.sort === "type"
+            ? q.orderBy("digital_products.type", order)
+            : parsed.sort === "owner"
+              ? q.orderBy("teams.name", order)
+              : parsed.sort === "criticality"
+                ? q.orderBy("digital_products.criticality", order)
+                : parsed.sort === "updated"
+                  ? q.orderBy("digital_products.updatedAt", order)
+                  : q.orderBy("digital_products.name", order);
+        return primary.orderBy("digital_products.id", order);
+      },
+    },
+  );
+
+  const surfaces = await surfacesPromise;
   const ids = rows.map((p) => p.id);
   const [edges, healthByProduct, componentCounts, consumedByRows] = await Promise.all([
     ids.length
@@ -153,7 +239,7 @@ export async function listProducts(parsed: ListProductsQuery) {
   );
 
   return {
-    products: rows.map((p) => ({
+    data: rows.map((p) => ({
       ...p,
       status: healthByProduct.get(p.id)?.status ?? null,
       componentCount: componentCounts.get(p.id) ?? 0,
@@ -161,6 +247,7 @@ export async function listProducts(parsed: ListProductsQuery) {
       completeness: productCompleteness(p, surfaces),
     })),
     edges,
+    pagination,
   };
 }
 

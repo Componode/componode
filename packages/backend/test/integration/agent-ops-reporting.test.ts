@@ -157,8 +157,8 @@ describe("agent ops reporting", () => {
     });
     expect(res.statusCode).toBe(200);
     return (JSON.parse(res.payload) as {
-      agents: Record<string, unknown>[];
-    }).agents;
+      data: Record<string, unknown>[];
+    }).data;
   }
 
   const OPS = {

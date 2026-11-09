@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { listParamsBaseSchema } from "./list-params.js";
 
 export const dockerTargetIdSchema = z.string().trim().min(1).max(200);
 
@@ -46,6 +47,20 @@ export const probeDockerTargetSchema = z
   });
 
 export type ProbeDockerTargetInput = z.infer<typeof probeDockerTargetSchema>;
+
+/**
+ * Spec 068 / ADR-130: standardized list contract for GET /docker-targets.
+ * `name` sorts by the target's display `label` column; `targetId`/`enabled`
+ * are the stored columns the Target ID/Status cells render (the transport
+ * cell is a JSONB profile field, so it has no sort key).
+ */
+export const listDockerTargetsQuerySchema = listParamsBaseSchema
+  .extend({
+    sort: z.enum(["name", "targetId", "enabled", "createdAt"]).default("name"),
+  })
+  .strict();
+
+export type ListDockerTargetsQuery = z.infer<typeof listDockerTargetsQuerySchema>;
 
 export interface DockerTarget {
   id: string;

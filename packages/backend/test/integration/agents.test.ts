@@ -101,7 +101,14 @@ describe("agents", () => {
     );
     expect(listRes.statusCode).toBe(200);
     const list = JSON.parse(listRes.payload);
-    expect(list.agents).toHaveLength(1);
+    expect(list.data).toHaveLength(1);
+    expect(list.pagination).toMatchObject({
+      page: 1,
+      pageSize: 25,
+      total: 1,
+      pageCount: 1,
+      hasNext: false,
+    });
     expect(JSON.stringify(list)).not.toContain("enrollmentToken");
 
     const detailRes = await app.inject(
@@ -237,5 +244,157 @@ describe("agents", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.action).toBe("created");
     expect(rows[0]!.entityType).toBe("import_agent");
+  });
+
+  // Spec 068 / ADR-130: standardized list contract — envelope, whitelisted
+  // sort, filters, search, and strict query validation.
+  it("paginates, sorts, filters, and searches the agent list", async () => {
+    await createAgent({ name: "alpha-agent" });
+    await createAgent({ name: "beta-agent" });
+    await createAgent({ name: "gamma-agent" });
+
+    const page1Res = await app.inject(
+      authed({ method: "GET", url: "/api/v1/agents?pageSize=2" }),
+    );
+    expect(page1Res.statusCode).toBe(200);
+    const page1 = JSON.parse(page1Res.payload);
+    // Default sort is name asc.
+    expect(page1.data.map((a: { name: string }) => a.name)).toEqual([
+      "alpha-agent",
+      "beta-agent",
+    ]);
+    expect(page1.pagination).toMatchObject({
+      page: 1,
+      pageSize: 2,
+      total: 3,
+      pageCount: 2,
+      hasNext: true,
+    });
+
+    const page2Res = await app.inject(
+      authed({ method: "GET", url: "/api/v1/agents?pageSize=2&page=2" }),
+    );
+    const page2 = JSON.parse(page2Res.payload);
+    expect(page2.data.map((a: { name: string }) => a.name)).toEqual([
+      "gamma-agent",
+    ]);
+    expect(page2.pagination).toMatchObject({ hasNext: false });
+
+    const descRes = await app.inject(
+      authed({
+        method: "GET",
+        url: "/api/v1/agents?sort=name&order=desc&pageSize=1",
+      }),
+    );
+    expect(JSON.parse(descRes.payload).data[0].name).toBe("gamma-agent");
+
+    const searchRes = await app.inject(
+      authed({ method: "GET", url: "/api/v1/agents?search=bet" }),
+    );
+    expect(
+      JSON.parse(searchRes.payload).data.map((a: { name: string }) => a.name),
+    ).toEqual(["beta-agent"]);
+
+    const statusRes = await app.inject(
+      authed({ method: "GET", url: "/api/v1/agents?status=NEVER_CONNECTED" }),
+    );
+    expect(JSON.parse(statusRes.payload).data).toHaveLength(3);
+    const emptyRes = await app.inject(
+      authed({ method: "GET", url: "/api/v1/agents?status=OFFLINE" }),
+    );
+    expect(JSON.parse(emptyRes.payload).data).toHaveLength(0);
+    expect(JSON.parse(emptyRes.payload).pagination.total).toBe(0);
+
+    // FR-005: `agentVersion` and `boundConfigCount` are whitelisted sort
+    // keys — boundConfigCount orders by the same correlated count the
+    // row exposes.
+    const listBody = JSON.parse(
+      (
+        await app.inject(
+          authed({ method: "GET", url: "/api/v1/agents?pageSize=100" }),
+        )
+      ).payload,
+    );
+    const idByName = new Map(
+      (listBody.data as { id: string; name: string }[]).map((a) => [
+        a.name,
+        a.id,
+      ]),
+    );
+    const versions: Record<string, string> = {
+      "alpha-agent": "1.0.0",
+      "beta-agent": "2.0.0",
+      "gamma-agent": "3.0.0",
+    };
+    for (const [name, version] of Object.entries(versions)) {
+      await testDb!.db
+        .updateTable("import_agents")
+        .set({ agentVersion: version })
+        .where("id", "=", idByName.get(name)!)
+        .execute();
+    }
+    // alpha gets two bound configs, beta one, gamma none.
+    for (const [agentName, count] of [
+      ["alpha-agent", 2],
+      ["beta-agent", 1],
+    ] as const) {
+      for (let i = 0; i < count; i++) {
+        await testDb!.db
+          .insertInto("importer_configs")
+          .values({
+            id: uuidv7(),
+            importerName: "github",
+            label: `${agentName}-cfg-${i}`,
+            scope: {},
+            secretRefs: [],
+            enabled: true,
+            agentId: idByName.get(agentName)!,
+            createdAt: "2024-01-01T00:00:00.000Z",
+            updatedAt: "2024-01-01T00:00:00.000Z",
+          })
+          .execute();
+      }
+    }
+
+    const verAsc = await app.inject(
+      authed({
+        method: "GET",
+        url: "/api/v1/agents?sort=agentVersion&order=asc&pageSize=100",
+      }),
+    );
+    expect(verAsc.statusCode).toBe(200);
+    expect(
+      JSON.parse(verAsc.payload).data.map((a: { name: string }) => a.name),
+    ).toEqual(["alpha-agent", "beta-agent", "gamma-agent"]);
+
+    const boundDesc = await app.inject(
+      authed({
+        method: "GET",
+        url: "/api/v1/agents?sort=boundConfigCount&order=desc&pageSize=100",
+      }),
+    );
+    expect(boundDesc.statusCode).toBe(200);
+    expect(
+      JSON.parse(boundDesc.payload).data.map((a: { name: string }) => a.name),
+    ).toEqual(["alpha-agent", "beta-agent", "gamma-agent"]);
+    // The count the sort orders by is the same value the row exposes.
+    const alphaRow = JSON.parse(boundDesc.payload).data.find(
+      (a: { name: string }) => a.name === "alpha-agent",
+    );
+    expect(alphaRow.boundConfigCount).toBe(2);
+  });
+
+  it("rejects invalid list query params with VALIDATION_FAILED", async () => {
+    for (const url of [
+      "/api/v1/agents?sort=bogus",
+      "/api/v1/agents?order=sideways",
+      "/api/v1/agents?page=0",
+      "/api/v1/agents?pageSize=101",
+      "/api/v1/agents?bogus=1",
+    ]) {
+      const res = await app.inject(authed({ method: "GET", url }));
+      expect(res.statusCode).toBe(400);
+      expect(JSON.parse(res.payload).code).toBe("VALIDATION_FAILED");
+    }
   });
 });

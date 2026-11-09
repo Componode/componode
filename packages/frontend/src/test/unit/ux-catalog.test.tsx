@@ -12,20 +12,25 @@ vi.mock("@/api/hooks/auth", () => ({
   useSession: vi.fn(() => ({ data: { role: "ADMIN", username: "a", displayName: "A" } })),
   useLogout: vi.fn(() => ({ mutate: vi.fn() })),
 }));
-vi.mock("@/api/hooks/products", () => ({
+vi.mock("@/api/hooks/products", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/api/hooks/products")>()),
   useProducts: vi.fn(),
+  useAllProducts: vi.fn(() => ({ data: [], isPending: false, error: null })),
   useProduct: vi.fn(),
   useUpdateProduct: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useDeleteProduct: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }));
-vi.mock("@/api/hooks/components", () => ({
+vi.mock("@/api/hooks/components", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/api/hooks/components")>()),
   useComponents: vi.fn(),
   useAllComponents: vi.fn(),
   useComponentDetail: vi.fn(),
   useCreateComponent: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }));
-vi.mock("@/api/hooks/component-groups", () => ({
-  useComponentGroups: vi.fn(() => ({ data: { groups: [] }, isPending: false, error: null })),
+vi.mock("@/api/hooks/component-groups", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/api/hooks/component-groups")>()),
+  useComponentGroups: vi.fn(() => ({ data: { data: [], pagination: { page: 1, pageSize: 25, total: 0, pageCount: 0, hasNext: false } }, isPending: false, error: null })),
+  useAllComponentGroups: vi.fn(() => ({ data: [], isPending: false, error: null })),
   useCreateComponentGroup: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }));
 vi.mock("@/api/hooks/org", () => ({
@@ -36,7 +41,10 @@ vi.mock("@/api/hooks/audit", () => ({
   useEntityHistory: vi.fn(() => ({ data: { items: [] }, isPending: false, error: null })),
   useActivityFeed: vi.fn(() => ({ data: { items: [] }, isPending: false, error: null })),
 }));
-vi.mock("@/api/hooks/suggestions", () => ({
+vi.mock("@/api/hooks/suggestions", async (importOriginal) => ({
+  // Keep the real sort keys + list-params adapter — the page reads them;
+  // only the query hooks are stubbed.
+  ...(await importOriginal<typeof import("@/api/hooks/suggestions")>()),
   useSuggestions: vi.fn(),
   useAcceptSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useDismissSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
@@ -65,10 +73,12 @@ const apiComponent = {
   componentGroupId: null, componentGroupName: null, instanceCount: 1,
 };
 
+const EMPTY_PAGE = { page: 1, pageSize: 25, total: 0, pageCount: 0, hasNext: false };
+
 beforeEach(() => {
-  vi.mocked(useProducts).mockReturnValue({ data: { products: [], edges: [] }, isPending: false, error: null } as never);
+  vi.mocked(useProducts).mockReturnValue({ data: { data: [], edges: [], pagination: EMPTY_PAGE }, isPending: false, error: null } as never);
   vi.mocked(useAllComponents).mockReturnValue({ data: [], isPending: false, error: null } as never);
-  vi.mocked(useComponents).mockReturnValue({ data: { data: [] }, isPending: false, error: null } as never);
+  vi.mocked(useComponents).mockReturnValue({ data: { data: [], pagination: EMPTY_PAGE }, isPending: false, error: null } as never);
   vi.mocked(useSuggestions).mockReturnValue({ data: { items: [] }, isPending: false, error: null } as never);
 });
 
@@ -89,7 +99,7 @@ describe("UxProductsPage states", () => {
 
   it("renders rows from live data", () => {
     vi.mocked(useProducts).mockReturnValue({
-      data: { products: [apiProduct], edges: [] }, isPending: false, error: null,
+      data: { data: [apiProduct], edges: [], pagination: { ...EMPTY_PAGE, total: 1, pageCount: 1 } }, isPending: false, error: null,
     } as never);
     wrap(<UxProductsPage />);
     expect(screen.getByText("Checkout")).toBeTruthy();
@@ -121,8 +131,11 @@ describe("UxProductDetailPage states", () => {
 });
 
 describe("UxComponentsPage", () => {
-  it("renders rows from live data", () => {
-    vi.mocked(useAllComponents).mockReturnValue({ data: [apiComponent], isPending: false, error: null } as never);
+  it("renders rows from the paged useComponents envelope", () => {
+    vi.mocked(useComponents).mockReturnValue({
+      data: { data: [apiComponent], pagination: { ...EMPTY_PAGE, total: 1, pageCount: 1 } },
+      isPending: false, error: null,
+    } as never);
     wrap(<UxComponentsPage />);
     expect(screen.getByText("orders-db")).toBeTruthy();
   });

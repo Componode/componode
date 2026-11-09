@@ -2,15 +2,23 @@ import { DatabaseIcon, InfoIcon } from "lucide-react"
 import { SourcesTable } from "@/ux/components/sources/sources-table"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { EmptyState } from "@/ux/components/patterns/states"
-import { Summary } from "@/ux/components/patterns/summary-card"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Card } from "@/ux/components/ui/card"
+import type { PaginationMeta } from "@/api/types"
+import type { ImporterSourcesFilterKey, ImporterSourcesSortKey } from "@/api/hooks/importer-sources"
+import type { ListState } from "@/ux/hooks/use-list-state"
 import type { ImporterSource } from "@/ux/lib/view-types"
 
-export function SourcesView({ sources: rows }: { sources: ImporterSource[] }) {
-  const active = rows.filter((s) => s.status === "ACTIVE").length
-  const unmonitored = rows.filter((s) => s.status === "UNMONITORED").length
-  const retired = rows.filter((s) => s.status === "RETIRED").length
+export function SourcesView({
+  sources: rows,
+  pagination,
+  list,
+}: {
+  sources: ImporterSource[]
+  pagination?: PaginationMeta
+  list: ListState<ImporterSourcesSortKey, ImporterSourcesFilterKey>
+}) {
+  const unfiltered = !list.search && list.filters.status === "all" && list.filters.importerName === "all"
 
   return (
     <PageContainer>
@@ -25,7 +33,9 @@ export function SourcesView({ sources: rows }: { sources: ImporterSource[] }) {
           A source reattaches automatically when a config reporting the same provider identity completes a run — never by name or manual selection.
         </AlertDescription>
       </Alert>
-      {rows.length === 0 ? (
+      {/* Fleet-wide status counts can't be computed from one page — the
+          status filter + server totals carry that signal now (spec 068). */}
+      {rows.length === 0 && unfiltered ? (
         <Card className="py-0">
           <EmptyState
             icon={DatabaseIcon}
@@ -34,14 +44,7 @@ export function SourcesView({ sources: rows }: { sources: ImporterSource[] }) {
           />
         </Card>
       ) : (
-        <>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Summary label="Active" value={active} hint="A bound config is feeding them" />
-            <Summary label="Unmonitored" value={unmonitored} hint="No config feeds them right now" />
-            <Summary label="Retired" value={retired} hint="Excluded until reactivated" />
-          </div>
-          <SourcesTable rows={rows} />
-        </>
+        <SourcesTable rows={rows} list={list} pagination={pagination} />
       )}
     </PageContainer>
   )

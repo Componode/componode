@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { uuidv7 } from "uuidv7";
 import type { DiscoveredAsset } from "@componode/core";
 
 vi.mock("../../src/services/importer-registry.js", async () => {
@@ -155,11 +156,12 @@ describe("importer-sources", () => {
     expect(run.sourceId).toBeTruthy();
 
     const { body } = await getJson("/importer-sources");
-    expect(body.sources).toHaveLength(1);
-    expect(body.sources[0].externalIdentity).toBe("src-1");
-    expect(body.sources[0].status).toBe("ACTIVE");
-    expect(body.sources[0].boundConfig?.id).toBe(config.id);
-    expect(body.sources[0].activeComponentMemberships).toBe(1);
+    expect(body.data).toHaveLength(1);
+    expect(body.pagination).toMatchObject({ page: 1, pageSize: 25, total: 1 });
+    expect(body.data[0].externalIdentity).toBe("src-1");
+    expect(body.data[0].status).toBe("ACTIVE");
+    expect(body.data[0].boundConfig?.id).toBe(config.id);
+    expect(body.data[0].activeComponentMemberships).toBe(1);
   });
 
   it("US1: an empty inventory still registers the Source", async () => {
@@ -171,7 +173,7 @@ describe("importer-sources", () => {
     expect(run.status).toBe("COMPLETED");
 
     const { body } = await getJson("/importer-sources?importerName=github");
-    expect(body.sources[0].externalIdentity).toBe("src-empty");
+    expect(body.data[0].externalIdentity).toBe("src-empty");
   });
 
   it("US1: adopting importer that yields before reporting fails CONTRACT_VIOLATION", async () => {
@@ -256,6 +258,93 @@ describe("importer-sources", () => {
     expect(run.sourceId).toBeNull();
 
     const { body } = await getJson("/importer-sources");
-    expect(body.sources).toHaveLength(0);
+    expect(body.data).toHaveLength(0);
+  });
+
+  // Spec 068 / ADR-130: standardized list contract — envelope, whitelisted
+  // sort, filters, search, strict query validation.
+  it("list contract: paginates, sorts, filters, and searches sources", async () => {
+    const now = new Date().toISOString();
+    const mk = (id: string, importerName: string, externalIdentity: string, label: string | null, status: string, createdAt: string) => ({
+      id, importerName, externalIdentity, label, status,
+      boundConfigId: null, componentGroupId: null,
+      firstSeenInRunId: null, lastSeenInRunId: null,
+      createdAt, updatedAt: createdAt,
+    });
+    await testDb!.db.insertInto("importer_sources").values([
+      mk(uuidv7(), "github", "https://github.com/acme/api", "Acme API", "ACTIVE", "2024-01-01T00:00:00.000Z"),
+      mk(uuidv7(), "aws", "arn:aws:ec2:us-east-1:123:instance/i-1", "prod-box", "UNMONITORED", "2024-01-02T00:00:00.000Z"),
+      mk(uuidv7(), "github", "https://github.com/acme/web", null, "RETIRED", "2024-01-03T00:00:00.000Z"),
+    ]).execute();
+
+    const { body } = await getJson("/importer-sources");
+    expect(body.data).toHaveLength(3);
+    expect(body.pagination).toMatchObject({ page: 1, pageSize: 25, total: 3, pageCount: 1, hasNext: false });
+
+    // `name` sorts by externalIdentity; default sort is createdAt asc.
+    const byName = await getJson("/importer-sources?sort=name&order=asc");
+    expect(byName.body.data.map((s: { externalIdentity: string }) => s.externalIdentity)).toEqual([
+      "arn:aws:ec2:us-east-1:123:instance/i-1",
+      "https://github.com/acme/api",
+      "https://github.com/acme/web",
+    ]);
+
+    const byCreated = await getJson("/importer-sources?sort=createdAt&order=desc");
+    expect(byCreated.body.data[0].externalIdentity).toBe("https://github.com/acme/web");
+
+    const byImporter = await getJson("/importer-sources?sort=importerName&order=asc");
+    expect(byImporter.body.data.map((s: { importerName: string }) => s.importerName)).toEqual([
+      "aws", "github", "github",
+    ]);
+
+    const byStatus = await getJson("/importer-sources?sort=status&order=asc");
+    expect(byStatus.body.data.map((s: { status: string }) => s.status)).toEqual([
+      "ACTIVE", "RETIRED", "UNMONITORED",
+    ]);
+
+    // FR-005: boundConfig/components/instances order by the joined config
+    // label / active-membership count subqueries the row exposes (all
+    // empty on this fixture — deterministic id tie-break still applies).
+    for (const sort of ["boundConfig", "components", "instances"] as const) {
+      const res = await getJson(`/importer-sources?sort=${sort}&order=asc`);
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(3);
+      expect(res.body.data[0].activeComponentMemberships).toBe(0);
+      expect(res.body.data[0].activeInstanceMemberships).toBe(0);
+    }
+
+    // Filters.
+    const statusFiltered = await getJson("/importer-sources?status=ACTIVE");
+    expect(statusFiltered.body.data).toHaveLength(1);
+    expect(statusFiltered.body.data[0].externalIdentity).toBe("https://github.com/acme/api");
+
+    const importerFiltered = await getJson("/importer-sources?importerName=aws");
+    expect(importerFiltered.body.data).toHaveLength(1);
+    expect(importerFiltered.body.data[0].importerName).toBe("aws");
+
+    // Search matches identity or label fragments.
+    const searchIdentity = await getJson("/importer-sources?search=acme%2Fweb");
+    expect(searchIdentity.body.data).toHaveLength(1);
+    expect(searchIdentity.body.data[0].externalIdentity).toBe("https://github.com/acme/web");
+    const searchLabel = await getJson("/importer-sources?search=prod-box");
+    expect(searchLabel.body.data).toHaveLength(1);
+    expect(searchLabel.body.data[0].importerName).toBe("aws");
+
+    // Pagination.
+    const page2 = await getJson("/importer-sources?pageSize=2&page=2&sort=name&order=asc");
+    expect(page2.body.data).toHaveLength(1);
+    expect(page2.body.pagination).toMatchObject({ page: 2, total: 3, pageCount: 2, hasNext: false });
+
+    // Strict validation.
+    for (const url of [
+      "/importer-sources?sort=bogus",
+      "/importer-sources?status=bogus",
+      "/importer-sources?bogus=1",
+      "/importer-sources?pageSize=101",
+    ]) {
+      const res = await getJson(url);
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe("VALIDATION_FAILED");
+    }
   });
 });

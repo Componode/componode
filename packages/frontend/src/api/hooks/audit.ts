@@ -1,26 +1,40 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import type { ActivityFeedItem, EntityChange, ImportRunError } from "@componode/core";
+import { buildApiQueryString, type ListQueryState } from "@/api/list-query";
+import type { Paginated } from "@/api/types";
+import type { ActivityFeedItem, EntityChange } from "@componode/core";
 
-interface FeedResponse {
+/**
+ * Spec 068 / ADR-130: the audit reads migrated to the standardized
+ * `{data, pagination}` envelope (`limit`/`offset` → `page`/`pageSize`).
+ * Hooks keep a compatibility view — `items` + flat pagination fields — so
+ * existing detail-page consumers (`EntityHistory`, dashboard widgets,
+ * per-user activity) keep working unchanged.
+ */
+export interface AuditFeedResult {
   items: ActivityFeedItem[];
   total: number;
-  limit: number;
-  offset: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  hasNext: boolean;
 }
 
-interface HistoryResponse {
-  items: ActivityFeedItem[];
-  total: number;
-  limit: number;
-  offset: number;
-}
+const toFeedResult = (res: Paginated<ActivityFeedItem>): AuditFeedResult => ({
+  items: res.data,
+  total: res.pagination.total,
+  page: res.pagination.page,
+  pageSize: res.pagination.pageSize,
+  pageCount: res.pagination.pageCount,
+  hasNext: res.pagination.hasNext,
+});
 
-interface RunChangesResponse {
-  changes: EntityChange[];
-  errors: ImportRunError[];
-}
-
+/**
+ * Query params accepted by `GET /audit/activity` and
+ * `GET /audit/entities/:entityType/:entityId`. `limit`/`offset` are the
+ * pre-068 spellings — still accepted and translated to `page`/`pageSize`
+ * so older call sites (dashboard widget, per-user activity) keep working.
+ */
 export interface ActivityFeedQuery {
   kind?: "entity" | "edge";
   entityType?: string;
@@ -28,44 +42,164 @@ export interface ActivityFeedQuery {
   actor?: string;
   from?: string;
   to?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: "createdAt" | "action" | "actor" | "kind" | "entityType";
+  order?: "asc" | "desc";
+  /** @deprecated pre-068 spelling — translated to `pageSize`. */
   limit?: number;
+  /** @deprecated pre-068 spelling — translated to `page`. */
   offset?: number;
 }
 
+/** Sort whitelist for the audit feed (activityFeedQuerySchema). */
+export const AUDIT_SORT_KEYS = [
+  "createdAt",
+  "action",
+  "actor",
+  "kind",
+  "entityType",
+] as const;
+export type AuditSortKey = (typeof AUDIT_SORT_KEYS)[number];
+
+/** URL filter keys managed by the /activity list page (useListState). */
+export const ACTIVITY_FILTER_KEYS = [
+  "kind",
+  "entityType",
+  "action",
+  "actor",
+  "from",
+  "to",
+] as const;
+export type ActivityFilterKey = (typeof ACTIVITY_FILTER_KEYS)[number];
+
+const auditFacet = (state: ListQueryState, key: string): string | undefined => {
+  const v = state.filters[key];
+  return v !== undefined && v !== "" && v !== "all" ? v : undefined;
+};
+
+/**
+ * The activity page stores `from`/`to` as `datetime-local` strings in the
+ * URL; the API schema requires ISO datetimes (`z.string().datetime()`), so
+ * the adapter converts — unparseable hand-edits degrade to "unset".
+ */
+const isoDateParam = (v: string | undefined): string | undefined => {
+  if (v === undefined) return undefined;
+  const t = Date.parse(v);
+  return Number.isNaN(t) ? undefined : new Date(t).toISOString();
+};
+
+/**
+ * Adapts resolved `useListState` output to `/audit/activity` API params
+ * (spec 068). `"all"`-sentinel filters are omitted; `from`/`to` arrive as
+ * `datetime-local` strings and are converted to ISO here.
+ */
+export function activityFeedParams(state: ListQueryState): ActivityFeedQuery {
+  return {
+    kind: auditFacet(state, "kind") as "entity" | "edge" | undefined,
+    entityType: auditFacet(state, "entityType"),
+    action: auditFacet(state, "action"),
+    actor: auditFacet(state, "actor"),
+    from: isoDateParam(auditFacet(state, "from")),
+    to: isoDateParam(auditFacet(state, "to")),
+    page: state.page,
+    pageSize: state.pageSize,
+    sort: (state.sort as AuditSortKey | null) ?? undefined,
+    order: state.order,
+  };
+}
+
+/**
+ * Translates pre-068 `limit`/`offset` callers onto `page`/`pageSize` and
+ * strips the legacy keys — the endpoint schema is `.strict()` and rejects
+ * unknown params (ADR-095).
+ */
+function normalizeFeedQuery(query: ActivityFeedQuery): ActivityFeedQuery {
+  const { limit, offset, ...rest } = query;
+  const pageSize = rest.pageSize ?? limit;
+  const off = offset ?? 0;
+  const page =
+    rest.page ?? (pageSize ? Math.floor(off / pageSize) + 1 : undefined);
+  return { ...rest, page, pageSize };
+}
+
 export function useActivityFeed(query: ActivityFeedQuery = {}) {
-  return useQuery<FeedResponse>({
-    queryKey: ["audit", "activity", query],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      for (const [key, value] of Object.entries(query)) {
-        if (value !== undefined) params.set(key, String(value));
-      }
-      const qs = params.toString();
-      return api<FeedResponse>(`/audit/activity${qs ? `?${qs}` : ""}`);
-    },
-  });
-}
-
-export function useEntityHistory(entityType: string, entityId: string, query: Omit<ActivityFeedQuery, "entityType"> = {}) {
-  return useQuery<HistoryResponse>({
-    queryKey: ["audit", "history", entityType, entityId, query],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      for (const [key, value] of Object.entries(query)) {
-        if (value !== undefined) params.set(key, String(value));
-      }
-      const qs = params.toString();
-      return api<HistoryResponse>(`/audit/entities/${entityType}/${entityId}${qs ? `?${qs}` : ""}`);
-    },
-    enabled: !!entityType && !!entityId,
-  });
-}
-
-export function useRunChanges(configId: string, runId: string) {
-  return useQuery<RunChangesResponse>({
-    queryKey: ["importer", "run", configId, runId, "changes"],
+  const normalized = normalizeFeedQuery(query);
+  return useQuery<AuditFeedResult>({
+    queryKey: ["audit", "activity", normalized],
     queryFn: async () =>
-      api<RunChangesResponse>(`/importer-configs/${configId}/runs/${runId}/changes`),
+      toFeedResult(
+        await api<Paginated<ActivityFeedItem>>(
+          `/audit/activity${buildApiQueryString(normalized)}`,
+        ),
+      ),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useEntityHistory(
+  entityType: string,
+  entityId: string,
+  query: Omit<ActivityFeedQuery, "entityType"> = {},
+) {
+  // Detail sub-lists are exempt from primary-list pagination (spec 068) —
+  // the default is one standard pager page; callers that render a pager
+  // (usePagedEntityHistory) pass explicit page/pageSize. The pre-T065
+  // fixed 100-row window silently truncated longer histories.
+  const normalized = normalizeFeedQuery({ pageSize: 25, ...query });
+  return useQuery<AuditFeedResult>({
+    queryKey: ["audit", "history", entityType, entityId, normalized],
+    queryFn: async () =>
+      toFeedResult(
+        await api<Paginated<ActivityFeedItem>>(
+          `/audit/entities/${entityType}/${entityId}${buildApiQueryString(normalized)}`,
+        ),
+      ),
+    enabled: !!entityType && !!entityId,
+    placeholderData: (prev) => prev,
+  });
+}
+
+/** Spec 068 / ADR-130 sort whitelist for
+ *  `GET /importer-configs/:configId/runs/:runId/changes`
+ *  (listRunChangesQuerySchema) — the stored columns behind the changes
+ *  table's Type/Action/Actor/Time cells (FR-005). */
+export const RUN_CHANGES_SORT_KEYS = [
+  "createdAt",
+  "action",
+  "entityType",
+  "actor",
+] as const;
+export type RunChangesSortKey = (typeof RUN_CHANGES_SORT_KEYS)[number];
+
+/**
+ * API params accepted by
+ * `GET /importer-configs/:configId/runs/:runId/changes` (spec 068):
+ * `action` is the change-type filter; `sort`/`order` drive the
+ * stored-column sorts. No `search` param (T061).
+ */
+export interface RunChangesListParams {
+  page?: number;
+  pageSize?: number;
+  sort?: RunChangesSortKey;
+  order?: "asc" | "desc";
+  action?: string;
+}
+
+export function useRunChanges(
+  configId: string,
+  runId: string,
+  params: RunChangesListParams = {},
+  options?: { refetchInterval?: number | false },
+) {
+  return useQuery({
+    queryKey: ["importer", "run", configId, runId, "changes", params],
+    queryFn: async () =>
+      api<Paginated<EntityChange>>(
+        `/importer-configs/${configId}/runs/${runId}/changes${buildApiQueryString(params)}`,
+      ),
     enabled: !!configId && !!runId,
+    refetchInterval: options?.refetchInterval ?? false,
+    placeholderData: (prev) => prev,
   });
 }

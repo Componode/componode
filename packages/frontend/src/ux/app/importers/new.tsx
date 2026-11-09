@@ -1,7 +1,7 @@
-import { useAgents } from "@/api/hooks/agents";
+import { useAllAgents } from "@/api/hooks/agents";
 import { useCredentials } from "@/api/hooks/credentials";
 import { useImporters } from "@/api/hooks/importers";
-import { useDockerTargets } from "@/api/hooks/docker-targets";
+import { useAllDockerTargets } from "@/api/hooks/docker-targets";
 import { ImporterForm } from "@/ux/components/importers/importer-form";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
@@ -11,8 +11,8 @@ import { errorMessage } from "@/ux/lib/api-state";
 export function UxImporterNewPage() {
   const manifests = useImporters();
   const credentials = useCredentials();
-  const agents = useAgents();
-  const dockerTargets = useDockerTargets();
+  const agents = useAllAgents();
+  const dockerTargets = useAllDockerTargets();
 
   if (manifests.isPending || credentials.isPending || agents.isPending || dockerTargets.isPending) {
     return (
@@ -35,8 +35,8 @@ export function UxImporterNewPage() {
     <ImporterForm
       manifests={manifests.data?.importers ?? []}
       credentials={credentials.data?.credentials ?? []}
-      agents={agents.data?.agents ?? []}
-      dockerTargets={dockerTargets.data?.targets ?? []}
+      agents={agents.data ?? []}
+      dockerTargets={dockerTargets.data ?? []}
     />
   );
 }

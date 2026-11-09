@@ -191,7 +191,7 @@ describe("agent-managed credentials (spec 026)", () => {
         url: "/api/v1/credentials",
         ...authedNoBody(),
       });
-      const found = list.json().credentials.find((c: { id: string }) => c.id === credential.id);
+      const found = list.json().data.find((c: { id: string }) => c.id === credential.id);
       expect(found.kind).toBe("AGENT_MANAGED");
       // Source-type hints render the badges; the ref names themselves
       // (env var names / file paths) stay on the detail response.

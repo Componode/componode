@@ -310,7 +310,7 @@ describe("agent run/config surfaces", () => {
       url: "/api/v1/agents",
       ...authed(),
     });
-    const row = list.json().agents.find((a: { id: string }) => a.id === agent.id);
+    const row = list.json().data.find((a: { id: string }) => a.id === agent.id);
     expect(row.runningJobs).toBe(1);
 
     sendFrame(ws, "run.complete", runId, { result: "COMPLETED" });

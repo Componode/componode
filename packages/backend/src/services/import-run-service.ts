@@ -7,8 +7,12 @@ import {
   validateDiscoveredAssetDetailed,
   type DiscoveredAsset,
   type ImportRun,
+  type ImportRunError,
+  type ListImporterRunsQuery,
+  type ListRunErrorsQuery,
   type Logger,
   type ManagedCheckDefinition,
+  type Paginated,
 } from "@componode/core";
 import { db } from "../db/connection.js";
 import { logger as appLogger } from "../plugins/logging.js";
@@ -22,8 +26,8 @@ import { loadKeyring } from "../utils/credential-crypto.js";
 import { generateUniqueSlug, generateComponentSlug, generateInstanceSlug } from "../utils/slug.js";
 import { metrics } from "../plugins/metrics.js";
 import { traceDbQuery } from "../plugins/tracing.js";
-import { sql, type Kysely } from "kysely";
-import type { DB } from "../db/types.js";
+import { sql, type Kysely, type Selectable } from "kysely";
+import type { DB, ImportRunRow } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
 import { runAutoGroupPass } from "./source-group-service.js";
@@ -38,6 +42,7 @@ import {
   syncManagedCheck,
 } from "./url-check-service.js";
 import { resolveHubTargetProfile } from "./docker-target-service.js";
+import { paginateQuery } from "../utils/pagination.js";
 
 const maxConcurrency = parseInt(process.env.IMPORTER_MAX_CONCURRENCY ?? "3", 10);
 if (isNaN(maxConcurrency) || maxConcurrency < 1) {
@@ -1418,15 +1423,47 @@ export async function getRun(runId: string) {
     .executeTakeFirst();
 }
 
-export async function listRunsForConfig(configId: string) {
-  return db
+// Spec 068 / ADR-130: standardized list contract — page/pageSize/sort/order +
+// status filter scoped to the config. `completedAt` is the schema's name for
+// the contract's `finishedAt`; the joined agentName and raw run row shape are
+// preserved (credentialIds stays as today — ids, never secret material).
+export async function listRunsForConfig(
+  configId: string,
+  query: ListImporterRunsQuery,
+): Promise<Paginated<Selectable<ImportRunRow> & { agentName: string | null }>> {
+  let q = db
     .selectFrom("import_runs")
     .leftJoin("import_agents", "import_agents.id", "import_runs.agentId")
     .selectAll("import_runs")
     .select("import_agents.name as agentName")
-    .where("import_runs.configId", "=", configId)
-    .orderBy("import_runs.createdAt", "desc")
-    .execute();
+    .where("import_runs.configId", "=", configId);
+
+  if (query.status) {
+    q = q.where("import_runs.status", "=", query.status);
+  }
+
+  return paginateQuery(
+    q,
+    { page: query.page, pageSize: query.pageSize },
+    {
+      orderBy: (qb) => {
+        // `assetsProcessed` is the stored counter behind the run history's
+        // "Processed" column (FR-005).
+        const primary =
+          query.sort === "startedAt"
+            ? qb.orderBy("import_runs.startedAt", query.order)
+            : query.sort === "status"
+              ? qb.orderBy("import_runs.status", query.order)
+              : query.sort === "completedAt"
+                ? qb.orderBy("import_runs.completedAt", query.order)
+                : query.sort === "assetsProcessed"
+                  ? qb.orderBy("import_runs.assetsProcessed", query.order)
+                  : qb.orderBy("import_runs.createdAt", query.order);
+        // Deterministic tie-break (ADR-130).
+        return primary.orderBy("import_runs.id", query.order);
+      },
+    },
+  );
 }
 
 /**
@@ -1474,11 +1511,40 @@ export async function listRunDayAggregates(configId: string, days: number) {
   });
 }
 
-export async function listRunErrors(runId: string) {
-  return db
+// Spec 068 / ADR-130: run errors paginate with an id tie-break; sort keys
+// map to stored `import_run_errors` columns behind the errors table's
+// Asset/Type/Message/Time cells (FR-005); `errorType` is the whitelisted
+// filter (the contract's code/severity column).
+export async function listRunErrors(
+  runId: string,
+  query: ListRunErrorsQuery,
+): Promise<Paginated<ImportRunError>> {
+  let q = db
     .selectFrom("import_run_errors")
     .selectAll()
-    .where("runId", "=", runId)
-    .orderBy("createdAt", "desc")
-    .execute();
+    .where("runId", "=", runId);
+
+  if (query.errorType) {
+    q = q.where("errorType", "=", query.errorType);
+  }
+
+  const { data, pagination } = await paginateQuery(
+    q,
+    { page: query.page, pageSize: query.pageSize },
+    {
+      orderBy: (qb) => {
+        const primary =
+          query.sort === "errorType"
+            ? qb.orderBy("import_run_errors.errorType", query.order)
+            : query.sort === "assetExternalId"
+              ? qb.orderBy("import_run_errors.assetExternalId", query.order)
+              : query.sort === "errorMessage"
+                ? qb.orderBy("import_run_errors.errorMessage", query.order)
+                : qb.orderBy("import_run_errors.createdAt", query.order);
+        // Deterministic tie-break (ADR-130).
+        return primary.orderBy("import_run_errors.id", query.order);
+      },
+    },
+  );
+  return { data, pagination };
 }

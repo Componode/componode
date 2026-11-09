@@ -7,7 +7,7 @@ import { ErrorState, ForbiddenState, NotFoundState } from "@/ux/components/patte
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import { useUsers } from "@/api/hooks/users";
 import { useUserSessions } from "@/api/hooks/sessions";
-import { useActivityFeed } from "@/api/hooks/audit";
+import { usePagedActivityFeed } from "@/ux/hooks/use-entity-history";
 import { mapActivityItem } from "@/api/mappers/dashboard";
 import { mapSession, mapUser } from "@/api/mappers/operations";
 import { errorMessage, isForbidden } from "@/ux/lib/api-state";
@@ -21,7 +21,7 @@ export function UxUserDetailPage() {
   const apiUser = users.data?.users.find((u) => u.id === id);
   useLeafCrumb(apiUser ? (apiUser.displayName ?? apiUser.username) : null);
   const sessions = useUserSessions(apiUser ? apiUser.id : null);
-  const activity = useActivityFeed({ actor: apiUser?.username, limit: 50 });
+  const activity = usePagedActivityFeed({ actor: apiUser?.username });
 
   if (users.isPending) {
     return (
@@ -58,6 +58,7 @@ export function UxUserDetailPage() {
         mapSession(s, { username: view.username, displayName: view.displayName ?? view.username }),
       )}
       events={(activity.data?.items ?? []).map(mapActivityItem)}
+      activityPagination={activity.pagination}
       isSelf={apiUser.id === self.id}
     />
   );

@@ -5,6 +5,8 @@ import {
   updateOrgEntitySchema,
   createTeamSchema,
   updateTeamSchema,
+  listLobsQuerySchema,
+  listTeamsQuerySchema,
 } from "@componode/core";
 
 import type { AuthenticatedRequest } from "../plugins/session.js";
@@ -18,7 +20,7 @@ import {
   deleteOrgEntity,
 } from "../services/org-service.js";
 import { toActor } from "../services/actor.js";
-import { sendServiceError } from "./route-helpers.js";
+import { sendServiceError, validationFailed } from "./route-helpers.js";
 
 const detailParamsSchema = z.object({ id: z.string().min(1).max(200) });
 
@@ -35,13 +37,21 @@ export async function orgRoutes(app: FastifyInstance): Promise<void> {
       table === "teams" ? createTeamSchema : createOrgEntitySchema;
     const updateSchema =
       table === "teams" ? updateTeamSchema : updateOrgEntitySchema;
+    // Spec 068 / ADR-130: strict list-query validation — malformed params
+    // are a controlled 400, and the response is the {data, pagination}
+    // envelope (the old {lobs|teams: [...]} shape is retired).
+    const listSchema =
+      table === "teams" ? listTeamsQuerySchema : listLobsQuerySchema;
     app.get(
       base,
       { preHandler: [app.verifySession] },
-      async (_req: FastifyRequest, reply: FastifyReply) => {
-        const rows = await listOrgEntities(table);
-        const key = base === "/lobs" ? "lobs" : "teams";
-        return reply.status(200).send({ [key]: rows });
+      async (req: FastifyRequest, reply: FastifyReply) => {
+        const parsed = listSchema.safeParse(req.query);
+        if (!parsed.success) {
+          return validationFailed(reply, parsed.error.issues);
+        }
+        const result = await listOrgEntities(table, parsed.data);
+        return reply.status(200).send(result);
       },
     );
 

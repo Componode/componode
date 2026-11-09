@@ -194,7 +194,7 @@ describe("product health", () => {
       url: "/api/v1/products",
       ...authed(),
     });
-    const row = list.json().products.find((p: any) => p.slug === "payments");
+    const row = list.json().data.find((p: any) => p.slug === "payments");
     expect(row.status).toBe("ERROR");
   });
 
@@ -231,7 +231,7 @@ describe("product health", () => {
       url: "/api/v1/products",
       ...authed(),
     });
-    const products = list.json().products;
+    const products = list.json().data;
     for (const slug of ["lonely", "gone-only", "retired-dep"]) {
       expect(products.find((p: any) => p.slug === slug).status).toBeNull();
     }

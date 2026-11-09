@@ -111,7 +111,7 @@ export type {
   CredentialStatus,
   SecretRefMap,
 } from "@componode/core";
-import type { SecretRefInput } from "@componode/core";
+import type { CredentialListItem, SecretRefInput } from "@componode/core";
 
 // AGENT_MANAGED reference — names a source on the agent host, never a value
 // (ADR-117).
@@ -153,6 +153,9 @@ export interface ComponentGroup {
   teamOwnerId?: string | null;
   teamOwnerName?: string | null;
   memberCount?: number;
+  /** Spec 068: returned on list rows (createdAt is a sort key). */
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Link {
@@ -275,16 +278,16 @@ export interface SearchResults {
   teams: SearchHit[];
 }
 
-export interface ComponentListResponse {
-  data: Component[];
-  pagination: {
-    page: number;
-    pageSize: number;
-    total: number;
-    pageCount: number;
-    hasNext: boolean;
-  };
-}
+/**
+ * Pagination envelope types of the unified list contract (spec 068 /
+ * ADR-130 — the spec-003 `{data, pagination}` shape extended to every list
+ * endpoint). Owned by `@componode/core`; re-exported here so the API layer
+ * stays the single import site.
+ */
+export type { PaginationMeta, Paginated } from "@componode/core";
+import type { Paginated } from "@componode/core";
+
+export type ComponentListResponse = Paginated<Component>;
 
 // --- Product hierarchy (spec 005) ---------------------------------------
 
@@ -320,10 +323,14 @@ export interface DigitalProduct extends ProductRef {
   updatedAt: string;
 }
 
-export interface ProductListResponse {
-  products: DigitalProduct[];
+/**
+ * Spec 068 / ADR-130: `/products` migrated to the unified list envelope —
+ * `data` is the current page of products, `pagination` the contract meta,
+ * and `edges` stays top-level scoped to the page's ids (unchanged shape).
+ */
+export type ProductListResponse = Paginated<DigitalProduct> & {
   edges: Array<{ parentId: string; childId: string }>;
-}
+};
 
 export interface ComponentDepRef {
   id: string;
@@ -396,6 +403,27 @@ export interface TeamMember {
   username: string;
   slug: string;
 }
+
+// --- Standardized list rows (spec 068 / ADR-130) ---------------------------
+// List endpoints return the `{data, pagination}` envelope; the row shapes
+// below extend the detail/entity rows with server-derived counts.
+
+/** GET /lobs row — derived ownership counts (optional until the backend lands). */
+export interface LobListItem extends OrgEntity {
+  teamCount?: number;
+  productCount?: number;
+}
+
+/** GET /teams row — adds productCount to the spec-039 member/component counts. */
+export interface TeamListItem extends TeamEntity {
+  productCount?: number;
+}
+
+export type LobListResponse = Paginated<LobListItem>;
+export type TeamListResponse = Paginated<TeamListItem>;
+export type UserListResponse = Paginated<User>;
+export type SessionListResponse = Paginated<Session>;
+export type CredentialListResponse = Paginated<CredentialListItem>;
 
 // --- Platform product workflow (spec 020 / ADR-017) ------------------------
 

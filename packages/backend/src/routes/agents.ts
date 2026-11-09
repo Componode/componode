@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import {
   createImportAgentSchema,
   listAgentSessionsQuerySchema,
+  listAgentsQuerySchema,
   updateImportAgentSchema,
 } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
@@ -28,9 +29,17 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     {
       preHandler: [app.verifySession, requireRole("agent:read")],
     },
-    async (_req: FastifyRequest, reply: FastifyReply) => {
-      const agents = await listAgents(app.remoteRuns, app.agentSessions);
-      return reply.status(200).send({ agents });
+    async (req: FastifyRequest, reply: FastifyReply) => {
+      const parsed = listAgentsQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          code: "VALIDATION_FAILED",
+          message: "Invalid query",
+          details: parsed.error.issues,
+        });
+      }
+      const result = await listAgents(parsed.data, app.remoteRuns, app.agentSessions);
+      return reply.status(200).send(result);
     },
   );
 

@@ -356,7 +356,7 @@ describe("config agent binding (spec 027 US1)", () => {
       url: "/api/v1/importer-configs",
       cookies: { [SESSION_COOKIE_NAME]: adminSession },
     });
-    const rows = list.json().configs;
+    const rows = list.json().data;
     const drifted = rows.find((c: any) => c.id === boundId);
     expect(drifted.agentIncompatible).toBe(true);
     expect(drifted.agent.name).toBe("narrow");

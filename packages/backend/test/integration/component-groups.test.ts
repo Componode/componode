@@ -90,7 +90,8 @@ describe("component groups", () => {
     });
     expect(list.statusCode).toBe(200);
     const listBody = JSON.parse(list.payload);
-    expect(listBody.groups).toHaveLength(1);
+    expect(listBody.data).toHaveLength(1);
+    expect(listBody.pagination.total).toBe(1);
   });
 
   it("rejects duplicate slug with 409", async () => {
@@ -258,5 +259,110 @@ describe("component groups", () => {
     expect(clearBody.group.teamOwnerId).toBeNull();
     expect(clearBody.group.teamOwnerName).toBeNull();
     expect(clearBody.group.description).toBeNull();
+  });
+
+  // Spec 068 / ADR-130: the list endpoint returns the {data, pagination}
+  // envelope and validates query params at the route boundary — malformed
+  // input is a 400, never a 500 from the service's internal .parse().
+  describe("spec 068 — standardized list contract", () => {
+    const get = (qs = "") =>
+      app.inject({
+        method: "GET",
+        url: `/api/v1/component-groups${qs}`,
+        cookies: { [SESSION_COOKIE_NAME]: adminSession },
+      });
+
+    const createGroup = (name: string, slug: string, extra: Record<string, unknown> = {}) =>
+      app.inject({
+        method: "POST",
+        url: "/api/v1/component-groups",
+        cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
+        headers: csrfHeader,
+        payload: { name, slug, ...extra },
+      });
+
+    it("rejects invalid query params with 400 VALIDATION_FAILED", async () => {
+      for (const qs of [
+        "?page=0",
+        "?pageSize=101",
+        "?sort=bogus",
+        "?order=sideways",
+        "?lifecycle=BOGUS",
+        "?bogusParam=1",
+      ]) {
+        const res = await get(qs);
+        expect(res.statusCode, qs).toBe(400);
+        expect(JSON.parse(res.payload).code).toBe("VALIDATION_FAILED");
+      }
+    });
+
+    it("paginates with the shared envelope and honors sort keys", async () => {
+      await createGroup("Gamma Group", "gamma-group");
+      await createGroup("Alpha Group", "alpha-group");
+      await createGroup("Beta Group", "beta-group");
+
+      const p1 = JSON.parse((await get("?page=1&pageSize=2&sort=name&order=asc")).payload);
+      expect(p1.data).toHaveLength(2);
+      expect(p1.data.map((g: any) => g.slug)).toEqual(["alpha-group", "beta-group"]);
+      expect(p1.pagination).toMatchObject({
+        page: 1,
+        pageSize: 2,
+        total: 3,
+        pageCount: 2,
+        hasNext: true,
+      });
+
+      const p2 = JSON.parse((await get("?page=2&pageSize=2&sort=name&order=asc")).payload);
+      expect(p2.data.map((g: any) => g.slug)).toEqual(["gamma-group"]);
+      expect(p2.pagination.hasNext).toBe(false);
+
+      // Default sort is name asc; default pageSize is the contract's 25.
+      const def = JSON.parse((await get("")).payload);
+      expect(def.data.map((g: any) => g.slug)).toEqual([
+        "alpha-group",
+        "beta-group",
+        "gamma-group",
+      ]);
+      expect(def.pagination.pageSize).toBe(25);
+
+      // Groups were created gamma → alpha → beta, so beta is newest.
+      const byCreated = JSON.parse((await get("?sort=createdAt&order=desc")).payload);
+      expect(byCreated.data[0].slug).toBe("beta-group");
+    });
+
+    it("counts member components per group", async () => {
+      const created = await createGroup("Counted Group", "counted-group");
+      const groupId = JSON.parse(created.payload).group.id;
+      const nowIso = now();
+      for (const slug of ["counted-a", "counted-b"]) {
+        await testDb.db
+          .insertInto("components")
+          .values({
+            id: `018f0000-0000-7e10-a000-${slug === "counted-a" ? "000000000061" : "000000000062"}`,
+            name: slug,
+            slug,
+            category: "API",
+            provider: "GITHUB",
+            resourceType: "github:repository",
+            lifecycle: "ACTIVE",
+            componentGroupId: groupId,
+            externalId: null,
+            details: null,
+            lastSeenAt: null,
+            lastSeenInRunId: null,
+            createdBy: null,
+            updatedBy: null,
+            createdAt: nowIso,
+            updatedAt: nowIso,
+          } as any)
+          .execute();
+      }
+
+      const res = await get("?search=counted");
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.payload);
+      const group = body.data.find((g: any) => g.slug === "counted-group");
+      expect(group.memberCount).toBe(2);
+    });
   });
 });

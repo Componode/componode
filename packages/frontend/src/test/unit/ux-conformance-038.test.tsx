@@ -24,7 +24,7 @@ vi.mock("@/api/hooks/components", () => ({
   useAllComponents: () => ({ data: [], isPending: false }),
 }));
 vi.mock("@/api/hooks/products", () => ({
-  useProducts: () => ({ data: { products: [] }, isPending: false }),
+  useAllProducts: () => ({ data: [], isPending: false }),
 }));
 vi.mock("@/api/hooks/org", () => ({
   useLob: () => ({
@@ -77,7 +77,7 @@ describe("spec 038 — UX conformance regression tests", () => {
     render(
       <MemoryRouter>
         <TooltipProvider>
-          <UsersTable data={[user]} selfId="me" />
+          <UsersTable data={[user]} selfId="me" sort={null} order="asc" onSortChange={() => {}} />
         </TooltipProvider>
       </MemoryRouter>,
     );

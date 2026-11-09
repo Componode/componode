@@ -2,6 +2,10 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import {
   createImporterConfigSchema,
+  listImporterConfigsQuerySchema,
+  listImporterRunsQuerySchema,
+  listRunChangesQuerySchema,
+  listRunErrorsQuerySchema,
   updateImporterConfigSchema,
 } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
@@ -60,9 +64,17 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
   // Configs
   app.get("/importer-configs", {
     preHandler: [app.verifySession],
-  }, async (_req: FastifyRequest, reply: FastifyReply) => {
-    const configs = await listImporterConfigs();
-    return reply.status(200).send({ configs });
+  }, async (req: FastifyRequest, reply: FastifyReply) => {
+    const parsed = listImporterConfigsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid query",
+        details: parsed.error.issues,
+      });
+    }
+    const result = await listImporterConfigs(parsed.data);
+    return reply.status(200).send(result);
   });
 
   app.get("/importer-configs/:id", {
@@ -169,8 +181,16 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as { id: string };
-    const runs = await listRunsForConfig(id);
-    return reply.status(200).send({ runs });
+    const parsed = listImporterRunsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid query",
+        details: parsed.error.issues,
+      });
+    }
+    const result = await listRunsForConfig(id, parsed.data);
+    return reply.status(200).send(result);
   });
 
   app.get("/importer-configs/:configId/runs/:runId", {
@@ -188,19 +208,35 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const { runId } = req.params as { configId: string; runId: string };
-    const errors = await listRunErrors(runId);
-    return reply.status(200).send({ errors });
+    const parsed = listRunErrorsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid query",
+        details: parsed.error.issues,
+      });
+    }
+    const result = await listRunErrors(runId, parsed.data);
+    return reply.status(200).send(result);
   });
 
   app.get("/importer-configs/:configId/runs/:runId/changes", {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const { runId } = req.params as { configId: string; runId: string };
+    const parsed = listRunChangesQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid query",
+        details: parsed.error.issues,
+      });
+    }
     const run = await getRun(runId);
     if (!run) {
       return reply.status(404).send({ code: "NOT_FOUND", message: "Run not found" });
     }
-    const result = await getRunChanges(runId);
+    const result = await getRunChanges(runId, parsed.data);
     return reply.status(200).send(result);
   });
 

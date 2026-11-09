@@ -4,8 +4,8 @@ import { PlusIcon, XIcon } from "lucide-react"
 import { toast } from "sonner"
 import { useSession } from "@/api/hooks/auth"
 import { useAllComponents } from "@/api/hooks/components"
-import { useComponentGroups } from "@/api/hooks/component-groups"
-import { useAddEdge, useRemoveEdge, useProducts, type EdgeKind } from "@/api/hooks/products"
+import { useAllComponentGroups } from "@/api/hooks/component-groups"
+import { useAddEdge, useRemoveEdge, useAllProducts, type EdgeKind } from "@/api/hooks/products"
 import type { ProductRef } from "@/api/types"
 import type { ProductGroupEdge } from "@componode/core"
 import { Button } from "@/ux/components/ui/button"
@@ -69,9 +69,9 @@ export function EdgeAuthoring({ product, composes, consumesFrom, dependsOnCompon
   const removeEdge = useRemoveEdge()
 
   // Candidate pools — only fetched while the dialog is open.
-  const products = useProducts({}, dialogOpen)
+  const products = useAllProducts({}, dialogOpen)
   const components = useAllComponents({}, dialogOpen)
-  const groups = useComponentGroups(dialogOpen)
+  const groups = useAllComponentGroups({}, dialogOpen)
 
   React.useEffect(() => {
     if (dialogOpen) {
@@ -81,7 +81,7 @@ export function EdgeAuthoring({ product, composes, consumesFrom, dependsOnCompon
     }
   }, [dialogOpen])
 
-  const allProducts = (products.data?.products ?? []).filter((p) => p.id !== product.id && p.lifecycle !== "RETIRED")
+  const allProducts = (products.data ?? []).filter((p) => p.id !== product.id && p.lifecycle !== "RETIRED")
   const composesIds = new Set(composes.map((p) => p.id))
   const consumesIds = new Set(consumesFrom.map((p) => p.id))
   const depComponentIds = new Set(dependsOnComponents.map((c) => c.id))
@@ -90,7 +90,7 @@ export function EdgeAuthoring({ product, composes, consumesFrom, dependsOnCompon
   const composesTargets = allProducts.filter((p) => !composesIds.has(p.id))
   const consumesTargets = allProducts.filter((p) => p.type === "PLATFORM" && !consumesIds.has(p.id))
   const depComponents = (components.data ?? []).filter((c) => !depComponentIds.has(c.id))
-  const depGroups = (groups.data?.groups ?? []).filter((g) => !depGroupIds.has(g.id))
+  const depGroups = (groups.data ?? []).filter((g) => !depGroupIds.has(g.id))
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()

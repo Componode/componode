@@ -7,7 +7,7 @@ import {
   URL_CHECK_MIN_CADENCE_SECONDS,
 } from "@componode/core"
 import { describeApiError, type ApiError } from "@/api/client"
-import { useAgents } from "@/api/hooks/agents"
+import { useAllAgents } from "@/api/hooks/agents"
 import { useUpdateMonitoringSetup } from "@/api/hooks/url-checks"
 import { Button } from "@/ux/components/ui/button"
 import {
@@ -37,10 +37,11 @@ function SetupForm({
   onDone: () => void
 }) {
   const update = useUpdateMonitoringSetup(componentId)
-  const agents = useAgents()
+  // Agent picker needs the full set — fetch-all sweep (spec 068 exempt).
+  const agents = useAllAgents()
   // GET /agents is ADMIN-gated — non-admin editors keep the Hub vantage.
   const agentsUnavailable = agents.isError
-  const agentList = agents.data?.agents ?? []
+  const agentList = agents.data ?? []
 
   const [cadenceInput, setCadenceInput] = React.useState(
     String(setup?.cadenceSeconds ?? URL_CHECK_DEFAULT_CADENCE_SECONDS),

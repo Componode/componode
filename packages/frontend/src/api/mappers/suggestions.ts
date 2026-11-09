@@ -11,7 +11,9 @@ const confidence = (score: number | null): Suggestion["confidence"] => {
   return "LOW";
 };
 
-/** Queue row → view suggestion. All staged pairs are DEPENDS_ON (ADR-113). */
+/** Queue row → view suggestion. All staged pairs are DEPENDS_ON (ADR-113).
+ *  Carries the queue fields the spec-068 summary hover needs (score,
+ *  status, timestamps, decider) — all already present on the list payload. */
 export function mapSuggestion(s: SuggestionQueueItem): Suggestion {
   return {
     id: s.id,
@@ -20,5 +22,10 @@ export function mapSuggestion(s: SuggestionQueueItem): Suggestion {
     to: s.component.name,
     reason: s.reason ? EDGE_SUGGESTION_REASON_META[s.reason].label : "Staged candidate",
     confidence: confidence(s.score),
+    score: s.score,
+    status: s.status,
+    createdAt: s.createdAt,
+    decidedAt: s.decidedAt,
+    decidedByName: s.decidedByName,
   };
 }

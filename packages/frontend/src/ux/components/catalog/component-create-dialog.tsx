@@ -10,7 +10,7 @@ import {
 } from "@componode/core"
 import { useCreateComponent } from "@/api/hooks/components"
 import { SLUG_RE, deriveSlug } from "@/ux/lib/slug"
-import { useComponentGroups } from "@/api/hooks/component-groups"
+import { useAllComponentGroups } from "@/api/hooks/component-groups"
 import { useTeams } from "@/api/hooks/org"
 import { describeApiError, type ApiError } from "@/api/client"
 import { Button } from "@/ux/components/ui/button"
@@ -42,7 +42,7 @@ export function ComponentCreateDialog({ trigger }: { trigger?: React.ReactNode }
   const navigate = useNavigate()
   const create = useCreateComponent()
   const teams = useTeams()
-  const groups = useComponentGroups()
+  const groups = useAllComponentGroups()
 
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState("")
@@ -212,7 +212,7 @@ export function ComponentCreateDialog({ trigger }: { trigger?: React.ReactNode }
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>No group</SelectItem>
-                  {(groups.data?.groups ?? []).map((g) => (
+                  {(groups.data ?? []).map((g) => (
                     <SelectItem key={g.id} value={g.id}>
                       {g.name}
                     </SelectItem>

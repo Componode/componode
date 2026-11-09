@@ -10,7 +10,7 @@ import {
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import type { ComponentType } from "react"
 import { Logo, LogoMark } from "@/ux/components/app/logo"
-import { useAgents } from "@/api/hooks/agents"
+import { useAllAgents } from "@/api/hooks/agents"
 import { useLogout } from "@/api/hooks/auth"
 import { useSuggestions } from "@/api/hooks/suggestions"
 import { mapAgentAttentionCount, mapPendingSuggestionCount } from "@/api/mappers/nav-cues"
@@ -137,8 +137,9 @@ function PendingSuggestionsBadge() {
 }
 
 function AgentsAttentionBadge() {
-  const { data } = useAgents({ refetchInterval: false })
-  return <CountBadge count={mapAgentAttentionCount(data?.agents)} />
+  // The badge needs every agent — fetch-all sweep (spec 068 exempt surface).
+  const { data } = useAllAgents({ refetchInterval: false })
+  return <CountBadge count={mapAgentAttentionCount(data)} />
 }
 
 function UserMenu() {

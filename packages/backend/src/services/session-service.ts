@@ -1,8 +1,13 @@
 import { db } from "../db/connection.js";
 import { generateSessionToken, hashToken } from "../utils/crypto.js";
 import { uuidv7 } from "uuidv7";
+import {
+  type ListSessionsQuery,
+  type Paginated,
+} from "@componode/core";
 import { getSetting } from "./settings-service.js";
 import { writeAuthEvent, type Actor } from "./audit-service.js";
+import { paginateQuery } from "../utils/pagination.js";
 
 export interface SessionMeta {
   userAgent?: string;
@@ -112,10 +117,57 @@ export async function revokeUserSessions(userId: string, actor: Actor): Promise<
   await writeAuthEvent("revoked", null, { id: userId, name: actor.name ?? actor.id });
 }
 
+/** Columns every session list row exposes — the token hash `id` is
+ *  selected only to mark the caller's own session, never serialized. */
+const SESSION_LIST_COLUMNS = [
+  "sessions.id",
+  "sessions.publicId",
+  "sessions.tokenLast4",
+  "sessions.userId",
+  "sessions.userAgent",
+  "sessions.ip",
+  "sessions.createdAt",
+  "sessions.lastSeenAt",
+  "sessions.expiresAt",
+] as const;
+
+type SessionListRow = {
+  id: string;
+  publicId: string;
+  tokenLast4: string;
+  userId: string;
+  userAgent: string | null;
+  ip: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+};
+
+/** Session list DTO — `id` exposed is the non-secret publicId (ADR-099);
+ *  the token hash in row.id is only compared internally to mark the
+ *  caller's own session. */
+function toSessionDto(row: SessionListRow, currentSessionHash?: string) {
+  return {
+    id: row.publicId,
+    tokenLast4: row.tokenLast4,
+    userId: row.userId,
+    device: parseDevice(row.userAgent),
+    ip: row.ip,
+    current: currentSessionHash != null && row.id === currentSessionHash,
+    createdAt: row.createdAt,
+    lastSeenAt: row.lastSeenAt,
+    expiresAt: row.expiresAt,
+  };
+}
+
 /**
  * List active sessions for a user. Returns the non-secret `publicId` as `id`
  * plus the last 4 characters of the token for display (001-foundation
  * contract: session tokens are never returned by the API).
+ *
+ * Used by the exempt detail sub-list `GET /users/:id/sessions` — the
+ * standardized paginated variant for `GET /sessions` is
+ * {@link listOwnSessionsPage} below.
  */
 export async function listUserSessions(
   userId: string,
@@ -123,17 +175,7 @@ export async function listUserSessions(
 ) {
   const rows = await db
     .selectFrom("sessions")
-    .select([
-      "sessions.id",
-      "sessions.publicId",
-      "sessions.tokenLast4",
-      "sessions.userId",
-      "sessions.userAgent",
-      "sessions.ip",
-      "sessions.createdAt",
-      "sessions.lastSeenAt",
-      "sessions.expiresAt",
-    ])
+    .select(SESSION_LIST_COLUMNS)
     .where("sessions.userId", "=", userId)
     .where("sessions.revokedAt", "is", null)
     // Active sign-ins only — an expired row can't authenticate, so it
@@ -142,17 +184,62 @@ export async function listUserSessions(
     .orderBy("sessions.createdAt", "desc")
     .execute();
 
-  return rows.map((row) => ({
-    // `id` exposed is the non-secret publicId; the token hash in row.id is
-    // only compared internally to mark the caller's own session (ADR-099).
-    id: row.publicId,
-    tokenLast4: row.tokenLast4,
-    userId: row.userId,
-    device: parseDevice(row.userAgent),
-    ip: row.ip,
-    current: opts?.currentSessionHash != null && row.id === opts.currentSessionHash,
-    createdAt: row.createdAt,
-    lastSeenAt: row.lastSeenAt,
-    expiresAt: row.expiresAt,
-  }));
+  return rows.map((row) => toSessionDto(row, opts?.currentSessionHash));
+}
+
+/**
+ * Spec 068 / ADR-130: standardized list contract for GET /sessions — the
+ * caller's own active sessions. Same active-row filters as
+ * {@link listUserSessions}; `search` matches the device/user-agent
+ * fragment (and IP); sort keys are real `sessions` columns.
+ */
+export async function listOwnSessionsPage(
+  userId: string,
+  query: ListSessionsQuery,
+  opts?: { currentSessionHash?: string },
+): Promise<Paginated<ReturnType<typeof toSessionDto>>> {
+  let filtered = db
+    .selectFrom("sessions")
+    .select(SESSION_LIST_COLUMNS)
+    .where("sessions.userId", "=", userId)
+    .where("sessions.revokedAt", "is", null)
+    .where("sessions.expiresAt", ">", new Date().toISOString());
+
+  if (query.search) {
+    const term = `%${query.search}%`;
+    filtered = filtered.where((eb) =>
+      eb.or([
+        eb("sessions.userAgent", "ilike", term),
+        eb("sessions.ip", "ilike", term),
+      ]),
+    );
+  }
+
+  const { data, pagination } = await paginateQuery(
+    filtered,
+    { page: query.page, pageSize: query.pageSize },
+    {
+      orderBy: (q) => {
+        // `location` orders by the stored `ip` column the Location cell
+        // renders verbatim; the parsed `device` label is app-computed and
+        // has no sort key (FR-005).
+        const primary =
+          query.sort === "lastSeenAt"
+            ? q.orderBy("sessions.lastSeenAt", query.order)
+            : query.sort === "expiresAt"
+              ? q.orderBy("sessions.expiresAt", query.order)
+              : query.sort === "location"
+                ? q.orderBy("sessions.ip", query.order)
+                : q.orderBy("sessions.createdAt", query.order);
+        // Deterministic tie-break (ADR-130) — sessions.id is the token
+        // hash PK; unique and stable within a page set.
+        return primary.orderBy("sessions.id", query.order);
+      },
+    },
+  );
+
+  return {
+    data: data.map((row) => toSessionDto(row, opts?.currentSessionHash)),
+    pagination,
+  };
 }

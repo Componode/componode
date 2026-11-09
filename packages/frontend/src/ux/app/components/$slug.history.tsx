@@ -1,8 +1,8 @@
 import { useParams } from "react-router-dom";
-import { useEntityHistory } from "@/api/hooks/audit";
 import { useComponentDetail, useComponents } from "@/api/hooks/components";
 import { mapActivityItem } from "@/api/mappers/dashboard";
 import { EntityHistory } from "@/ux/components/patterns/entity-history";
+import { usePagedEntityHistory } from "@/ux/hooks/use-entity-history";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
 import { ErrorState, ForbiddenState, NotFoundState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Card } from "@/ux/components/ui/card";
@@ -14,7 +14,7 @@ export function UxComponentHistoryPage() {
   const lookup = useComponents({ search: slug, includeRetired: true, pageSize: 100 });
   const componentId = lookup.data?.data.find((c) => c.slug === slug)?.id ?? null;
   const detail = useComponentDetail(componentId);
-  const history = useEntityHistory("component", componentId ?? "");
+  const history = usePagedEntityHistory("component", componentId ?? "");
 
   if (lookup.isPending || (componentId && (detail.isPending || history.isPending))) {
     return (
@@ -61,7 +61,11 @@ export function UxComponentHistoryPage() {
         title={`${detail.data.component.name} history`}
         description="Every recorded change to this component, including importer runs that created or updated it."
       />
-      <EntityHistory events={(history.data?.items ?? []).map(mapActivityItem)} entityLabel="component" />
+      <EntityHistory
+        events={(history.data?.items ?? []).map(mapActivityItem)}
+        entityLabel="component"
+        pagination={history.pagination}
+      />
     </PageContainer>
   );
 }

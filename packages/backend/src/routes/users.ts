@@ -1,22 +1,28 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { createUserSchema, updateUserSchema, updateSelfSchema } from "@componode/core";
+import {
+  createUserSchema,
+  updateUserSchema,
+  updateSelfSchema,
+  listUsersQuerySchema,
+} from "@componode/core";
 import { createUser, listUsers, getUserById, updateUser } from "../services/user-service.js";
 import { requireRole } from "../plugins/rbac.js";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { toActor } from "../services/actor.js";
+import { validationFailed } from "./route-helpers.js";
 
 export async function userRoutes(app: FastifyInstance): Promise<void> {
-  // GET /users — admin only
+  // GET /users — admin only. Spec 068 / ADR-130: strict query validation
+  // at the boundary; response is the {data, pagination} envelope.
   app.get("/users", {
     preHandler: [app.verifySession, requireRole("user:list")],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const query = req.query as { role?: string; isActive?: string; search?: string };
-    const users = await listUsers({
-      role: query.role,
-      isActive: query.isActive !== undefined ? query.isActive === "true" : undefined,
-      search: query.search,
-    });
-    return reply.status(200).send({ users });
+    const parsed = listUsersQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return validationFailed(reply, parsed.error.issues);
+    }
+    const result = await listUsers(parsed.data);
+    return reply.status(200).send(result);
   });
 
   // GET /users/me — all authenticated users

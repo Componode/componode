@@ -117,7 +117,7 @@ describe("product criticality", () => {
       ...authed(editorSession),
     });
     expect(res.statusCode).toBe(200);
-    const slugs = res.json().products.map((p: any) => p.slug);
+    const slugs = res.json().data.map((p: any) => p.slug);
     expect(slugs).toContain("crit-f1");
     expect(slugs).not.toContain("crit-f2");
   });

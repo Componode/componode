@@ -4,6 +4,11 @@ import { MemoryRouter } from "react-router-dom";
 import { TooltipProvider } from "@/ux/components/ui/tooltip";
 import { SourcesView } from "@/ux/components/sources/sources-view";
 import { SourceDetail } from "@/ux/components/sources/source-detail";
+import type {
+  ImporterSourcesFilterKey,
+  ImporterSourcesSortKey,
+} from "@/api/hooks/importer-sources";
+import type { ListState } from "@/ux/hooks/use-list-state";
 import type { ImporterSource } from "@/ux/lib/view-types";
 
 vi.mock("@/api/hooks/auth", () => ({
@@ -46,10 +51,36 @@ function source(over: Partial<ImporterSource> = {}): ImporterSource {
 
 afterEach(cleanup);
 
+/** Resolved useListState stub — SourcesView/SourcesTable take it as a prop (spec 068). */
+const listState = (): ListState<ImporterSourcesSortKey, ImporterSourcesFilterKey> => ({
+  page: 1,
+  pageSize: 25,
+  sort: null,
+  order: "asc",
+  search: "",
+  filters: { status: "all", importerName: "all" },
+  defaults: {
+    page: 1,
+    pageSize: 25,
+    sort: null,
+    order: "asc",
+    search: "",
+    filters: { status: "all", importerName: "all" },
+  },
+  setPage: vi.fn(),
+  setPageSize: vi.fn(),
+  setSort: vi.fn(),
+  setOrder: vi.fn(),
+  setSearch: vi.fn(),
+  setFilter: vi.fn(),
+  reset: vi.fn(),
+});
+
 describe("SourcesView (spec 047)", () => {
   it("renders all lifecycle states with identity, importer, bound config, counts", () => {
     wrap(
       <SourcesView
+        list={listState()}
         sources={[
           source(),
           source({ id: "s2", status: "UNMONITORED", boundConfig: null, externalIdentity: "docker-engine:eng-2", label: null }),
@@ -64,7 +95,7 @@ describe("SourcesView (spec 047)", () => {
   });
 
   it("renders an explanatory empty state", () => {
-    wrap(<SourcesView sources={[]} />);
+    wrap(<SourcesView list={listState()} sources={[]} />);
     expect(screen.getByText("No importer sources yet")).toBeTruthy();
     expect(screen.getByText(/reports source identity/)).toBeTruthy();
   });

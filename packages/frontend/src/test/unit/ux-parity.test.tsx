@@ -28,6 +28,9 @@ vi.mock("@/api/hooks/suggestions", () => ({
 }));
 vi.mock("@/api/hooks/agents", () => ({
   useAgents: (...args: unknown[]) => agentsQuery(...args),
+  // The sidebar badge fetches the full set via the fetch-all variant
+  // (spec 068) — same spy keeps the call assertions working.
+  useAllAgents: (...args: unknown[]) => agentsQuery(...args),
 }));
 vi.mock("@/api/hooks/auth", () => ({
   useLogout: () => ({ mutate: logoutMutation, isPending: false }),
@@ -100,13 +103,12 @@ beforeEach(() => {
   sessionRole = "ADMIN";
   suggestionsQuery.mockReturnValue({ data: { items: [], total: 7 }, isPending: false });
   agentsQuery.mockReturnValue({
-    data: {
-      agents: [
-        { id: "a1", status: "CONNECTED" },
-        { id: "a2", status: "OFFLINE" },
-        { id: "a3", status: "NEVER_CONNECTED" },
-      ],
-    },
+    // useAllAgents resolves to the row array directly (spec 068).
+    data: [
+      { id: "a1", status: "CONNECTED" },
+      { id: "a2", status: "OFFLINE" },
+      { id: "a3", status: "NEVER_CONNECTED" },
+    ],
     isPending: false,
   });
   globalSearchQuery.mockReturnValue({ data: {}, isPending: false });
@@ -165,7 +167,7 @@ describe("prototype shell parity (spec 062)", () => {
 
     cleanup();
     suggestionsQuery.mockReturnValue({ data: { items: [], total: 0 }, isPending: false });
-    agentsQuery.mockReturnValue({ data: { agents: [{ id: "a1", status: "CONNECTED" }] }, isPending: false });
+    agentsQuery.mockReturnValue({ data: [{ id: "a1", status: "CONNECTED" }], isPending: false });
     wrap(
       <SidebarProvider>
         <AppSidebar />

@@ -3,13 +3,20 @@ import { ChevronRightIcon, SearchXIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useNavigate } from "react-router-dom"
 import * as React from "react"
+import type { PaginationMeta } from "@/api/types"
+import type { AgentsFilterKey, AgentsSortKey } from "@/api/hooks/agents"
+import { ListPagination } from "@/ux/components/patterns/list-pagination"
 import { ListToolbar } from "@/ux/components/patterns/list-toolbar"
 import { RelativeTime } from "@/ux/components/patterns/primitives"
+import { SortableTableHead } from "@/ux/components/patterns/sortable-header"
 import { AgentCredentialBadge, AgentStatusBadge } from "@/ux/components/patterns/status-badge"
+import { TitleWithSummary } from "@/ux/components/patterns/title-with-summary"
 import { EmptyState } from "@/ux/components/patterns/states"
 import { Badge } from "@/ux/components/ui/badge"
 import { Card } from "@/ux/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
+import type { ListState } from "@/ux/hooks/use-list-state"
+import { useListSearch } from "@/ux/hooks/use-list-search"
 import { AGENT_STATUS_META, type AgentStatus } from "@/ux/lib/domain"
 import { ux } from "@/ux/lib/paths"
 import type { ImportAgent } from "@/ux/lib/view-types"
@@ -37,16 +44,30 @@ export function AgentStatusCell({ agent }: { agent: ImportAgent }) {
   )
 }
 
-export function AgentsTable({ rows }: { rows: ImportAgent[] }) {
+/**
+ * Server-paginated agents table (spec 068). Filtering, sorting, search,
+ * and paging state lives in the URL via `useListState` — the table renders
+ * exactly the page the API returned; it never filters client-side.
+ */
+export function AgentsTable({
+  rows,
+  list,
+  pagination,
+}: {
+  rows: ImportAgent[]
+  list: ListState<AgentsSortKey, AgentsFilterKey>
+  pagination?: PaginationMeta
+}) {
   const navigate = useNavigate()
-  const [query, setQuery] = React.useState("")
-  const [status, setStatus] = React.useState("all")
+  const [query, setQuery] = useListSearch(list)
+  const total = pagination?.total ?? rows.length
 
-  const visible = rows.filter(
-    (a) =>
-      (status === "all" || a.status === status) &&
-      (query === "" || `${a.name} ${a.allowedImporters.join(" ")}`.toLowerCase().includes(query.toLowerCase())),
-  )
+  const sortProps = {
+    sort: list.sort,
+    order: list.order,
+    onSortChange: (sort: string | null, order: "asc" | "desc") =>
+      list.setSort((sort as AgentsSortKey | null) ?? null, order),
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -54,19 +75,19 @@ export function AgentsTable({ rows }: { rows: ImportAgent[] }) {
         query={query}
         onQueryChange={setQuery}
         placeholder="Search agent or importer"
-        resultCount={visible.length}
-        total={rows.length}
+        resultCount={rows.length}
+        total={total}
         filters={[
           {
             id: "status",
             label: "Status",
-            value: status,
-            onChange: setStatus,
+            value: list.filters.status,
+            onChange: (v) => list.setFilter("status", v),
             options: (Object.keys(AGENT_STATUS_META) as AgentStatus[]).map((s) => ({ value: s, label: AGENT_STATUS_META[s].label })),
           },
         ]}
       />
-      {visible.length === 0 ? (
+      {rows.length === 0 ? (
         <Card className="py-0">
           <EmptyState icon={SearchXIcon} title="No agents match" description="Try a different search or clear the status filter." />
         </Card>
@@ -75,24 +96,31 @@ export function AgentsTable({ rows }: { rows: ImportAgent[] }) {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead className="pl-4">Agent</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Version</TableHead>
+                <SortableTableHead sortKey="name" {...sortProps} className="pl-4">Agent</SortableTableHead>
+                <SortableTableHead sortKey="status" {...sortProps}>Status</SortableTableHead>
+                <SortableTableHead sortKey="agentVersion" {...sortProps}>Version</SortableTableHead>
                 <TableHead>Importers</TableHead>
-                <TableHead className="text-right">Bound configs</TableHead>
-                <TableHead>Last seen</TableHead>
+                <SortableTableHead sortKey="boundConfigCount" {...sortProps} className="text-right">Bound configs</SortableTableHead>
+                <SortableTableHead sortKey="lastSeenAt" {...sortProps}>Last seen</SortableTableHead>
                 <TableHead className="w-10 pr-4">
                   <span className="sr-only">Open</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visible.map((a) => (
+              {rows.map((a) => (
                 <TableRow key={a.id} className="cursor-pointer" onClick={() => navigate(ux(`/agents/${a.id}`))}>
-                  <TableCell className="pl-4">
-                    <Link to={ux(`/agents/${a.id}`)} className="font-mono text-sm font-medium hover:underline" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                      {a.name}
-                    </Link>
+                  <TableCell className="max-w-64 pl-4">
+                    <TitleWithSummary
+                      className="min-w-0"
+                      title={
+                        <Link to={ux(`/agents/${a.id}`)} className="block truncate font-mono text-sm hover:underline" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                          {a.name}
+                        </Link>
+                      }
+                      titleText={a.name}
+                      summary={{ kind: "agent", row: a }}
+                    />
                   </TableCell>
                   <TableCell>
                     <AgentStatusCell agent={a} />
@@ -113,6 +141,16 @@ export function AgentsTable({ rows }: { rows: ImportAgent[] }) {
             </TableBody>
           </Table>
         </Card>
+      )}
+      {pagination && pagination.total > 0 && (
+        <ListPagination
+          page={list.page}
+          pageSize={list.pageSize}
+          total={pagination.total}
+          pageCount={pagination.pageCount}
+          onPageChange={list.setPage}
+          onPageSizeChange={list.setPageSize}
+        />
       )}
     </div>
   )
