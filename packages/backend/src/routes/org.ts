@@ -60,12 +60,7 @@ export async function orgRoutes(app: FastifyInstance): Promise<void> {
       { preHandler: [app.verifySession] },
       async (req: FastifyRequest, reply: FastifyReply) => {
         const parsed = detailParamsSchema.safeParse(req.params);
-        if (!parsed.success) {
-          return reply.status(400).send({
-            code: "VALIDATION_FAILED",
-            message: "Invalid path parameters",
-          });
-        }
+        if (!parsed.success) return validationFailed(reply, parsed.error.issues);
         const row = await getOrgEntity(table, parsed.data.id);
         if (!row) {
           return reply
@@ -81,12 +76,7 @@ export async function orgRoutes(app: FastifyInstance): Promise<void> {
       { preHandler: [app.verifySession, requireRole(`${prefix}:create`)] },
       async (req: AuthenticatedRequest, reply: FastifyReply) => {
         const parsed = createSchema.safeParse(req.body);
-        if (!parsed.success) {
-          return reply.status(400).send({
-            code: "VALIDATION_FAILED",
-            message: "Invalid request body",
-          });
-        }
+        if (!parsed.success) return validationFailed(reply, parsed.error.issues);
         try {
           const row = await createOrgEntity(table, parsed.data, toActor(req));
           return reply.status(201).send({ [prefix]: row });
@@ -102,12 +92,7 @@ export async function orgRoutes(app: FastifyInstance): Promise<void> {
       async (req: AuthenticatedRequest, reply: FastifyReply) => {
         const { id } = req.params as { id: string };
         const parsed = updateSchema.safeParse(req.body);
-        if (!parsed.success) {
-          return reply.status(400).send({
-            code: "VALIDATION_FAILED",
-            message: "Invalid request body",
-          });
-        }
+        if (!parsed.success) return validationFailed(reply, parsed.error.issues);
         try {
           const row = await updateOrgEntity(table, id, parsed.data, toActor(req));
           if (!row) {
@@ -150,12 +135,7 @@ export async function orgRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.verifySession] },
     async (req: FastifyRequest, reply: FastifyReply) => {
       const parsed = detailParamsSchema.safeParse(req.params);
-      if (!parsed.success) {
-        return reply.status(400).send({
-          code: "VALIDATION_FAILED",
-          message: "Invalid path parameters",
-        });
-      }
+      if (!parsed.success) return validationFailed(reply, parsed.error.issues);
       const result = await getTeamMembers(parsed.data.id);
       if (!result) {
         return reply

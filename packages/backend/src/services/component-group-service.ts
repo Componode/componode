@@ -11,6 +11,7 @@ import {
   type UpdateComponentInput,
   type Link,
   listComponentGroupsQuerySchema,
+  type ListComponentGroupsQuery,
 } from "@componode/core";
 import type { Selectable } from "kysely";
 import { db } from "../db/connection.js";
@@ -65,7 +66,16 @@ function autoManagedConflict(): never {
   );
 }
 
-import { paginateQuery } from "../utils/pagination.js";
+import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
+
+type GroupSortKey = NonNullable<ListComponentGroupsQuery["sort"]>;
+
+/** Sort whitelist mirrors listComponentGroupsQuerySchema (spec 069 / B.3). */
+const GROUP_SORT_COLUMNS: Record<GroupSortKey, OrderTarget> = {
+  name: "component_groups.name",
+  lifecycle: "component_groups.lifecycle",
+  createdAt: "component_groups.createdAt",
+};
 
 export async function listComponentGroups(rawQuery: unknown) {
   const parsed = listComponentGroupsQuerySchema.parse(rawQuery);
@@ -111,16 +121,12 @@ export async function listComponentGroups(rawQuery: unknown) {
   }
 
   const { data, pagination } = await paginateQuery(query, { page, pageSize }, {
-    orderBy: (q) => {
-      const primary =
-        parsed.sort === "lifecycle"
-          ? q.orderBy("component_groups.lifecycle", order)
-          : parsed.sort === "createdAt"
-            ? q.orderBy("component_groups.createdAt", order)
-            : q.orderBy("component_groups.name", order);
+    orderBy: (q) =>
       // Deterministic tie-break (ADR-130).
-      return primary.orderBy("component_groups.id", order);
-    },
+      q.orderBy(sortTarget(GROUP_SORT_COLUMNS, parsed.sort, GROUP_SORT_COLUMNS.name), order).orderBy(
+        "component_groups.id",
+        order,
+      ),
   });
 
   return {

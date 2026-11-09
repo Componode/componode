@@ -13,7 +13,20 @@ import type {
 } from "@componode/core";
 import { db } from "../db/connection.js";
 import type { CredentialRow } from "../db/types.js";
-import { paginateQuery } from "../utils/pagination.js";
+import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
+
+type CredentialSortKey = NonNullable<ListCredentialsQuery["sort"]>;
+
+/** Sort whitelist mirrors listCredentialsQuerySchema — `name` sorts by
+ *  the display `label` column; `usedByCount` is a select alias (spec 069 / B.3). */
+const CREDENTIAL_SORT_COLUMNS: Record<CredentialSortKey, OrderTarget> = {
+  name: "credentials.label",
+  status: "credentials.status",
+  expiresAt: "credentials.expiresAt",
+  lastUsedAt: "credentials.lastUsedAt",
+  usedByCount: "usedByCount",
+  createdAt: "credentials.createdAt",
+};
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import {
   decryptSecrets,
@@ -153,23 +166,12 @@ export async function listCredentials(
     q,
     { page: query.page, pageSize: query.pageSize },
     {
-      orderBy: (qb) => {
-        // `name` sorts by the display `label` column (contract note).
-        const primary =
-          query.sort === "status"
-            ? qb.orderBy("credentials.status", query.order)
-            : query.sort === "expiresAt"
-              ? qb.orderBy("credentials.expiresAt", query.order)
-              : query.sort === "lastUsedAt"
-                ? qb.orderBy("credentials.lastUsedAt", query.order)
-                : query.sort === "usedByCount"
-                  ? qb.orderBy("usedByCount", query.order)
-                  : query.sort === "createdAt"
-                    ? qb.orderBy("credentials.createdAt", query.order)
-                    : qb.orderBy("credentials.label", query.order);
+      orderBy: (qb) =>
         // Deterministic tie-break (ADR-130).
-        return primary.orderBy("credentials.id", query.order);
-      },
+        qb.orderBy(
+          sortTarget(CREDENTIAL_SORT_COLUMNS, query.sort, CREDENTIAL_SORT_COLUMNS.name),
+          query.order,
+        ).orderBy("credentials.id", query.order),
     },
   );
 

@@ -10,6 +10,7 @@ import type { AuthenticatedRequest } from "../plugins/session.js";
 import { getActivityFeed, getEntityHistory } from "../services/audit-query-service.js";
 import { writeCorrection } from "../services/audit-service.js";
 import { toActor } from "../services/actor.js";
+import { validationFailed } from "./route-helpers.js";
 
 const paramsSchema = z.object({
   entityType: z.string().min(1).max(100),
@@ -22,11 +23,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const parsed = activityFeedQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid query",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     const result = await getActivityFeed(parsed.data);
@@ -38,20 +35,12 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const params = paramsSchema.safeParse(req.params);
     if (!params.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid path parameters",
-        details: params.error.issues,
-      });
+      return validationFailed(reply, params.error.issues);
     }
 
     const parsed = entityHistoryQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid query",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     const { entityType, entityId } = params.data;
@@ -64,11 +53,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const parsed = correctionInputSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     const { entryId, entryKind, note } = parsed.data;

@@ -29,6 +29,7 @@ import {
   listRunErrors,
 } from "../services/import-run-service.js";
 import { getRunChanges } from "../services/audit-query-service.js";
+import { validationFailed } from "./route-helpers.js";
 
 export async function importerRoutes(app: FastifyInstance): Promise<void> {
   // Registry
@@ -67,11 +68,7 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const parsed = listImporterConfigsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid query",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
     const result = await listImporterConfigs(parsed.data);
     return reply.status(200).send(result);
@@ -93,11 +90,7 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const parsed = createImporterConfigSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     const config = await createImporterConfig(parsed.data, toActor(req));
@@ -110,11 +103,7 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as { id: string };
     const parsed = updateImporterConfigSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     const config = await updateImporterConfig(id, parsed.data, toActor(req));
@@ -183,11 +172,7 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as { id: string };
     const parsed = listImporterRunsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid query",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
     const result = await listRunsForConfig(id, parsed.data);
     return reply.status(200).send(result);
@@ -210,11 +195,7 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
     const { runId } = req.params as { configId: string; runId: string };
     const parsed = listRunErrorsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid query",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
     const result = await listRunErrors(runId, parsed.data);
     return reply.status(200).send(result);
@@ -226,11 +207,7 @@ export async function importerRoutes(app: FastifyInstance): Promise<void> {
     const { runId } = req.params as { configId: string; runId: string };
     const parsed = listRunChangesQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid query",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
     const run = await getRun(runId);
     if (!run) {

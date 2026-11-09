@@ -132,7 +132,7 @@ function CountBadge({ count }: { count: number }) {
 }
 
 function PendingSuggestionsBadge() {
-  const { data } = useSuggestions("PENDING", 0, 1)
+  const { data } = useSuggestions("PENDING", { page: 1, pageSize: 1 })
   return <CountBadge count={mapPendingSuggestionCount(data)} />
 }
 

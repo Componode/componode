@@ -97,6 +97,23 @@ export function buildListQueryString(
 }
 
 /**
+ * Sentinel→param mapping shared by every list adapter (spec 069 / B.4 —
+ * replaces the per-hook `facet`/`auditFacet` copies and ad-hoc
+ * `v !== "all"` checks). A filter value of `undefined`, `""`, or the
+ * `"all"` sentinel means "unset" and serializes to no API param.
+ */
+export function facetValue(v: string | undefined): string | undefined {
+  return v !== undefined && v !== "" && v !== "all" ? v : undefined;
+}
+
+export function facetParam(
+  state: ListQueryState,
+  key: string,
+): string | undefined {
+  return facetValue(state.filters[key]);
+}
+
+/**
  * Serializes a flat API-params record to a `?…` query string, skipping
  * `undefined`/`null`/`""` values. Used by hooks that accept structured
  * filter objects (the `xListParams` adapters) rather than a resolved

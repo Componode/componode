@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { fetchAllPages, type ListQueryState } from "@/api/list-query";
+import { buildApiQueryString, facetParam, fetchAllPages, type ListQueryState } from "@/api/list-query";
 import type { ComponentGroup, Paginated } from "@/api/types";
 
 /** Spec 068 / ADR-130 sort whitelist for `GET /component-groups`. */
@@ -37,11 +37,7 @@ export type ComponentGroupListResponse = Paginated<ComponentGroup>;
  * lifecycle predicate.
  */
 export function componentGroupsListParams(state: ListQueryState): ComponentGroupListParams {
-  const lifecycle = state.filters.lifecycle;
-  const concrete =
-    lifecycle !== undefined && lifecycle !== "" && lifecycle !== "all"
-      ? lifecycle
-      : undefined;
+  const concrete = facetParam(state, "lifecycle");
   return {
     page: state.page,
     pageSize: state.pageSize,
@@ -53,25 +49,12 @@ export function componentGroupsListParams(state: ListQueryState): ComponentGroup
   };
 }
 
-function buildComponentGroupsQs(params: ComponentGroupListParams): string {
-  const search = new URLSearchParams();
-  if (params.page !== undefined) search.set("page", String(params.page));
-  if (params.pageSize !== undefined) search.set("pageSize", String(params.pageSize));
-  if (params.sort) search.set("sort", params.sort);
-  if (params.order) search.set("order", params.order);
-  if (params.search) search.set("search", params.search);
-  if (params.lifecycle) search.set("lifecycle", params.lifecycle);
-  if (params.includeRetired) search.set("includeRetired", "true");
-  const qs = search.toString();
-  return qs ? `?${qs}` : "";
-}
-
 /** Paged list read — one page of the standardized envelope (spec 068). */
 export function useComponentGroups(
   params: ComponentGroupListParams = {},
   enabled = true,
 ) {
-  const qs = buildComponentGroupsQs(params);
+  const qs = buildApiQueryString(params);
   return useQuery({
     queryKey: ["component-groups", qs],
     queryFn: () => api<ComponentGroupListResponse>(`/component-groups${qs}`),
@@ -95,7 +78,7 @@ export function useAllComponentGroups(
     queryFn: () =>
       fetchAllPages((page) =>
         api<ComponentGroupListResponse>(
-          `/component-groups${buildComponentGroupsQs({ ...params, page, pageSize: 100 })}`,
+          `/component-groups${buildApiQueryString({ ...params, page, pageSize: 100 })}`,
         ),
       ),
   });

@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { XIcon } from "lucide-react";
 import {
   ACTIVITY_FILTER_KEYS,
@@ -19,8 +18,9 @@ import { Card, CardContent } from "@/ux/components/ui/card";
 import { Input } from "@/ux/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select";
 import { useClampPage } from "@/ux/hooks/use-clamp-page";
+import { useDebouncedParam } from "@/ux/hooks/use-debounced-param";
 import { useListState, type ListFilterConfig } from "@/ux/hooks/use-list-state";
-import { useDebouncedValue } from "@/ux/hooks/use-debounced-value";
+import { ENTITY_TYPE_LABELS } from "@/ux/lib/entity-type-labels";
 import { errorMessage } from "@/ux/lib/api-state";
 
 /**
@@ -32,54 +32,13 @@ const ACTIVITY_FILTERS: { [K in ActivityFilterKey]: ListFilterConfig } = {
   kind: { default: "all", values: ["all", "entity", "edge"] },
   entityType: {
     default: "all",
-    values: [
-      "all",
-      "digital_product",
-      "component",
-      "component_instance",
-      "component_group",
-      "team",
-      "line_of_business",
-      "import_agent",
-      "docker_target",
-      "importer_source",
-      "importer_config",
-      "credential",
-      "url_check",
-      "monitoring_setup",
-      "user",
-      "settings",
-      "session",
-      "auth",
-      "correction",
-    ],
+    values: ["all", ...Object.keys(ENTITY_TYPE_LABELS)],
   },
   // `action`/`actor` are open domains (free-text columns server-side).
   action: { default: "all" },
   actor: { default: "all" },
   from: { default: "all", isValid: (v) => !Number.isNaN(Date.parse(v)) },
   to: { default: "all", isValid: (v) => !Number.isNaN(Date.parse(v)) },
-};
-
-const ENTITY_TYPE_LABELS: Record<string, string> = {
-  digital_product: "Digital product",
-  component: "Component",
-  component_instance: "Component instance",
-  component_group: "Component group",
-  team: "Team",
-  line_of_business: "Line of business",
-  import_agent: "Import agent",
-  docker_target: "Docker target",
-  importer_source: "Importer source",
-  importer_config: "Importer",
-  credential: "Credential",
-  url_check: "URL check",
-  monitoring_setup: "Monitoring setup",
-  user: "User",
-  settings: "Settings",
-  session: "Session",
-  auth: "Authentication",
-  correction: "Correction",
 };
 
 /** The audit feed is a card list — sort is a (sort, order) option list. */
@@ -98,35 +57,6 @@ const ACTIVITY_SORT_OPTIONS: ListSortOption<AuditSortKey>[] = [
 
 const isSet = (v: string) => v !== "all";
 
-/**
- * Debounced free-text filter bound to `useListState` — same contract as
- * `useListSearch` but for filter params (spec 068 FR-006): the input stays
- * responsive while the committed value lands in the URL ~300 ms after
- * typing stops. `"all"` is the unset sentinel on both sides.
- */
-function useDebouncedFilter(
-  value: string,
-  commit: (value: string) => void,
-): [string, (value: string) => void] {
-  const shown = value === "all" ? "" : value;
-  const [input, setInput] = useState(shown);
-  const debounced = useDebouncedValue(input);
-
-  // URL → input: external navigation or Clear rewrites the field.
-  useEffect(() => {
-    setInput(shown);
-  }, [shown]);
-
-  // input → URL: commit the debounced text once it differs from state.
-  // `commit` identity changes every render — the value comparison guards.
-  useEffect(() => {
-    const next = debounced === "" ? "all" : debounced;
-    if (next !== value) commit(next);
-  }, [debounced, value]);
-
-  return [input, setInput];
-}
-
 export function UxActivityPage() {
   // Server-paginated list state lives in the URL (spec 068 / ADR-130).
   // Backend defaults (activityFeedQuerySchema): createdAt desc.
@@ -140,11 +70,15 @@ export function UxActivityPage() {
   useClampPage(list, activity.data);
 
   // Debounced free-text filters — one request per pause, not per keystroke.
-  const [actionInput, setActionInput] = useDebouncedFilter(list.filters.action, (v) =>
-    list.setFilter("action", v),
+  const [actionInput, setActionInput] = useDebouncedParam(
+    list.filters.action,
+    (v) => list.setFilter("action", v),
+    "all",
   );
-  const [actorInput, setActorInput] = useDebouncedFilter(list.filters.actor, (v) =>
-    list.setFilter("actor", v),
+  const [actorInput, setActorInput] = useDebouncedParam(
+    list.filters.actor,
+    (v) => list.setFilter("actor", v),
+    "all",
   );
 
   const data = activity.data;

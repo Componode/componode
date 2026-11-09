@@ -15,6 +15,7 @@ import {
   deleteComponentGroup,
 } from "../services/component-group-service.js";
 import { toActor } from "../services/actor.js";
+import { validationFailed } from "./route-helpers.js";
 
 export async function componentGroupRoutes(app: FastifyInstance): Promise<void> {
   // Spec 068 / ADR-130 / ADR-095: strict query validation at the route
@@ -24,11 +25,7 @@ export async function componentGroupRoutes(app: FastifyInstance): Promise<void> 
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const parsed = listComponentGroupsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid query parameters",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
     const result = await listComponentGroups(parsed.data);
     return reply.status(200).send(result);
@@ -38,12 +35,7 @@ export async function componentGroupRoutes(app: FastifyInstance): Promise<void> 
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const parsed = z.object({ id: z.string().min(1).max(200) }).safeParse(req.params);
-    if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid path parameters",
-      });
-    }
+    if (!parsed.success) return validationFailed(reply, parsed.error.issues);
     const group = await getComponentGroup(parsed.data.id);
     if (!group) {
       return reply.status(404).send({ code: "NOT_FOUND", message: "Component group not found" });
@@ -56,11 +48,7 @@ export async function componentGroupRoutes(app: FastifyInstance): Promise<void> 
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const parsed = createComponentGroupSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     try {
@@ -81,11 +69,7 @@ export async function componentGroupRoutes(app: FastifyInstance): Promise<void> 
     const { id } = req.params as { id: string };
     const parsed = updateComponentGroupSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     try {

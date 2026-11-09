@@ -20,6 +20,7 @@ import {
   updateAgent,
 } from "../services/agent-service.js";
 import { toActor } from "../services/actor.js";
+import { validationFailed } from "./route-helpers.js";
 
 // Import Agent management routes (spec 025, ADR-116) — admin-only, browser
 // session auth. Agent-facing bearer routes live in agent-channel.ts.
@@ -32,11 +33,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     async (req: FastifyRequest, reply: FastifyReply) => {
       const parsed = listAgentsQuerySchema.safeParse(req.query);
       if (!parsed.success) {
-        return reply.status(400).send({
-          code: "VALIDATION_FAILED",
-          message: "Invalid query",
-          details: parsed.error.issues,
-        });
+        return validationFailed(reply, parsed.error.issues);
       }
       const result = await listAgents(parsed.data, app.remoteRuns, app.agentSessions);
       return reply.status(200).send(result);
@@ -51,11 +48,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     async (req: AuthenticatedRequest, reply: FastifyReply) => {
       const parsed = createImportAgentSchema.safeParse(req.body);
       if (!parsed.success) {
-        return reply.status(400).send({
-          code: "VALIDATION_FAILED",
-          message: "Invalid input",
-          details: parsed.error.issues,
-        });
+        return validationFailed(reply, parsed.error.issues);
       }
 
       const result = await createAgent(parsed.data, toActor(req));
@@ -90,11 +83,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       const { id } = req.params as { id: string };
       const parsed = updateImportAgentSchema.safeParse(req.body);
       if (!parsed.success) {
-        return reply.status(400).send({
-          code: "VALIDATION_FAILED",
-          message: "Invalid input",
-          details: parsed.error.issues,
-        });
+        return validationFailed(reply, parsed.error.issues);
       }
       const agent = await updateAgent(id, parsed.data, toActor(req));
       return reply.status(200).send({ agent });
@@ -151,11 +140,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       const { id } = req.params as { id: string };
       const parsed = listAgentSessionsQuerySchema.safeParse(req.query);
       if (!parsed.success) {
-        return reply.status(400).send({
-          code: "VALIDATION_FAILED",
-          message: "Invalid query",
-          details: parsed.error.issues,
-        });
+        return validationFailed(reply, parsed.error.issues);
       }
       const runs = await listAgentRuns(id, parsed.data.limit);
       return reply.status(200).send({ runs });
@@ -171,11 +156,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       const { id } = req.params as { id: string };
       const parsed = listAgentSessionsQuerySchema.safeParse(req.query);
       if (!parsed.success) {
-        return reply.status(400).send({
-          code: "VALIDATION_FAILED",
-          message: "Invalid query",
-          details: parsed.error.issues,
-        });
+        return validationFailed(reply, parsed.error.issues);
       }
       const sessions = await listAgentSessions(id, parsed.data.limit);
       return reply.status(200).send({ sessions });

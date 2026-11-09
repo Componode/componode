@@ -52,6 +52,7 @@ function run(over: Partial<ImportRun> = {}): ImportRun {
     status: "COMPLETED",
     triggeredBy: "system",
     startedAt: "2026-11-01T10:00:00Z",
+    completedAt: "2026-11-01T10:00:12Z",
     durationSec: 12,
     assetsProcessed: 10,
     assetsCreated: 1,

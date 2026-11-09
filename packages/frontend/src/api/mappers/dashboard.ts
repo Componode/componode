@@ -32,6 +32,9 @@ export function mapCoverage(c: CatalogCoverage): {
   };
 }
 
+// entity_type slug → AuditEvent.entityKind union member. Shares the slug
+// domain with ux/lib/entity-type-labels.ts but is a different codomain
+// (feed-row kind, not display label) — intentionally a separate map.
 const ENTITY_KIND: Record<string, AuditEvent["entityKind"]> = {
   digital_product: "product",
   component: "component",

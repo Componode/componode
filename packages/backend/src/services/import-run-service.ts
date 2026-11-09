@@ -42,7 +42,26 @@ import {
   syncManagedCheck,
 } from "./url-check-service.js";
 import { resolveHubTargetProfile } from "./docker-target-service.js";
-import { paginateQuery } from "../utils/pagination.js";
+import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
+
+type ImportRunSortKey = NonNullable<ListImporterRunsQuery["sort"]>;
+type RunErrorSortKey = NonNullable<ListRunErrorsQuery["sort"]>;
+
+/** Sort whitelists mirror the run/errors query schemas (spec 069 / B.3). */
+const IMPORT_RUN_SORT_COLUMNS: Record<ImportRunSortKey, OrderTarget> = {
+  startedAt: "import_runs.startedAt",
+  createdAt: "import_runs.createdAt",
+  status: "import_runs.status",
+  completedAt: "import_runs.completedAt",
+  assetsProcessed: "import_runs.assetsProcessed",
+};
+
+const RUN_ERROR_SORT_COLUMNS: Record<RunErrorSortKey, OrderTarget> = {
+  createdAt: "import_run_errors.createdAt",
+  errorType: "import_run_errors.errorType",
+  assetExternalId: "import_run_errors.assetExternalId",
+  errorMessage: "import_run_errors.errorMessage",
+};
 
 const maxConcurrency = parseInt(process.env.IMPORTER_MAX_CONCURRENCY ?? "3", 10);
 if (isNaN(maxConcurrency) || maxConcurrency < 1) {
@@ -1446,22 +1465,14 @@ export async function listRunsForConfig(
     q,
     { page: query.page, pageSize: query.pageSize },
     {
-      orderBy: (qb) => {
+      orderBy: (qb) =>
         // `assetsProcessed` is the stored counter behind the run history's
-        // "Processed" column (FR-005).
-        const primary =
-          query.sort === "startedAt"
-            ? qb.orderBy("import_runs.startedAt", query.order)
-            : query.sort === "status"
-              ? qb.orderBy("import_runs.status", query.order)
-              : query.sort === "completedAt"
-                ? qb.orderBy("import_runs.completedAt", query.order)
-                : query.sort === "assetsProcessed"
-                  ? qb.orderBy("import_runs.assetsProcessed", query.order)
-                  : qb.orderBy("import_runs.createdAt", query.order);
-        // Deterministic tie-break (ADR-130).
-        return primary.orderBy("import_runs.id", query.order);
-      },
+        // "Processed" column; `import_runs.id` is the deterministic
+        // tie-break (ADR-130).
+        qb.orderBy(
+          sortTarget(IMPORT_RUN_SORT_COLUMNS, query.sort, IMPORT_RUN_SORT_COLUMNS.createdAt),
+          query.order,
+        ).orderBy("import_runs.id", query.order),
     },
   );
 }
@@ -1532,18 +1543,12 @@ export async function listRunErrors(
     q,
     { page: query.page, pageSize: query.pageSize },
     {
-      orderBy: (qb) => {
-        const primary =
-          query.sort === "errorType"
-            ? qb.orderBy("import_run_errors.errorType", query.order)
-            : query.sort === "assetExternalId"
-              ? qb.orderBy("import_run_errors.assetExternalId", query.order)
-              : query.sort === "errorMessage"
-                ? qb.orderBy("import_run_errors.errorMessage", query.order)
-                : qb.orderBy("import_run_errors.createdAt", query.order);
+      orderBy: (qb) =>
         // Deterministic tie-break (ADR-130).
-        return primary.orderBy("import_run_errors.id", query.order);
-      },
+        qb.orderBy(
+          sortTarget(RUN_ERROR_SORT_COLUMNS, query.sort, RUN_ERROR_SORT_COLUMNS.createdAt),
+          query.order,
+        ).orderBy("import_run_errors.id", query.order),
     },
   );
   return { data, pagination };

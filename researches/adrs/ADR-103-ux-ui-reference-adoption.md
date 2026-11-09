@@ -80,3 +80,11 @@ Relationships tab with nested ComponentInstances.
 **Amended by spec 062**: `docs/ux.md` now ratifies bundled Geist Sans/Mono
 and applies the `.ux-root` token scope at document level so public auth
 routes and portal-rendered chrome share the prototype visual baseline.
+
+---
+
+**Amended by spec 069**: `docs/ux.md` §5 gains a carve-out permitting
+`import type` entity imports from `@/api/types` across `ux/` modules
+(components, forms, detail views, libs) when useful for prop and local
+typing — type-only imports carry no runtime coupling; value imports and
+data fetching outside mappers remain forbidden.

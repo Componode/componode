@@ -13,7 +13,7 @@ import {
   listComponentDependents,
   promoteComponentToPlatform,
 } from "../services/platform-promotion-service.js";
-import { sendServiceError } from "./route-helpers.js";
+import { sendServiceError, validationFailed } from "./route-helpers.js";
 
 const componentIdParam = z.object({ id: z.string().uuid() });
 
@@ -30,12 +30,7 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const params = componentIdParam.safeParse(req.params);
-    if (!params.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid path parameters",
-      });
-    }
+    if (!params.success) return validationFailed(reply, params.error.issues);
     const { id } = params.data;
     const component = await getComponentById(id);
     if (!component) {
@@ -50,19 +45,10 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const params = componentIdParam.safeParse(req.params);
-    if (!params.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid path parameters",
-      });
-    }
+    if (!params.success) return validationFailed(reply, params.error.issues);
     const query = componentRelationshipsQuerySchema.safeParse(req.query);
     if (!query.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid query parameters",
-        details: query.error.issues,
-      });
+      return validationFailed(reply, query.error.issues);
     }
     const result = await getComponentRelationships(params.data.id, {
       includeGone: query.data.includeGone,
@@ -79,19 +65,10 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [app.verifySession, requireRole("component:update")],
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const params = componentIdParam.safeParse(req.params);
-    if (!params.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid path parameters",
-      });
-    }
+    if (!params.success) return validationFailed(reply, params.error.issues);
     const parsed = createInstanceBlockSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
     try {
       const instance = await createComponentInstance(
@@ -111,11 +88,7 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const parsed = createComponentSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
     // Spec 058 (ADR-126): the manual monitoring block is retired — managed
     // checks are authored through ImporterConfig; ordinary Component and
@@ -140,12 +113,7 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [app.verifySession, requireRole("product:create")],
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const params = componentIdParam.safeParse(req.params);
-    if (!params.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid path parameters",
-      });
-    }
+    if (!params.success) return validationFailed(reply, params.error.issues);
     try {
       const result = await promoteComponentToPlatform(params.data.id, req.body, toActor(req));
       return reply.status(201).send(result);
@@ -158,12 +126,7 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const params = componentIdParam.safeParse(req.params);
-    if (!params.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid path parameters",
-      });
-    }
+    if (!params.success) return validationFailed(reply, params.error.issues);
     const component = await getComponentById(params.data.id);
     if (!component) {
       return reply.status(404).send({ code: "NOT_FOUND", message: "Component not found" });
@@ -175,19 +138,10 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [app.verifySession, requireRole("component:update")],
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const params = componentIdParam.safeParse(req.params);
-    if (!params.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid path parameters",
-      });
-    }
+    if (!params.success) return validationFailed(reply, params.error.issues);
     const parsed = updateComponentSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     try {
@@ -207,11 +161,7 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const parsed = listComponentsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid query parameters",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     const result = await listComponents(parsed.data);

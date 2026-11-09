@@ -17,7 +17,19 @@ import {
   computeDependencySurfaces,
   productCompleteness,
 } from "./catalog-coverage-service.js";
-import { paginateQuery } from "../utils/pagination.js";
+import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
+
+type ProductSortKey = NonNullable<ListProductsQuery["sort"]>;
+
+/** Sort whitelist mirrors listProductsQuerySchema — `owner` sorts by the
+ *  joined team name, `updated` by `updatedAt` (spec 069 / B.3). */
+const PRODUCT_SORT_COLUMNS: Record<ProductSortKey, OrderTarget> = {
+  name: "digital_products.name",
+  type: "digital_products.type",
+  owner: "teams.name",
+  criticality: "digital_products.criticality",
+  updated: "digital_products.updatedAt",
+};
 import { runSuggestionPass } from "./edge-suggestion-service.js";
 import { tagsDiffer } from "./suggestion-signals.js";
 import { supersedeSuggestionPairs } from "./product-edge-service.js";
@@ -190,19 +202,11 @@ export async function listProducts(parsed: ListProductsQuery) {
     query,
     { page, pageSize },
     {
-      orderBy: (q) => {
-        const primary =
-          parsed.sort === "type"
-            ? q.orderBy("digital_products.type", order)
-            : parsed.sort === "owner"
-              ? q.orderBy("teams.name", order)
-              : parsed.sort === "criticality"
-                ? q.orderBy("digital_products.criticality", order)
-                : parsed.sort === "updated"
-                  ? q.orderBy("digital_products.updatedAt", order)
-                  : q.orderBy("digital_products.name", order);
-        return primary.orderBy("digital_products.id", order);
-      },
+      orderBy: (q) =>
+        q.orderBy(sortTarget(PRODUCT_SORT_COLUMNS, parsed.sort, PRODUCT_SORT_COLUMNS.name), order).orderBy(
+          "digital_products.id",
+          order,
+        ),
     },
   );
 

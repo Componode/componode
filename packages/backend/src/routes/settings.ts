@@ -4,6 +4,7 @@ import { getSettings, updateSettings, getOidcConfig, updateOidcConfig } from "..
 import { requireRole } from "../plugins/rbac.js";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { toActor } from "../services/actor.js";
+import { validationFailed } from "./route-helpers.js";
 
 export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   // GET /settings — admin only
@@ -20,11 +21,7 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const parsed = updateSettingsSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
     const settings = await updateSettings(parsed.data, toActor(req));
     return reply.status(200).send({ settings });
@@ -44,11 +41,7 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const parsed = updateOidcConfigSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
     const oidcConfig = await updateOidcConfig(parsed.data, toActor(req));
     return reply.status(200).send({ oidcConfig });

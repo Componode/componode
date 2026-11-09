@@ -15,7 +15,18 @@ import type {
   TestDockerTargetInput,
   UpdateDockerTargetInput,
 } from "@componode/core";
-import { paginateQuery } from "../utils/pagination.js";
+import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
+
+type DockerTargetSortKey = NonNullable<ListDockerTargetsQuery["sort"]>;
+
+/** Sort whitelist mirrors listDockerTargetsQuerySchema — `name` sorts by
+ *  the display `label` column (contract note, spec 069 / B.3). */
+const DOCKER_TARGET_SORT_COLUMNS: Record<DockerTargetSortKey, OrderTarget> = {
+  name: "docker_targets.label",
+  targetId: "docker_targets.targetId",
+  enabled: "docker_targets.enabled",
+  createdAt: "docker_targets.createdAt",
+};
 
 type Executor = Kysely<DB> | Transaction<DB>;
 type Profile = Record<string, unknown>;
@@ -87,17 +98,12 @@ export async function listDockerTargets(
     q,
     { page: query.page, pageSize: query.pageSize },
     {
-      orderBy: (qb) => {
-        const primary =
-          query.sort === "createdAt"
-            ? qb.orderBy("docker_targets.createdAt", query.order)
-            : query.sort === "targetId"
-              ? qb.orderBy("docker_targets.targetId", query.order)
-              : query.sort === "enabled"
-                ? qb.orderBy("docker_targets.enabled", query.order)
-                : qb.orderBy("docker_targets.label", query.order);
-        return primary.orderBy("docker_targets.id", query.order);
-      },
+      orderBy: (qb) =>
+        // Deterministic tie-break (ADR-130).
+        qb.orderBy(
+          sortTarget(DOCKER_TARGET_SORT_COLUMNS, query.sort, DOCKER_TARGET_SORT_COLUMNS.name),
+          query.order,
+        ).orderBy("docker_targets.id", query.order),
     },
   );
   return { data: data.map(api), pagination };

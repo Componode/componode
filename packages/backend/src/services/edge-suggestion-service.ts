@@ -18,7 +18,43 @@ import type {
   SuggestionQueueItem,
   SuggestionRescanReport,
 } from "@componode/core";
-import { paginationMeta } from "../utils/pagination.js";
+import { paginationMeta, sortTarget, type OrderTarget } from "../utils/pagination.js";
+
+type SuggestionSortKey = NonNullable<ListSuggestionsQuery["sort"]>;
+type SuggestionEffectiveSort = "score" | "decidedAt" | "status" | "createdAt";
+
+/** Column map for the resolved effective sort (spec 069 / B.3). */
+const SUGGESTION_SORT_COLUMNS: Record<SuggestionEffectiveSort, OrderTarget> = {
+  score: "edge_suggestions.score",
+  decidedAt: "edge_suggestions.decidedAt",
+  status: "edge_suggestions.status",
+  createdAt: "edge_suggestions.createdAt",
+};
+
+/**
+ * Requested sort → effective sort key, per view (spec 068 / ADR-130).
+ * The pending queue ranks by signal score; decided views (DISMISSED, and
+ * DECIDED which spans every terminal status) are decision history and
+ * order by `decidedAt` — `score` maps there because SUPERSEDED
+ * tombstones carry NULL scores (PG sorts NULLs first on DESC, which
+ * would surface them ahead of real decisions) and score is meaningless
+ * once a pair is decided. `decidedAt` on PENDING maps to `createdAt`
+ * (always NULL pre-decision). `status` (T059 / FR-005) is a stored
+ * column in every view — constant within PENDING/DISMISSED but a real
+ * ordering across the mixed DECIDED history.
+ */
+const SUGGESTION_PENDING_SORT: Record<SuggestionSortKey, SuggestionEffectiveSort> = {
+  status: "status",
+  createdAt: "createdAt",
+  score: "score",
+  decidedAt: "createdAt",
+};
+const SUGGESTION_DECIDED_SORT: Record<SuggestionSortKey, SuggestionEffectiveSort> = {
+  status: "status",
+  createdAt: "createdAt",
+  score: "decidedAt",
+  decidedAt: "decidedAt",
+};
 
 function notFound(entity: string) {
   return Object.assign(new Error(`${entity} not found`), {
@@ -168,42 +204,21 @@ export async function listSuggestions(
       .coalesce("persons.displayName", "persons.username")
       .as("decidedByName"),
   ]);
-  // Spec 068 / ADR-130: whitelisted sort keys resolved per view. The
-  // pending queue ranks by signal score; decided views (DISMISSED, and
-  // DECIDED which spans every terminal status) are decision history and
-  // order by `decidedAt` — `score` maps there because SUPERSEDED
-  // tombstones carry NULL scores (PG sorts NULLs first on DESC, which
-  // would surface them ahead of real decisions) and score is meaningless
-  // once a pair is decided. `decidedAt` on PENDING maps to `createdAt`
-  // (always NULL pre-decision). `status` (T059 / FR-005) is a stored
-  // column in every view — constant within PENDING/DISMISSED but a real
-  // ordering across the mixed DECIDED history. `id` tiebreak keeps
-  // paging stable.
+  // Spec 068 / ADR-130: whitelisted sort keys resolved per view — see the
+  // resolution maps above. `id` tiebreak keeps paging stable.
   const decidedView = query.status !== "PENDING";
-  const effectiveSort =
-    sort === "status"
-      ? "status"
-      : sort === "createdAt"
-        ? "createdAt"
-        : decidedView
-          ? "decidedAt"
-          : sort === "score"
-            ? "score"
-            : "createdAt";
+  const effectiveSort = (decidedView ? SUGGESTION_DECIDED_SORT : SUGGESTION_PENDING_SORT)[sort];
   if (effectiveSort === "score") {
     rowsQuery = rowsQuery
       .orderBy("edge_suggestions.score", order)
       .orderBy("edge_suggestions.createdAt", "asc")
       .orderBy("edge_suggestions.id", "asc");
   } else {
-    const column =
-      effectiveSort === "decidedAt"
-        ? "edge_suggestions.decidedAt"
-        : effectiveSort === "status"
-          ? "edge_suggestions.status"
-          : "edge_suggestions.createdAt";
     rowsQuery = rowsQuery
-      .orderBy(column, order)
+      .orderBy(
+        sortTarget(SUGGESTION_SORT_COLUMNS, effectiveSort, SUGGESTION_SORT_COLUMNS.createdAt),
+        order,
+      )
       .orderBy("edge_suggestions.id", order);
   }
   const rows = await rowsQuery.limit(pageSize).offset(offset).execute();

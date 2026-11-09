@@ -6,7 +6,22 @@ import {
   hasNonGoneInstanceOrNone,
   wiredComponentIdsQuery,
 } from "./catalog-coverage-service.js";
-import { paginateQuery } from "../utils/pagination.js";
+import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
+
+type ComponentSortKey = NonNullable<ListComponentsQuery["sort"]>;
+
+/** Sort whitelist mirrors listComponentsQuerySchema — `health`,
+ *  `instances`, and `lastSeenAt` order by select aliases whose ordering
+ *  matches the displayed rollup (spec 069 / B.3). */
+const COMPONENT_SORT_COLUMNS: Record<ComponentSortKey, OrderTarget> = {
+  name: "components.name",
+  category: "components.category",
+  resourceType: "components.resourceType",
+  owner: "teams.name",
+  health: "worstStatus",
+  instances: "instanceCount",
+  lastSeenAt: "lastSeenAt",
+};
 
 function normalizeValues(value: string | string[] | undefined): string[] | undefined {
   if (value === undefined) return undefined;
@@ -190,23 +205,11 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
     selected,
     { page, pageSize },
     {
-      orderBy: (q) => {
-        const primary =
-          parsed.sort === "category"
-            ? q.orderBy("components.category", parsed.order)
-            : parsed.sort === "resourceType"
-              ? q.orderBy("components.resourceType", parsed.order)
-              : parsed.sort === "owner"
-                ? q.orderBy("teams.name", parsed.order)
-                : parsed.sort === "health"
-                  ? q.orderBy("worstStatus", parsed.order)
-                  : parsed.sort === "instances"
-                    ? q.orderBy("instanceCount", parsed.order)
-                    : parsed.sort === "lastSeenAt"
-                      ? q.orderBy("lastSeenAt", parsed.order)
-                      : q.orderBy("components.name", parsed.order);
-        return primary.orderBy("components.id", parsed.order);
-      },
+      orderBy: (q) =>
+        q.orderBy(sortTarget(COMPONENT_SORT_COLUMNS, parsed.sort, COMPONENT_SORT_COLUMNS.name), parsed.order).orderBy(
+          "components.id",
+          parsed.order,
+        ),
     },
   );
 

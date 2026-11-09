@@ -8,7 +8,19 @@ import type {
   UpdateImporterConfigInput,
 } from "@componode/core";
 import { db } from "../db/connection.js";
-import { paginateQuery } from "../utils/pagination.js";
+import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
+
+type ImporterConfigSortKey = NonNullable<ListImporterConfigsQuery["sort"]>;
+
+/** Sort whitelist mirrors listImporterConfigsQuerySchema — `name` sorts by
+ *  the display `label` column (contract note, spec 069 / B.3). */
+const IMPORTER_CONFIG_SORT_COLUMNS: Record<ImporterConfigSortKey, OrderTarget> = {
+  name: "importer_configs.label",
+  importerName: "importer_configs.importerName",
+  enabled: "importer_configs.enabled",
+  createdAt: "importer_configs.createdAt",
+  updatedAt: "importer_configs.updatedAt",
+};
 import { getManifest } from "./importer-registry.js";
 import {
   assertSecretCoverage,
@@ -332,20 +344,12 @@ export async function listImporterConfigs(
     q,
     { page: query.page, pageSize: query.pageSize },
     {
-      orderBy: (qb) => {
-        const primary =
-          query.sort === "importerName"
-            ? qb.orderBy("importer_configs.importerName", query.order)
-            : query.sort === "enabled"
-              ? qb.orderBy("importer_configs.enabled", query.order)
-              : query.sort === "createdAt"
-                ? qb.orderBy("importer_configs.createdAt", query.order)
-                : query.sort === "updatedAt"
-                  ? qb.orderBy("importer_configs.updatedAt", query.order)
-                  : qb.orderBy("importer_configs.label", query.order);
+      orderBy: (qb) =>
         // Deterministic tie-break (ADR-130).
-        return primary.orderBy("importer_configs.id", query.order);
-      },
+        qb.orderBy(
+          sortTarget(IMPORTER_CONFIG_SORT_COLUMNS, query.sort, IMPORTER_CONFIG_SORT_COLUMNS.name),
+          query.order,
+        ).orderBy("importer_configs.id", query.order),
     },
   );
 

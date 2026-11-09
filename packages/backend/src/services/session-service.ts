@@ -7,7 +7,18 @@ import {
 } from "@componode/core";
 import { getSetting } from "./settings-service.js";
 import { writeAuthEvent, type Actor } from "./audit-service.js";
-import { paginateQuery } from "../utils/pagination.js";
+import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
+
+type SessionSortKey = NonNullable<ListSessionsQuery["sort"]>;
+
+/** Sort whitelist mirrors listSessionsQuerySchema — `location` orders by
+ *  the stored `ip` column (spec 069 / B.3). */
+const SESSION_SORT_COLUMNS: Record<SessionSortKey, OrderTarget> = {
+  createdAt: "sessions.createdAt",
+  lastSeenAt: "sessions.lastSeenAt",
+  expiresAt: "sessions.expiresAt",
+  location: "sessions.ip",
+};
 
 export interface SessionMeta {
   userAgent?: string;
@@ -219,22 +230,13 @@ export async function listOwnSessionsPage(
     filtered,
     { page: query.page, pageSize: query.pageSize },
     {
-      orderBy: (q) => {
-        // `location` orders by the stored `ip` column the Location cell
-        // renders verbatim; the parsed `device` label is app-computed and
-        // has no sort key (FR-005).
-        const primary =
-          query.sort === "lastSeenAt"
-            ? q.orderBy("sessions.lastSeenAt", query.order)
-            : query.sort === "expiresAt"
-              ? q.orderBy("sessions.expiresAt", query.order)
-              : query.sort === "location"
-                ? q.orderBy("sessions.ip", query.order)
-                : q.orderBy("sessions.createdAt", query.order);
+      orderBy: (q) =>
         // Deterministic tie-break (ADR-130) — sessions.id is the token
         // hash PK; unique and stable within a page set.
-        return primary.orderBy("sessions.id", query.order);
-      },
+        q.orderBy(sortTarget(SESSION_SORT_COLUMNS, query.sort, SESSION_SORT_COLUMNS.createdAt), query.order).orderBy(
+          "sessions.id",
+          query.order,
+        ),
     },
   );
 

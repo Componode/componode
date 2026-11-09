@@ -1,4 +1,5 @@
 import { uuidv7 } from "uuidv7";
+import { sql } from "kysely";
 import { db } from "../db/connection.js";
 import { hashPassword } from "../utils/argon2.js";
 import {
@@ -8,7 +9,19 @@ import {
   type Paginated,
 } from "@componode/core";
 import { writeEntityChange, type Actor } from "./audit-service.js";
-import { paginateQuery } from "../utils/pagination.js";
+import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
+
+type UserSortKey = NonNullable<ListUsersQuery["sort"]>;
+
+/** Sort whitelist mirrors listUsersQuerySchema — `name` sorts by display
+ *  name with username fallback (schema-documented, spec 069 / B.3). */
+const USER_SORT_COLUMNS: Record<UserSortKey, OrderTarget> = {
+  name: sql`coalesce("persons"."displayName", "persons"."username")`,
+  role: "persons.role",
+  isActive: "persons.isActive",
+  lastActiveAt: "lastActiveAt",
+  createdAt: "persons.createdAt",
+};
 
 function slugify(username: string): string {
   return username.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
@@ -157,24 +170,12 @@ export async function listUsers(
     query,
     { page: parsed.page, pageSize: parsed.pageSize },
     {
-      orderBy: (q) => {
-        const primary =
-          parsed.sort === "name"
-            ? // Display name with username fallback (schema-documented).
-              q.orderBy(
-                (eb) => eb.fn.coalesce("persons.displayName", "persons.username"),
-                parsed.order,
-              )
-            : parsed.sort === "role"
-              ? q.orderBy("persons.role", parsed.order)
-              : parsed.sort === "isActive"
-                ? q.orderBy("persons.isActive", parsed.order)
-                : parsed.sort === "lastActiveAt"
-                  ? q.orderBy("lastActiveAt", parsed.order)
-                  : q.orderBy("persons.createdAt", parsed.order);
+      orderBy: (q) =>
         // Deterministic tie-break (ADR-130).
-        return primary.orderBy("persons.id", parsed.order);
-      },
+        q.orderBy(sortTarget(USER_SORT_COLUMNS, parsed.sort, USER_SORT_COLUMNS.createdAt), parsed.order).orderBy(
+          "persons.id",
+          parsed.order,
+        ),
     },
   );
 

@@ -84,29 +84,15 @@ export function suggestionsListParams(
 /**
  * Read queue — any authenticated role (ADR-113).
  *
- * Two call shapes:
- * – `useSuggestions(view, offset, limit)` — pre-068 positional paging kept
- *   for non-primary consumers (sidebar badge, product detail).
- * – `useSuggestions(view, { page, pageSize, sort, order })` — spec 068
- *   params object used by the primary /suggestions page.
+ * `useSuggestions(view, options)` — spec 068 params object; `view` supplies
+ * the default `status` filter (sidebar badge, product detail pass paging
+ * only).
  */
 export function useSuggestions(
   view: SuggestionView = "PENDING",
-  offsetOrOptions?: number | SuggestionsListFilters,
-  limit?: number,
+  options?: SuggestionsListFilters,
 ) {
-  const filters: SuggestionsListFilters =
-    typeof offsetOrOptions === "object" && offsetOrOptions !== null
-      ? { status: view, ...offsetOrOptions }
-      : (() => {
-          const offset = offsetOrOptions ?? 0;
-          const lim = limit ?? 50;
-          return {
-            status: view,
-            page: lim > 0 ? Math.floor(offset / lim) + 1 : 1,
-            pageSize: lim,
-          };
-        })();
+  const filters: SuggestionsListFilters = { status: view, ...options };
 
   return useQuery({
     queryKey: ["suggestions", "list", filters],
