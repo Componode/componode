@@ -137,6 +137,6 @@ describe("RBAC", () => {
       cookies: { [SESSION_COOKIE_NAME]: adminSession! },
     });
     expect(res.statusCode).toBe(200);
-    expect(Array.isArray(res.json().users)).toBe(true);
+    expect(Array.isArray(res.json().data)).toBe(true);
   });
 });

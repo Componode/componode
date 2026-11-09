@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { PASSWORD_MIN_LENGTH } from "../constants/passwords.js";
+import { ROLES } from "../constants/roles.js";
+import {
+  listParamsBaseSchema,
+  listOrderSchema,
+  optionalBooleanParam,
+} from "./list-params.js";
 
 export const createUserSchema = z.object({
   username: z
@@ -32,6 +38,23 @@ export const updateSelfSchema = z
   })
   .strict();
 
+/**
+ * Spec 068 / ADR-130: standardized list contract for GET /users (admin).
+ * `name` sorts by display name with username fallback; `lastActiveAt` is
+ * the derived most-recent-session timestamp the row already exposes.
+ */
+export const listUsersQuerySchema = listParamsBaseSchema
+  .extend({
+    role: z.enum(ROLES).optional(),
+    isActive: optionalBooleanParam,
+    sort: z
+      .enum(["name", "role", "isActive", "lastActiveAt", "createdAt"])
+      .default("createdAt"),
+    order: listOrderSchema.default("desc"),
+  })
+  .strict();
+
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type UpdateSelfInput = z.infer<typeof updateSelfSchema>;
+export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;

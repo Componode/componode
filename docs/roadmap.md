@@ -408,6 +408,14 @@ file tracks shipped and upcoming work — update it when a spec completes.
   name/description/owner edits but lifecycle writes and deletion are
   rejected with `409 GROUP_AUTO_MANAGED` (ADR-129).
 
+## In flight
+
+- `068-list-page-standards` — standardized list pages (ADR-130): every
+  primary catalog/ops list moves to server-side `page`/`pageSize`
+  pagination (25/50/100), whitelisted sorting, URL-backed
+  page/size/sort/order/search/filter state, debounced search, and
+  hover-card title summaries rendered from already-loaded row fields.
+
 ## Next — post-v1.1
 
 The Docker importer program's mapped waves (A–E) plus Hub execution

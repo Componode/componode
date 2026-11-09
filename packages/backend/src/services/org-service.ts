@@ -5,11 +5,15 @@ import {
   type UpdateOrgEntityInput,
   type CreateTeamInput,
   type UpdateTeamInput,
+  type ListLobsQuery,
+  type ListTeamsQuery,
+  type Paginated,
 } from "@componode/core";
 import { db } from "../db/connection.js";
 import type { DB, LineOfBusinessRow, TeamRow } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { resolveIdOrSlug } from "../utils/ids.js";
+import { paginateQuery } from "../utils/pagination.js";
 
 type OrgTable = "line_of_businesses" | "teams";
 const ENTITY_TYPE: Record<OrgTable, string> = {
@@ -68,6 +72,14 @@ function selectTeams(q: Kysely<DB>) {
         .select((eb2) => eb2.fn.countAll().as("c"))
         .whereRef("components.teamOwnerId", "=", "teams.id")
         .as("componentCount"),
+      // Spec 068 / ADR-130: productCount replaces the teams page's
+      // fetch-all-products counting — all lifecycle states, matching the
+      // includeRetired list the page used to filter client-side.
+      eb
+        .selectFrom("digital_products")
+        .select((eb2) => eb2.fn.countAll().as("c"))
+        .whereRef("digital_products.teamOwnerId", "=", "teams.id")
+        .as("productCount"),
     ]);
 }
 
@@ -80,23 +92,32 @@ export type TeamWithLob = Selectable<TeamRow> & {
   lob: TeamLobSummary | null;
   memberCount: number;
   componentCount: number;
+  productCount: number;
 };
 export type LobRow = Selectable<LineOfBusinessRow>;
+/** LOB list rows carry the derived counts the card grid renders (spec 068). */
+export type LobListItem = LobRow & {
+  teamCount: number;
+  productCount: number;
+};
 export type OrgEntityRow = TeamWithLob | LobRow;
+export type OrgListRow = TeamWithLob | LobListItem;
 
-function withLob<T extends { lobId_ref: string | null; lobName: string | null; lobSlug: string | null; memberCount: number | string | bigint | null; componentCount: number | string | bigint | null }>(
+function withLob<T extends { lobId_ref: string | null; lobName: string | null; lobSlug: string | null; memberCount: number | string | bigint | null; componentCount: number | string | bigint | null; productCount: number | string | bigint | null }>(
   row: T,
-): Omit<T, "lobId_ref" | "lobName" | "lobSlug" | "memberCount" | "componentCount"> & {
+): Omit<T, "lobId_ref" | "lobName" | "lobSlug" | "memberCount" | "componentCount" | "productCount"> & {
   lob: TeamLobSummary | null;
   memberCount: number;
   componentCount: number;
+  productCount: number;
 } {
-  const { lobId_ref, lobName, lobSlug, memberCount, componentCount, ...team } = row;
+  const { lobId_ref, lobName, lobSlug, memberCount, componentCount, productCount, ...team } = row;
   return {
     ...team,
     lob: lobId_ref ? { id: lobId_ref, name: lobName, slug: lobSlug } as TeamLobSummary : null,
     memberCount: Number(memberCount),
     componentCount: Number(componentCount),
+    productCount: Number(productCount),
   };
 }
 
@@ -114,15 +135,125 @@ async function assertLobExists(lobId: string) {
   }
 }
 
-export function listOrgEntities(table: "teams"): Promise<TeamWithLob[]>;
-export function listOrgEntities(table: "line_of_businesses"): Promise<LobRow[]>;
-export function listOrgEntities(table: OrgTable): Promise<OrgEntityRow[]>;
-export async function listOrgEntities(table: OrgTable): Promise<OrgEntityRow[]> {
+/**
+ * Spec 068 / ADR-130: standardized list contract for GET /lobs and
+ * GET /teams. `search` is the only filter; sort keys come from the core
+ * Zod enums (`lob` sorts by the parent LOB's joined name). Derived counts
+ * are computed per row for the page slice only — they replace the pages'
+ * fetch-all-products/teams/components counting.
+ */
+export function listOrgEntities(
+  table: "teams",
+  query: ListTeamsQuery,
+): Promise<Paginated<TeamWithLob>>;
+export function listOrgEntities(
+  table: "line_of_businesses",
+  query: ListLobsQuery,
+): Promise<Paginated<LobListItem>>;
+export function listOrgEntities(
+  table: OrgTable,
+  query: ListLobsQuery | ListTeamsQuery,
+): Promise<Paginated<OrgListRow>>;
+export async function listOrgEntities(
+  table: OrgTable,
+  query: ListLobsQuery | ListTeamsQuery,
+): Promise<Paginated<OrgListRow>> {
+  const { page, pageSize, order, search } = query;
+
   if (table === "teams") {
-    const rows = await selectTeams(db).orderBy("teams.name").execute();
-    return rows.map(withLob);
+    let filtered = selectTeams(db);
+    if (search) {
+      const term = `%${search}%`;
+      filtered = filtered.where((eb) =>
+        eb.or([
+          eb("teams.name", "ilike", term),
+          eb("teams.slug", "ilike", term),
+        ]),
+      );
+    }
+    const { data, pagination } = await paginateQuery(
+      filtered,
+      { page, pageSize },
+      {
+        orderBy: (q) => {
+          const sort = (query as ListTeamsQuery).sort;
+          // FR-005: the count keys order by the SELECT aliases of the same
+          // correlated subqueries the columns display (Postgres resolves
+          // ORDER BY "memberCount" to the output column).
+          const primary =
+            sort === "createdAt"
+              ? q.orderBy("teams.createdAt", order)
+              : sort === "lob"
+                ? q.orderBy("lob.name", order)
+                : sort === "memberCount"
+                  ? q.orderBy("memberCount", order)
+                  : sort === "productCount"
+                    ? q.orderBy("productCount", order)
+                    : sort === "componentCount"
+                      ? q.orderBy("componentCount", order)
+                      : q.orderBy("teams.name", order);
+          // Deterministic tie-break (ADR-130).
+          return primary.orderBy("teams.id", order);
+        },
+      },
+    );
+    return { data: data.map(withLob), pagination };
   }
-  return db.selectFrom(table).selectAll().orderBy("name").execute();
+
+  let filtered = db
+    .selectFrom("line_of_businesses")
+    .selectAll()
+    .select((eb) => [
+      // Spec 068: derived counts for the LOB card grid — teams rolled up
+      // to this LOB plus every product it owns (all lifecycle states).
+      eb
+        .selectFrom("teams")
+        .select((eb2) => eb2.fn.countAll().as("c"))
+        .whereRef("teams.lobId", "=", "line_of_businesses.id")
+        .as("teamCount"),
+      eb
+        .selectFrom("digital_products")
+        .select((eb2) => eb2.fn.countAll().as("c"))
+        .whereRef("digital_products.lobOwnerId", "=", "line_of_businesses.id")
+        .as("productCount"),
+    ]);
+  if (search) {
+    const term = `%${search}%`;
+    filtered = filtered.where((eb) =>
+      eb.or([
+        eb("line_of_businesses.name", "ilike", term),
+        eb("line_of_businesses.slug", "ilike", term),
+      ]),
+    );
+  }
+  const { data, pagination } = await paginateQuery(
+    filtered,
+    { page, pageSize },
+    {
+      orderBy: (q) => {
+        // FR-005: count sorts order by the SELECT aliases of the same
+        // per-row count subqueries the card grid displays.
+        const sort = (query as ListLobsQuery).sort;
+        const primary =
+          sort === "createdAt"
+            ? q.orderBy("line_of_businesses.createdAt", order)
+            : sort === "teamCount"
+              ? q.orderBy("teamCount", order)
+              : sort === "productCount"
+                ? q.orderBy("productCount", order)
+                : q.orderBy("line_of_businesses.name", order);
+        return primary.orderBy("line_of_businesses.id", order);
+      },
+    },
+  );
+  return {
+    data: data.map((r) => ({
+      ...r,
+      teamCount: Number(r.teamCount),
+      productCount: Number(r.productCount),
+    })),
+    pagination,
+  };
 }
 
 /** Strict id lookup — used by mutation paths that write `where id = …`. */

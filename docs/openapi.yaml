@@ -285,30 +285,68 @@ paths:
   /users:
     get:
       tags: [Users]
-      summary: List users
+      summary: List users (paginated, spec 068)
       x-permission: "user:list"
       description: Requires the `user:list` role (Admin).
       parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: >-
+            Substring match (ILIKE) on `username`, `displayName`, and
+            `email` (spec 068).
         - in: query
           name: role
           schema: { $ref: "#/components/schemas/Role" }
         - in: query
           name: isActive
-          schema: { type: string, enum: ["true", "false"] }
+          schema: { type: boolean }
         - in: query
-          name: search
-          schema: { type: string }
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [name, role, isActive, lastActiveAt, createdAt],
+              default: createdAt,
+            }
+          description: >-
+            `name` sorts by display name with username fallback;
+            `lastActiveAt` by the derived most-recent-session timestamp
+            (spec 068).
       responses:
         "200":
-          description: User list
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of users (credential columns are never selected);
+            `pagination` reports `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  users:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/Person" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
     post:
@@ -473,18 +511,59 @@ paths:
   /sessions:
     get:
       tags: [Sessions]
-      summary: List the current user's sessions
+      summary: List the current user's sessions (paginated, spec 068)
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: >-
+            Substring match (ILIKE) on the user-agent/device fragment and
+            client IP (spec 068).
+        - in: query
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [createdAt, lastSeenAt, expiresAt, location],
+              default: createdAt,
+            }
+          description: >-
+            `location` orders by the stored `ip` column the Location cell
+            renders (spec 068).
       responses:
         "200":
-          description: Sessions
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the caller's active sessions (unrevoked, unexpired); `pagination`
+            reports `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  sessions:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/Session" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
   /sessions/{id}/revoke:
     post:
@@ -632,18 +711,32 @@ paths:
   /products:
     get:
       tags: [Products]
-      summary: List products
+      summary: List products (paginated, spec 068)
       parameters:
         - in: query
-          name: q
-          schema: { type: string, minLength: 1, maxLength: 200 }
-          description: Free-text search
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: >-
+            Substring match (ILIKE) across `name`, `slug`, `description`,
+            both owner names (team + Line of Business), and `tags`
+            (spec 068 — renamed from the legacy `q` param, which is no
+            longer accepted).
         - in: query
           name: type
           schema: { $ref: "#/components/schemas/ProductType" }
         - in: query
           name: lifecycle
           schema: { $ref: "#/components/schemas/Lifecycle" }
+          description: >-
+            Explicit lifecycle overrides the default `RETIRED` exclusion —
+            the two predicates never combine (spec 068, same precedence as
+            /components).
         - in: query
           name: tag
           schema: { type: string, maxLength: 32 }
@@ -663,18 +756,60 @@ paths:
             matching ANY listed gap are returned. `dependencies` means the
             recursive dependency surface is empty (no own DEPENDS_ON /
             CONSUMES_FROM and no non-RETIRED COMPOSES descendant declaring
-            dependencies). Values outside the set return `400`.
+            dependencies). Values outside the set return `400`. Evaluated
+            SQL-side since spec 068.
+        - in: query
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [name, type, owner, criticality, updated],
+              default: name,
+            }
+          description: >-
+            `owner` sorts by the joined owner team name; `updated` by
+            `updatedAt` (spec 068). `health`, `componentCount`, and
+            `completeness` are app-computed and deliberately unsortable.
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: asc }
       responses:
         "200":
-          description: Product list
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of products; `edges` carries the COMPOSES rows among
+            the page's ids (both endpoints listed — unchanged shape from
+            the pre-068 response); `pagination` reports
+            `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, edges, pagination]
                 properties:
-                  products:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/DigitalProduct" }
+                  edges:
+                    type: array
+                    description: >-
+                      COMPOSES edges scoped to the page's product ids
+                      (spec 068).
+                    items:
+                      type: object
+                      required: [parentId, childId]
+                      properties:
+                        parentId: { type: string, format: uuid }
+                        childId: { type: string, format: uuid }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
         "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
@@ -1012,7 +1147,7 @@ paths:
           schema: { type: integer, minimum: 1, default: 1 }
         - in: query
           name: pageSize
-          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
         - in: query
           name: category
           schema:
@@ -1059,10 +1194,21 @@ paths:
         - in: query
           name: search
           schema: { type: string, maxLength: 100 }
+          description: >-
+            Substring match (ILIKE) across `name`, `slug`, `resourceType`,
+            `externalId`, and `tags` (spec 068).
         - in: query
           name: sort
           schema:
-            { type: string, enum: [name, lastSeenAt, createdAt], default: name }
+            {
+              type: string,
+              enum: [name, category, resourceType, owner, health, instances, lastSeenAt],
+              default: name,
+            }
+          description: >-
+            `owner` sorts by the owning team's name; `health` by the worst
+            visible instance status; `instances` by instance count;
+            `lastSeenAt` by the max instance last-seen (spec 068).
         - in: query
           name: order
           schema: { type: string, enum: [asc, desc], default: asc }
@@ -1085,10 +1231,28 @@ paths:
             full population. Values outside the set return `400`.
       responses:
         "200":
-          description: Paginated component list
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds the
+            page of components; `pagination` reports
+            `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Component" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
         "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
@@ -1726,22 +1890,56 @@ paths:
   /component-groups:
     get:
       tags: [ComponentGroups]
-      summary: List component groups
+      summary: List component groups (paginated, spec 068)
       parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: asc }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: Substring match (ILIKE) on `name`/`slug` (spec 068)
         - in: query
           name: lifecycle
           schema: { $ref: "#/components/schemas/Lifecycle" }
+        - in: query
+          name: includeRetired
+          schema: { type: boolean, default: false }
+        - in: query
+          name: sort
+          schema:
+            { type: string, enum: [name, lifecycle, createdAt], default: name }
       responses:
         "200":
-          description: Component groups
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds the
+            page of groups (each row carries `memberCount`); `pagination`
+            reports `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  groups:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/ComponentGroup" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       tags: [ComponentGroups]
@@ -1902,18 +2100,70 @@ paths:
   /importer-configs:
     get:
       tags: [Importers]
-      summary: List importer configurations
+      summary: List importer configurations (paginated, spec 068)
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: >-
+            Substring match (ILIKE) on `label` and `importerName`
+            (spec 068).
+        - in: query
+          name: importerName
+          schema: { type: string, maxLength: 100 }
+        - in: query
+          name: enabled
+          schema: { type: boolean }
+          description: >-
+            Pause-state filter — the config row exposes `enabled` rather
+            than a status enum (spec 068).
+        - in: query
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [name, importerName, enabled, createdAt, updatedAt],
+              default: createdAt,
+            }
+          description: >-
+            `name` sorts by the display `label` column; there is no
+            persisted status or last-run column, so `enabled` stands in
+            for the contract's `status`/`lastRunAt` (spec 068).
       responses:
         "200":
-          description: Importer configs
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of configs (secretRefs stay masked; credential/agent
+            enrichments run for the page's rows only); `pagination` reports
+            `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  configs:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/ImporterConfig" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       tags: [Importers]
@@ -2147,20 +2397,61 @@ paths:
   /importer-configs/{id}/runs:
     get:
       tags: [Importers]
-      summary: List runs for an importer configuration
+      summary: List runs for an importer configuration (paginated, spec 068)
       parameters:
         - { $ref: "#/components/parameters/Id" }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - in: query
+          name: status
+          schema:
+            {
+              type: string,
+              enum: [PENDING, RUNNING, COMPLETED, FAILED, CANCELLED, INTERRUPTED],
+            }
+        - in: query
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [startedAt, createdAt, status, completedAt, assetsProcessed],
+              default: createdAt,
+            }
+          description: >-
+            `assetsProcessed` orders by the stored counter the run history's
+            "Processed" column renders (spec 068).
       responses:
         "200":
-          description: Runs
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of runs (each row carries the joined `agentName`);
+            `pagination` reports `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  runs:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/ImportRun" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
   /importer-configs/{configId}/runs/{runId}:
     get:
@@ -2189,7 +2480,7 @@ paths:
   /importer-configs/{configId}/runs/{runId}/errors:
     get:
       tags: [Importers]
-      summary: List errors for an import run
+      summary: List errors for an import run (paginated, spec 068)
       parameters:
         - in: path
           name: configId
@@ -2199,17 +2490,55 @@ paths:
           name: runId
           required: true
           schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - in: query
+          name: errorType
+          schema: { type: string, maxLength: 100 }
+          description: Exact-match filter on the error `errorType` column (spec 068)
+        - in: query
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [createdAt, errorType, assetExternalId, errorMessage],
+              default: createdAt,
+            }
+          description: >-
+            `errorType`, `assetExternalId`, and `errorMessage` order by the
+            stored error columns the errors table renders (spec 068).
       responses:
         "200":
-          description: Run errors
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of run errors; `pagination` reports
+            `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  errors:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/ImportRunError" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
   /importer-configs/{configId}/runs/{runId}/cancel:
     post:
@@ -2241,25 +2570,69 @@ paths:
   /importer-sources:
     get:
       tags: [Importers]
-      summary: List importer sources
+      summary: List importer sources (paginated, spec 068)
       parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: asc }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: >-
+            Substring match (ILIKE) on `externalIdentity` and `label`
+            (spec 068).
         - name: status
           in: query
           schema: { type: string, enum: [ACTIVE, UNMONITORED, RETIRED] }
         - name: importerName
           in: query
           schema: { type: string }
+        - in: query
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [name, importerName, status, boundConfig, components, instances, lastCompletedRunAt, createdAt],
+              default: createdAt,
+            }
+          description: >-
+            `name` sorts by the provider-native `externalIdentity`;
+            `boundConfig` by the joined config label; `components`/`instances`
+            by the active-membership count subqueries the row exposes;
+            `lastCompletedRunAt` by the most recent COMPLETED run's
+            `completedAt` (spec 068).
       responses:
         "200":
-          description: All registered importer sources
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of sources (each row carries the bound-config summary,
+            membership counts, and `lastCompletedRunAt`);
+            `pagination` reports `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  sources:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/ImporterSource" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
   /importer-sources/{id}:
     get:
@@ -2395,19 +2768,60 @@ paths:
   /docker-targets:
     get:
       tags: [Importers]
-      summary: List Hub-managed Docker targets
+      summary: List Hub-managed Docker targets (paginated, spec 068)
       x-permission: "importer:target:read"
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: asc }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: >-
+            Substring match (ILIKE) on `label` and `targetId` (spec 068).
+        - in: query
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [name, targetId, enabled, createdAt],
+              default: name,
+            }
+          description: >-
+            `name` sorts by the display `label` column; `targetId`/`enabled`
+            order by the stored columns the Target ID/Status cells render
+            (spec 068).
       responses:
         "200":
-          description: All Docker targets
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of Docker targets; `pagination` reports
+            `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  targets:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/DockerTarget" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
     post:
@@ -2631,18 +3045,58 @@ paths:
   /lobs:
     get:
       tags: [Organization]
-      summary: List lines of business
+      summary: List lines of business (paginated, spec 068)
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: asc }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: Substring match (ILIKE) on `name`/`slug` (spec 068)
+        - in: query
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [name, createdAt, teamCount, productCount],
+              default: name,
+            }
+          description: >-
+            `teamCount`/`productCount` order by the derived counts the row
+            exposes (spec 068).
       responses:
         "200":
-          description: LoBs
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of LoBs (each row carries derived `teamCount` and
+            `productCount`); `pagination` reports
+            `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  lobs:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/LineOfBusiness" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       tags: [Organization]
@@ -2727,18 +3181,60 @@ paths:
   /teams:
     get:
       tags: [Organization]
-      summary: List teams
+      summary: List teams (paginated, spec 068)
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: asc }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: Substring match (ILIKE) on `name`/`slug` (spec 068)
+        - in: query
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [name, createdAt, lob, memberCount, productCount, componentCount],
+              default: name,
+            }
+          description: >-
+            `lob` sorts by the parent Line of Business name;
+            `memberCount`/`productCount`/`componentCount` order by the
+            derived counts the row exposes (spec 068).
       responses:
         "200":
-          description: Teams
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of teams (each row carries the resolved `lob` summary
+            plus derived `memberCount`, `componentCount`, and
+            `productCount`); `pagination` reports
+            `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  teams:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/Team" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       tags: [Organization]
@@ -2904,21 +3400,36 @@ paths:
   /audit/activity:
     get:
       tags: [Audit]
-      summary: Global activity feed
+      summary: Global activity feed (paginated, spec 068)
       x-permission: audit:feed
       parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
         - in: query
           name: kind
           schema: { type: string, enum: [entity, edge] }
         - in: query
           name: entityType
-          schema: { type: string }
+          schema: { type: string, maxLength: 100 }
+          description: >-
+            Entity changes match `entityType` exactly; edge changes match
+            either endpoint's entity type (spec 068).
         - in: query
           name: action
-          schema: { type: string }
+          schema: { type: string, maxLength: 100 }
         - in: query
           name: actor
-          schema: { type: string }
+          schema: { type: string, maxLength: 200 }
+          description: >-
+            Matches `createdByName`, or `createdBy` when the value is a
+            UUID (spec 068).
         - in: query
           name: from
           schema: { type: string, format: date-time }
@@ -2926,48 +3437,77 @@ paths:
           name: to
           schema: { type: string, format: date-time }
         - in: query
-          name: limit
-          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
-        - in: query
-          name: offset
-          schema: { type: integer, minimum: 0, default: 0 }
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [createdAt, action, actor, kind, entityType],
+              default: createdAt,
+            }
+          description: >-
+            `actor` sorts case-insensitively on the coalesced
+            `createdByName`/`createdBy`; `kind`/`entityType` order by the
+            feed's facet columns (spec 068).
       responses:
         "200":
-          description: Paginated activity feed
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of feed items (entity and edge changes unioned in
+            SQL); `pagination` reports
+            `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  items:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/ActivityFeedItem" }
-                  total: { type: integer }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
   /audit/entities/{entityType}/{entityId}:
     get:
       tags: [Audit]
-      summary: Per-entity history
+      summary: Per-entity history (paginated, spec 068)
       parameters:
         - in: path
           name: entityType
           required: true
-          schema: { type: string }
+          schema: { type: string, maxLength: 100 }
         - in: path
           name: entityId
           required: true
-          schema: { type: string }
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
         - in: query
           name: kind
           schema: { type: string, enum: [entity, edge] }
         - in: query
           name: action
-          schema: { type: string }
+          schema: { type: string, maxLength: 100 }
         - in: query
           name: actor
-          schema: { type: string }
+          schema: { type: string, maxLength: 200 }
         - in: query
           name: from
           schema: { type: string, format: date-time }
@@ -2975,23 +3515,43 @@ paths:
           name: to
           schema: { type: string, format: date-time }
         - in: query
-          name: limit
-          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
-        - in: query
-          name: offset
-          schema: { type: integer, minimum: 0, default: 0 }
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [createdAt, action, actor, kind, entityType],
+              default: createdAt,
+            }
+          description: >-
+            `actor` sorts case-insensitively on the coalesced
+            `createdByName`/`createdBy`; `kind`/`entityType` order by the
+            history's facet columns (spec 068).
       responses:
         "200":
-          description: Paginated entity history
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of feed items touching the entity (its own entity
+            changes plus edge changes at either endpoint); `pagination`
+            reports `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  items:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/ActivityFeedItem" }
-                  total: { type: integer }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /audit/corrections:
@@ -3031,7 +3591,7 @@ paths:
   /importer-configs/{configId}/runs/{runId}/changes:
     get:
       tags: [Importers]
-      summary: Import-run consequential changes
+      summary: Import-run consequential changes (paginated, spec 068)
       parameters:
         - in: path
           name: configId
@@ -3041,20 +3601,66 @@ paths:
           name: runId
           required: true
           schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - in: query
+          name: action
+          schema: { type: string, maxLength: 100 }
+          description: >-
+            Exact-match filter on the change `action` column (spec 068).
+        - in: query
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [createdAt, action, entityType, actor],
+              default: createdAt,
+            }
+          description: >-
+            `action` orders by the change-type column; `entityType`/`actor`
+            order by the stored columns behind the Type/Actor cells (`actor`
+            coalesces the "importer" fallback the row renders) (spec 068).
       responses:
         "200":
-          description: Changes and errors for the run
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of `entity_changes` rows for the run; `pagination`
+            reports `{page,pageSize,total,pageCount,hasNext}`. `errors`
+            stays a top-level array for compatibility — every error the
+            run recorded, unpaginated, ordered `createdAt` desc (the same
+            data `GET .../errors` serves paginated).
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination, errors]
                 properties:
-                  changes:
-                    {
-                      type: array,
-                      items: { $ref: "#/components/schemas/EntityChange" },
-                    }
-                  errors: { type: array, items: { type: object } }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/EntityChange" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+                  errors:
+                    type: array
+                    description: >-
+                      All of the run's errors, unpaginated (compat —
+                      spec 068).
+                    items: { $ref: "#/components/schemas/ImportRunError" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -3062,23 +3668,67 @@ paths:
   /credentials:
     get:
       tags: [Credentials]
-      summary: List credentials
+      summary: List credentials (paginated, spec 068)
       x-permission: "credential:read"
       description: >-
         Returns credential metadata only. Secret values are write-only and are
         never exposed by any endpoint — `keyHints` carries the last 4
         characters of each stored key for identification.
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: >-
+            Substring match (ILIKE) on `label` and `slug` (spec 068).
+        - in: query
+          name: status
+          schema: { type: string, enum: [ACTIVE, REVOKED] }
+        - in: query
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [name, status, expiresAt, lastUsedAt, usedByCount, createdAt],
+              default: createdAt,
+            }
+          description: >-
+            `name` sorts by the display `label` column; `usedByCount` orders
+            by the dependent-count expression the row exposes (spec 068).
       responses:
         "200":
-          description: Credentials
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of credentials (`secretRefMap` stays detail-only;
+            `usedByCount` is computed for the page's rows); `pagination`
+            reports `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  credentials:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/Credential" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
     post:
@@ -3299,7 +3949,7 @@ paths:
   /suggestions:
     get:
       tags: [Suggestions]
-      summary: List staged edge suggestions (ADR-113)
+      summary: List staged edge suggestions (paginated, spec 068)
       description: |
         The human-review queue of server-generated DEPENDS_ON candidates.
         Any authenticated role may read. `PENDING` rows are sorted by score
@@ -3310,6 +3960,15 @@ paths:
         by `decidedAt` descending, for the decided-history view.
       parameters:
         - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - in: query
           name: status
           schema:
             {
@@ -3318,14 +3977,27 @@ paths:
               default: PENDING,
             }
         - in: query
-          name: limit
-          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
-        - in: query
-          name: offset
-          schema: { type: integer, minimum: 0, default: 0 }
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [createdAt, score, decidedAt, status],
+              default: score,
+            }
+          description: >-
+            `status` orders by the stored status column in every view —
+            constant within `PENDING`/`DISMISSED` but a real ordering across
+            the mixed `DECIDED` history; the service resolves the effective
+            key per `status` view (spec 068): on decided views
+            `score`/`decidedAt` order by `decidedAt` (SUPERSEDED tombstones
+            carry NULL score), while `decidedAt` maps to `createdAt` on the
+            pending queue.
       responses:
         "200":
-          description: Queue page
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the queue page; `pagination` reports
+            `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SuggestionListResult" }
@@ -3404,20 +4076,68 @@ paths:
   /agents:
     get:
       tags: [Agents]
-      summary: List import agents
+      summary: List import agents (paginated, spec 068)
       x-permission: "agent:read"
       description: Requires the `agent:read` role (Admin). Credential and enrollment-token material is never returned.
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: asc }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: Substring match (ILIKE) on the agent `name` (spec 068)
+        - in: query
+          name: status
+          schema:
+            {
+              type: string,
+              enum: [NEVER_CONNECTED, CONNECTED, OFFLINE],
+            }
+        - in: query
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [name, status, agentVersion, boundConfigCount, lastSeenAt, createdAt],
+              default: name,
+            }
+          description: >-
+            `agentVersion` orders by the stored version column;
+            `boundConfigCount` by the same correlated count subquery the row
+            exposes (spec 068).
       responses:
         "200":
-          description: Import agents
+          description: >-
+            Standardized list envelope (spec 068 / ADR-130): `data` holds
+            the page of agents (enrichments such as `boundConfigCount` and
+            `runningJobs` are computed for the page's rows only);
+            `pagination` reports `{page,pageSize,total,pageCount,hasNext}`.
           content:
             application/json:
               schema:
                 type: object
+                required: [data, pagination]
                 properties:
-                  agents:
+                  data:
                     type: array
                     items: { $ref: "#/components/schemas/ImportAgent" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
     post:
@@ -4030,6 +4750,14 @@ components:
         lifecycle: { $ref: "#/components/schemas/Lifecycle" }
         lobOwnerId: { type: string, format: uuid, nullable: true }
         teamOwnerId: { type: string, format: uuid, nullable: true }
+        lobOwnerName:
+          type: string
+          nullable: true
+          description: Resolved Line of Business name; null when unowned
+        teamOwnerName:
+          type: string
+          nullable: true
+          description: Resolved owning team name; null when unowned
         links:
           type: array
           items: { $ref: "#/components/schemas/Link" }
@@ -4331,12 +5059,25 @@ components:
                 category: { type: string }
             decidedByName: { type: string, nullable: true }
     SuggestionListResult:
+      description: >-
+        Standardized list envelope (spec 068 / ADR-130): `data` holds the
+        queue page; `pagination` reports
+        `{page,pageSize,total,pageCount,hasNext}`.
       type: object
+      required: [data, pagination]
       properties:
-        items:
+        data:
           type: array
           items: { $ref: "#/components/schemas/SuggestionQueueItem" }
-        total: { type: integer }
+        pagination:
+          type: object
+          required: [page, pageSize, total, pageCount, hasNext]
+          properties:
+            page: { type: integer, minimum: 1 }
+            pageSize: { type: integer, minimum: 1, maximum: 100 }
+            total: { type: integer, minimum: 0 }
+            pageCount: { type: integer, minimum: 0 }
+            hasNext: { type: boolean }
     SuggestionRescanReport:
       type: object
       properties:
@@ -5316,6 +6057,12 @@ components:
         componentCount:
           type: integer
           description: Components owned by the team (spec 039)
+        productCount:
+          type: integer
+          description: >-
+            Products owned by the team across all lifecycle states
+            (spec 068 / ADR-130 — replaces the teams page's fetch-all
+            counting).
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     LineOfBusiness:
@@ -5325,6 +6072,16 @@ components:
         name: { type: string }
         slug: { type: string }
         description: { type: string, nullable: true }
+        teamCount:
+          type: integer
+          description: >-
+            Teams associated with this LoB (spec 068 / ADR-130 — present on
+            list responses only).
+        productCount:
+          type: integer
+          description: >-
+            Products owned by this LoB across all lifecycle states (spec 068
+            / ADR-130 — present on list responses only).
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     CreateOrgEntity:

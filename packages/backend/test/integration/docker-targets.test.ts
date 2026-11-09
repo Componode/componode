@@ -59,7 +59,7 @@ describe("docker target management API (spec 049)", () => {
     expect(t.enabled).toBe(true);
 
     const listed = await app.inject({ method: "GET", url: "/api/v1/docker-targets", ...authed() });
-    expect(listed.json().targets.some((x: any) => x.id === t.id)).toBe(true);
+    expect(listed.json().data.some((x: any) => x.id === t.id)).toBe(true);
 
     const patched = await app.inject({ method: "PATCH", url: `/api/v1/docker-targets/${t.id}`, ...authed({ label: "renamed" }) });
     expect(patched.json().target.label).toBe("renamed");
@@ -73,12 +73,54 @@ describe("docker target management API (spec 049)", () => {
     expect(audits.map((a: any) => a.action)).toEqual(expect.arrayContaining(["created", "updated", "disabled", "enabled"]));
 
     // Activity feed resolves the target label for docker_target rows.
-    const feed = await app.inject({ method: "GET", url: "/api/v1/audit/activity?limit=50", ...authed() });
-    const row = feed.json().items.find((i: any) => i.entityType === "docker_target" && i.entityId === t.id);
+    const feed = await app.inject({ method: "GET", url: "/api/v1/audit/activity?pageSize=50", ...authed() });
+    const row = feed.json().data.find((i: any) => i.entityType === "docker_target" && i.entityId === t.id);
     expect(row?.entityName).toBe("renamed");
 
     expect((await app.inject({ method: "DELETE", url: `/api/v1/docker-targets/${t.id}`, ...authed() })).statusCode).toBe(204);
     expect((await app.inject({ method: "GET", url: `/api/v1/docker-targets/${t.id}`, ...authed() })).statusCode).toBe(404);
+  });
+
+  // Spec 068 / ADR-130: standardized list contract — envelope, whitelisted
+  // sort, search, strict query validation.
+  it("paginates, sorts, and searches the target list", async () => {
+    // Explicit targetIds — the helper's uuidv7-prefix ids can collide
+    // within the same millisecond.
+    await createTarget({ targetId: "alpha-t", label: "alpha-target" });
+    await createTarget({ targetId: "beta-t", label: "beta-target" });
+
+    const listRes = await app.inject({ method: "GET", url: "/api/v1/docker-targets", ...authed() });
+    expect(listRes.statusCode).toBe(200);
+    const body = listRes.json();
+    expect(body.data).toHaveLength(2);
+    expect(body.pagination).toMatchObject({ page: 1, pageSize: 25, total: 2, pageCount: 1, hasNext: false });
+    // Default sort is name (label) asc.
+    expect(body.data.map((t: any) => t.label)).toEqual(["alpha-target", "beta-target"]);
+
+    const pageRes = await app.inject({ method: "GET", url: "/api/v1/docker-targets?pageSize=1&page=2&sort=name&order=desc", ...authed() });
+    expect(pageRes.json().data[0].label).toBe("alpha-target");
+    expect(pageRes.json().pagination).toMatchObject({ page: 2, total: 2, hasNext: false });
+
+    const searchRes = await app.inject({ method: "GET", url: "/api/v1/docker-targets?search=beta", ...authed() });
+    const searched = searchRes.json().data;
+    expect(searched).toHaveLength(1);
+    expect(searched[0].label).toBe("beta-target");
+
+    // FR-005: targetId/enabled are whitelisted sort keys for the stored
+    // columns the Target ID/Status cells render.
+    const byTarget = await app.inject({ method: "GET", url: "/api/v1/docker-targets?sort=targetId&order=asc", ...authed() });
+    expect(byTarget.statusCode).toBe(200);
+    expect(byTarget.json().data.map((t: any) => t.targetId)).toEqual(["alpha-t", "beta-t"]);
+
+    const byEnabled = await app.inject({ method: "GET", url: "/api/v1/docker-targets?sort=enabled&order=desc", ...authed() });
+    expect(byEnabled.statusCode).toBe(200);
+    expect(byEnabled.json().data).toHaveLength(2);
+
+    for (const url of ["/api/v1/docker-targets?sort=bogus", "/api/v1/docker-targets?bogus=1"]) {
+      const res = await app.inject({ method: "GET", url, ...authed() });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().code).toBe("VALIDATION_FAILED");
+    }
   });
 
   it("delete is TARGET_IN_USE while a config references the target", async () => {

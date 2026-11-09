@@ -1,8 +1,14 @@
 import { uuidv7 } from "uuidv7";
 import { db } from "../db/connection.js";
 import { hashPassword } from "../utils/argon2.js";
-import type { CreateUserInput, UpdateUserInput } from "@componode/core";
+import {
+  type CreateUserInput,
+  type UpdateUserInput,
+  type ListUsersQuery,
+  type Paginated,
+} from "@componode/core";
 import { writeEntityChange, type Actor } from "./audit-service.js";
+import { paginateQuery } from "../utils/pagination.js";
 
 function slugify(username: string): string {
   return username.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
@@ -81,8 +87,33 @@ export async function createUser(input: CreateUserInput, actor: Actor) {
   });
 }
 
-export async function listUsers(filters: { role?: string; isActive?: boolean; search?: string } = {}) {
-  let query = db.selectFrom("persons").select([
+/** List-row shape for GET /users — credential columns are never selected. */
+export interface UserListItem {
+  id: string;
+  username: string;
+  role: string;
+  displayName: string | null;
+  email: string | null;
+  teamId: string | null;
+  slug: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastActiveAt: string | null;
+}
+
+/**
+ * Spec 068 / ADR-130: standardized list contract for GET /users (admin).
+ * Selects never include `passwordHash` — credential material stays out of
+ * list rows. `lastActiveAt` is the derived most-recent-session sighting,
+ * now a per-row subquery so it can drive the `lastActiveAt` sort key.
+ * `search` covers the fields the users table searches client-side today
+ * (display name, email, username).
+ */
+export async function listUsers(
+  parsed: ListUsersQuery,
+): Promise<Paginated<UserListItem>> {
+  let query = db.selectFrom("persons").select((eb) => [
     "persons.id",
     "persons.username",
     "persons.role",
@@ -93,35 +124,64 @@ export async function listUsers(filters: { role?: string; isActive?: boolean; se
     "persons.isActive",
     "persons.createdAt",
     "persons.updatedAt",
+    // Last activity = the user's most recent session sighting across ALL
+    // session rows (revoked/expired included — same semantics the previous
+    // grouped post-query used).
+    eb
+      .selectFrom("sessions")
+      .select((eb2) => eb2.fn.max("sessions.lastSeenAt").as("m"))
+      .whereRef("sessions.userId", "=", "persons.id")
+      .as("lastActiveAt"),
   ]);
 
-  if (filters.role) {
-    query = query.where("persons.role", "=", filters.role);
+  if (parsed.role) {
+    query = query.where("persons.role", "=", parsed.role);
   }
 
-  if (filters.isActive !== undefined) {
-    query = query.where("persons.isActive", "=", filters.isActive);
+  if (parsed.isActive !== undefined) {
+    query = query.where("persons.isActive", "=", parsed.isActive);
   }
 
-  if (filters.search) {
-    query = query.where("persons.username", "ilike", `%${filters.search}%`);
+  if (parsed.search) {
+    const term = `%${parsed.search}%`;
+    query = query.where((eb) =>
+      eb.or([
+        eb("persons.username", "ilike", term),
+        eb("persons.displayName", "ilike", term),
+        eb("persons.email", "ilike", term),
+      ]),
+    );
   }
 
-  const rows = await query.orderBy("persons.createdAt", "desc").execute();
-  const ids = rows.map((r) => r.id);
-  // Last activity = the user's most recent session sighting (bounded
-  // grouped query — no per-user fan-out).
-  const lastSeen = ids.length
-    ? await db
-        .selectFrom("sessions")
-        .select("userId")
-        .select((eb) => eb.fn.max("lastSeenAt").as("m"))
-        .where("userId", "in", ids)
-        .groupBy("userId")
-        .execute()
-    : [];
-  const byUser = new Map(lastSeen.map((r) => [r.userId, r.m]));
-  return rows.map((r) => ({ ...r, lastActiveAt: byUser.get(r.id) ?? null }));
+  const { data, pagination } = await paginateQuery(
+    query,
+    { page: parsed.page, pageSize: parsed.pageSize },
+    {
+      orderBy: (q) => {
+        const primary =
+          parsed.sort === "name"
+            ? // Display name with username fallback (schema-documented).
+              q.orderBy(
+                (eb) => eb.fn.coalesce("persons.displayName", "persons.username"),
+                parsed.order,
+              )
+            : parsed.sort === "role"
+              ? q.orderBy("persons.role", parsed.order)
+              : parsed.sort === "isActive"
+                ? q.orderBy("persons.isActive", parsed.order)
+                : parsed.sort === "lastActiveAt"
+                  ? q.orderBy("lastActiveAt", parsed.order)
+                  : q.orderBy("persons.createdAt", parsed.order);
+        // Deterministic tie-break (ADR-130).
+        return primary.orderBy("persons.id", parsed.order);
+      },
+    },
+  );
+
+  return {
+    data: data.map((r) => ({ ...r, lastActiveAt: r.lastActiveAt ?? null })),
+    pagination,
+  };
 }
 
 export async function getUserById(id: string) {

@@ -309,6 +309,13 @@ export interface Suggestion {
   to: string;
   reason: string;
   confidence: "HIGH" | "MEDIUM" | "LOW";
+  /** Queue fields carried for the spec-068 summary hover (optional —
+   *  older producers may not populate them). */
+  score?: number | null;
+  status?: string | null;
+  createdAt?: string | null;
+  decidedAt?: string | null;
+  decidedByName?: string | null;
 }
 
 /** Related product node in the detail topology (spec 059) — enriched

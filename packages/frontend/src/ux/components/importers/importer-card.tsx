@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { RelativeTime } from "@/ux/components/patterns/primitives"
 import { ProviderMark } from "@/ux/components/patterns/provider-mark"
 import { RunStatusBadge, StatusBadge } from "@/ux/components/patterns/status-badge"
+import { TitleWithSummary } from "@/ux/components/patterns/title-with-summary"
 import { Button } from "@/ux/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ux/components/ui/card"
 import { Switch } from "@/ux/components/ui/switch"
@@ -44,9 +45,15 @@ export function ImporterCard({ importer: i }: { importer: ImporterConfig }) {
           <ProviderMark provider={i.importerName} />
           <div className="flex min-w-0 flex-col">
             <CardTitle className="truncate">
-              <Link to={ux(`/importers/${i.id}`)} className="underline-offset-4 hover:underline">
-                {i.label}
-              </Link>
+              <TitleWithSummary
+                title={
+                  <Link to={ux(`/importers/${i.id}`)} className="underline-offset-4 hover:underline">
+                    {i.label}
+                  </Link>
+                }
+                titleText={i.label}
+                summary={{ kind: "importerConfig", row: i }}
+              />
             </CardTitle>
             <CardDescription>{PROVIDER_META[i.importerName].label}</CardDescription>
           </div>

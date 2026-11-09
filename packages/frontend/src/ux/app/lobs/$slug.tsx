@@ -5,7 +5,7 @@ import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, ForbiddenState, NotFoundState } from "@/ux/components/patterns/states";
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import { useLob, useUpdateLob, useDeleteLob, useTeams } from "@/api/hooks/org";
-import { useProducts } from "@/api/hooks/products";
+import { useAllProducts } from "@/api/hooks/products";
 import { useAllComponents } from "@/api/hooks/components";
 import { mapComponent, mapProduct } from "@/api/mappers/catalog";
 import { errorMessage, isForbidden, isNotFound } from "@/ux/lib/api-state";
@@ -19,7 +19,7 @@ export function UxLobDetailPage() {
   const lob = lobQ.data?.lob;
   const updateLob = useUpdateLob();
   const deleteLob = useDeleteLob();
-  const products = useProducts({ includeRetired: true });
+  const products = useAllProducts({ includeRetired: true });
   const teams = useTeams();
   const components = useAllComponents();
 
@@ -52,7 +52,7 @@ export function UxLobDetailPage() {
     );
   }
 
-  const ownedProducts = (products.data?.products ?? []).filter((p) => p.lobOwnerId === lob.id).map((p) => mapProduct(p));
+  const ownedProducts = (products.data ?? []).filter((p) => p.lobOwnerId === lob.id).map((p) => mapProduct(p));
   const associatedTeams = teams.isPending
     ? undefined
     : (teams.data?.teams ?? []).filter((t) => t.lobId === lob.id);

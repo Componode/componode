@@ -9,7 +9,7 @@ vi.mock("@/api/hooks/components", () => ({
   useUpdateComponent: () => ({ mutate: updateMutate, isPending: false }),
 }));
 vi.mock("@/api/hooks/component-groups", () => ({
-  useComponentGroups: () => ({ data: { groups: [{ id: "g1", name: "Core" }] } }),
+  useAllComponentGroups: () => ({ data: [{ id: "g1", name: "Core" }] }),
 }));
 vi.mock("@/api/hooks/org", () => ({
   useTeams: () => ({ data: { teams: [{ id: "t1", name: "Payments" }] } }),

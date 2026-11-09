@@ -1,45 +1,99 @@
 import { LayersIcon } from "lucide-react";
-import * as React from "react";
 import { Link } from "react-router-dom";
-import { useComponentGroups } from "@/api/hooks/component-groups";
+import {
+  COMPONENT_GROUPS_SORT_KEYS,
+  componentGroupsListParams,
+  useComponentGroups,
+  type ComponentGroupsFilterKey,
+  type ComponentGroupsSortKey,
+} from "@/api/hooks/component-groups";
 import { useSession } from "@/api/hooks/auth";
 import { mapComponentGroup } from "@/api/mappers/catalog";
 import { ComponentGroupCreateDialog } from "@/ux/components/catalog/component-group-create-dialog";
+import { ListPagination } from "@/ux/components/patterns/list-pagination";
+import { ListSortSelect, type ListSortOption } from "@/ux/components/patterns/list-sort-select";
+import { ListToolbar } from "@/ux/components/patterns/list-toolbar";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
 import { EmptyState, ErrorState } from "@/ux/components/patterns/states";
 import { LifecycleBadge } from "@/ux/components/patterns/status-badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select";
+import { TitleWithSummary } from "@/ux/components/patterns/title-with-summary";
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ux/components/ui/card";
 import { Skeleton } from "@/ux/components/ui/skeleton";
+import { useListState, type ListFilterConfig } from "@/ux/hooks/use-list-state";
+import { useListSearch } from "@/ux/hooks/use-list-search";
+import { LIFECYCLE_META } from "@/ux/lib/domain";
 import { errorMessage } from "@/ux/lib/api-state";
 import { canAccess } from "@/ux/lib/nav";
 import { ux } from "@/ux/lib/paths";
 
+/** Card grids have no header row — sort is a (sort, order) option list. */
+const GROUP_SORT_OPTIONS: ListSortOption<ComponentGroupsSortKey>[] = [
+  { sort: "name", order: "asc", label: "Name" },
+  { sort: "name", order: "desc", label: "Name (Z–A)" },
+  { sort: "lifecycle", order: "asc", label: "Lifecycle" },
+  { sort: "createdAt", order: "desc", label: "Newest first" },
+  { sort: "createdAt", order: "asc", label: "Oldest first" },
+];
+
+const GROUP_FILTERS: { [K in ComponentGroupsFilterKey]: ListFilterConfig } = {
+  // Default ACTIVE: retired groups stay hidden unless asked (unchanged
+  // pre-068 behavior); "all" admits RETIRED rows via includeRetired.
+  lifecycle: { default: "ACTIVE", values: ["all", "ACTIVE", "RETIRED"] },
+};
+
 export function UxComponentGroupsPage() {
-  const [showRetired, setShowRetired] = React.useState(false);
-  const { data, isPending, error, refetch } = useComponentGroups({ includeRetired: showRetired });
+  // Server-paginated list state lives in the URL (spec 068 / ADR-130).
+  const list = useListState<ComponentGroupsSortKey, ComponentGroupsFilterKey>({
+    sortKeys: COMPONENT_GROUPS_SORT_KEYS,
+    defaultSort: "name",
+    defaultOrder: "asc",
+    filters: GROUP_FILTERS,
+  });
+  const [query, setQuery] = useListSearch(list);
+  const { data, isPending, error, refetch } = useComponentGroups(componentGroupsListParams(list));
   const session = useSession();
   // componentGroup:create is EDITOR+ — hidden for viewers.
   const canCreate = canAccess(session.data?.role ?? "VIEWER", "EDITOR");
+
+  const rows = (data?.data ?? []).map(mapComponentGroup);
+  const pagination = data?.pagination;
 
   return (
     <PageContainer>
       <PageHeader
         title="Component groups"
         description="Logical bundles of components that ship and retire together — useful when a product composes dozens of services."
-        actions={
-          <>
-            <Select value={showRetired ? "show" : "hide"} onValueChange={(v) => setShowRetired(v === "show")}>
-              <SelectTrigger className="w-36" aria-label="Retired groups">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="hide">Retired hidden</SelectItem>
-                <SelectItem value="show">Retired shown</SelectItem>
-              </SelectContent>
-            </Select>
-            {canCreate && <ComponentGroupCreateDialog />}
-          </>
+        actions={canCreate ? <ComponentGroupCreateDialog /> : undefined}
+      />
+      <ListToolbar
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search component groups"
+        resultCount={rows.length}
+        total={pagination?.total ?? 0}
+        filters={[
+          {
+            id: "lifecycle",
+            label: "Lifecycle",
+            value: list.filters.lifecycle,
+            onChange: (v) => list.setFilter("lifecycle", v),
+            // The unset sentinel is ACTIVE (retired hidden by default), so
+            // Clear restores ACTIVE — "All" is an explicit option, not the
+            // injected sentinel.
+            emptyValue: "ACTIVE",
+            options: [
+              { value: "all", label: "All" },
+              ...Object.entries(LIFECYCLE_META).map(([value, m]) => ({ value, label: m.label })),
+            ],
+          },
+        ]}
+        end={
+          <ListSortSelect
+            sort={list.sort}
+            order={list.order}
+            onSortChange={(sort, order) => list.setSort(sort, order)}
+            options={GROUP_SORT_OPTIONS}
+          />
         }
       />
       {isPending ? (
@@ -54,17 +108,16 @@ export function UxComponentGroupsPage() {
           description={errorMessage(error)}
           onRetry={() => void refetch()}
         />
-      ) : data.groups.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
           icon={LayersIcon}
           title="No component groups"
-          description={showRetired ? "Create a group to bundle components that ship and retire together." : "No active groups — retired groups can be shown with the filter above."}
+          description="No groups match — retired groups can be shown with the lifecycle filter."
         />
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.groups.map((g0) => {
-            const g = mapComponentGroup(g0);
-            return (
+        <div className="flex flex-col gap-4">
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {rows.map((g) => (
               <li key={g.id}>
                 <Card className="relative h-full transition-colors hover:border-primary/40">
                   <CardHeader>
@@ -72,9 +125,15 @@ export function UxComponentGroupsPage() {
                       <LayersIcon className="size-4" aria-hidden="true" />
                     </span>
                     <CardTitle>
-                      <Link to={ux(`/component-groups/${g.slug}`)} className="after:absolute after:inset-0 hover:underline">
-                        {g.name}
-                      </Link>
+                      <TitleWithSummary
+                        title={
+                          <Link to={ux(`/component-groups/${g.slug}`)} className="after:absolute after:inset-0 hover:underline">
+                            {g.name}
+                          </Link>
+                        }
+                        titleText={g.name}
+                        summary={{ kind: "componentGroup", row: g }}
+                      />
                     </CardTitle>
                     <CardDescription>{g.team ?? "No owning team"}</CardDescription>
                     <CardAction>
@@ -87,9 +146,19 @@ export function UxComponentGroupsPage() {
                   </CardFooter>
                 </Card>
               </li>
-            );
-          })}
-        </ul>
+            ))}
+          </ul>
+          {pagination && pagination.total > 0 && (
+            <ListPagination
+              page={list.page}
+              pageSize={list.pageSize}
+              total={pagination.total}
+              pageCount={pagination.pageCount}
+              onPageChange={list.setPage}
+              onPageSizeChange={list.setPageSize}
+            />
+          )}
+        </div>
       )}
     </PageContainer>
   );

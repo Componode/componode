@@ -170,7 +170,8 @@ describe("credential store", () => {
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.credentials).toHaveLength(2);
+      expect(body.data).toHaveLength(2);
+      expect(body.pagination).toMatchObject({ page: 1, pageSize: 25, total: 2 });
       const raw = JSON.stringify(body);
       expect(raw).not.toContain("ghp_first");
       expect(raw).not.toContain("ghp_second");
@@ -203,8 +204,99 @@ describe("credential store", () => {
       expect(res.statusCode).toBe(200);
       const row = res
         .json()
-        .credentials.find((c: { id: string }) => c.id === cred.id);
+        .data.find((c: { id: string }) => c.id === cred.id);
       expect(row.usedByCount).toBe(1);
+    });
+
+    // Spec 068 / ADR-130: standardized list contract — envelope, whitelisted
+    // sort, filters, search; secret material stays write-only.
+    it("paginates, sorts, filters, and searches the credential list", async () => {
+      await app.inject({
+        method: "POST",
+        url: "/api/v1/credentials",
+        ...authed({ label: "Alpha cred", secrets: { token: "ghp_alpha" } }),
+      });
+      await app.inject({
+        method: "POST",
+        url: "/api/v1/credentials",
+        ...authed({ label: "Beta cred", secrets: { token: "ghp_beta" } }),
+      });
+
+      // Default sort is createdAt desc — newest first.
+      const listRes = await app.inject({
+        method: "GET",
+        url: "/api/v1/credentials",
+        cookies: { ...csrfCookie, [SESSION_COOKIE_NAME]: adminSession },
+      });
+      expect(listRes.statusCode).toBe(200);
+      const body = listRes.json();
+      expect(body.data).toHaveLength(2);
+      expect(body.pagination).toMatchObject({
+        page: 1,
+        pageSize: 25,
+        total: 2,
+        pageCount: 1,
+        hasNext: false,
+      });
+      expect(body.data[0].label).toBe("Beta cred");
+      expect(JSON.stringify(body)).not.toContain("ghp_alpha");
+      expect(JSON.stringify(body)).not.toContain("ghp_beta");
+
+      const nameRes = await app.inject({
+        method: "GET",
+        url: "/api/v1/credentials?sort=name&order=asc",
+        cookies: { ...csrfCookie, [SESSION_COOKIE_NAME]: adminSession },
+      });
+      expect(
+        nameRes
+          .json()
+          .data.map((c: { label: string }) => c.label),
+      ).toEqual(["Alpha cred", "Beta cred"]);
+
+      // FR-005: `usedByCount` is a whitelisted sort key — it orders by the
+      // same dependent-count sum the row exposes (both fixtures have none).
+      const usedRes = await app.inject({
+        method: "GET",
+        url: "/api/v1/credentials?sort=usedByCount&order=desc",
+        cookies: { ...csrfCookie, [SESSION_COOKIE_NAME]: adminSession },
+      });
+      expect(usedRes.statusCode).toBe(200);
+      const usedBody = usedRes.json();
+      expect(usedBody.data).toHaveLength(2);
+      for (const c of usedBody.data) {
+        expect(c.usedByCount).toBe(0);
+      }
+
+      const searchRes = await app.inject({
+        method: "GET",
+        url: "/api/v1/credentials?search=alpha",
+        cookies: { ...csrfCookie, [SESSION_COOKIE_NAME]: adminSession },
+      });
+      const searched = searchRes.json().data;
+      expect(searched).toHaveLength(1);
+      expect(searched[0].label).toBe("Alpha cred");
+
+      const statusRes = await app.inject({
+        method: "GET",
+        url: "/api/v1/credentials?status=REVOKED",
+        cookies: { ...csrfCookie, [SESSION_COOKIE_NAME]: adminSession },
+      });
+      expect(statusRes.json().data).toHaveLength(0);
+      expect(statusRes.json().pagination.total).toBe(0);
+
+      for (const url of [
+        "/api/v1/credentials?sort=bogus",
+        "/api/v1/credentials?bogus=1",
+        "/api/v1/credentials?pageSize=0",
+      ]) {
+        const res = await app.inject({
+          method: "GET",
+          url,
+          cookies: { ...csrfCookie, [SESSION_COOKIE_NAME]: adminSession },
+        });
+        expect(res.statusCode).toBe(400);
+        expect(res.json().code).toBe("VALIDATION_FAILED");
+      }
     });
   });
 

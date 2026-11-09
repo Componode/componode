@@ -1,7 +1,14 @@
 import { uuidv7 } from "uuidv7";
 import { z } from "zod";
-import type { CreateImporterConfigInput, UpdateImporterConfigInput } from "@componode/core";
+import type {
+  CreateImporterConfigInput,
+  ImporterConfig,
+  ListImporterConfigsQuery,
+  Paginated,
+  UpdateImporterConfigInput,
+} from "@componode/core";
 import { db } from "../db/connection.js";
+import { paginateQuery } from "../utils/pagination.js";
 import { getManifest } from "./importer-registry.js";
 import {
   assertSecretCoverage,
@@ -281,8 +288,16 @@ async function validateSecretSources(
   assertSecretCoverage(declarations, providedKeys);
 }
 
-export async function listImporterConfigs() {
-  const rows = await db
+// Spec 068 / ADR-130: standardized list contract — page/pageSize/sort/order/
+// search + importerName/enabled filters. `name` sorts by the `label`
+// column; `enabled` stands in for the contract's `status`/`lastRunAt`
+// (no persisted status or last-run column exists on importer_configs).
+// secretRefs stay masked and credential/agent enrichments run on the
+// page's rows only.
+export async function listImporterConfigs(
+  query: ListImporterConfigsQuery,
+): Promise<Paginated<ImporterConfig>> {
+  let q = db
     .selectFrom("importer_configs")
     .select([
       "id",
@@ -295,17 +310,56 @@ export async function listImporterConfigs() {
       "agentId",
       "createdAt",
       "updatedAt",
-    ])
-    .orderBy("createdAt", "desc")
-    .execute();
+    ]);
+
+  if (query.importerName) {
+    q = q.where("importer_configs.importerName", "=", query.importerName);
+  }
+  if (query.enabled !== undefined) {
+    q = q.where("importer_configs.enabled", "=", query.enabled);
+  }
+  if (query.search) {
+    const term = `%${query.search}%`;
+    q = q.where((eb) =>
+      eb.or([
+        eb("importer_configs.label", "ilike", term),
+        eb("importer_configs.importerName", "ilike", term),
+      ]),
+    );
+  }
+
+  const { data: rows, pagination } = await paginateQuery(
+    q,
+    { page: query.page, pageSize: query.pageSize },
+    {
+      orderBy: (qb) => {
+        const primary =
+          query.sort === "importerName"
+            ? qb.orderBy("importer_configs.importerName", query.order)
+            : query.sort === "enabled"
+              ? qb.orderBy("importer_configs.enabled", query.order)
+              : query.sort === "createdAt"
+                ? qb.orderBy("importer_configs.createdAt", query.order)
+                : query.sort === "updatedAt"
+                  ? qb.orderBy("importer_configs.updatedAt", query.order)
+                  : qb.orderBy("importer_configs.label", query.order);
+        // Deterministic tie-break (ADR-130).
+        return primary.orderBy("importer_configs.id", query.order);
+      },
+    },
+  );
+
   const credMap = await loadCredentialIds(db, rows.map((r) => r.id));
   const agentMap = await loadAgentSummaries(
     db,
     rows.map((r) => r.agentId).filter((a): a is string => a !== null),
   );
-  return rows.map((row) =>
-    attachAgentFields(attachCredentialFields(maskRowSecretRefs(row), credMap), agentMap),
-  );
+  return {
+    data: rows.map((row) =>
+      attachAgentFields(attachCredentialFields(maskRowSecretRefs(row), credMap), agentMap),
+    ),
+    pagination,
+  };
 }
 
 export async function getImporterConfig(id: string) {

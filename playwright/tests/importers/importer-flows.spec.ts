@@ -27,7 +27,7 @@ test.describe('importer run journeys', () => {
     const api = await apiLogin(request, BASE, 'EDITOR');
     const configs = await api('GET', '/api/v1/importer-configs');
     expect(configs.status).toBe(200);
-    const list = configs.body.items ?? configs.body.configs ?? configs.body;
+    const list = configs.body.items ?? configs.body.configs ?? configs.body.data ?? configs.body;
     const names = list.map((c: any) => c.importerName ?? c.importer);
     for (const expected of ['github', 'alibaba-cloud', 'docker', 'web-url', 'api-url']) {
       expect(names, expected).toContain(expected);
@@ -38,7 +38,7 @@ test.describe('importer run journeys', () => {
     await scenario('mock-url-importers', 'baseline');
     const api = await apiLogin(request, BASE, 'EDITOR');
     const configs = await api('GET', '/api/v1/importer-configs');
-    const list = configs.body.items ?? configs.body.configs ?? configs.body;
+    const list = configs.body.items ?? configs.body.configs ?? configs.body.data ?? configs.body;
     for (const name of ['web-url', 'api-url']) {
       const cfg = list.find((c: any) => (c.importerName ?? c.importer) === name);
       const { status } = await triggerAndWait(api, cfg.id);
@@ -50,7 +50,7 @@ test.describe('importer run journeys', () => {
     await scenario('mock-docker-engine', 'baseline');
     const api = await apiLogin(request, BASE, 'EDITOR');
     const configs = await api('GET', '/api/v1/importer-configs');
-    const list = configs.body.items ?? configs.body.configs ?? configs.body;
+    const list = configs.body.items ?? configs.body.configs ?? configs.body.data ?? configs.body;
     const cfg = list.find((c: any) => (c.importerName ?? c.importer) === 'docker');
     const { status } = await triggerAndWait(api, cfg.id);
     expect(status).toBe('COMPLETED');
@@ -60,7 +60,7 @@ test.describe('importer run journeys', () => {
     await scenario('mock-alibaba', 'baseline');
     const api = await apiLogin(request, BASE, 'EDITOR');
     const configs = await api('GET', '/api/v1/importer-configs');
-    const list = configs.body.items ?? configs.body.configs ?? configs.body;
+    const list = configs.body.items ?? configs.body.configs ?? configs.body.data ?? configs.body;
     const cfg = list.find((c: any) => (c.importerName ?? c.importer) === 'alibaba-cloud');
     const { status } = await triggerAndWait(api, cfg.id);
     expect(status).toBe('COMPLETED');

@@ -127,7 +127,14 @@ mounted anywhere during staging.
 ### Page anatomy
 
 List pages: `PageHeader` (title/description/primary action) → `ListToolbar`
-(search + filters + result count) → table/card collection. Detail pages:
+(search + filters + result count) → table/card collection → `ListPagination`
+footer (row range, 25/50/100 rows-per-page, numbered pager). Primary lists are
+server-paginated per spec 068 / ADR-130: `useListState` keeps page, size,
+sort, order, `q` search, and filters in the URL (`page`, `size`, `sort`,
+`order`, `q`, plus one param per filter), `useListSearch` debounces search
+input before it hits the API, `SortableTableHead` columns map to the
+endpoint's sort whitelist, and row titles use `TitleWithSummary` hover cards
+fed only by fields already present in the list response. Detail pages:
 `PageHeader` (badge meta + actions) → `Tabs` → tab content cards; the
 `DangerZone` renders last. Detail pages resolve entities through
 **filtered-list strategies** where the API lacks a detail GET (orgs, users).

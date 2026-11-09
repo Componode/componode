@@ -10,7 +10,7 @@ import {
   ENVIRONMENT_META,
 } from "@componode/core"
 import { describeApiError, fieldErrors, type ApiError } from "@/api/client"
-import { useComponentGroups } from "@/api/hooks/component-groups"
+import { useAllComponentGroups } from "@/api/hooks/component-groups"
 import { useTeams } from "@/api/hooks/org"
 import { useCreateComponentWithMonitoring } from "@/api/hooks/url-checks"
 import { FormPage, FormSection } from "@/ux/components/forms/form-shell"
@@ -33,7 +33,7 @@ export function UxComponentNewPage() {
   const navigate = useNavigate()
   const create = useCreateComponentWithMonitoring()
   const teams = useTeams()
-  const groups = useComponentGroups()
+  const groups = useAllComponentGroups()
 
   const [name, setName] = React.useState("")
   const [slug, setSlug] = React.useState("")
@@ -199,7 +199,7 @@ export function UxComponentNewPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE}>No group</SelectItem>
-                    {(groups.data?.groups ?? []).map((g) => (
+                    {(groups.data ?? []).map((g) => (
                       <SelectItem key={g.id} value={g.id}>
                         {g.name}
                       </SelectItem>

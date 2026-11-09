@@ -5,9 +5,9 @@ import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, NotFoundState } from "@/ux/components/patterns/states";
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import { useTeam, useUpdateTeam, useDeleteTeam, useTeamMembers, useLobs } from "@/api/hooks/org";
-import { useProducts } from "@/api/hooks/products";
+import { useAllProducts } from "@/api/hooks/products";
 import { useAllComponents } from "@/api/hooks/components";
-import { useComponentGroups } from "@/api/hooks/component-groups";
+import { useAllComponentGroups } from "@/api/hooks/component-groups";
 import { mapComponent, mapProduct } from "@/api/mappers/catalog";
 import { errorMessage, isNotFound } from "@/ux/lib/api-state";
 import { ux } from "@/ux/lib/paths";
@@ -23,9 +23,9 @@ export function UxTeamDetailPage() {
   const deleteTeam = useDeleteTeam();
   const lobs = useLobs();
 
-  const products = useProducts({ includeRetired: true });
+  const products = useAllProducts({ includeRetired: true });
   const components = useAllComponents({ includeRetired: true });
-  const groups = useComponentGroups();
+  const groups = useAllComponentGroups();
 
   if (teamQ.isPending) {
     return (
@@ -54,9 +54,9 @@ export function UxTeamDetailPage() {
     );
   }
 
-  const ownedProducts = (products.data?.products ?? []).filter((p) => p.teamOwnerId === team.id).map((p) => mapProduct(p));
+  const ownedProducts = (products.data ?? []).filter((p) => p.teamOwnerId === team.id).map((p) => mapProduct(p));
   const ownedComponents = (components.data ?? []).filter((c) => c.teamOwnerId === team.id).map(mapComponent);
-  const ownedGroups = (groups.data?.groups ?? []).filter((g) => g.teamOwnerId === team.id);
+  const ownedGroups = (groups.data ?? []).filter((g) => g.teamOwnerId === team.id);
 
   return (
     <OrgDetail

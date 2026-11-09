@@ -30,8 +30,8 @@ export async function importerSourceRoutes(
     if (!parsed.success) {
       return validationFailed(reply, parsed.error.issues);
     }
-    const sources = await listSources(parsed.data);
-    return reply.status(200).send({ sources });
+    const result = await listSources(parsed.data);
+    return reply.status(200).send(result);
   });
 
   app.get("/importer-sources/:id", {

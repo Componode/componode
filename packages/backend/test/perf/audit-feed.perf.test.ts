@@ -69,18 +69,20 @@ describe.skipIf(!process.env.PERF)("audit activity feed performance", () => {
     }
   });
 
-  it("returns 100k feed rows in under 2 seconds", async () => {
+  it("handles a 100k-row feed in under 2 seconds", async () => {
     const start = performance.now();
     const res = await app.inject({
       method: "GET",
-      url: "/api/v1/audit/activity?limit=100000",
+      // Spec 068 caps pageSize at 100 — the service still scans the full
+      // 100k-row feed server-side before slicing the page.
+      url: "/api/v1/audit/activity?page=1&pageSize=100",
       cookies: { [SESSION_COOKIE_NAME]: adminSession },
     });
     const elapsed = performance.now() - start;
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.total).toBe(100_000);
-    expect(body.items).toHaveLength(100_000);
+    expect(body.pagination.total).toBe(100_000);
+    expect(body.data).toHaveLength(100);
     expect(elapsed).toBeLessThan(2000);
   });
 });

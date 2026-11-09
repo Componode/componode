@@ -1,16 +1,19 @@
+import { sql, type SelectQueryBuilder } from "kysely";
 import { db } from "../db/connection.js";
+import type { DB } from "../db/types.js";
 import { isUuid } from "../utils/ids.js";
+import { paginateQuery, paginationMeta } from "../utils/pagination.js";
 import type {
   ActivityFeedItem,
   ActivityFeedQuery,
+  EdgeChange,
   EntityChange,
   EntityHistoryQuery,
+  ImportRunError,
+  ListRunChangesQuery,
+  Paginated,
+  PaginationMeta,
 } from "@componode/core";
-
-interface FeedResult {
-  items: ActivityFeedItem[];
-  total: number;
-}
 
 type NameTable =
   | "digital_products"
@@ -191,98 +194,34 @@ function isValidDate(value: string | undefined): value is string {
   return value !== undefined && !Number.isNaN(Date.parse(value));
 }
 
-export async function getActivityFeed(query: ActivityFeedQuery): Promise<FeedResult> {
-  const { kind, entityType, action, actor, from, to, limit, offset } = query;
+// ---------------------------------------------------------------------------
+// SQL feed — UNION ALL of entity_changes + edge_changes (spec 068 / ADR-130,
+// research D10). Both branches select the same normalized superset; columns
+// a table lacks come back NULL and are dropped again when mapping rows back
+// to the ActivityFeedItem union, so the response shape is unchanged. Filters
+// live inside each branch (the createdAt indexes apply per table), the
+// whitelisted sort + LIMIT/OFFSET run on the union, and the count wraps the
+// same filtered union — no more fetch-all-then-slice.
+// ---------------------------------------------------------------------------
 
-  const wantEntities = kind === undefined || kind === "entity";
-  const wantEdges = kind === undefined || kind === "edge";
-
-  const entityPromise = wantEntities
-    ? buildEntityChangesQuery({ entityType, action, actor, from, to }).execute()
-    : Promise.resolve([]);
-
-  const edgePromise = wantEdges
-    ? buildEdgeChangesQuery({ entityType, action, actor, from, to }).execute()
-    : Promise.resolve([]);
-
-  const [entityRows, edgeRows] = await Promise.all([entityPromise, edgePromise]);
-
-  const items = [
-    ...entityRows.map((row) => ({ kind: "entity" as const, ...row })),
-    ...edgeRows.map((row) => ({ kind: "edge" as const, ...row })),
-  ] as unknown as ActivityFeedItem[];
-
-  items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  const total = items.length;
-  const paginated = items.slice(offset, offset + limit);
-  await attachEntityNames(paginated);
-
-  return { items: paginated, total };
-}
-
-export async function getEntityHistory(
-  entityType: string,
-  entityId: string,
-  query: EntityHistoryQuery,
-): Promise<FeedResult> {
-  const { kind, action, actor, from, to, limit, offset } = query;
-
-  const wantEntities = kind === undefined || kind === "entity";
-  const wantEdges = kind === undefined || kind === "edge";
-
-  const entityPromise = wantEntities
-    ? buildEntityChangesQuery({ entityType, entityId, action, actor, from, to }).execute()
-    : Promise.resolve([]);
-
-  const edgePromise = wantEdges
-    ? buildEdgeChangesQuery({
-        relatedEntityType: entityType,
-        relatedEntityId: entityId,
-        action,
-        actor,
-        from,
-        to,
-      }).execute()
-    : Promise.resolve([]);
-
-  const [entityRows, edgeRows] = await Promise.all([entityPromise, edgePromise]);
-
-  const items = [
-    ...entityRows.map((row) => ({ kind: "entity" as const, ...row })),
-    ...edgeRows.map((row) => ({ kind: "edge" as const, ...row })),
-  ] as unknown as ActivityFeedItem[];
-
-  items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  const total = items.length;
-  const paginated = items.slice(offset, offset + limit);
-  await attachEntityNames(paginated);
-
-  return { items: paginated, total };
-}
-
-export async function getRunChanges(runId: string): Promise<{
-  changes: import("@componode/core").EntityChange[];
-  errors: import("@componode/core").ImportRunError[];
-}> {
-  const changes = await db
-    .selectFrom("entity_changes")
-    .selectAll()
-    .where("importRunId", "=", runId)
-    .orderBy("createdAt", "desc")
-    .execute();
-
-  const errors = await db
-    .selectFrom("import_run_errors")
-    .selectAll()
-    .where("runId", "=", runId)
-    .orderBy("createdAt", "desc")
-    .execute();
-
-  const named = changes as import("@componode/core").EntityChange[];
-  await attachEntityNames(named);
-  return { changes: named, errors };
+/** Normalized row produced by both UNION ALL branches. */
+interface AuditFeedRow {
+  kind: "entity" | "edge";
+  id: string;
+  entityType: string | null;
+  entityId: string | null;
+  action: string;
+  changes: Record<string, unknown> | null;
+  importRunId: string | null;
+  createdBy: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  edgeType: string | null;
+  fromEntityType: string | null;
+  fromEntityId: string | null;
+  toEntityType: string | null;
+  toEntityId: string | null;
+  reason: string | null;
 }
 
 interface CommonFilters {
@@ -296,8 +235,82 @@ interface CommonFilters {
   to?: string;
 }
 
-function buildEntityChangesQuery(filters: CommonFilters) {
-  let q = db.selectFrom("entity_changes").selectAll();
+/**
+ * Actor/date/action predicates — identical column names on both change
+ * tables, applied inside each branch so filters stay SQL-side (and the
+ * createdAt indexes apply per table). Written out per branch because
+ * Kysely validates unqualified refs against each table's own type.
+ */
+function applyEntityCommonFilters(
+  q: SelectQueryBuilder<DB, "entity_changes", AuditFeedRow>,
+  filters: Pick<CommonFilters, "action" | "actor" | "from" | "to">,
+): SelectQueryBuilder<DB, "entity_changes", AuditFeedRow> {
+  let out = q;
+  if (filters.action) out = out.where("action", "=", filters.action);
+  if (filters.actor) {
+    const uuidActor = isUuid(filters.actor);
+    out = out.where((eb) => {
+      const ors = [eb("createdByName", "=", filters.actor!)];
+      if (uuidActor) ors.push(eb("createdBy", "=", filters.actor!));
+      return eb.or(ors);
+    });
+  }
+  if (isValidDate(filters.from)) {
+    out = out.where("createdAt", ">=", filters.from!);
+  }
+  if (isValidDate(filters.to)) {
+    out = out.where("createdAt", "<=", filters.to!);
+  }
+  return out;
+}
+
+function applyEdgeCommonFilters(
+  q: SelectQueryBuilder<DB, "edge_changes", AuditFeedRow>,
+  filters: Pick<CommonFilters, "action" | "actor" | "from" | "to">,
+): SelectQueryBuilder<DB, "edge_changes", AuditFeedRow> {
+  let out = q;
+  if (filters.action) out = out.where("action", "=", filters.action);
+  if (filters.actor) {
+    const uuidActor = isUuid(filters.actor);
+    out = out.where((eb) => {
+      const ors = [eb("createdByName", "=", filters.actor!)];
+      if (uuidActor) ors.push(eb("createdBy", "=", filters.actor!));
+      return eb.or(ors);
+    });
+  }
+  if (isValidDate(filters.from)) {
+    out = out.where("createdAt", ">=", filters.from!);
+  }
+  if (isValidDate(filters.to)) {
+    out = out.where("createdAt", "<=", filters.to!);
+  }
+  return out;
+}
+
+function entityFeedBranch(
+  filters: CommonFilters,
+): SelectQueryBuilder<DB, "entity_changes", AuditFeedRow> {
+  let q = db
+    .selectFrom("entity_changes")
+    .select([
+      sql<"entity">`'entity'`.as("kind"),
+      "id",
+      "entityType",
+      "entityId",
+      "action",
+      "changes",
+      "importRunId",
+      "createdBy",
+      "createdByName",
+      "createdAt",
+      sql<null>`NULL::text`.as("edgeType"),
+      sql<null>`NULL::text`.as("fromEntityType"),
+      sql<null>`NULL::uuid`.as("fromEntityId"),
+      sql<null>`NULL::text`.as("toEntityType"),
+      sql<null>`NULL::uuid`.as("toEntityId"),
+      sql<null>`NULL::text`.as("reason"),
+    ])
+    .$castTo<AuditFeedRow>();
 
   if (filters.entityType) {
     q = q.where("entityType", "=", filters.entityType);
@@ -305,33 +318,36 @@ function buildEntityChangesQuery(filters: CommonFilters) {
   if (filters.entityId) {
     q = q.where("entityId", "=", filters.entityId);
   }
-  if (filters.action) {
-    q = q.where("action", "=", filters.action);
-  }
-  if (filters.actor) {
-    const uuidActor = isUuid(filters.actor);
-    q = q.where((eb) => {
-      const ors = [eb("createdByName", "=", filters.actor!)];
-      if (uuidActor) {
-        ors.push(eb("createdBy", "=", filters.actor!));
-      }
-      return eb.or(ors);
-    });
-  }
-  if (isValidDate(filters.from)) {
-    q = q.where("createdAt", ">=", filters.from!);
-  }
-  if (isValidDate(filters.to)) {
-    q = q.where("createdAt", "<=", filters.to!);
-  }
-
-  return q.orderBy("createdAt", "desc");
+  return applyEntityCommonFilters(q, filters);
 }
 
-function buildEdgeChangesQuery(filters: CommonFilters) {
-  let q = db.selectFrom("edge_changes").selectAll();
+function edgeFeedBranch(
+  filters: CommonFilters,
+): SelectQueryBuilder<DB, "edge_changes", AuditFeedRow> {
+  let q = db
+    .selectFrom("edge_changes")
+    .select([
+      sql<"edge">`'edge'`.as("kind"),
+      "id",
+      sql<null>`NULL::text`.as("entityType"),
+      sql<null>`NULL::uuid`.as("entityId"),
+      "action",
+      sql<null>`NULL::jsonb`.as("changes"),
+      sql<null>`NULL::uuid`.as("importRunId"),
+      "createdBy",
+      "createdByName",
+      "createdAt",
+      "edgeType",
+      "fromEntityType",
+      "fromEntityId",
+      "toEntityType",
+      "toEntityId",
+      "reason",
+    ])
+    .$castTo<AuditFeedRow>();
 
   if (filters.relatedEntityType && filters.relatedEntityId) {
+    // Entity history: edges that touch the entity at either endpoint.
     q = q.where((eb) =>
       eb.or([
         eb.and([
@@ -345,6 +361,7 @@ function buildEdgeChangesQuery(filters: CommonFilters) {
       ]),
     );
   } else if (filters.entityType) {
+    // Activity feed entityType filter: either endpoint of the edge.
     q = q.where((eb) =>
       eb.or([
         eb("fromEntityType", "=", filters.entityType!),
@@ -352,26 +369,209 @@ function buildEdgeChangesQuery(filters: CommonFilters) {
       ]),
     );
   }
+  return applyEdgeCommonFilters(q, filters);
+}
 
-  if (filters.action) {
-    q = q.where("action", "=", filters.action);
+type FeedQuery = SelectQueryBuilder<DB, "entity_changes", AuditFeedRow>;
+
+/**
+ * Combines the wanted branches into one union query. A single-kind feed
+ * skips UNION ALL entirely; the lone edge branch reports TB
+ * "edge_changes" but downstream only touches output-level methods
+ * (orderBy/limit/offset/as), so the type-level cast is safe.
+ */
+function buildFeedUnion(
+  filters: CommonFilters,
+  wantEntities: boolean,
+  wantEdges: boolean,
+): FeedQuery {
+  if (wantEntities && wantEdges) {
+    return entityFeedBranch(filters).unionAll(edgeFeedBranch(filters));
   }
-  if (filters.actor) {
-    const uuidActor = isUuid(filters.actor);
-    q = q.where((eb) => {
-      const ors = [eb("createdByName", "=", filters.actor!)];
-      if (uuidActor) {
-        ors.push(eb("createdBy", "=", filters.actor!));
-      }
-      return eb.or(ors);
-    });
+  if (wantEntities) return entityFeedBranch(filters);
+  return edgeFeedBranch(filters) as unknown as FeedQuery;
+}
+
+/** Whitelisted `actor` sort — mirrors the old feed's case-insensitive coalesce. */
+const ACTOR_SORT = sql`lower(coalesce("createdByName", "createdBy"::text, ''))`;
+
+/**
+ * Whitelisted `entityType` sort (T059 / FR-005) — matches the entity-kind
+ * badge the feed renders: entity rows display `entityType`, edge rows
+ * display their FROM endpoint's type (`entityType` is NULL on edge rows).
+ */
+const ENTITY_TYPE_SORT = sql`coalesce("entityType", "fromEntityType")`;
+
+/** Maps a normalized UNION row back to the exact ActivityFeedItem shape. */
+function unionRowToFeedItem(row: AuditFeedRow): ActivityFeedItem {
+  if (row.kind === "entity") {
+    return {
+      kind: "entity",
+      id: row.id,
+      entityType: row.entityType ?? "",
+      entityId: row.entityId,
+      action: row.action,
+      changes: row.changes,
+      importRunId: row.importRunId,
+      createdBy: row.createdBy,
+      createdByName: row.createdByName,
+      createdAt: row.createdAt,
+    };
   }
-  if (isValidDate(filters.from)) {
-    q = q.where("createdAt", ">=", filters.from!);
-  }
-  if (isValidDate(filters.to)) {
-    q = q.where("createdAt", "<=", filters.to!);
+  return {
+    kind: "edge",
+    id: row.id,
+    edgeType: row.edgeType as EdgeChange["edgeType"],
+    fromEntityType: row.fromEntityType ?? "",
+    fromEntityId: row.fromEntityId ?? "",
+    toEntityType: row.toEntityType ?? "",
+    toEntityId: row.toEntityId ?? "",
+    action: row.action,
+    reason: row.reason,
+    createdBy: row.createdBy,
+    createdByName: row.createdByName,
+    createdAt: row.createdAt,
+  };
+}
+
+/** Sort + paginate the union in SQL, then attach read-time display names. */
+async function pageFeedUnion(
+  feed: FeedQuery,
+  query: Pick<ActivityFeedQuery, "page" | "pageSize" | "sort" | "order">,
+): Promise<Paginated<ActivityFeedItem>> {
+  const { page, pageSize, sort, order } = query;
+
+  // The union becomes a derived table so the whitelisted sort runs on the
+  // OUTER select: Postgres only allows result column names in a UNION's own
+  // ORDER BY, so expressions like ACTOR_SORT would be rejected there.
+  // Tiebreak preserves the pre-068 feed semantics: most recent first,
+  // then stable id order.
+  const feedTable = feed.as("feed");
+  let ordered = db.selectFrom(feedTable).selectAll();
+  ordered =
+    sort === "action"
+      ? ordered.orderBy("action", order)
+      : sort === "actor"
+        ? ordered.orderBy(ACTOR_SORT, order)
+        : sort === "kind"
+          ? ordered.orderBy("kind", order)
+          : sort === "entityType"
+            ? ordered.orderBy(ENTITY_TYPE_SORT, order)
+            : ordered.orderBy("createdAt", order);
+  ordered = ordered.orderBy("createdAt", "desc").orderBy("id", "asc");
+
+  const offset = (page - 1) * pageSize;
+  const [countRow, rows] = await Promise.all([
+    db
+      .selectFrom(feedTable)
+      .select((eb) => eb.fn.countAll().as("total"))
+      .executeTakeFirstOrThrow(),
+    ordered.limit(pageSize).offset(offset).execute(),
+  ]);
+
+  const items = rows.map(unionRowToFeedItem);
+  await attachEntityNames(items);
+
+  return {
+    data: items,
+    pagination: paginationMeta(Number(countRow.total), page, pageSize),
+  };
+}
+
+export async function getActivityFeed(
+  query: ActivityFeedQuery,
+): Promise<Paginated<ActivityFeedItem>> {
+  const { kind, entityType, action, actor, from, to } = query;
+  const wantEntities = kind === undefined || kind === "entity";
+  const wantEdges = kind === undefined || kind === "edge";
+
+  const feed = buildFeedUnion(
+    { entityType, action, actor, from, to },
+    wantEntities,
+    wantEdges,
+  );
+  return pageFeedUnion(feed, query);
+}
+
+export async function getEntityHistory(
+  entityType: string,
+  entityId: string,
+  query: EntityHistoryQuery,
+): Promise<Paginated<ActivityFeedItem>> {
+  const { kind, action, actor, from, to } = query;
+  const wantEntities = kind === undefined || kind === "entity";
+  const wantEdges = kind === undefined || kind === "edge";
+
+  const feed = buildFeedUnion(
+    {
+      entityType,
+      entityId,
+      relatedEntityType: entityType,
+      relatedEntityId: entityId,
+      action,
+      actor,
+      from,
+      to,
+    },
+    wantEntities,
+    wantEdges,
+  );
+  return pageFeedUnion(feed, query);
+}
+
+/**
+ * Spec 068 / ADR-130 / FR-005: the run's entity_changes paginate with an
+ * id tie-break; sort keys map to the stored columns behind the
+ * Entity/Type/Action/Actor/Time cells — `entityType` orders by the stored
+ * type column (its display kind ordering is identical for the run-change
+ * vocabulary) and `actor` mirrors the row's `createdByName ?? "importer"`
+ * fallback. The `action` filter and the run's errors stay a top-level
+ * extra (same data the sibling /errors endpoint serves).
+ */
+export async function getRunChanges(
+  runId: string,
+  query: ListRunChangesQuery,
+): Promise<{
+  data: EntityChange[];
+  pagination: PaginationMeta;
+  errors: ImportRunError[];
+}> {
+  let q = db
+    .selectFrom("entity_changes")
+    .selectAll()
+    .where("importRunId", "=", runId);
+
+  if (query.action) {
+    q = q.where("action", "=", query.action);
   }
 
-  return q.orderBy("createdAt", "desc");
+  const { data: changes, pagination } = await paginateQuery(
+    q,
+    { page: query.page, pageSize: query.pageSize },
+    {
+      orderBy: (qb) => {
+        const primary =
+          query.sort === "action"
+            ? qb.orderBy("entity_changes.action", query.order)
+            : query.sort === "entityType"
+              ? qb.orderBy("entity_changes.entityType", query.order)
+              : query.sort === "actor"
+                ? qb.orderBy(sql`coalesce("entity_changes"."createdByName", 'importer')`, query.order)
+                : qb.orderBy("entity_changes.createdAt", query.order);
+        // Deterministic tie-break (ADR-130).
+        return primary.orderBy("entity_changes.id", query.order);
+      },
+    },
+  );
+
+  const errors = await db
+    .selectFrom("import_run_errors")
+    .selectAll()
+    .where("runId", "=", runId)
+    .orderBy("createdAt", "desc")
+    .execute();
+
+  const named = changes as EntityChange[];
+  await attachEntityNames(named);
+  return { data: named, pagination, errors };
 }

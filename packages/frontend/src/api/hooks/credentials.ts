@@ -1,11 +1,43 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import type { Credential, CredentialDetail, CredentialKind, CredentialListItem, CredentialTestResult, SecretRefMap } from "@/api/types";
+import { allPagesQueryString, buildListQueryString, fetchAllPages, type ListQueryState } from "@/api/list-query";
+import type { Credential, CredentialDetail, CredentialKind, CredentialListItem, CredentialListResponse, CredentialTestResult, SecretRefMap } from "@/api/types";
 
+/** Spec 068 / ADR-130 sort + filter whitelists (core listCredentialsQuerySchema). */
+export const CREDENTIAL_SORT_KEYS = ["name", "status", "expiresAt", "lastUsedAt", "usedByCount", "createdAt"] as const;
+export type CredentialSortKey = (typeof CREDENTIAL_SORT_KEYS)[number];
+
+/** URL filter keys managed by the /credentials list page (useListState). */
+export const CREDENTIAL_FILTER_KEYS = ["status"] as const;
+export type CredentialFilterKey = (typeof CREDENTIAL_FILTER_KEYS)[number];
+
+/**
+ * Fetch-all sweep for pickers/lookups (importer forms, URL-check auth,
+ * settings) — spec 068 exempt surfaces. Pages through GET /credentials at
+ * pageSize=100 and re-wraps rows in `{credentials}`.
+ */
 export function useCredentials() {
   return useQuery({
-    queryKey: ["credentials"],
-    queryFn: () => api<{ credentials: CredentialListItem[] }>("/credentials"),
+    queryKey: ["credentials", "all"],
+    queryFn: () =>
+      fetchAllPages<CredentialListItem>((page) =>
+        api<CredentialListResponse>(`/credentials${allPagesQueryString(page)}`),
+      ).then((rows) => ({ credentials: rows })),
+  });
+}
+
+/**
+ * Spec 068: one page of GET /credentials (admin) for the /credentials list
+ * page. `state` is the resolved `useListState` value; pass a debounced
+ * `search` override. Rows carry masked `keyHints` only — never secret
+ * values (ADR-107/ADR-117).
+ */
+export function useCredentialsList(state: ListQueryState) {
+  const qs = buildListQueryString(state);
+  return useQuery({
+    queryKey: ["credentials", "list", qs],
+    queryFn: () => api<CredentialListResponse>(`/credentials${qs}`),
+    placeholderData: (prev) => prev,
   });
 }
 

@@ -1,9 +1,10 @@
-
 import { KeyRoundIcon, RotateCwIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog"
 import { RelativeTime } from "@/ux/components/patterns/primitives"
+import { SortableTableHead, type ListSortBindings } from "@/ux/components/patterns/sortable-header"
+import { TitleWithSummary } from "@/ux/components/patterns/title-with-summary"
 import { EmptyState } from "@/ux/components/patterns/states"
 import { CredentialStatusBadge, StatusBadge } from "@/ux/components/patterns/status-badge"
 import { Button } from "@/ux/components/ui/button"
@@ -23,7 +24,15 @@ function Expiry({ iso }: { iso: string | null }) {
   return <RelativeTime iso={iso} className="text-muted-foreground" />
 }
 
-export function CredentialsTable({ data }: { data: Credential[] }) {
+/**
+ * Credentials table — spec 068: one server page at a time; search, the
+ * status filter, sort, and pagination are owned by the page's
+ * `useListState`. Sortable headers cover the contract keys (name, status,
+ * expiresAt, lastUsedAt; `createdAt` is the endpoint default and has no
+ * column). Only masked `keyHints` ever render — secret values are
+ * write-only (ADR-107/ADR-117).
+ */
+export function CredentialsTable({ data, sort, order, onSortChange }: { data: Credential[] } & ListSortBindings) {
   const rows = data
   const revoke = useRevokeCredential()
   const confirmRevoke = (c: Credential) =>
@@ -47,12 +56,22 @@ export function CredentialsTable({ data }: { data: Credential[] }) {
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/40 hover:bg-muted/40">
-            <TableHead className="pl-4">Credential</TableHead>
-            <TableHead>Status</TableHead>
+            <SortableTableHead sortKey="name" sort={sort} order={order} onSortChange={onSortChange} className="pl-4">
+              Credential
+            </SortableTableHead>
+            <SortableTableHead sortKey="status" sort={sort} order={order} onSortChange={onSortChange}>
+              Status
+            </SortableTableHead>
             <TableHead>Key hint</TableHead>
-            <TableHead>Expires</TableHead>
-            <TableHead>Last used</TableHead>
-            <TableHead className="text-right">Used by</TableHead>
+            <SortableTableHead sortKey="expiresAt" sort={sort} order={order} onSortChange={onSortChange}>
+              Expires
+            </SortableTableHead>
+            <SortableTableHead sortKey="lastUsedAt" sort={sort} order={order} onSortChange={onSortChange}>
+              Last used
+            </SortableTableHead>
+            <SortableTableHead sortKey="usedByCount" sort={sort} order={order} onSortChange={onSortChange} className="text-right">
+              Used by
+            </SortableTableHead>
             <TableHead className="pr-4 text-right">
               <span className="sr-only">Actions</span>
             </TableHead>
@@ -61,14 +80,19 @@ export function CredentialsTable({ data }: { data: Credential[] }) {
         <TableBody>
           {rows.map((c) => (
             <TableRow key={c.id} className={c.status === "REVOKED" ? "opacity-60" : undefined}>
-              <TableCell className="pl-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex flex-col">
-                    <Link to={ux(`/credentials/${c.id}`)} className="font-medium hover:underline">
-                      {c.label}
-                    </Link>
-                    <code className="font-mono text-xs text-muted-foreground">{c.slug}</code>
-                  </div>
+              <TableCell className="max-w-56 pl-4">
+                <div className="flex flex-col">
+                  <TitleWithSummary
+                    title={
+                      <Link to={ux(`/credentials/${c.id}`)} className="font-medium hover:underline">
+                        {c.label}
+                      </Link>
+                    }
+                    titleText={c.label}
+                    summary={{ kind: "credential", row: c }}
+                    className="truncate"
+                  />
+                  <code className="font-mono text-xs text-muted-foreground">{c.slug}</code>
                 </div>
               </TableCell>
               <TableCell>

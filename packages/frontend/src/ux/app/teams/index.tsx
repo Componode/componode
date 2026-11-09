@@ -1,27 +1,31 @@
 import { toast } from "sonner";
+import { TEAM_SORT_KEYS, useCreateTeam, useLobs, useTeamsList, type TeamSortKey } from "@/api/hooks/org";
 import { OrgFormDialog } from "@/ux/components/org/org-form-dialog";
-import { TeamsTable, type OrgCounts } from "@/ux/components/org/org-tables";
+import { TeamsTable } from "@/ux/components/org/org-tables";
+import { ListPagination } from "@/ux/components/patterns/list-pagination";
+import { ListToolbar } from "@/ux/components/patterns/list-toolbar";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
 import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Card } from "@/ux/components/ui/card";
-import { useTeams, useCreateTeam, useLobs } from "@/api/hooks/org";
-import { useProducts } from "@/api/hooks/products";
+import { useListState } from "@/ux/hooks/use-list-state";
+import { useListSearch } from "@/ux/hooks/use-list-search";
 import { errorMessage } from "@/ux/lib/api-state";
 
 export function UxTeamsPage() {
-  const teams = useTeams();
+  // Server-paginated list state lives in the URL (spec 068 / ADR-130).
+  const list = useListState<TeamSortKey>({
+    sortKeys: TEAM_SORT_KEYS,
+    defaultSort: "name",
+    defaultOrder: "asc",
+  });
+  const [query, setQuery] = useListSearch(list);
+  const teams = useTeamsList(list);
   const createTeam = useCreateTeam();
+  // The create dialog's LOB picker needs the full set — fetch-all (exempt).
   const lobs = useLobs();
-  const products = useProducts({ includeRetired: true });
 
-  const counts = new Map<string, OrgCounts>();
-  for (const t of teams.data?.teams ?? []) {
-    counts.set(t.id, {
-      products: (products.data?.products ?? []).filter((p) => p.teamOwnerId === t.id).length,
-      components: t.componentCount,
-      members: t.memberCount,
-    });
-  }
+  const rows = teams.data?.data ?? [];
+  const pagination = teams.data?.pagination;
 
   return (
     <PageContainer>
@@ -45,6 +49,13 @@ export function UxTeamsPage() {
           />
         }
       />
+      <ListToolbar
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search teams"
+        resultCount={rows.length}
+        total={pagination?.total ?? 0}
+      />
       {teams.isPending ? (
         <Card className="py-0">
           <TableSkeleton rows={5} columns={5} />
@@ -52,7 +63,24 @@ export function UxTeamsPage() {
       ) : teams.error ? (
         <ErrorState description={errorMessage(teams.error)} onRetry={() => void teams.refetch()} />
       ) : (
-        <TeamsTable data={(teams.data.teams ?? [])} counts={counts} />
+        <div className="flex flex-col gap-4">
+          <TeamsTable
+            data={rows}
+            sort={list.sort}
+            order={list.order}
+            onSortChange={(sort, order) => list.setSort(sort as TeamSortKey | null, order)}
+          />
+          {pagination && pagination.total > 0 && (
+            <ListPagination
+              page={list.page}
+              pageSize={list.pageSize}
+              total={pagination.total}
+              pageCount={pagination.pageCount}
+              onPageChange={list.setPage}
+              onPageSizeChange={list.setPageSize}
+            />
+          )}
+        </div>
       )}
     </PageContainer>
   );

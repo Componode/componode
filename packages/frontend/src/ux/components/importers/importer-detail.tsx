@@ -2,15 +2,22 @@
 import { CircleAlertIcon, PlayIcon, Settings2Icon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
+import type { PaginationMeta } from "@/api/types"
+import type { ImporterRunsFilterKey, ImporterRunsSortKey } from "@/api/hooks/importers"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { DescriptionList, RelativeTime } from "@/ux/components/patterns/primitives"
 import { ProviderMark } from "@/ux/components/patterns/provider-mark"
+import { ListPagination } from "@/ux/components/patterns/list-pagination"
+import { SortableTableHead } from "@/ux/components/patterns/sortable-header"
 import { RunStatusBadge, StatusBadge } from "@/ux/components/patterns/status-badge"
+import { TitleWithSummary } from "@/ux/components/patterns/title-with-summary"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Button } from "@/ux/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
-import { PROVIDER_META } from "@/ux/lib/domain"
+import type { ListState } from "@/ux/hooks/use-list-state"
+import { PROVIDER_META, RUN_STATUS_META, type RunStatus } from "@/ux/lib/domain"
 import { formatDuration, formatNumber } from "@/ux/lib/format"
 import { useConvertSecrets, useTriggerImportRun } from "@/api/hooks/importers"
 import { ux } from "@/ux/lib/paths"
@@ -64,11 +71,31 @@ function ProfilesCard({ scope }: { scope: unknown }) {
   )
 }
 
-export function ImporterDetail({ importer: i, runs }: { importer: ImporterConfig; runs: ImportRun[] }) {
+export function ImporterDetail({
+  importer: i,
+  runs,
+  runsList,
+  runsPagination,
+}: {
+  importer: ImporterConfig
+  runs: ImportRun[]
+  /** URL-backed state for the server-paginated run history (spec 068). */
+  runsList: ListState<ImporterRunsSortKey, ImporterRunsFilterKey>
+  runsPagination?: PaginationMeta
+}) {
   const trigger = useTriggerImportRun()
   const convert = useConvertSecrets()
+  // `runs` is the current server page — newest first under the default
+  // createdAt-desc sort, so runs[0] is the latest run for the alerts.
   const failed = runs[0]?.status === "FAILED"
-  const lastError = runs.find((r) => r.errorMessage)?.errorMessage
+  const lastError = runs[0]?.errorMessage
+
+  const sortProps = {
+    sort: runsList.sort,
+    order: runsList.order,
+    onSortChange: (sort: string | null, order: "asc" | "desc") =>
+      runsList.setSort((sort as ImporterRunsSortKey | null) ?? null, order),
+  }
   return (
     <PageContainer>
       <PageHeader
@@ -145,14 +172,29 @@ export function ImporterDetail({ importer: i, runs }: { importer: ImporterConfig
           <CardHeader>
             <CardTitle>Run history</CardTitle>
             <CardDescription>Runs are kept for 90 days. Interrupted runs resume from their last phase.</CardDescription>
+            <CardAction>
+              <Select value={runsList.filters.status} onValueChange={(v) => runsList.setFilter("status", v)}>
+                <SelectTrigger size="sm" aria-label="Filter runs by status" className="w-auto min-w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {(Object.keys(RUN_STATUS_META) as RunStatus[]).map((s) => (
+                      <SelectItem key={s} value={s}>{RUN_STATUS_META[s].label}</SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </CardAction>
           </CardHeader>
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead className="pl-6">Status</TableHead>
-                <TableHead>Started</TableHead>
+                <SortableTableHead sortKey="status" {...sortProps} className="pl-6">Status</SortableTableHead>
+                <SortableTableHead sortKey="startedAt" {...sortProps}>Started</SortableTableHead>
                 <TableHead>Trigger</TableHead>
-                <TableHead className="text-right">Processed</TableHead>
+                <SortableTableHead sortKey="assetsProcessed" {...sortProps} className="text-right">Processed</SortableTableHead>
                 <TableHead className="text-right">Created / updated</TableHead>
                 <TableHead className="pr-6 text-right">Duration</TableHead>
               </TableRow>
@@ -167,9 +209,15 @@ export function ImporterDetail({ importer: i, runs }: { importer: ImporterConfig
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">
-                    <Link to={ux(`/importers/${i.id}/runs/${r.id}`)} className="hover:underline">
-                      <RelativeTime iso={r.startedAt} />
-                    </Link>
+                    <TitleWithSummary
+                      title={
+                        <Link to={ux(`/importers/${i.id}/runs/${r.id}`)} className="hover:underline">
+                          <RelativeTime iso={r.startedAt} />
+                        </Link>
+                      }
+                      titleText={r.startedAt ?? r.id}
+                      summary={{ kind: "importRun", row: r }}
+                    />
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.triggeredBy}</TableCell>
                   <TableCell className="tabular text-right">{formatNumber(r.assetsProcessed)}</TableCell>
@@ -179,8 +227,27 @@ export function ImporterDetail({ importer: i, runs }: { importer: ImporterConfig
                   <TableCell className="tabular pr-6 text-right">{formatDuration(r.durationSec)}</TableCell>
                 </TableRow>
               ))}
+              {runs.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                    No runs match the current filters.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
+          {runsPagination && runsPagination.total > 0 && (
+            <div className="border-t px-6 py-3">
+              <ListPagination
+                page={runsList.page}
+                pageSize={runsList.pageSize}
+                total={runsPagination.total}
+                pageCount={runsPagination.pageCount}
+                onPageChange={runsList.setPage}
+                onPageSizeChange={runsList.setPageSize}
+              />
+            </div>
+          )}
         </Card>
         <Card>
           <CardHeader>

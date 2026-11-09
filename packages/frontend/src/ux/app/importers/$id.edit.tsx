@@ -1,9 +1,9 @@
 import { useParams } from "react-router-dom";
 import { useCrumbLabel } from "@/ux/components/app/app-header";
-import { useAgents } from "@/api/hooks/agents";
+import { useAllAgents } from "@/api/hooks/agents";
 import { useCredentials } from "@/api/hooks/credentials";
 import { useImporterConfig, useImporters } from "@/api/hooks/importers";
-import { useDockerTargets } from "@/api/hooks/docker-targets";
+import { useAllDockerTargets } from "@/api/hooks/docker-targets";
 import { ImporterForm } from "@/ux/components/importers/importer-form";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, ForbiddenState, NotFoundState, TableSkeleton } from "@/ux/components/patterns/states";
@@ -17,8 +17,8 @@ export function UxImporterEditPage() {
   useCrumbLabel(id, config.data?.config?.label ?? null);
   const manifests = useImporters();
   const credentials = useCredentials();
-  const agents = useAgents();
-  const dockerTargets = useDockerTargets();
+  const agents = useAllAgents();
+  const dockerTargets = useAllDockerTargets();
 
   if (config.isPending || manifests.isPending || credentials.isPending || agents.isPending || dockerTargets.isPending) {
     return (
@@ -63,8 +63,8 @@ export function UxImporterEditPage() {
       config={config.data.config}
       manifests={manifests.data?.importers ?? []}
       credentials={credentials.data?.credentials ?? []}
-      agents={agents.data?.agents ?? []}
-      dockerTargets={dockerTargets.data?.targets ?? []}
+      agents={agents.data ?? []}
+      dockerTargets={dockerTargets.data ?? []}
     />
   );
 }

@@ -2,7 +2,7 @@ import { PlusIcon, UploadCloudIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSession } from "@/api/hooks/auth";
 import { useDashboardSummary } from "@/api/hooks/dashboard";
-import { useImporterConfigs } from "@/api/hooks/importers";
+import { useAllImporterConfigs } from "@/api/hooks/importers";
 import { useActivityFeed } from "@/api/hooks/audit";
 import { mapActivityItem, mapAttentionItem, mapCoverage } from "@/api/mappers/dashboard";
 import { AttentionList } from "@/ux/components/dashboard/attention-list";
@@ -24,7 +24,8 @@ function greeting() {
 export function UxIndexPage() {
   const session = useSession();
   const summary = useDashboardSummary();
-  const configs = useImporterConfigs();
+  // Enabled-importer count needs the full set — fetch-all sweep (spec 068).
+  const configs = useAllImporterConfigs();
   const activity = useActivityFeed({ limit: 5 });
 
   const firstName = session.data?.displayName?.split(" ")[0] ?? session.data?.username ?? null;
@@ -74,7 +75,7 @@ export function UxIndexPage() {
               products: summary.data.counts.products.total,
               components: summary.data.counts.components.total,
               instances: summary.data.counts.instances.total,
-              importers: configs.data.configs.filter((c) => c.enabled).length,
+              importers: (configs.data ?? []).filter((c) => c.enabled).length,
             }}
             deltas={summary.data.deltas}
             importerIssues={summary.data.importerIssues}

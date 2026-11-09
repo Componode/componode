@@ -26,7 +26,7 @@ vi.mock("@/api/hooks/components", () => ({
   useAllComponents: vi.fn(() => ({ data: [], isPending: false, error: null })),
 }));
 vi.mock("@/api/hooks/component-groups", () => ({
-  useComponentGroups: vi.fn(() => ({ data: { groups: [] }, isPending: false, error: null })),
+  useAllComponentGroups: vi.fn(() => ({ data: [], isPending: false, error: null })),
   useCreateComponentGroup: vi.fn(() => ({ mutate: createGroupMutate, isPending: false })),
 }));
 vi.mock("@/api/hooks/org", () => ({
@@ -35,17 +35,18 @@ vi.mock("@/api/hooks/org", () => ({
 vi.mock("@/api/hooks/products", () => ({
   useAddEdge: vi.fn(() => ({ mutate: addEdgeMutate, isPending: false })),
   useRemoveEdge: vi.fn(() => ({ mutate: removeEdgeMutate, isPending: false })),
-  useProducts: vi.fn(() => ({
-    data: {
-      products: [
-        { id: "p1", name: "Checkout", slug: "checkout", type: "BUSINESS_CAPABILITY", lifecycle: "ACTIVE" },
-        { id: "p2", name: "Shared Platform", slug: "shared-platform", type: "PLATFORM", lifecycle: "ACTIVE" },
-      ],
-    },
+  useAllProducts: vi.fn(() => ({
+    data: [
+      { id: "p1", name: "Checkout", slug: "checkout", type: "BUSINESS_CAPABILITY", lifecycle: "ACTIVE" },
+      { id: "p2", name: "Shared Platform", slug: "shared-platform", type: "PLATFORM", lifecycle: "ACTIVE" },
+    ],
     isPending: false,
   })),
 }));
-vi.mock("@/api/hooks/suggestions", () => ({
+vi.mock("@/api/hooks/suggestions", async (importOriginal) => ({
+  // Keep the real sort keys + list-params adapter — the page reads them;
+  // only the query hooks are stubbed.
+  ...(await importOriginal<typeof import("@/api/hooks/suggestions")>()),
   useSuggestions: vi.fn((view: string) => suggestionsImpl.fn(view)),
   useAcceptSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useDismissSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),

@@ -1,5 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
+import {
+  buildApiQueryString,
+  fetchAllPages,
+  type ListQueryState,
+} from "@/api/list-query";
+import type { Paginated } from "@/api/types";
 import type {
   ImporterManifest,
   ImporterConfig,
@@ -14,10 +20,90 @@ export function useImporters() {
   });
 }
 
-export function useImporterConfigs() {
+/** Spec 068 / ADR-130 sort whitelist for `GET /importer-configs`
+ *  (listImporterConfigsQuerySchema); `name` sorts by the `label` column. */
+export const IMPORTER_CONFIGS_SORT_KEYS = [
+  "name",
+  "importerName",
+  "enabled",
+  "createdAt",
+  "updatedAt",
+] as const;
+export type ImporterConfigsSortKey = (typeof IMPORTER_CONFIGS_SORT_KEYS)[number];
+
+/** URL filter keys managed by the /importers list page (useListState). */
+export const IMPORTER_CONFIGS_FILTER_KEYS = ["enabled", "importerName"] as const;
+export type ImporterConfigsFilterKey = (typeof IMPORTER_CONFIGS_FILTER_KEYS)[number];
+
+/** API params accepted by `GET /importer-configs`. `enabled` is the
+ *  "true"/"false" string the `optionalBooleanParam` schema coerces. */
+export interface ImporterConfigsListFilters {
+  page?: number;
+  pageSize?: number;
+  sort?: ImporterConfigsSortKey;
+  order?: "asc" | "desc";
+  search?: string;
+  importerName?: string;
+  enabled?: string;
+}
+
+const configsFacet = (state: ListQueryState, key: string): string | undefined => {
+  const v = state.filters[key];
+  return v !== undefined && v !== "" && v !== "all" ? v : undefined;
+};
+
+/**
+ * Adapts resolved `useListState` output to `/importer-configs` API params
+ * (spec 068). The `enabled` URL sentinel `"all"` maps to "filter not
+ * applied"; `"true"`/`"false"` pass through for the boolean param.
+ */
+export function importerConfigsListParams(
+  state: ListQueryState,
+): ImporterConfigsListFilters {
+  return {
+    page: state.page,
+    pageSize: state.pageSize,
+    sort: (state.sort as ImporterConfigsSortKey | null) ?? "createdAt",
+    order: state.order,
+    search: state.search !== "" ? state.search : undefined,
+    importerName: configsFacet(state, "importerName"),
+    enabled: configsFacet(state, "enabled"),
+  };
+}
+
+/**
+ * Primary paginated importer-configs list (`{data, pagination}` envelope).
+ * Keep the current page visible while the next page/sort/filter loads.
+ */
+export function useImporterConfigs(filters: ImporterConfigsListFilters = {}) {
   return useQuery({
-    queryKey: ["importer-configs"],
-    queryFn: () => api<{ configs: ImporterConfig[] }>("/importer-configs"),
+    queryKey: ["importer-configs", "list", filters],
+    queryFn: () =>
+      api<Paginated<ImporterConfig>>(
+        `/importer-configs${buildApiQueryString(filters)}`,
+      ),
+    placeholderData: (prev) => prev,
+  });
+}
+
+/**
+ * Fetch every matching importer config by paging through the list endpoint
+ * (pageSize caps at 100) — for pickers/detail enrichments that legitimately
+ * need the full set (spec 068 exempt surfaces).
+ */
+export function useAllImporterConfigs(
+  filters: ImporterConfigsListFilters = {},
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ["importer-configs", "all", filters],
+    enabled,
+    queryFn: () =>
+      fetchAllPages((page) =>
+        api<Paginated<ImporterConfig>>(
+          `/importer-configs${buildApiQueryString({ ...filters, page, pageSize: 100 })}`,
+        ),
+      ),
   });
 }
 
@@ -120,27 +206,84 @@ export function useTriggerImportRun() {
   });
 }
 
-export function importerRunsQueryOptions(configId: string) {
+/** Spec 068 / ADR-130 sort whitelist for `GET /importer-configs/:id/runs`
+ *  (listImporterRunsQuerySchema). */
+export const IMPORTER_RUNS_SORT_KEYS = [
+  "createdAt",
+  "startedAt",
+  "status",
+  "completedAt",
+  "assetsProcessed",
+] as const;
+export type ImporterRunsSortKey = (typeof IMPORTER_RUNS_SORT_KEYS)[number];
+
+/** URL filter keys managed by the importer-detail run history (useListState). */
+export const IMPORTER_RUNS_FILTER_KEYS = ["status"] as const;
+export type ImporterRunsFilterKey = (typeof IMPORTER_RUNS_FILTER_KEYS)[number];
+
+/**
+ * API params accepted by `GET /importer-configs/:id/runs`. The endpoint
+ * has no `search` param (T061) — only page/pageSize/sort/order + `status`.
+ */
+export interface ImporterRunsListFilters {
+  page?: number;
+  pageSize?: number;
+  sort?: ImporterRunsSortKey;
+  order?: "asc" | "desc";
+  status?: string;
+}
+
+/**
+ * Adapts resolved `useListState` output to the run-history API params
+ * (spec 068). The `status` URL sentinel `"all"` maps to "filter not
+ * applied"; other values pass through as the run-status enum.
+ */
+export function importerRunsListParams(
+  state: ListQueryState,
+): ImporterRunsListFilters {
+  const v = state.filters.status;
   return {
-    queryKey: ["importer-configs", configId, "runs"] as const,
-    queryFn: () =>
-      api<{ runs: ImportRun[] }>(`/importer-configs/${configId}/runs`),
+    page: state.page,
+    pageSize: state.pageSize,
+    sort: (state.sort as ImporterRunsSortKey | null) ?? "createdAt",
+    order: state.order,
+    status:
+      v !== undefined && v !== "" && v !== "all" ? v : undefined,
   };
 }
 
-export function useImporterRuns(configId: string | null) {
-  return useQuery({
-    queryKey: ["importer-configs", configId, "runs"],
+export function importerRunsQueryOptions(
+  configId: string,
+  filters: ImporterRunsListFilters = {},
+) {
+  return {
+    queryKey: ["importer-configs", configId, "runs", "list", filters] as const,
     queryFn: () =>
-      api<{ runs: ImportRun[] }>(`/importer-configs/${configId}/runs`),
+      api<Paginated<ImportRun>>(
+        `/importer-configs/${configId}/runs${buildApiQueryString(filters)}`,
+      ),
+  };
+}
+
+export function useImporterRuns(
+  configId: string | null,
+  filters: ImporterRunsListFilters = {},
+) {
+  return useQuery({
+    queryKey: ["importer-configs", configId, "runs", "list", filters],
+    queryFn: () =>
+      api<Paginated<ImportRun>>(
+        `/importer-configs/${configId}/runs${buildApiQueryString(filters)}`,
+      ),
     enabled: configId !== null,
     refetchInterval: (query) => {
-      const runs = query.state.data?.runs ?? [];
+      const runs = query.state.data?.data ?? [];
       const hasActive = runs.some(
         (r) => r.status === "PENDING" || r.status === "RUNNING",
       );
       return hasActive ? 3000 : false;
     },
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -178,17 +321,46 @@ export function useCancelImportRun() {
   });
 }
 
+/** Spec 068 / ADR-130 sort whitelist for
+ *  `GET /importer-configs/:configId/runs/:runId/errors`
+ *  (listRunErrorsQuerySchema) — the stored columns behind the errors
+ *  table's Asset/Type/Message/Time cells (FR-005). */
+export const RUN_ERRORS_SORT_KEYS = [
+  "createdAt",
+  "errorType",
+  "assetExternalId",
+  "errorMessage",
+] as const;
+export type RunErrorsSortKey = (typeof RUN_ERRORS_SORT_KEYS)[number];
+
+/**
+ * API params accepted by `GET /importer-configs/:configId/runs/:runId/errors`
+ * (spec 068): `errorType` is the run-error "code" filter; `sort`/`order`
+ * drive the stored-column sorts. No `search` param (T061).
+ */
+export interface RunErrorsListParams {
+  page?: number;
+  pageSize?: number;
+  sort?: RunErrorsSortKey;
+  order?: "asc" | "desc";
+  errorType?: string;
+}
+
 export function useImportRunErrors(
   configId: string | null,
   runId: string | null,
+  params: RunErrorsListParams = {},
+  options?: { refetchInterval?: number | false },
 ) {
   return useQuery({
-    queryKey: ["importer-configs", configId, "runs", runId, "errors"],
+    queryKey: ["importer-configs", configId, "runs", runId, "errors", params],
     queryFn: () =>
-      api<{ errors: ImportRunError[] }>(
-        `/importer-configs/${configId}/runs/${runId}/errors`,
+      api<Paginated<ImportRunError>>(
+        `/importer-configs/${configId}/runs/${runId}/errors${buildApiQueryString(params)}`,
       ),
     enabled: configId !== null && runId !== null,
+    refetchInterval: options?.refetchInterval ?? false,
+    placeholderData: (prev) => prev,
   });
 }
 

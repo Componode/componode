@@ -1,5 +1,6 @@
 import { BotIcon } from "lucide-react"
 import { RelativeTime } from "@/ux/components/patterns/primitives"
+import { TitleWithSummary } from "@/ux/components/patterns/title-with-summary"
 import { Avatar, AvatarFallback } from "@/ux/components/ui/avatar"
 import { Badge } from "@/ux/components/ui/badge"
 import { initials } from "@/ux/lib/format"
@@ -34,7 +35,11 @@ export function ActivityFeed({ events }: { events: AuditEvent[] }) {
               <Badge variant="outline" className="mx-0.5 align-middle capitalize">
                 {e.entityKind}
               </Badge>{" "}
-              <span className="font-medium">{e.entityName}</span>
+              <TitleWithSummary
+                title={<span className="font-medium">{e.entityName}</span>}
+                titleText={e.entityName}
+                summary={{ kind: "audit", row: e }}
+              />
             </p>
             <p className="truncate text-xs text-muted-foreground">{e.summary}</p>
           </div>

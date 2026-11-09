@@ -14,10 +14,11 @@ import type {
   EdgeSuggestion,
   EdgeSuggestionReason,
   ListSuggestionsQuery,
-  SuggestionListResult,
+  Paginated,
   SuggestionQueueItem,
   SuggestionRescanReport,
 } from "@componode/core";
+import { paginationMeta } from "../utils/pagination.js";
 
 function notFound(entity: string) {
   return Object.assign(new Error(`${entity} not found`), {
@@ -106,7 +107,9 @@ function toContract(
 
 export async function listSuggestions(
   query: ListSuggestionsQuery,
-): Promise<SuggestionListResult> {
+): Promise<Paginated<SuggestionQueueItem>> {
+  const { page, pageSize, sort, order } = query;
+  const offset = (page - 1) * pageSize;
   const base = () =>
     db
       .selectFrom("edge_suggestions")
@@ -165,24 +168,49 @@ export async function listSuggestions(
       .coalesce("persons.displayName", "persons.username")
       .as("decidedByName"),
   ]);
-  if (query.status === "PENDING") {
+  // Spec 068 / ADR-130: whitelisted sort keys resolved per view. The
+  // pending queue ranks by signal score; decided views (DISMISSED, and
+  // DECIDED which spans every terminal status) are decision history and
+  // order by `decidedAt` — `score` maps there because SUPERSEDED
+  // tombstones carry NULL scores (PG sorts NULLs first on DESC, which
+  // would surface them ahead of real decisions) and score is meaningless
+  // once a pair is decided. `decidedAt` on PENDING maps to `createdAt`
+  // (always NULL pre-decision). `status` (T059 / FR-005) is a stored
+  // column in every view — constant within PENDING/DISMISSED but a real
+  // ordering across the mixed DECIDED history. `id` tiebreak keeps
+  // paging stable.
+  const decidedView = query.status !== "PENDING";
+  const effectiveSort =
+    sort === "status"
+      ? "status"
+      : sort === "createdAt"
+        ? "createdAt"
+        : decidedView
+          ? "decidedAt"
+          : sort === "score"
+            ? "score"
+            : "createdAt";
+  if (effectiveSort === "score") {
     rowsQuery = rowsQuery
-      .orderBy("edge_suggestions.score", "desc")
+      .orderBy("edge_suggestions.score", order)
       .orderBy("edge_suggestions.createdAt", "asc")
       .orderBy("edge_suggestions.id", "asc");
   } else {
+    const column =
+      effectiveSort === "decidedAt"
+        ? "edge_suggestions.decidedAt"
+        : effectiveSort === "status"
+          ? "edge_suggestions.status"
+          : "edge_suggestions.createdAt";
     rowsQuery = rowsQuery
-      .orderBy("edge_suggestions.decidedAt", "desc")
-      .orderBy("edge_suggestions.id", "desc");
+      .orderBy(column, order)
+      .orderBy("edge_suggestions.id", order);
   }
-  const rows = await rowsQuery
-    .limit(query.limit)
-    .offset(query.offset)
-    .execute();
+  const rows = await rowsQuery.limit(pageSize).offset(offset).execute();
 
   return {
-    items: rows.map(toQueueItem),
-    total,
+    data: rows.map(toQueueItem),
+    pagination: paginationMeta(total, page, pageSize),
   };
 }
 

@@ -10,6 +10,11 @@ import {
 } from "../constants/url-check.js";
 import { authConfigSchema, successPolicySchema } from "./url-check.js";
 import { urlSafetyError } from "../validation/url-safety.js";
+import {
+  listParamsBaseSchema,
+  listOrderSchema,
+  optionalBooleanParam,
+} from "./list-params.js";
 
 const secretRefSchema = z.object({
   key: z.string().min(1, "Secret key is required"),
@@ -51,6 +56,27 @@ export const updateImporterConfigSchema = importerConfigBaseSchema.partial();
 
 export type CreateImporterConfigInput = z.infer<typeof createImporterConfigSchema>;
 export type UpdateImporterConfigInput = z.infer<typeof updateImporterConfigSchema>;
+
+/**
+ * Spec 068 / ADR-130: standardized list contract for GET /importer-configs.
+ * The config row exposes `enabled` (paused/running) rather than a status
+ * enum and no persisted last-run column — `status`/`lastRunAt` contract
+ * keys map to `enabled` here; `name` sorts by the `label` column.
+ */
+export const listImporterConfigsQuerySchema = listParamsBaseSchema
+  .extend({
+    importerName: z.string().max(100).optional(),
+    enabled: optionalBooleanParam,
+    sort: z
+      .enum(["name", "importerName", "enabled", "createdAt", "updatedAt"])
+      .default("createdAt"),
+    order: listOrderSchema.default("desc"),
+  })
+  .strict();
+
+export type ListImporterConfigsQuery = z.infer<
+  typeof listImporterConfigsQuerySchema
+>;
 
 // ---------------------------------------------------------------------------
 // Web/API collection scope v2 (spec 058, ADR-126): ImporterConfig.scope is the

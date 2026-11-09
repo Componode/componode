@@ -118,13 +118,14 @@ describe("users CRUD", () => {
 
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(Array.isArray(body.users)).toBe(true);
-    expect(body.users.length).toBeGreaterThanOrEqual(2);
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data.length).toBeGreaterThanOrEqual(2);
+    expect(body.pagination.total).toBeGreaterThanOrEqual(2);
 
     // lastActiveAt = most recent session sighting — the calling admin
     // just logged in, so it must be set; the fresh user never signed in.
-    const admin = body.users.find((u: { username: string }) => u.username === ADMIN_USERNAME);
-    const listed = body.users.find((u: { username: string }) => u.username === "listeduser");
+    const admin = body.data.find((u: { username: string }) => u.username === ADMIN_USERNAME);
+    const listed = body.data.find((u: { username: string }) => u.username === "listeduser");
     expect(admin.lastActiveAt).toBeTruthy();
     expect(listed.lastActiveAt).toBeNull();
   });
@@ -371,7 +372,7 @@ describe("users CRUD", () => {
         cookies: { [SESSION_COOKIE_NAME]: adminSession! },
       });
       expect(feed.statusCode).toBe(200);
-      const items = feed.json().items;
+      const items = feed.json().data;
       const entry = items.find(
         (i: { entityId: string; action: string }) =>
           i.entityId === user.id && i.action === "updated",
@@ -380,6 +381,181 @@ describe("users CRUD", () => {
       expect(entry.createdByName).toBe("selfaudit");
       expect(entry.changes.displayName).toBe("Audited Self");
       expect(entry.changes.email).toBe("audit@example.com");
+    });
+  });
+
+  // Spec 068 / ADR-130: GET /users returns the {data, pagination}
+  // envelope, validates query params at the route boundary, and never
+  // exposes credential columns.
+  describe("spec 068 — standardized list contract", () => {
+    const get = (qs = "") =>
+      app.inject({
+        method: "GET",
+        url: `/api/v1/users${qs}`,
+        cookies: { [SESSION_COOKIE_NAME]: adminSession! },
+      });
+
+    const createUser = (payload: Record<string, unknown>) =>
+      app.inject({
+        method: "POST",
+        url: "/api/v1/users",
+        cookies: { [SESSION_COOKIE_NAME]: adminSession!, ...csrfCookie },
+        headers: csrfHeader,
+        payload,
+      });
+
+    it("rejects invalid query params with 400 VALIDATION_FAILED", async () => {
+      for (const qs of [
+        "?page=0",
+        "?pageSize=101",
+        "?sort=bogus",
+        "?order=sideways",
+        "?role=SUPERUSER",
+        "?bogusParam=1",
+      ]) {
+        const res = await get(qs);
+        expect(res.statusCode, qs).toBe(400);
+        expect(res.json().code).toBe("VALIDATION_FAILED");
+      }
+    });
+
+    it("returns the {data, pagination} envelope without credential fields", async () => {
+      const created = await createUser({
+        username: "env-user",
+        password: "EnvUser12345!",
+        role: "VIEWER",
+      });
+      expect(created.statusCode).toBe(201);
+
+      const res = await get("");
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(Array.isArray(body.data)).toBe(true);
+      // admin + env-user
+      expect(body.pagination).toMatchObject({
+        page: 1,
+        pageSize: 25,
+        total: 2,
+        pageCount: 1,
+        hasNext: false,
+      });
+      for (const u of body.data) {
+        expect(u).not.toHaveProperty("passwordHash");
+        expect(u).not.toHaveProperty("oidcSubject");
+      }
+      // Default sort is createdAt desc — the just-created user leads.
+      expect(body.data[0].username).toBe("env-user");
+
+      const p1 = (await get("?page=1&pageSize=1")).json();
+      expect(p1.data).toHaveLength(1);
+      expect(p1.pagination).toMatchObject({
+        page: 1,
+        pageSize: 1,
+        total: 2,
+        pageCount: 2,
+        hasNext: true,
+      });
+      const p2 = (await get("?page=2&pageSize=1")).json();
+      expect(p2.data).toHaveLength(1);
+      expect(p2.data[0].username).toBe(ADMIN_USERNAME);
+      expect(p2.pagination.hasNext).toBe(false);
+    });
+
+    it("honors the sort whitelist (name/role/isActive/lastActiveAt/createdAt)", async () => {
+      // coalesce(displayName, username): "Aaron" sorts before "admin" and
+      // before sort-amy's username fallback.
+      const zoe = await createUser({
+        username: "sort-zoe",
+        password: "SortZoe12345!",
+        role: "VIEWER",
+        displayName: "Aaron",
+      });
+      const amy = await createUser({
+        username: "sort-amy",
+        password: "SortAmy12345!",
+        role: "EDITOR",
+      });
+      expect(zoe.statusCode).toBe(201);
+      expect(amy.statusCode).toBe(201);
+
+      const byName = (await get("?search=sort-&sort=name&order=asc")).json();
+      expect(byName.data.map((u: any) => u.username)).toEqual([
+        "sort-zoe",
+        "sort-amy",
+      ]);
+
+      const byRole = (await get("?search=sort-&sort=role&order=asc")).json();
+      expect(byRole.data.map((u: any) => u.role)).toEqual(["EDITOR", "VIEWER"]);
+
+      // Deactivate zoe — isActive asc puts the inactive row first.
+      const zoeId = zoe.json().user.id;
+      const patch = await app.inject({
+        method: "PATCH",
+        url: `/api/v1/users/${zoeId}`,
+        cookies: { [SESSION_COOKIE_NAME]: adminSession!, ...csrfCookie },
+        headers: csrfHeader,
+        payload: { isActive: false },
+      });
+      expect(patch.statusCode).toBe(200);
+      const byActive = (await get("?search=sort-&sort=isActive&order=asc")).json();
+      expect(byActive.data.map((u: any) => u.username)).toEqual([
+        "sort-zoe",
+        "sort-amy",
+      ]);
+
+      // lastActiveAt asc: only the calling admin has a session sighting,
+      // and non-null sorts before the never-active rows (NULLS LAST).
+      const byActive2 = (await get("?sort=lastActiveAt&order=asc&pageSize=5")).json();
+      expect(byActive2.data[0].username).toBe(ADMIN_USERNAME);
+      expect(byActive2.data[0].lastActiveAt).toBeTruthy();
+
+      // createdAt ordering is monotonic in both directions.
+      const asc = (await get("?sort=createdAt&order=asc")).json().data;
+      for (let i = 1; i < asc.length; i++) {
+        expect(asc[i].createdAt >= asc[i - 1].createdAt).toBe(true);
+      }
+      const desc = (await get("?sort=createdAt&order=desc")).json().data;
+      for (let i = 1; i < desc.length; i++) {
+        expect(desc[i].createdAt <= desc[i - 1].createdAt).toBe(true);
+      }
+    });
+
+    it("filters by role/isActive and searches display fields", async () => {
+      await createUser({
+        username: "find-me",
+        password: "FindMe12345!",
+        role: "EDITOR",
+        displayName: "Unique Findable",
+        email: "findable@example.com",
+      });
+      const other = await createUser({
+        username: "other-user",
+        password: "OtherUser12345!",
+        role: "VIEWER",
+      });
+      expect(other.statusCode).toBe(201);
+      await app.inject({
+        method: "PATCH",
+        url: `/api/v1/users/${other.json().user.id}`,
+        cookies: { [SESSION_COOKIE_NAME]: adminSession!, ...csrfCookie },
+        headers: csrfHeader,
+        payload: { isActive: false },
+      });
+
+      // Search covers username, displayName, and email (ilike).
+      for (const term of ["findable", "FINDABLE", "findable@example", "find-me"]) {
+        const res = await get(`?search=${encodeURIComponent(term)}`);
+        expect(res.statusCode, term).toBe(200);
+        expect(res.json().pagination.total, term).toBe(1);
+        expect(res.json().data[0].username).toBe("find-me");
+      }
+      expect((await get("?search=nomatch-zzz")).json().pagination.total).toBe(0);
+
+      expect((await get("?role=EDITOR")).json().data.every((u: any) => u.role === "EDITOR")).toBe(true);
+      const inactive = (await get("?isActive=false")).json();
+      expect(inactive.data.length).toBeGreaterThanOrEqual(1);
+      expect(inactive.data.every((u: any) => u.isActive === false)).toBe(true);
+      expect(inactive.data.map((u: any) => u.username)).toContain("other-user");
     });
   });
 });

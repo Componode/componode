@@ -1,9 +1,15 @@
 import { uuidv7 } from "uuidv7";
 import type { Kysely, Selectable, Transaction } from "kysely";
-import type { SourceIdentityInput } from "@componode/core";
+import type {
+  ImporterSourceListItem,
+  ImporterSourceListQuery,
+  Paginated,
+  SourceIdentityInput,
+} from "@componode/core";
 import { canonicalizeSourceIdentity } from "@componode/core";
 import type { DB, ImporterSourceRow } from "../db/types.js";
 import { db } from "../db/connection.js";
+import { paginateQuery } from "../utils/pagination.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { runAutoGroupPass } from "./source-group-service.js";
 
@@ -300,11 +306,17 @@ export async function unmonitorSourcesForConfig(
 
 
 
-/** List all Sources with bound-config summary + activity rollups. */
-export async function listSources(filters?: {
-  status?: string;
-  importerName?: string;
-}) {
+/**
+ * List Sources with bound-config summary + activity rollups (spec 068 /
+ * ADR-130): page/pageSize/sort/order/search + status/importerName filters.
+ * `name` sorts by the provider-native `externalIdentity`; `lastCompletedRunAt`
+ * is the max `completedAt` over the Source's COMPLETED runs, computed as a
+ * correlated subquery so the same expression serves display and sorting.
+ * Membership counts are scoped to the page's ids.
+ */
+export async function listSources(
+  query: ImporterSourceListQuery,
+): Promise<Paginated<ImporterSourceListItem>> {
   let q = db
     .selectFrom("importer_sources")
     .leftJoin(
@@ -316,57 +328,96 @@ export async function listSources(filters?: {
     .select([
       "importer_configs.id as boundConfigIdJoined",
       "importer_configs.label as boundConfigLabel",
+    ])
+    .select((eb) => [
+      eb
+        .selectFrom("import_runs")
+        .select((eb2) => eb2.fn.max("completedAt").as("m"))
+        .whereRef("import_runs.sourceId", "=", "importer_sources.id")
+        .where("import_runs.status", "=", "COMPLETED")
+        .as("lastCompletedRunAt"),
+      // FR-005: the active-membership counts are the same correlated
+      // subqueries the row exposes — they can drive the `components` /
+      // `instances` sorts instead of the page-scoped grouped reads.
+      eb
+        .selectFrom("source_component_memberships")
+        .select((eb2) => eb2.fn.countAll().as("c"))
+        .whereRef("source_component_memberships.sourceId", "=", "importer_sources.id")
+        .where("active", "=", true)
+        .as("activeComponentMemberships"),
+      eb
+        .selectFrom("source_instance_memberships")
+        .select((eb2) => eb2.fn.countAll().as("c"))
+        .whereRef("source_instance_memberships.sourceId", "=", "importer_sources.id")
+        .where("active", "=", true)
+        .as("activeInstanceMemberships"),
     ]);
-  if (filters?.status) q = q.where("importer_sources.status", "=", filters.status);
-  if (filters?.importerName)
-    q = q.where("importer_sources.importerName", "=", filters.importerName);
-  const rows = await q.orderBy("importer_sources.createdAt", "asc").execute();
 
-  const lastRun = await db
-    .selectFrom("import_runs")
-    .select(["sourceId"])
-    .select((eb) => eb.fn.max("completedAt").as("lastCompletedRunAt"))
-    .where("status", "=", "COMPLETED")
-    .groupBy("sourceId")
-    .execute();
-  const lastRunMap = new Map(lastRun.map((r) => [r.sourceId, r.lastCompletedRunAt]));
+  if (query.status) {
+    q = q.where("importer_sources.status", "=", query.status);
+  }
+  if (query.importerName) {
+    q = q.where("importer_sources.importerName", "=", query.importerName);
+  }
+  if (query.search) {
+    const term = `%${query.search}%`;
+    q = q.where((eb) =>
+      eb.or([
+        eb("importer_sources.externalIdentity", "ilike", term),
+        eb("importer_sources.label", "ilike", term),
+      ]),
+    );
+  }
 
-  const compCounts = await db
-    .selectFrom("source_component_memberships")
-    .select(["sourceId"])
-    .select((eb) => eb.fn.countAll().as("n"))
-    .where("active", "=", true)
-    .groupBy("sourceId")
-    .execute();
-  const instCounts = await db
-    .selectFrom("source_instance_memberships")
-    .select(["sourceId"])
-    .select((eb) => eb.fn.countAll().as("n"))
-    .where("active", "=", true)
-    .groupBy("sourceId")
-    .execute();
-  const compMap = new Map(compCounts.map((r) => [r.sourceId, Number(r.n)]));
-  const instMap = new Map(instCounts.map((r) => [r.sourceId, Number(r.n)]));
+  const { data: rows, pagination } = await paginateQuery(
+    q,
+    { page: query.page, pageSize: query.pageSize },
+    {
+      orderBy: (qb) => {
+        const primary =
+          query.sort === "importerName"
+            ? qb.orderBy("importer_sources.importerName", query.order)
+            : query.sort === "status"
+              ? qb.orderBy("importer_sources.status", query.order)
+              : query.sort === "boundConfig"
+                ? qb.orderBy("boundConfigLabel", query.order)
+                : query.sort === "components"
+                  ? qb.orderBy("activeComponentMemberships", query.order)
+                  : query.sort === "instances"
+                    ? qb.orderBy("activeInstanceMemberships", query.order)
+                    : query.sort === "lastCompletedRunAt"
+                      ? qb.orderBy("lastCompletedRunAt", query.order)
+                      : query.sort === "createdAt"
+                        ? qb.orderBy("importer_sources.createdAt", query.order)
+                        : qb.orderBy("importer_sources.externalIdentity", query.order);
+        // Deterministic tie-break (ADR-130).
+        return primary.orderBy("importer_sources.id", query.order);
+      },
+    },
+  );
 
-  return rows.map((r) => ({
-    id: r.id,
-    importerName: r.importerName,
-    externalIdentity: r.externalIdentity,
-    label: r.label,
-    status: r.status,
-    boundConfigId: r.boundConfigId,
-    componentGroupId: r.componentGroupId,
-    firstSeenInRunId: r.firstSeenInRunId,
-    lastSeenInRunId: r.lastSeenInRunId,
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-    boundConfig: r.boundConfigIdJoined
-      ? { id: r.boundConfigIdJoined, label: r.boundConfigLabel! }
-      : null,
-    lastCompletedRunAt: lastRunMap.get(r.id) ?? null,
-    activeComponentMemberships: compMap.get(r.id) ?? 0,
-    activeInstanceMemberships: instMap.get(r.id) ?? 0,
-  }));
+  return {
+    data: rows.map((r) => ({
+      id: r.id,
+      importerName: r.importerName,
+      externalIdentity: r.externalIdentity,
+      label: r.label,
+      status: r.status as ImporterSourceListItem["status"],
+      boundConfigId: r.boundConfigId,
+      componentGroupId: r.componentGroupId,
+      firstSeenInRunId: r.firstSeenInRunId,
+      lastSeenInRunId: r.lastSeenInRunId,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      boundConfig: r.boundConfigIdJoined
+        ? { id: r.boundConfigIdJoined, label: r.boundConfigLabel! }
+        : null,
+      lastCompletedRunAt: r.lastCompletedRunAt ?? null,
+      activeComponentMemberships: Number(r.activeComponentMemberships ?? 0),
+      activeInstanceMemberships: Number(r.activeInstanceMemberships ?? 0),
+    })),
+    pagination,
+  };
 }
 
 export async function getSource(id: string) {

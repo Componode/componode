@@ -9,10 +9,13 @@ import { getImporter, getManifest } from "./importer-registry.js";
 import { decryptSecrets, loadKeyring } from "../utils/credential-crypto.js";
 import type {
   CreateDockerTargetInput,
+  ListDockerTargetsQuery,
+  Paginated,
   ProbeDockerTargetInput,
   TestDockerTargetInput,
   UpdateDockerTargetInput,
 } from "@componode/core";
+import { paginateQuery } from "../utils/pagination.js";
 
 type Executor = Kysely<DB> | Transaction<DB>;
 type Profile = Record<string, unknown>;
@@ -61,7 +64,44 @@ export async function assertHubDockerConfig(scope: Profile, credentialIds: strin
   if (missing.length) throw err(400, "CREDENTIAL_MISSING_KEY", `Missing required secret key ${missing.map((k) => `"${k}"`).join(", ")}`);
 }
 
-export async function listDockerTargets() { return (await db.selectFrom("docker_targets").selectAll().orderBy("label").execute()).map(api); }
+// Spec 068 / ADR-130: standardized list contract — `name` sorts by the
+// display `label` column; `targetId`/`enabled` are the stored columns the
+// Target ID/Status cells render (the transport cell is a JSONB profile
+// field, so it has no sort key — FR-005). `profile` carries connection
+// metadata only (secret material stays in credentials, referenced by key
+// name).
+export async function listDockerTargets(
+  query: ListDockerTargetsQuery,
+): Promise<Paginated<ReturnType<typeof api>>> {
+  let q = db.selectFrom("docker_targets").selectAll();
+  if (query.search) {
+    const term = `%${query.search}%`;
+    q = q.where((eb) =>
+      eb.or([
+        eb("docker_targets.label", "ilike", term),
+        eb("docker_targets.targetId", "ilike", term),
+      ]),
+    );
+  }
+  const { data, pagination } = await paginateQuery(
+    q,
+    { page: query.page, pageSize: query.pageSize },
+    {
+      orderBy: (qb) => {
+        const primary =
+          query.sort === "createdAt"
+            ? qb.orderBy("docker_targets.createdAt", query.order)
+            : query.sort === "targetId"
+              ? qb.orderBy("docker_targets.targetId", query.order)
+              : query.sort === "enabled"
+                ? qb.orderBy("docker_targets.enabled", query.order)
+                : qb.orderBy("docker_targets.label", query.order);
+        return primary.orderBy("docker_targets.id", query.order);
+      },
+    },
+  );
+  return { data: data.map(api), pagination };
+}
 export async function getDockerTarget(id: string) { const r = await db.selectFrom("docker_targets").selectAll().where("id", "=", id).executeTakeFirst(); return r ? api(r) : null; }
 
 export async function createDockerTarget(input: CreateDockerTargetInput, actor: Actor) {

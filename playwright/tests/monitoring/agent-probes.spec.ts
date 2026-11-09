@@ -15,7 +15,7 @@ test.describe('import agent probe coverage', () => {
   test('registered-but-disconnected agent shows no active session', async ({ request }) => {
     const api = await apiLogin(request, BASE, 'ADMIN');
     const agents = await api('GET', '/api/v1/agents');
-    const list = agents.body.agents ?? agents.body.items ?? agents.body;
+    const list = agents.body.agents ?? agents.body.items ?? agents.body.data ?? agents.body;
     const offline = list.find((a: any) => /offline/.test(a.name));
     if (offline) {
       const sessions = await api('GET', `/api/v1/agents/${offline.id}/sessions`);

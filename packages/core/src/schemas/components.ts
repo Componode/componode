@@ -6,49 +6,56 @@ import {
   createInstanceBlockSchema,
   createMonitoringBlockSchema,
 } from "./url-check.js";
+import {
+  listParamsBaseSchema,
+  splitCsvParam,
+  toBooleanParam,
+} from "./list-params.js";
 
 const lifecycleEnum = ["ACTIVE", "RETIRED"] as [string, ...string[]];
 
-function toBoolean(value: unknown): boolean {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") return value === "true" || value === "1";
-  return false;
-}
-
 const stringOrStringArray = z.union([z.string(), z.array(z.string())]).optional();
 
-/** Splits comma-joined facet params; each value is then enum-validated. */
-export const splitCsvParam = (v: string | string[]) =>
-  (Array.isArray(v) ? v : [v])
-    .flatMap((s) => s.split(","))
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-export const listComponentsQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
-  category: stringOrStringArray,
-  provider: stringOrStringArray,
-  lifecycle: stringOrStringArray,
-  status: stringOrStringArray,
-  componentGroup: stringOrStringArray,
-  group: stringOrStringArray,
-  wired: z
-    .union([z.string(), z.array(z.string())])
-    .transform(splitCsvParam)
-    .pipe(z.array(z.enum(["wired", "unwired"])))
-    .optional(),
-  tag: tagSchema.optional(),
-  search: z.string().max(100).optional(),
-  sort: z.enum(["name", "lastSeenAt", "createdAt"]).default("name"),
-  order: z.enum(["asc", "desc"]).default("asc"),
-  includeRetired: z.preprocess(toBoolean, z.boolean().default(false)),
-  includeGone: z.preprocess(toBoolean, z.boolean().default(false)),
-}).strict();
+/**
+ * Spec 068 / ADR-130: standardized list contract — shared page/pageSize/
+ * order/search params plus the endpoint's sort whitelist and filters.
+ * Sort keys map to displayed columns: `owner` → joined team name,
+ * `health` → worst-instance-status CASE, `instances` → instance count,
+ * `lastSeenAt` → max instance last-seen.
+ */
+export const listComponentsQuerySchema = listParamsBaseSchema
+  .extend({
+    category: stringOrStringArray,
+    provider: stringOrStringArray,
+    lifecycle: stringOrStringArray,
+    status: stringOrStringArray,
+    componentGroup: stringOrStringArray,
+    group: stringOrStringArray,
+    wired: z
+      .union([z.string(), z.array(z.string())])
+      .transform(splitCsvParam)
+      .pipe(z.array(z.enum(["wired", "unwired"])))
+      .optional(),
+    tag: tagSchema.optional(),
+    sort: z
+      .enum([
+        "name",
+        "category",
+        "resourceType",
+        "owner",
+        "health",
+        "instances",
+        "lastSeenAt",
+      ])
+      .default("name"),
+    includeRetired: z.preprocess(toBooleanParam, z.boolean().default(false)),
+    includeGone: z.preprocess(toBooleanParam, z.boolean().default(false)),
+  })
+  .strict();
 
 /** Spec 060: query params for the read-only Component relationships read. */
 export const componentRelationshipsQuerySchema = z.object({
-  includeGone: z.preprocess(toBoolean, z.boolean().default(false)),
+  includeGone: z.preprocess(toBooleanParam, z.boolean().default(false)),
 }).strict();
 
 export const updateComponentGroupAssignmentSchema = z.object({
@@ -107,10 +114,18 @@ export const updateComponentGroupSchema = createComponentGroupSchema
     lifecycle: z.enum(lifecycleEnum).optional(),
   });
 
-export const listComponentGroupsQuerySchema = z.object({
-  lifecycle: z.string().optional(),
-  includeRetired: z.preprocess(toBoolean, z.boolean().default(false)),
-});
+/**
+ * Spec 068 / ADR-130: standardized list contract for component groups —
+ * shared params plus `lifecycle`/`includeRetired` filters. An explicit
+ * `lifecycle` value overrides the default RETIRED exclusion (service-side).
+ */
+export const listComponentGroupsQuerySchema = listParamsBaseSchema
+  .extend({
+    lifecycle: z.enum(lifecycleEnum).optional(),
+    includeRetired: z.preprocess(toBooleanParam, z.boolean().default(false)),
+    sort: z.enum(["name", "lifecycle", "createdAt"]).default("name"),
+  })
+  .strict();
 
 export type ListComponentsQuery = z.infer<typeof listComponentsQuerySchema>;
 export type ComponentRelationshipsQuery = z.infer<typeof componentRelationshipsQuerySchema>;

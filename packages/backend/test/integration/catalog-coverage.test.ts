@@ -425,7 +425,7 @@ describe("catalog coverage & hygiene (spec 023)", () => {
     async function productSlugs(url: string) {
       const res = await app.inject({ method: "GET", url, ...authed() });
       expect(res.statusCode).toBe(200);
-      return (res.json().products as Array<{ slug: string }>).map((p) => p.slug);
+      return (res.json().data as Array<{ slug: string }>).map((p) => p.slug);
     }
 
     it("rejects unknown facet values with 400 VALIDATION_FAILED", async () => {
@@ -494,7 +494,7 @@ describe("catalog coverage & hygiene (spec 023)", () => {
         "/api/v1/products?missing=dependencies&type=PLATFORM",
       );
       expect(withType).toEqual(["p-platform"]);
-      const withQ = await productSlugs("/api/v1/products?missing=dependencies&q=p-par");
+      const withQ = await productSlugs("/api/v1/products?missing=dependencies&search=p-par");
       expect(withQ).toEqual(["p-parent-dead"]);
     });
   });
@@ -555,7 +555,7 @@ describe("catalog coverage & hygiene (spec 023)", () => {
         url: "/api/v1/products?includeRetired=true",
         ...authed(),
       });
-      const rows = res.json().products as Array<{
+      const rows = res.json().data as Array<{
         slug: string;
         completeness: {
           owner: boolean;
@@ -596,7 +596,7 @@ describe("catalog coverage & hygiene (spec 023)", () => {
         url: "/api/v1/products",
         ...authed(),
       });
-      const rows = res.json().products as Array<{
+      const rows = res.json().data as Array<{
         slug: string;
         consumedByCount: number;
       }>;
@@ -619,7 +619,7 @@ describe("catalog coverage & hygiene (spec 023)", () => {
         url: "/api/v1/products",
         ...authed(),
       });
-      const row = (list.json().products as Array<{ slug: string; consumedByCount: number }>).find(
+      const row = (list.json().data as Array<{ slug: string; consumedByCount: number }>).find(
         (p) => p.slug === "p-platform",
       );
       expect(row?.consumedByCount).toBe(detail.consumedBy.length);

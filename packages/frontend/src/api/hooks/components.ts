@@ -4,6 +4,7 @@ import type {
   CreateInstanceBlock,
 } from "@componode/core";
 import { api } from "@/api/client";
+import { fetchAllPages, type ListQueryState } from "@/api/list-query";
 import type {
   Component,
   ComponentInstance,
@@ -15,6 +16,28 @@ import type {
   PromoteToPlatformInput,
   PromoteToPlatformResult,
 } from "@/api/types";
+
+/** Spec 068 / ADR-130 sort whitelist for `GET /components` (contract doc). */
+export const COMPONENTS_SORT_KEYS = [
+  "name",
+  "category",
+  "resourceType",
+  "owner",
+  "health",
+  "instances",
+  "lastSeenAt",
+] as const;
+export type ComponentsSortKey = (typeof COMPONENTS_SORT_KEYS)[number];
+
+/** URL filter keys managed by the /components list page (useListState). */
+export const COMPONENTS_FILTER_KEYS = [
+  "provider",
+  "category",
+  "lifecycle",
+  "wired",
+  "gone",
+] as const;
+export type ComponentsFilterKey = (typeof COMPONENTS_FILTER_KEYS)[number];
 
 export interface ComponentListFilters {
   page?: number;
@@ -30,7 +53,7 @@ export interface ComponentListFilters {
   search?: string;
   includeRetired?: boolean;
   includeGone?: boolean;
-  sort?: "name" | "lastSeenAt" | "createdAt";
+  sort?: ComponentsSortKey;
   order?: "asc" | "desc";
 }
 
@@ -45,11 +68,42 @@ function buildQueryString(filters: ComponentListFilters): string {
   return qs ? `?${qs}` : "";
 }
 
+/**
+ * Adapts resolved `useListState` output to `/components` API params
+ * (spec 068). URL filter sentinels map to API values: `gone=hide|show` →
+ * `includeGone=false|true`; `"all"`-sentinel filters are omitted. The page
+ * always sends `includeRetired=true` so RETIRED rows stay reachable via
+ * the lifecycle filter/badge (unchanged pre-068 behavior).
+ */
+export function componentsListParams(state: ListQueryState): ComponentListFilters {
+  const f = state.filters;
+  const facet = (key: string) => {
+    const v = f[key];
+    return v !== undefined && v !== "" && v !== "all" ? v : undefined;
+  };
+  return {
+    page: state.page,
+    pageSize: state.pageSize,
+    sort: (state.sort as ComponentsSortKey | null) ?? "name",
+    order: state.order,
+    search: state.search !== "" ? state.search : undefined,
+    provider: facet("provider"),
+    category: facet("category"),
+    lifecycle: facet("lifecycle"),
+    wired: facet("wired"),
+    includeRetired: true,
+    includeGone: f.gone === "show",
+  };
+}
+
 export function useComponents(filters: ComponentListFilters = {}) {
   return useQuery({
     queryKey: ["components", filters],
     queryFn: () =>
       api<ComponentListResponse>(`/components${buildQueryString(filters)}`),
+    // Keep the current page visible while the next page/sort/filter loads
+    // (docs/ux.md §6 refetch row; spec 068 gradual consumption).
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -64,16 +118,12 @@ export function useAllComponents(
   return useQuery({
     queryKey: ["components", "all", filters],
     enabled,
-    queryFn: async () => {
-      const all: ComponentListResponse["data"] = [];
-      for (let page = 1; ; page++) {
-        const res = await api<ComponentListResponse>(
+    queryFn: () =>
+      fetchAllPages((page) =>
+        api<ComponentListResponse>(
           `/components${buildQueryString({ ...filters, page, pageSize: 100 })}`,
-        );
-        all.push(...res.data);
-        if (!res.pagination?.hasNext) return all;
-      }
-    },
+        ),
+      ),
   });
 }
 

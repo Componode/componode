@@ -105,10 +105,10 @@ describe("audit per-entity and per-run history", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.total).toBe(2);
-    expect(body.items.every((i: { entityId: string }) => i.entityId === productA)).toBe(true);
-    expect(body.items[0].action).toBe("lifecycle");
-    expect(body.items[1].action).toBe("updated");
+    expect(body.pagination.total).toBe(2);
+    expect(body.data.every((i: { entityId: string }) => i.entityId === productA)).toBe(true);
+    expect(body.data[0].action).toBe("lifecycle");
+    expect(body.data[1].action).toBe("updated");
   });
 
   it("survives deleted actor and still shows recorded name", async () => {
@@ -143,8 +143,8 @@ describe("audit per-entity and per-run history", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.total).toBe(1);
-    expect(body.items[0].createdByName).toBe("Deleted Actor");
+    expect(body.pagination.total).toBe(1);
+    expect(body.data[0].createdByName).toBe("Deleted Actor");
   });
 
   it("GET /api/v1/importer-configs/:configId/runs/:runId/changes returns run changes and errors", async () => {
@@ -216,9 +216,10 @@ describe("audit per-entity and per-run history", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.changes).toHaveLength(1);
-    expect(body.changes[0].action).toBe("created");
-    expect(body.changes[0].createdByName).toBe("importer:aws");
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].action).toBe("created");
+    expect(body.data[0].createdByName).toBe("importer:aws");
+    expect(body.pagination).toMatchObject({ page: 1, pageSize: 25, total: 1 });
     expect(body.errors).toHaveLength(1);
     expect(body.errors[0].errorType).toBe("PARSE_ERROR");
   });
@@ -231,8 +232,8 @@ describe("audit per-entity and per-run history", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.items).toHaveLength(0);
-    expect(body.total).toBe(0);
+    expect(body.data).toHaveLength(0);
+    expect(body.pagination.total).toBe(0);
   });
 
   it("requires authentication", async () => {
@@ -241,5 +242,220 @@ describe("audit per-entity and per-run history", () => {
       url: `/api/v1/audit/entities/digital_product/${uuidv7()}`,
     });
     expect(res.statusCode).toBe(401);
+  });
+
+  // Spec 068 / ADR-130: entity history is the same SQL UNION scoped to one
+  // entity — entity_changes on (entityType, entityId) plus edge_changes
+  // touching it at either endpoint — paginated database-side.
+  it("paginates per-entity history across entity_changes and edge_changes", async () => {
+    const entityId = uuidv7();
+    const otherId = uuidv7();
+    const t = new Date("2026-10-05T10:00:00.000Z").getTime();
+    const at = (offsetMs: number) => new Date(t + offsetMs).toISOString();
+
+    const entityRows = [
+      { action: "hist-a", offset: 0 },
+      { action: "hist-b", offset: 200_000 },
+      { action: "hist-c", offset: 400_000 },
+    ].map((r) => ({
+      id: uuidv7(),
+      entityType: "digital_product",
+      entityId,
+      action: r.action,
+      changes: null,
+      importRunId: null,
+      createdBy: null,
+      createdByName: "historian",
+      createdAt: at(r.offset),
+    }));
+    const edgeSpecs = [
+      // entity as the FROM endpoint
+      {
+        action: "edge-from",
+        offset: 100_000,
+        fromType: "digital_product",
+        fromId: entityId,
+        toType: "component",
+        toId: otherId,
+      },
+      // entity as the TO endpoint
+      {
+        action: "edge-to",
+        offset: 300_000,
+        fromType: "component",
+        fromId: otherId,
+        toType: "digital_product",
+        toId: entityId,
+      },
+      // entity as FROM again
+      {
+        action: "edge-from-2",
+        offset: 500_000,
+        fromType: "digital_product",
+        fromId: entityId,
+        toType: "component",
+        toId: otherId,
+      },
+      // control: touches neither endpoint — must not appear
+      {
+        action: "edge-unrelated",
+        offset: 600_000,
+        fromType: "digital_product",
+        fromId: uuidv7(),
+        toType: "component",
+        toId: uuidv7(),
+      },
+    ];
+    const edgeRows = edgeSpecs.map((r) => ({
+      id: uuidv7(),
+      edgeType: "DEPENDS_ON_COMPONENT",
+      fromEntityType: r.fromType,
+      fromEntityId: r.fromId,
+      toEntityType: r.toType,
+      toEntityId: r.toId,
+      action: r.action,
+      reason: null,
+      createdBy: null,
+      createdByName: "historian",
+      createdAt: at(r.offset),
+    }));
+
+    await testDb.db
+      .insertInto("entity_changes")
+      .values(entityRows as never)
+      .execute();
+    await testDb.db
+      .insertInto("edge_changes")
+      .values(edgeRows as never)
+      .execute();
+
+    // createdAt desc across the UNION: edge-from-2(500) hist-c(400)
+    // edge-to(300) hist-b(200) edge-from(100) hist-a(0) — the unrelated
+    // edge at +600 is excluded by the entity scope.
+    const expected = [
+      "edge-from-2",
+      "hist-c",
+      "edge-to",
+      "hist-b",
+      "edge-from",
+      "hist-a",
+    ];
+    const kinds = ["edge", "entity", "edge", "entity", "edge", "entity"];
+
+    const seen: { action: string; kind: string }[] = [];
+    for (const page of [1, 2, 3]) {
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/audit/entities/digital_product/${entityId}?page=${page}&pageSize=2`,
+        cookies: { [SESSION_COOKIE_NAME]: viewerSession },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.pagination.total).toBe(6);
+      expect(body.pagination.pageCount).toBe(3);
+      for (const item of body.data) {
+        seen.push({ action: item.action, kind: item.kind });
+      }
+    }
+    expect(seen.map((s) => s.action)).toEqual(expected);
+    expect(seen.map((s) => s.kind)).toEqual(kinds);
+
+    // kind=entity narrows the union to the entity_changes branch.
+    const entityOnly = await app.inject({
+      method: "GET",
+      url: `/api/v1/audit/entities/digital_product/${entityId}?kind=entity&pageSize=25`,
+      cookies: { [SESSION_COOKIE_NAME]: viewerSession },
+    });
+    expect(entityOnly.statusCode).toBe(200);
+    const eo = entityOnly.json();
+    expect(eo.pagination.total).toBe(3);
+    expect(eo.data.map((i: any) => i.action)).toEqual([
+      "hist-c",
+      "hist-b",
+      "hist-a",
+    ]);
+  });
+
+  // Spec 068 T059 / FR-005: entity history shares the activity feed's
+  // sort whitelist — `kind`/`entityType` order the scoped UNION the same
+  // way (edge rows sort by their FROM endpoint's type).
+  it("sorts per-entity history by kind and entityType", async () => {
+    const entityId = uuidv7();
+    const otherId = uuidv7();
+    const t = new Date("2026-10-06T10:00:00.000Z").getTime();
+    const at = (offsetMs: number) => new Date(t + offsetMs).toISOString();
+    const actor = { createdBy: null, createdByName: "history-sort" };
+
+    const entH1 = {
+      id: uuidv7(), entityType: "digital_product", entityId,
+      action: "hh-a", changes: null, importRunId: null,
+      ...actor, createdAt: at(100_000),
+    };
+    // Entity is the TO endpoint — badge type comes from fromEntityType.
+    const edgeH1 = {
+      id: uuidv7(), edgeType: "DEPENDS_ON_COMPONENT",
+      fromEntityType: "component", fromEntityId: otherId,
+      toEntityType: "digital_product", toEntityId: entityId,
+      action: "hh-b", reason: null, ...actor, createdAt: at(200_000),
+    };
+    const entH2 = {
+      id: uuidv7(), entityType: "digital_product", entityId,
+      action: "hh-c", changes: null, importRunId: null,
+      ...actor, createdAt: at(300_000),
+    };
+    // Entity is the FROM endpoint — coalesce picks 'digital_product'.
+    const edgeH2 = {
+      id: uuidv7(), edgeType: "COMPOSES",
+      fromEntityType: "digital_product", fromEntityId: entityId,
+      toEntityType: "component", toEntityId: otherId,
+      action: "hh-d", reason: null, ...actor, createdAt: at(400_000),
+    };
+    await testDb.db
+      .insertInto("entity_changes")
+      .values([entH1, entH2] as never)
+      .execute();
+    await testDb.db
+      .insertInto("edge_changes")
+      .values([edgeH1, edgeH2] as never)
+      .execute();
+
+    const feed = async (qs: string) => {
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/audit/entities/digital_product/${entityId}?${qs}`,
+        cookies: { [SESSION_COOKIE_NAME]: viewerSession },
+      });
+      expect(res.statusCode).toBe(200);
+      return res.json().data.map((i: any) => i.id);
+    };
+    const ids = { entH1, entH2, edgeH1, edgeH2 };
+
+    // kind asc: edges (createdAt desc) then entities (createdAt desc).
+    expect(await feed("sort=kind&order=asc&pageSize=25")).toEqual([
+      ids.edgeH2.id, ids.edgeH1.id, ids.entH2.id, ids.entH1.id,
+    ]);
+    expect(await feed("sort=kind&order=desc&pageSize=25")).toEqual([
+      ids.entH2.id, ids.entH1.id, ids.edgeH2.id, ids.edgeH1.id,
+    ]);
+
+    // entityType asc on coalesce(entityType, fromEntityType):
+    // 'component' → edgeH1; 'digital_product' → edgeH2(400s), entH2(300s),
+    // entH1(100s) by createdAt desc.
+    expect(await feed("sort=entityType&order=asc&pageSize=25")).toEqual([
+      ids.edgeH1.id, ids.edgeH2.id, ids.entH2.id, ids.entH1.id,
+    ]);
+    expect(await feed("sort=entityType&order=desc&pageSize=25")).toEqual([
+      ids.edgeH2.id, ids.entH2.id, ids.entH1.id, ids.edgeH1.id,
+    ]);
+  });
+
+  it("rejects the inert search param on entity history (T061 / FR-006)", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/v1/audit/entities/digital_product/${uuidv7()}?search=x`,
+      cookies: { [SESSION_COOKIE_NAME]: viewerSession },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("VALIDATION_FAILED");
   });
 });

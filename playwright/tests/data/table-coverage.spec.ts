@@ -35,7 +35,7 @@ test.describe('table coverage registry', () => {
 
   test('lifecycle-owned tables contain rows produced by real flows', async ({ request }) => {
     const api = await apiLogin(request, 'https://app.componode-pw.test', 'ADMIN');
-    const audit = await api('GET', '/api/v1/audit/activity?limit=1');
+    const audit = await api('GET', '/api/v1/audit/activity?page=1&pageSize=1');
     expect(audit.status).toBe(200);
   });
 

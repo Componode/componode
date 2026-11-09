@@ -65,7 +65,7 @@ test.describe('password authentication journeys', () => {
   test('admin-generated password reset lets a user set a new password', async ({ request }) => {
     const admin = await apiLogin(request, BASE, 'ADMIN');
     const users = await admin('GET', '/api/v1/users');
-    const list = users.body.users ?? users.body.items ?? users.body;
+    const list = users.body.users ?? users.body.items ?? users.body.data ?? users.body;
     const viewer = list.find((u: any) => u.username === creds('VIEWER').username);
     const reset = await admin('POST', '/api/v1/auth/password/reset', { userId: viewer.id });
     expect(reset.status).toBe(200);

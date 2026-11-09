@@ -170,11 +170,11 @@ describe("audit feed entity display names (G11)", () => {
 
   async function feed(): Promise<any[]> {
     const res = await app.inject({
-      method: "GET", url: "/api/v1/audit/activity?limit=200",
+      method: "GET", url: "/api/v1/audit/activity?pageSize=100",
       cookies: { [SESSION_COOKIE_NAME]: adminSession },
     });
     expect(res.statusCode).toBe(200);
-    return res.json().items;
+    return res.json().data;
   }
 
   it("entity rows carry entityName resolved per type", async () => {
@@ -218,7 +218,7 @@ describe("audit feed entity display names (G11)", () => {
       cookies: { [SESSION_COOKIE_NAME]: adminSession },
     });
     expect(res.statusCode).toBe(200);
-    const items = res.json().items;
+    const items = res.json().data;
     expect(items.every((i: any) => i.entityName === "payments-db" || i.entityName === null || i.kind === "edge")).toBe(true);
     // Edge row on history exposes both endpoint names too.
     const edge = items.find((i: any) => i.kind === "edge");
@@ -245,7 +245,7 @@ describe("audit feed entity display names (G11)", () => {
       cookies: { [SESSION_COOKIE_NAME]: adminSession },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json().changes[0].entityName).toBe("payments-db");
+    expect(res.json().data[0].entityName).toBe("payments-db");
   });
 
   it("renames surface the current name", async () => {

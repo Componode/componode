@@ -3,6 +3,7 @@ import { toast } from "sonner"
 import { useAcceptSuggestion, useDismissSuggestion } from "@/api/hooks/suggestions"
 import { EmptyState } from "@/ux/components/patterns/states"
 import { StatusBadge } from "@/ux/components/patterns/status-badge"
+import { TitleWithSummary } from "@/ux/components/patterns/title-with-summary"
 import { Badge } from "@/ux/components/ui/badge"
 import { Button } from "@/ux/components/ui/button"
 import { Card, CardContent } from "@/ux/components/ui/card"
@@ -53,7 +54,11 @@ export function SuggestionQueue({ items }: { items: Suggestion[] }) {
             <CardContent className="flex flex-col gap-3 md:flex-row md:items-center">
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <p className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium">{s.from}</span>
+                  <TitleWithSummary
+                    title={<span className="font-medium">{s.from}</span>}
+                    titleText={s.from}
+                    summary={{ kind: "edgeSuggestion", row: s }}
+                  />
                   <Badge variant="outline" className="font-mono">
                     {KIND_LABEL[s.kind]}
                     <ArrowRightIcon />

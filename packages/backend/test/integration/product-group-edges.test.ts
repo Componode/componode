@@ -372,7 +372,7 @@ describe("product → component-group dependencies", () => {
       url: "/api/v1/component-groups",
       ...authed(),
     });
-    const group = res.json().groups.find((g: any) => g.id === groupId);
+    const group = res.json().data.find((g: any) => g.id === groupId);
     expect(group.memberCount).toBe(2);
   });
 });

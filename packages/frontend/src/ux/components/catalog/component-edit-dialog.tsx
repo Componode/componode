@@ -3,7 +3,7 @@ import { toast } from "sonner"
 import { PencilIcon, PlusIcon } from "lucide-react"
 import { tagSchema } from "@componode/core"
 import { useUpdateComponent } from "@/api/hooks/components"
-import { useComponentGroups } from "@/api/hooks/component-groups"
+import { useAllComponentGroups } from "@/api/hooks/component-groups"
 import { useTeams } from "@/api/hooks/org"
 import { describeApiError, type ApiError } from "@/api/client"
 import { Button } from "@/ux/components/ui/button"
@@ -41,7 +41,7 @@ export function ComponentEditDialog({ component: c, trigger }: { component: Comp
   const [open, setOpen] = React.useState(false)
   const update = useUpdateComponent()
   const teams = useTeams()
-  const groups = useComponentGroups()
+  const groups = useAllComponentGroups()
 
   const [teamOwnerId, setTeamOwnerId] = React.useState<string>(NONE)
   const [componentGroupId, setComponentGroupId] = React.useState<string>(NONE)
@@ -81,7 +81,7 @@ export function ComponentEditDialog({ component: c, trigger }: { component: Comp
   }
 
   const teamList = teams.data?.teams ?? []
-  const groupList = groups.data?.groups ?? []
+  const groupList = groups.data ?? []
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

@@ -6,7 +6,7 @@ import { ErrorState, NotFoundState } from "@/ux/components/patterns/states";
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import { useCredential } from "@/api/hooks/credentials";
 import { useEntityHistory } from "@/api/hooks/audit";
-import { useImporterConfigs } from "@/api/hooks/importers";
+import { useAllImporterConfigs } from "@/api/hooks/importers";
 import { mapActivityItem } from "@/api/mappers/dashboard";
 import { mapCredential } from "@/api/mappers/operations";
 import { errorMessage, isNotFound } from "@/ux/lib/api-state";
@@ -16,7 +16,7 @@ export function UxCredentialDetailPage() {
   const { id } = useParams<{ id: string }>();
   const detail = useCredential(id ?? null);
   useLeafCrumb(detail.data?.credential?.label ?? null);
-  const configs = useImporterConfigs();
+  const configs = useAllImporterConfigs();
   const history = useEntityHistory("credential", id ?? "");
 
   if (detail.isPending) {
@@ -50,7 +50,7 @@ export function UxCredentialDetailPage() {
   // Usage list comes from the detail endpoint's dependents; the full config
   // rows supply importerName + scope for "Test connection".
   const boundIds = new Set(dependents.importerConfigs.map((d) => d.id));
-  const importers = (configs.data?.configs ?? []).filter((c) => boundIds.has(c.id));
+  const importers = (configs.data ?? []).filter((c) => boundIds.has(c.id));
 
   return (
     <CredentialDetail

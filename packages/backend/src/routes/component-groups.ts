@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import {
   createComponentGroupSchema,
+  listComponentGroupsQuerySchema,
   updateComponentGroupSchema,
 } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
@@ -16,11 +17,21 @@ import {
 import { toActor } from "../services/actor.js";
 
 export async function componentGroupRoutes(app: FastifyInstance): Promise<void> {
+  // Spec 068 / ADR-130 / ADR-095: strict query validation at the route
+  // boundary — malformed params are a controlled 400, never a service 500.
   app.get("/component-groups", {
     preHandler: [app.verifySession],
   }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const groups = await listComponentGroups(req.query as Record<string, unknown>);
-    return reply.status(200).send({ groups });
+    const parsed = listComponentGroupsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Invalid query parameters",
+        details: parsed.error.issues,
+      });
+    }
+    const result = await listComponentGroups(parsed.data);
+    return reply.status(200).send(result);
   });
 
   app.get("/component-groups/:id", {

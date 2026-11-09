@@ -22,11 +22,13 @@ const base: Session = {
   current: false,
 };
 
+const sortBindings = { sort: null, order: "asc" as const, onSortChange: () => {} };
+
 const wrap = (data: Session[]) =>
   render(
     <MemoryRouter>
       <TooltipProvider>
-        <SessionsTable data={data} />
+        <SessionsTable data={data} {...sortBindings} />
       </TooltipProvider>
     </MemoryRouter>,
   );
@@ -54,5 +56,24 @@ describe("SessionsTable — session visibility (spec 032, G2)", () => {
     expect(screen.getByText("Current")).toBeTruthy();
     // one revoke button remains — for the non-current session
     expect(screen.getAllByText("Revoke")).toHaveLength(1);
+  });
+
+  it("wraps the device title in a focusable hover-summary trigger (spec 068 US4)", () => {
+    wrap([base]);
+    // TitleWithSummary sets the full title as the native `title` fallback
+    // and makes the plain-text trigger a tab stop for keyboard access.
+    const trigger = screen.getByTitle("Chrome · Windows");
+    expect(trigger).toBeTruthy();
+    expect(trigger.getAttribute("tabindex")).toBe("0");
+  });
+
+  it("exposes a sortable Location header but keeps Device unsortable (FR-005)", () => {
+    wrap([base]);
+    const locationHead = screen.getByText("Location").closest("th");
+    expect(locationHead?.getAttribute("aria-sort")).toBe("none");
+    expect(locationHead?.querySelector("button")).toBeTruthy();
+    // The parsed device label is app-computed — plain header, no affordance.
+    const deviceHead = screen.getByText("Device").closest("th");
+    expect(deviceHead?.querySelector("button")).toBeNull();
   });
 });

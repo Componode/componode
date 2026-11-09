@@ -184,7 +184,7 @@ describe("product links metadata", () => {
       ...authed(editorSession),
     });
     expect(res.statusCode).toBe(200);
-    const names = res.json().products.map((p: any) => p.name);
+    const names = res.json().data.map((p: any) => p.name);
     expect(names.some((n: string) => n.startsWith("tagged-"))).toBe(true);
   });
 

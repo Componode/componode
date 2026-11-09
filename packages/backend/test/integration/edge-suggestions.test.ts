@@ -151,8 +151,10 @@ describe("edge suggestions queue", () => {
         id,
         productId,
         componentId,
-        reason: opts.reason ?? "NAME_MATCH",
-        score: opts.score ?? 100,
+        // undefined → signal defaults; explicit null → tombstone shape
+        // (SUPERSEDED rows carry NULL reason/score per ADR-113).
+        reason: opts.reason === undefined ? "NAME_MATCH" : opts.reason,
+        score: opts.score === undefined ? 100 : opts.score,
         status: opts.status ?? "PENDING",
         createdAt: now(),
         decidedAt: opts.decidedAt ?? null,
@@ -177,8 +179,8 @@ describe("edge suggestions queue", () => {
       ...authed(),
     });
     expect(res.statusCode).toBe(200);
-    const { items, total } = res.json();
-    expect(total).toBeGreaterThanOrEqual(3);
+    const { data: items, pagination } = res.json();
+    expect(pagination.total).toBeGreaterThanOrEqual(3);
     const ours = items.filter((i: any) => i.productId === productId);
     expect(ours.map((i: any) => i.componentId)).toEqual([c2, c3, c1]);
     expect(ours[0].product.name).toBe("queue-sort");
@@ -204,7 +206,7 @@ describe("edge suggestions queue", () => {
       ...authed(),
     });
     expect(res.statusCode).toBe(200);
-    const ids = res.json().items.map((i: any) => i.id);
+    const ids = res.json().data.map((i: any) => i.id);
     const rows = await testDb.db
       .selectFrom("edge_suggestions")
       .select(["id", "productId", "componentId"])
@@ -470,7 +472,7 @@ describe("edge suggestions queue", () => {
       ...authed(),
     });
     expect(res.statusCode).toBe(200);
-    const item = res.json().items.find((i: any) => i.id === suggestionId);
+    const item = res.json().data.find((i: any) => i.id === suggestionId);
     expect(item).toBeDefined();
     expect(item.decidedByName).toBeTruthy();
     expect(item.decidedAt).toBeTruthy();
@@ -478,7 +480,10 @@ describe("edge suggestions queue", () => {
     expect(item.score).toBe(1);
   });
 
-  it("dismissed view orders by decidedAt descending", async () => {
+  // Spec 068 / ADR-130: decided-history views keep their decision-recency
+  // ordering — `decidedAt` is a whitelisted sort key and the effective
+  // default for non-pending views; `createdAt` remains available.
+  it("dismissed view honors sort=createdAt&order=desc", async () => {
     const productId = await mkProduct("dismissed-order");
     const older = await mkSuggestion(
       productId,
@@ -493,11 +498,11 @@ describe("edge suggestions queue", () => {
 
     const res = await app.inject({
       method: "GET",
-      url: "/api/v1/suggestions?status=DISMISSED&limit=200",
+      url: "/api/v1/suggestions?status=DISMISSED&sort=createdAt&order=desc&pageSize=100",
       ...authed(),
     });
     expect(res.statusCode).toBe(200);
-    const ids = res.json().items.map((i: any) => i.id);
+    const ids = res.json().data.map((i: any) => i.id);
     expect(ids.indexOf(newer)).toBeLessThan(ids.indexOf(older));
   });
 
@@ -527,11 +532,11 @@ describe("edge suggestions queue", () => {
 
     const res = await app.inject({
       method: "GET",
-      url: "/api/v1/suggestions?status=DECIDED&limit=200",
+      url: "/api/v1/suggestions?status=DECIDED&pageSize=100",
       ...authed(),
     });
     expect(res.statusCode).toBe(200);
-    const items = res.json().items;
+    const items = res.json().data;
     const byId = new Map(items.map((i: any) => [i.id, i]));
 
     // Every terminal status shows up with decider attribution.
@@ -547,7 +552,8 @@ describe("edge suggestions queue", () => {
     // PENDING rows are excluded.
     expect(byId.has(pendingId)).toBe(false);
 
-    // Ordered by decidedAt descending — the seeded 2020 tombstone trails.
+    // Spec 068: decided views default to decidedAt desc — the seeded
+    // tombstone (decided 2020) trails the just-decided rows.
     const ids = items.map((i: any) => i.id).filter((id: string) =>
       [dismissedId, acceptedId, supersededId].includes(id),
     );
@@ -581,5 +587,208 @@ describe("edge suggestions queue", () => {
       payload: {},
     });
     expect(dismiss.statusCode).toBe(403);
+  });
+
+  // Spec 068 regression: decided views must order by decidedAt — a
+  // NULL-score SUPERSEDED tombstone sorted by `score DESC` would surface
+  // FIRST in Postgres (NULLS FIRST is the default for DESC) ahead of real
+  // decisions. The decided-history ordering is decidedAt desc + id.
+  it("decided views order by decidedAt desc — NULL-score tombstones don't jump ahead", async () => {
+    const productId = await mkProduct("decided-nulls-first");
+    // Newly decided DISMISSED row (keeps its score) vs an older
+    // SUPERSEDED tombstone (score NULL). Buggy score-DESC ordering puts
+    // the tombstone first; decidedAt ordering puts the newer decision first.
+    const dismissedId = await mkSuggestion(
+      productId,
+      await mkComponent("decided-nulls-d"),
+      {
+        status: "DISMISSED",
+        score: 100,
+        decidedAt: "2040-06-10T00:00:00Z",
+        decidedBy: adminId,
+      },
+    );
+    const tombstoneId = await mkSuggestion(
+      productId,
+      await mkComponent("decided-nulls-t"),
+      {
+        status: "SUPERSEDED",
+        reason: null,
+        score: null,
+        decidedAt: "2040-06-01T00:00:00Z",
+        decidedBy: adminId,
+      },
+    );
+
+    for (const url of [
+      // Default sort resolves to decidedAt on decided views.
+      "/api/v1/suggestions?status=DECIDED&pageSize=100",
+      // Explicit decidedAt sort.
+      "/api/v1/suggestions?status=DECIDED&sort=decidedAt&pageSize=100",
+      // score maps to decidedAt on decided views (tombstone scores are NULL).
+      "/api/v1/suggestions?status=DECIDED&sort=score&pageSize=100",
+    ]) {
+      const res = await app.inject({ method: "GET", url, ...authed() });
+      expect(res.statusCode).toBe(200);
+      const ids = res.json().data.map((i: any) => i.id);
+      expect(ids.indexOf(dismissedId)).toBeLessThan(ids.indexOf(tombstoneId));
+    }
+
+    // The per-status DISMISSED view orders the same way and simply excludes
+    // the SUPERSEDED tombstone — our 2040-06-10 decision is the newest
+    // dismissed row in the suite, so it leads the view.
+    const dismissedRes = await app.inject({
+      method: "GET",
+      url: "/api/v1/suggestions?status=DISMISSED&pageSize=100",
+      ...authed(),
+    });
+    expect(dismissedRes.statusCode).toBe(200);
+    const dismissedIds = dismissedRes.json().data.map((i: any) => i.id);
+    expect(dismissedIds[0]).toBe(dismissedId);
+    expect(dismissedIds).not.toContain(tombstoneId);
+  });
+
+  it("paginates the decided history by decidedAt across pages", async () => {
+    const productId = await mkProduct("decided-pages");
+    const ids: string[] = [];
+    // decidedAt 2041-* — newer than every other decided row in the suite,
+    // so these five occupy the top of the DECIDED feed deterministically.
+    for (let i = 1; i <= 5; i++) {
+      ids.push(
+        await mkSuggestion(productId, await mkComponent(`decided-pages-${i}`), {
+          status: "DISMISSED",
+          decidedAt: `2041-01-0${i}T00:00:00Z`,
+          decidedBy: adminId,
+        }),
+      );
+    }
+    // decidedAt desc → ids[4] (2041-01-05) first … ids[0] last.
+
+    const page1 = await app.inject({
+      method: "GET",
+      url: "/api/v1/suggestions?status=DECIDED&sort=decidedAt&page=1&pageSize=2",
+      ...authed(),
+    });
+    const page2 = await app.inject({
+      method: "GET",
+      url: "/api/v1/suggestions?status=DECIDED&sort=decidedAt&page=2&pageSize=2",
+      ...authed(),
+    });
+    const page3 = await app.inject({
+      method: "GET",
+      url: "/api/v1/suggestions?status=DECIDED&sort=decidedAt&page=3&pageSize=2",
+      ...authed(),
+    });
+    for (const res of [page1, page2, page3]) expect(res.statusCode).toBe(200);
+
+    const idsOf = (res: any) => res.json().data.map((i: any) => i.id);
+    expect(idsOf(page1).slice(0, 2)).toEqual([ids[4], ids[3]]);
+    expect(idsOf(page2).slice(0, 2)).toEqual([ids[2], ids[1]]);
+    // Page 3 leads with the oldest of our rows; slot 2 is the next-oldest
+    // decided row from earlier tests.
+    expect(idsOf(page3)[0]).toBe(ids[0]);
+
+    const p1 = page1.json().pagination;
+    const p3 = page3.json().pagination;
+    expect(p1.total).toBe(p3.total);
+    expect(p1.page).toBe(1);
+    expect(p1.pageSize).toBe(2);
+    expect(p1.hasNext).toBe(true);
+    expect(p3.hasNext).toBe(true); // older decided rows remain
+  });
+
+  it("accepts sort=decidedAt on the pending queue (maps to createdAt) and rejects bad sorts", async () => {
+    const pendingSort = await app.inject({
+      method: "GET",
+      url: "/api/v1/suggestions?status=PENDING&sort=decidedAt&pageSize=5",
+      ...authed(),
+    });
+    expect(pendingSort.statusCode).toBe(200);
+
+    const badSort = await app.inject({
+      method: "GET",
+      url: "/api/v1/suggestions?sort=bogus",
+      ...authed(),
+    });
+    expect(badSort.statusCode).toBe(400);
+    expect(badSort.json().code).toBe("VALIDATION_FAILED");
+  });
+
+  // Spec 068 T059 / FR-005: `status` is a stored column rendered as the
+  // decision badge — whitelisted for sorting. It is constant within the
+  // PENDING/DISMISSED views but a real ordering across DECIDED history.
+  it("sorts the DECIDED history by status in both directions", async () => {
+    const productId = await mkProduct("status-sort");
+    // decidedAt far in the future so these rows lead every decided view —
+    // but status sort ignores decidedAt, so only the status sequence matters.
+    const seeded = {
+      dismissed: await mkSuggestion(productId, await mkComponent("status-sort-d"), {
+        status: "DISMISSED",
+        decidedAt: "2043-01-01T00:00:00Z",
+        decidedBy: adminId,
+      }),
+      accepted: await mkSuggestion(productId, await mkComponent("status-sort-a"), {
+        status: "ACCEPTED",
+        decidedAt: "2043-01-02T00:00:00Z",
+        decidedBy: adminId,
+      }),
+      superseded: await mkSuggestion(productId, await mkComponent("status-sort-s"), {
+        status: "SUPERSEDED",
+        reason: null,
+        score: null,
+        decidedAt: "2043-01-03T00:00:00Z",
+        decidedBy: adminId,
+      }),
+    };
+
+    const fetchStatuses = async (order: string) => {
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/suggestions?status=DECIDED&sort=status&order=${order}&pageSize=100`,
+        ...authed(),
+      });
+      expect(res.statusCode).toBe(200);
+      return res.json().data as { id: string; status: string }[];
+    };
+
+    const asc = await fetchStatuses("asc");
+    const statusesAsc = asc.map((i) => i.status);
+    // ACCEPTED < DISMISSED < SUPERSEDED — the whole decided view is sorted.
+    expect(statusesAsc).toEqual([...statusesAsc].sort());
+    const oursAsc = asc.filter((i) => Object.values(seeded).includes(i.id));
+    expect(oursAsc.map((i) => i.id)).toEqual([
+      seeded.accepted,
+      seeded.dismissed,
+      seeded.superseded,
+    ]);
+
+    const desc = await fetchStatuses("desc");
+    const statusesDesc = desc.map((i) => i.status);
+    expect(statusesDesc).toEqual([...statusesDesc].sort().reverse());
+    const oursDesc = desc.filter((i) => Object.values(seeded).includes(i.id));
+    expect(oursDesc.map((i) => i.id)).toEqual([
+      seeded.superseded,
+      seeded.dismissed,
+      seeded.accepted,
+    ]);
+  });
+
+  it("accepts sort=status on the pending queue (constant column) and rejects search", async () => {
+    const pendingSort = await app.inject({
+      method: "GET",
+      url: "/api/v1/suggestions?status=PENDING&sort=status&pageSize=5",
+      ...authed(),
+    });
+    expect(pendingSort.statusCode).toBe(200);
+
+    // Spec 068 T061 / FR-006: the queue has no server-side search — the
+    // shared `search` param is omitted from the strict schema.
+    const search = await app.inject({
+      method: "GET",
+      url: "/api/v1/suggestions?search=dep",
+      ...authed(),
+    });
+    expect(search.statusCode).toBe(400);
+    expect(search.json().code).toBe("VALIDATION_FAILED");
   });
 });

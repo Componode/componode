@@ -1,7 +1,7 @@
-import type { ImportAgent, SuggestionListResult } from "@/api/types";
+import type { ImportAgent } from "@/api/types";
 
 /** Count-only nav cue view models: raw API payloads stay behind mappers. */
-export function mapPendingSuggestionCount(result: Pick<SuggestionListResult, "total"> | undefined): number {
+export function mapPendingSuggestionCount(result: { total?: number } | undefined): number {
   return result?.total ?? 0;
 }
 

@@ -63,7 +63,8 @@ const credentialsImpl: { fn: () => unknown } = {
   }),
 };
 const agentsImpl: { fn: () => unknown } = {
-  fn: () => ({ data: { agents: [] }, isPending: false, isError: false }),
+  // useAllAgents returns the fetch-all array directly (spec 068).
+  fn: () => ({ data: [], isPending: false, isError: false }),
 };
 
 vi.mock("@/api/hooks/auth", () => ({
@@ -95,6 +96,7 @@ vi.mock("@/api/hooks/credentials", () => ({
 }));
 vi.mock("@/api/hooks/agents", () => ({
   useAgents: vi.fn(() => agentsImpl.fn()),
+  useAllAgents: vi.fn(() => agentsImpl.fn()),
 }));
 vi.mock("@/api/hooks/org", () => ({
   useTeams: vi.fn(() => ({ data: { teams: [] }, isPending: false })),
@@ -281,7 +283,7 @@ beforeEach(() => {
     isError: false,
   });
   agentsImpl.fn = () => ({
-    data: { agents: [] },
+    data: [],
     isPending: false,
     isError: false,
   });
