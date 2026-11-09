@@ -19,43 +19,9 @@ import {
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, ForbiddenState, NotFoundState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Card } from "@/ux/components/ui/card";
+import { useSubListState } from "@/ux/hooks/use-sub-list-state";
 import { errorMessage, isForbidden, isNotFound } from "@/ux/lib/api-state";
 import { ux } from "@/ux/lib/paths";
-
-/**
- * Local (non-URL) list state for the run-detail errors/changes sub-tables —
- * spec 068 exempts detail-page sublists from URL-backed state; they still
- * get server-side pagination, sorting, ordering, and the contract's
- * filters. `sort: null` means "endpoint default" (createdAt for both).
- */
-function useSubListState<S extends string>(defaultSort: S) {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-  const [sort, setSort] = useState<S | null>(defaultSort);
-  const [order, setOrder] = useState<"asc" | "desc">("desc");
-  const resetPage = () => setPage(1);
-  return {
-    page,
-    pageSize,
-    sort,
-    order,
-    setPage,
-    setPageSize: (size: number) => {
-      setPageSize(size);
-      resetPage();
-    },
-    setOrder: (o: "asc" | "desc") => {
-      setOrder(o);
-      resetPage();
-    },
-    setSort: (s: S | null, o: "asc" | "desc") => {
-      setSort(s);
-      setOrder(o);
-      resetPage();
-    },
-    resetPage,
-  };
-}
 
 export function UxRunDetailPage() {
   const { id, runId } = useParams<{ id: string; runId: string }>();

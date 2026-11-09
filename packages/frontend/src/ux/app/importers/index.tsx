@@ -20,6 +20,7 @@ import { EmptyState, ErrorState, TableSkeleton } from "@/ux/components/patterns/
 import { CableIcon, SearchXIcon } from "lucide-react";
 import { Button } from "@/ux/components/ui/button";
 import { Card } from "@/ux/components/ui/card";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useListState, type ListFilterConfig } from "@/ux/hooks/use-list-state";
 import { useListSearch } from "@/ux/hooks/use-list-search";
 import { IMPORTER_NAMES, PROVIDER_META } from "@/ux/lib/domain";
@@ -58,6 +59,7 @@ export function UxImportersPage() {
   });
   const [query, setQuery] = useListSearch(list);
   const configs = useImporterConfigs(importerConfigsListParams(list));
+  useClampPage(list, configs.data?.pagination);
   const credentials = useCredentials();
   const summary = useDashboardSummary();
   const session = useSession();

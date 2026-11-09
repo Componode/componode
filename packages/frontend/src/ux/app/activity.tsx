@@ -18,6 +18,7 @@ import { Button } from "@/ux/components/ui/button";
 import { Card, CardContent } from "@/ux/components/ui/card";
 import { Input } from "@/ux/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useListState, type ListFilterConfig } from "@/ux/hooks/use-list-state";
 import { useDebouncedValue } from "@/ux/hooks/use-debounced-value";
 import { errorMessage } from "@/ux/lib/api-state";
@@ -136,6 +137,7 @@ export function UxActivityPage() {
     filters: ACTIVITY_FILTERS,
   });
   const activity = useActivityFeed(activityFeedParams(list));
+  useClampPage(list, activity.data);
 
   // Debounced free-text filters — one request per pause, not per keystroke.
   const [actionInput, setActionInput] = useDebouncedFilter(list.filters.action, (v) =>

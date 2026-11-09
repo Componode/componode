@@ -7,6 +7,7 @@ import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Card } from "@/ux/components/ui/card";
 import { SESSION_SORT_KEYS, useSessionsList, type SessionSortKey } from "@/api/hooks/sessions";
 import { mapSession } from "@/api/mappers/operations";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useListState } from "@/ux/hooks/use-list-state";
 import { useListSearch } from "@/ux/hooks/use-list-search";
 import { errorMessage } from "@/ux/lib/api-state";
@@ -23,6 +24,7 @@ export function UxSessionsPage() {
   });
   const [query, setQuery] = useListSearch(list);
   const sessions = useSessionsList(list);
+  useClampPage(list, sessions.data?.pagination);
 
   const rows = sessions.data?.data ?? [];
   const pagination = sessions.data?.pagination;

@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
-import { useEntityHistory } from "@/api/hooks/audit";
 import { useImporterSource, useSourceMemberships, useSourceRuns } from "@/api/hooks/importer-sources";
+import { usePagedEntityHistory } from "@/ux/hooks/use-entity-history";
 import { mapActivityItem } from "@/api/mappers/dashboard";
 import { mapImporterSource } from "@/api/mappers/operations";
 import { SourceDetail } from "@/ux/components/sources/source-detail";
@@ -19,7 +19,7 @@ export function UxSourceDetailPage() {
   );
   const runs = useSourceRuns(id ?? null);
   const memberships = useSourceMemberships(id ?? null);
-  const history = useEntityHistory("importer_source", id ?? "");
+  const history = usePagedEntityHistory("importer_source", id ?? "");
 
   if (source.isPending || (source.isSuccess && (runs.isPending || memberships.isPending || history.isPending))) {
     return (
@@ -65,6 +65,7 @@ export function UxSourceDetailPage() {
       runs={runs.data?.runs ?? []}
       memberships={memberships.data}
       events={(history.data?.items ?? []).map(mapActivityItem)}
+      activityPagination={history.pagination}
     />
   );
 }

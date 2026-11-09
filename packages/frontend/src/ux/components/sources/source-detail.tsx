@@ -4,6 +4,7 @@ import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import { toast } from "sonner"
 import { ActivityFeed } from "@/ux/components/patterns/activity-feed"
 import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog"
+import { ListPagination, type ListPaginationProps } from "@/ux/components/patterns/list-pagination"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { DescriptionList, MonoValue, RelativeTime } from "@/ux/components/patterns/primitives"
 import { StatusBadge } from "@/ux/components/patterns/status-badge"
@@ -31,6 +32,8 @@ interface SourceDetailProps {
   runs: ApiImportRun[]
   memberships: SourceMembershipsResponse | undefined
   events: AuditEvent[]
+  /** Server pagination for the activity feed (spec 068 review T065). */
+  activityPagination?: ListPaginationProps
 }
 
 function DetailsSummary({ details }: { details: Record<string, unknown> | null }) {
@@ -46,7 +49,7 @@ function DetailsSummary({ details }: { details: Record<string, unknown> | null }
   )
 }
 
-export function SourceDetail({ source, runs, memberships, events }: SourceDetailProps) {
+export function SourceDetail({ source, runs, memberships, events, activityPagination }: SourceDetailProps) {
   const [tab, setTab] = useValidatedTab(TABS)
   const session = useSession()
   const isAdmin = canAccess(session.data?.role ?? "VIEWER", "ADMIN")
@@ -265,11 +268,14 @@ export function SourceDetail({ source, runs, memberships, events }: SourceDetail
 
         <TabsContent value="activity" className="mt-4">
           <Card>
-            <CardContent>
+            <CardContent className="flex flex-col gap-4">
               {events.length === 0 ? (
                 <EmptyState icon={HistoryIcon} title="No activity recorded" description="Lifecycle events (bound, unmonitored, retired, reactivated) show up here." />
               ) : (
                 <ActivityFeed events={events} />
+              )}
+              {activityPagination && activityPagination.total > 0 && (
+                <ListPagination {...activityPagination} />
               )}
             </CardContent>
           </Card>

@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-li
 import { MemoryRouter, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useListState, type ListStateConfig } from "@/ux/hooks/use-list-state";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useDebouncedValue } from "@/ux/hooks/use-debounced-value";
 import { buildListQueryString } from "@/api/list-query";
 import { ListToolbar, type FilterDef } from "@/ux/components/patterns/list-toolbar";
@@ -179,6 +180,67 @@ describe("useListState", () => {
     act(() => result.current.list.setSort(null));
     expect(result.current.list.sort).toBe("name");
     expect(result.current.search).not.toContain("sort=");
+  });
+});
+
+describe("useClampPage (spec 068 review T064)", () => {
+  it("rewrites an out-of-range ?page= to pageCount once data resolves", () => {
+    const setPage = vi.fn();
+    renderHook(() => useClampPage({ page: 9, setPage }, { total: 60, pageCount: 3 }));
+    expect(setPage).toHaveBeenCalledTimes(1);
+    expect(setPage).toHaveBeenCalledWith(3);
+  });
+
+  it("leaves an in-range page alone and never fires while unresolved", () => {
+    const setPage = vi.fn();
+    const { rerender } = renderHook(
+      ({ page, pagination }: { page: number; pagination?: { total: number; pageCount: number } }) =>
+        useClampPage({ page, setPage }, pagination),
+      {
+        initialProps: {
+          page: 2,
+          pagination: undefined as { total: number; pageCount: number } | undefined,
+        },
+      },
+    );
+    expect(setPage).not.toHaveBeenCalled();
+    rerender({ page: 2, pagination: { total: 60, pageCount: 3 } });
+    expect(setPage).not.toHaveBeenCalled();
+    rerender({ page: 4, pagination: { total: 60, pageCount: 3 } });
+    expect(setPage).toHaveBeenCalledWith(3);
+  });
+
+  it("resets page to 1 on an empty result set and cannot loop", () => {
+    const setPage = vi.fn();
+    renderHook(() => useClampPage({ page: 5, setPage }, { total: 0, pageCount: 0 }));
+    expect(setPage).toHaveBeenCalledWith(1);
+    // page 1 is a fixed point — re-rendering with the corrected page is a no-op.
+    setPage.mockClear();
+    renderHook(() => useClampPage({ page: 1, setPage }, { total: 0, pageCount: 0 }));
+    expect(setPage).not.toHaveBeenCalled();
+  });
+
+  it("canonicalizes the URL through useListState — ?page=999 becomes ?page=3", () => {
+    function Probe() {
+      const list = useListState({ sortKeys: ["name"] as const });
+      const { search } = useLocation();
+      // Simulates the resolved server envelope for a 60-row list.
+      useClampPage(list, { total: 60, pageCount: 3 });
+      return (
+        <>
+          <span data-testid="page">{list.page}</span>
+          <span data-testid="search">{search}</span>
+        </>
+      );
+    }
+    render(
+      <MemoryRouter initialEntries={["/components?page=999&provider=AWS"]}>
+        <Probe />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("page").textContent).toBe("3");
+    // The page param is rewritten in place; unrelated params are preserved.
+    expect(screen.getByTestId("search").textContent).toBe("?page=3&provider=AWS");
   });
 });
 

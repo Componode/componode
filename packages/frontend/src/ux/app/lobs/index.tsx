@@ -8,6 +8,7 @@ import { ListToolbar } from "@/ux/components/patterns/list-toolbar";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
 import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Card } from "@/ux/components/ui/card";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useListState } from "@/ux/hooks/use-list-state";
 import { useListSearch } from "@/ux/hooks/use-list-search";
 import { errorMessage } from "@/ux/lib/api-state";
@@ -35,6 +36,7 @@ export function UxLobsPage() {
   });
   const [query, setQuery] = useListSearch(list);
   const lobs = useLobsList(list);
+  useClampPage(list, lobs.data?.pagination);
   const createLob = useCreateLob();
 
   const rows = lobs.data?.data ?? [];

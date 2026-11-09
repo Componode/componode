@@ -19,6 +19,7 @@ import { LifecycleBadge } from "@/ux/components/patterns/status-badge";
 import { TitleWithSummary } from "@/ux/components/patterns/title-with-summary";
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ux/components/ui/card";
 import { Skeleton } from "@/ux/components/ui/skeleton";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useListState, type ListFilterConfig } from "@/ux/hooks/use-list-state";
 import { useListSearch } from "@/ux/hooks/use-list-search";
 import { LIFECYCLE_META } from "@/ux/lib/domain";
@@ -51,6 +52,7 @@ export function UxComponentGroupsPage() {
   });
   const [query, setQuery] = useListSearch(list);
   const { data, isPending, error, refetch } = useComponentGroups(componentGroupsListParams(list));
+  useClampPage(list, data?.pagination);
   const session = useSession();
   // componentGroup:create is EDITOR+ — hidden for viewers.
   const canCreate = canAccess(session.data?.role ?? "VIEWER", "EDITOR");

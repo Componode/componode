@@ -198,3 +198,14 @@ Each phase leaves the app shippable; Phase 7 gates the PR.
 - [X] T060 Audit + extend sort whitelists on remaining ops/admin lists per FR-005 (partial): agents (session/config counts if displayed), credentials (dependents count if displayed), sources (run/membership stats if displayed), importer-configs (run stats if displayed), users (team/sessions columns if displayed), sessions, docker-targets, run errors (`errorType`), run changes (`action`) — add sort keys only where the displayed value is SQL-expressible; core schema → service → openapi → frontend headers
 - [X] T061 Omit the inert `search` param from list schemas of endpoints that do not filter on it (suggestions, audit activity/entity-history, importer runs/errors/changes) per FR-006 (partial) — e.g. `.omit({ search: true })` on those schemas; update docs/openapi.yaml accordingly
 - [X] T062 Apply `TitleWithSummary` on remaining in-scope title-ish cells per FR-012 (partial): sessions list primary cell and run errors/changes rows if they present a title-like value — verify each surface and apply the `generic`/appropriate summary kind where a real title exists; skip pure log/status rows with no title semantics
+
+---
+
+## Phase 9: Convergence (code-review round 1)
+
+- [x] T063 Fix importer-detail "last run failed" alert reading `runs[0]` of the arbitrary current page/sort per Spec-axis finding (contradicts): derive the actual latest run — dedicated `sort=createdAt`+`order=desc`+`pageSize=1` query or backend latest-run field; alert must reflect the newest run regardless of list state (packages/frontend/src/ux/components/importers/importer-detail.tsx + api/hooks/importers.ts)
+- [x] T064 Handle out-of-range `?page=N` on every list per Spec-axis finding (partial): when `page > pageCount` and `total > 0`, clamp to the last valid page — implement centrally (useListState post-fetch correction or per-page effect replacing `?page=` with `pageCount`), keeping URL canonical and avoiding an empty-table flash; cover in unit tests
+- [x] T065 Entity history UI pagination per Spec-axis finding (partial): `useEntityHistory` hard-codes pageSize:100 and `EntityHistory` renders no pager — entities >100 events lose history; add ListPagination (or load-more) consuming the `{data,pagination}` envelope on the detail history views (components/$slug.history, products/$slug.history, users/$id, credentials/$id, sources/$id, agents/$id — wherever EntityHistory renders)
+- [x] T066 Update stale `/components` sort prose in docs/api.md (createdAt removed; new keys) per Spec-axis finding (partial)
+- [x] T067 Sync specs/068-list-page-standards/contracts/list-contract.md sort whitelists to shipped enums + note sources `name` sorts `externalIdentity` per Spec-axis finding (partial)
+- [x] T068 Extend playwright/tests/journeys/list-standards.spec.ts with one admin/ops list surface (e.g. /users or /agents) exercising footer/page-size/sort/URL-restore per FR-015 breadth

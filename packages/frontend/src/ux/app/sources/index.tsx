@@ -10,6 +10,7 @@ import { SourcesView } from "@/ux/components/sources/sources-view";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, ForbiddenState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Card } from "@/ux/components/ui/card";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useListState, type ListFilterConfig } from "@/ux/hooks/use-list-state";
 import { IMPORTER_NAMES, SOURCE_STATUS_META, type SourceStatus } from "@/ux/lib/domain";
 import { errorMessage, isForbidden } from "@/ux/lib/api-state";
@@ -29,6 +30,7 @@ export function UxSourcesPage() {
     filters: SOURCES_FILTERS,
   });
   const sources = useImporterSources(importerSourcesListParams(list));
+  useClampPage(list, sources.data?.pagination);
 
   if (sources.isPending) {
     return (

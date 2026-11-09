@@ -326,4 +326,95 @@ test.describe('list page standards (spec 068)', () => {
     await expect(sizeSelect).toContainText('50');
     await expect(page.locator('th[aria-sort="ascending"]')).toContainText('Type');
   });
+
+  // T068 — same standard on an admin surface (/users): a different table
+  // with role/isActive filters and a createdAt-desc default order, so the
+  // first header click writes order=asc rather than relying on the default.
+  test('users list shares the footer, page-size, sort, and URL standard @smoke', async ({ page }) => {
+    await loginPage(page, 'ADMIN');
+    await page.goto('/users');
+    const range = page.getByText(ROW_RANGE);
+    await expect(range).toBeVisible({ timeout: 30_000 });
+    const rows = pageRows(page);
+    await expect(rows.first()).toBeVisible();
+
+    // Footer + the 25/50/100 selector.
+    const sizeSelect = page.getByRole('combobox', { name: 'Rows per page' });
+    await sizeSelect.click();
+    const sizeOptions = page.getByRole('listbox').getByRole('option');
+    await expect(sizeOptions).toHaveCount(3);
+    await expect(sizeOptions.nth(0)).toHaveText('25');
+    await expect(sizeOptions.nth(1)).toHaveText('50');
+    await expect(sizeOptions.nth(2)).toHaveText('100');
+    const [sizeResponse] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes('/api/v1/users?') &&
+          r.url().includes('pageSize=50') &&
+          r.request().method() === 'GET',
+      ),
+      sizeOptions.nth(1).click(),
+    ]);
+    expect(sizeResponse.status()).toBe(200);
+    await expect(page).toHaveURL(/size=50/);
+    await expect(sizeSelect).toContainText('50');
+
+    // Sortable header → ?sort= + ?order= + aria-sort. Users default to
+    // createdAt desc, so activating Role writes order=asc explicitly.
+    const roleHead = page.getByRole('button', { name: 'Role' });
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes('/api/v1/users?') &&
+          r.url().includes('sort=role') &&
+          r.url().includes('order=asc') &&
+          r.request().method() === 'GET',
+      ),
+      roleHead.click(),
+    ]);
+    await expect(page).toHaveURL(/sort=role/);
+    await expect(page).toHaveURL(/order=asc/);
+    await expect(page.locator('th[aria-sort="ascending"]')).toContainText('Role');
+
+    // The seeded workspace fits one page today; if it ever grows past a
+    // page, Page 2 must round-trip through ?page= like every other list.
+    const pageTwo = page.getByRole('button', { name: 'Page 2' });
+    if ((await pageTwo.count()) > 0) {
+      const before = (await firstRowName(rows)).trim();
+      await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            r.url().includes('/api/v1/users?') &&
+            r.url().includes('page=2') &&
+            r.request().method() === 'GET',
+        ),
+        pageTwo.click(),
+      ]);
+      await expect(page).toHaveURL(/page=2/);
+      const after = (await firstRowName(rows)).trim();
+      expect(after).not.toBe(before);
+      await page.getByRole('button', { name: 'Page 1' }).click();
+      await expect(page).not.toHaveURL(/page=/);
+    }
+
+    // Reload restores sort + order + page size from the URL — request included.
+    const [reloadResponse] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes('/api/v1/users?') &&
+          r.url().includes('pageSize=50') &&
+          r.url().includes('sort=role') &&
+          r.url().includes('order=asc') &&
+          r.request().method() === 'GET',
+      ),
+      page.reload(),
+    ]);
+    expect(reloadResponse.status()).toBe(200);
+    await expect(range).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/size=50/);
+    await expect(page).toHaveURL(/sort=role/);
+    await expect(page).toHaveURL(/order=asc/);
+    await expect(sizeSelect).toContainText('50');
+    await expect(page.locator('th[aria-sort="ascending"]')).toContainText('Role');
+  });
 });

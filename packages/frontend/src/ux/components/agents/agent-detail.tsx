@@ -10,6 +10,7 @@ import { AgentStatusCell } from "@/ux/components/agents/agents-table"
 import { EnrollmentTokenPanel } from "@/ux/components/agents/enrollment-token-panel"
 import { ActivityFeed } from "@/ux/components/patterns/activity-feed"
 import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog"
+import { ListPagination, type ListPaginationProps } from "@/ux/components/patterns/list-pagination"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { DescriptionList, MonoValue, RelativeTime } from "@/ux/components/patterns/primitives"
 import { StatusBadge } from "@/ux/components/patterns/status-badge"
@@ -34,6 +35,8 @@ interface AgentDetailProps {
   agent: ImportAgent
   sessions: AgentSession[]
   events: AuditEvent[]
+  /** Server pagination for the activity feed (spec 068 review T065). */
+  activityPagination?: ListPaginationProps
 }
 
 function sessionDuration(s: AgentSession): string {
@@ -46,7 +49,7 @@ function sessionDuration(s: AgentSession): string {
 
 const TABS = ["overview", "policy", "sessions", "activity"]
 
-export function AgentDetail({ agent, sessions, events }: AgentDetailProps) {
+export function AgentDetail({ agent, sessions, events, activityPagination }: AgentDetailProps) {
   const navigate = useNavigate()
   const [tab, setTab] = useValidatedTab(TABS)
 
@@ -322,11 +325,14 @@ export function AgentDetail({ agent, sessions, events }: AgentDetailProps) {
 
         <TabsContent value="activity" className="mt-4">
           <Card>
-            <CardContent>
+            <CardContent className="flex flex-col gap-4">
               {events.length === 0 ? (
                 <EmptyState icon={HistoryIcon} title="No activity recorded" description="Enrollment, rotation and revocation events show up here." />
               ) : (
                 <ActivityFeed events={events} />
+              )}
+              {activityPagination && activityPagination.total > 0 && (
+                <ListPagination {...activityPagination} />
               )}
             </CardContent>
             <CardFooter className="border-t">

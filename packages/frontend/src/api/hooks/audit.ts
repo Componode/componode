@@ -143,9 +143,10 @@ export function useEntityHistory(
   query: Omit<ActivityFeedQuery, "entityType"> = {},
 ) {
   // Detail sub-lists are exempt from primary-list pagination (spec 068) —
-  // keep a bounded 100-row window so the history card still shows a useful
-  // slice without fetching unboundedly.
-  const normalized = normalizeFeedQuery({ pageSize: 100, ...query });
+  // the default is one standard pager page; callers that render a pager
+  // (usePagedEntityHistory) pass explicit page/pageSize. The pre-T065
+  // fixed 100-row window silently truncated longer histories.
+  const normalized = normalizeFeedQuery({ pageSize: 25, ...query });
   return useQuery<AuditFeedResult>({
     queryKey: ["audit", "history", entityType, entityId, normalized],
     queryFn: async () =>

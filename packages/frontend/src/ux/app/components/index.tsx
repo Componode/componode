@@ -15,6 +15,7 @@ import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Button } from "@/ux/components/ui/button";
 import { Card } from "@/ux/components/ui/card";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useListState, type ListFilterConfig } from "@/ux/hooks/use-list-state";
 import { CATEGORY_LABELS, LIFECYCLE_META, PROVIDER_META } from "@/ux/lib/domain";
 import { errorMessage } from "@/ux/lib/api-state";
@@ -39,6 +40,7 @@ export function UxComponentsPage() {
   // includeRetired stays true inside componentsListParams — retired rows
   // remain reachable through the lifecycle filter/badge.
   const { data, isPending, error, refetch } = useComponents(componentsListParams(list));
+  useClampPage(list, data?.pagination);
   const session = useSession();
   // component:create is EDITOR+ (ADR-054 Amendment 1) — hidden for viewers.
   const canCreate = canAccess(session.data?.role ?? "VIEWER", "EDITOR");

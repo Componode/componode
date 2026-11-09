@@ -260,9 +260,10 @@ Notes:
 
 Query params for `GET /components`: `page`, `pageSize` (max 100), `category`,
 `provider`, `lifecycle`, `status`, `componentGroup`, `group`, `tag`, `search`,
-`sort` (`name`/`lastSeenAt`/`createdAt`), `order`, `includeRetired`,
-`includeGone`, `wired` (`wired`/`unwired`, CSV or repeated — coverage
-classification from spec 023; invalid values return `400 VALIDATION_FAILED`).
+`sort` (`name`/`category`/`resourceType`/`owner`/`health`/`instances`/
+`lastSeenAt`), `order`, `includeRetired`, `includeGone`, `wired`
+(`wired`/`unwired`, CSV or repeated — coverage classification from spec 023;
+invalid values return `400 VALIDATION_FAILED`).
 
 Components are created/updated by importers, not via the API — `PATCH` only
 reassigns `{ componentGroupId?, teamOwnerId? }` (nullable).

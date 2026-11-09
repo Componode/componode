@@ -20,6 +20,7 @@ import { EmptyState, ErrorState } from "@/ux/components/patterns/states";
 import { Card, CardContent } from "@/ux/components/ui/card";
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ux/components/ui/tabs";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useListState, type ListFilterConfig } from "@/ux/hooks/use-list-state";
 import { errorMessage } from "@/ux/lib/api-state";
 import type { Tone } from "@/ux/lib/domain";
@@ -101,6 +102,7 @@ export function UxSuggestionsPage() {
   });
   const params = suggestionsListParams(list);
   const suggestions = useSuggestions(params.status ?? "PENDING", params);
+  useClampPage(list, suggestions.data);
 
   const data = suggestions.data;
   const rows = data?.items ?? [];

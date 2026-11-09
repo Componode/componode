@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useAllComponents } from "@/api/hooks/components";
-import { useEntityHistory } from "@/api/hooks/audit";
 import { useProduct } from "@/api/hooks/products";
+import { usePagedEntityHistory } from "@/ux/hooks/use-entity-history";
 import { useSuggestions } from "@/api/hooks/suggestions";
 import { isDirectDep, mapDepComponent, mapProduct, mapProductTopology, mapRelatedProduct } from "@/api/mappers/catalog";
 import { mapActivityItem } from "@/api/mappers/dashboard";
@@ -19,7 +19,7 @@ export function UxProductDetailPage() {
   const detail = useProduct(slug);
   const catalog = useAllComponents();
   const suggestions = useSuggestions("PENDING", 0, 100);
-  const history = useEntityHistory("digital_product", detail.data?.product.id ?? "");
+  const history = usePagedEntityHistory("digital_product", detail.data?.product.id ?? "");
 
   if (detail.isPending) {
     return (
@@ -99,6 +99,7 @@ export function UxProductDetailPage() {
         .filter((s) => s.productId === d.product.id)
         .map(mapSuggestion)}
       activity={(history.data?.items ?? []).map(mapActivityItem)}
+      activityPagination={history.pagination}
     />
   );
 }

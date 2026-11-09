@@ -74,21 +74,29 @@ function ProfilesCard({ scope }: { scope: unknown }) {
 export function ImporterDetail({
   importer: i,
   runs,
+  lastRun,
   runsList,
   runsPagination,
 }: {
   importer: ImporterConfig
   runs: ImportRun[]
+  /**
+   * The newest run across ALL history (spec 068 review T063) — fetched
+   * independently of the run-history table's page/sort/filter so the
+   * failure alert below always reflects the latest run.
+   */
+  lastRun?: ImportRun | null
   /** URL-backed state for the server-paginated run history (spec 068). */
   runsList: ListState<ImporterRunsSortKey, ImporterRunsFilterKey>
   runsPagination?: PaginationMeta
 }) {
   const trigger = useTriggerImportRun()
   const convert = useConvertSecrets()
-  // `runs` is the current server page — newest first under the default
-  // createdAt-desc sort, so runs[0] is the latest run for the alerts.
-  const failed = runs[0]?.status === "FAILED"
-  const lastError = runs[0]?.errorMessage
+  // `runs` is only the current server page — under a non-default sort,
+  // filter, or page its first row is NOT necessarily the latest run, so
+  // the alert reads the dedicated latest-run fetch instead.
+  const failed = lastRun?.status === "FAILED"
+  const lastError = lastRun?.errorMessage
 
   const sortProps = {
     sort: runsList.sort,

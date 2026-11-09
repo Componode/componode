@@ -7,6 +7,7 @@ import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { Button } from "@/ux/components/ui/button";
 import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Card } from "@/ux/components/ui/card";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useListState, type ListFilterConfig } from "@/ux/hooks/use-list-state";
 import { CRITICALITY_META, PRODUCT_TYPE_META } from "@/ux/lib/domain";
 import { ux } from "@/ux/lib/paths";
@@ -28,6 +29,7 @@ export function UxProductsPage() {
     filters: PRODUCTS_FILTERS,
   });
   const { data, isPending, error, refetch } = useProducts(productsListParams(list));
+  useClampPage(list, data?.pagination);
 
   return (
     <PageContainer>

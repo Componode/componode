@@ -18,6 +18,7 @@ import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Button } from "@/ux/components/ui/button";
 import { Card } from "@/ux/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useListState } from "@/ux/hooks/use-list-state";
 import { useListSearch } from "@/ux/hooks/use-list-search";
 import { errorMessage } from "@/ux/lib/api-state";
@@ -50,6 +51,7 @@ export function UxDockerTargetsPage() {
   });
   const [query, setQuery] = useListSearch(list);
   const targets = useDockerTargets(dockerTargetsListParams(list));
+  useClampPage(list, targets.data?.pagination);
 
   const rows = targets.data?.data ?? [];
   const pagination = targets.data?.pagination;

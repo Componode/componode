@@ -15,6 +15,7 @@ import { ErrorState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert";
 import { Button } from "@/ux/components/ui/button";
 import { Card } from "@/ux/components/ui/card";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useListState, type ListFilterConfig } from "@/ux/hooks/use-list-state";
 import { useListSearch } from "@/ux/hooks/use-list-search";
 import { CREDENTIAL_STATUS_META, type CredentialStatus } from "@/ux/lib/domain";
@@ -41,6 +42,7 @@ export function UxCredentialsPage() {
   });
   const [query, setQuery] = useListSearch(list);
   const credentials = useCredentialsList(list);
+  useClampPage(list, credentials.data?.pagination);
 
   const rows = credentials.data?.data ?? [];
   const pagination = credentials.data?.pagination;

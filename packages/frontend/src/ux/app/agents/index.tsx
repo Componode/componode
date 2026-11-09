@@ -10,6 +10,7 @@ import { AgentsView } from "@/ux/components/agents/agents-view";
 import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, ForbiddenState, TableSkeleton } from "@/ux/components/patterns/states";
 import { Card } from "@/ux/components/ui/card";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useListState, type ListFilterConfig } from "@/ux/hooks/use-list-state";
 import { AGENT_STATUS_META, type AgentStatus } from "@/ux/lib/domain";
 import { errorMessage, isForbidden } from "@/ux/lib/api-state";
@@ -28,6 +29,7 @@ export function UxAgentsPage() {
     filters: AGENTS_FILTERS,
   });
   const agents = useAgents(agentsListParams(list));
+  useClampPage(list, agents.data?.pagination);
 
   if (agents.isPending) {
     return (

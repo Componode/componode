@@ -6,6 +6,7 @@ import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import { toast } from "sonner"
 import { ActivityFeed } from "@/ux/components/patterns/activity-feed"
 import { DangerZone } from "@/ux/components/patterns/danger-zone"
+import { ListPagination, type ListPaginationProps } from "@/ux/components/patterns/list-pagination"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { DescriptionList, MonoValue, RelativeTime } from "@/ux/components/patterns/primitives"
 import { CredentialStatusBadge, StatusBadge } from "@/ux/components/patterns/status-badge"
@@ -31,6 +32,8 @@ interface CredentialDetailProps {
   /** URL checks referencing this credential (FR-022 dependents). */
   urlChecks: { id: string; name: string }[]
   events: AuditEvent[]
+  /** Server pagination for the activity feed (spec 068 review T065). */
+  activityPagination?: ListPaginationProps
 }
 
 function daysUntil(iso: string | null): number | null {
@@ -38,7 +41,7 @@ function daysUntil(iso: string | null): number | null {
   return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
 }
 
-export function CredentialDetail({ credential, importers, urlChecks, events }: CredentialDetailProps) {
+export function CredentialDetail({ credential, importers, urlChecks, events, activityPagination }: CredentialDetailProps) {
   const navigate = useNavigate()
   const [tab, setTab] = useValidatedTab(TABS)
   const test = useTestCredential(credential.id)
@@ -226,11 +229,14 @@ export function CredentialDetail({ credential, importers, urlChecks, events }: C
 
         <TabsContent value="activity" className="mt-4">
           <Card>
-            <CardContent>
+            <CardContent className="flex flex-col gap-4">
               {events.length === 0 ? (
                 <EmptyState icon={HistoryIcon} title="No activity recorded" description="Rotation and revocation events show up here." />
               ) : (
                 <ActivityFeed events={events} />
+              )}
+              {activityPagination && activityPagination.total > 0 && (
+                <ListPagination {...activityPagination} />
               )}
             </CardContent>
             <CardFooter className="border-t">

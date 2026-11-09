@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useAgent, useAgentSessions } from "@/api/hooks/agents";
-import { useEntityHistory } from "@/api/hooks/audit";
+import { usePagedEntityHistory } from "@/ux/hooks/use-entity-history";
 import { mapActivityItem } from "@/api/mappers/dashboard";
 import { mapAgentSession, mapImportAgent } from "@/api/mappers/operations";
 import { AgentDetail } from "@/ux/components/agents/agent-detail";
@@ -16,7 +16,7 @@ export function UxAgentDetailPage() {
   const agent = useAgent(id ?? null);
   useLeafCrumb(agent.data?.agent?.name ?? null);
   const sessions = useAgentSessions(id ?? null);
-  const history = useEntityHistory("import_agent", id ?? "");
+  const history = usePagedEntityHistory("import_agent", id ?? "");
 
   if (agent.isPending || (agent.isSuccess && (sessions.isPending || history.isPending))) {
     return (
@@ -61,6 +61,7 @@ export function UxAgentDetailPage() {
       agent={mapImportAgent(agent.data.agent)}
       sessions={(sessions.data?.sessions ?? []).map(mapAgentSession)}
       events={(history.data?.items ?? []).map(mapActivityItem)}
+      activityPagination={history.pagination}
     />
   );
 }

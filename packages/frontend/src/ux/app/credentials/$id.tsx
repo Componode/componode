@@ -5,7 +5,7 @@ import { PageContainer } from "@/ux/components/patterns/page-header";
 import { ErrorState, NotFoundState } from "@/ux/components/patterns/states";
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import { useCredential } from "@/api/hooks/credentials";
-import { useEntityHistory } from "@/api/hooks/audit";
+import { usePagedEntityHistory } from "@/ux/hooks/use-entity-history";
 import { useAllImporterConfigs } from "@/api/hooks/importers";
 import { mapActivityItem } from "@/api/mappers/dashboard";
 import { mapCredential } from "@/api/mappers/operations";
@@ -17,7 +17,7 @@ export function UxCredentialDetailPage() {
   const detail = useCredential(id ?? null);
   useLeafCrumb(detail.data?.credential?.label ?? null);
   const configs = useAllImporterConfigs();
-  const history = useEntityHistory("credential", id ?? "");
+  const history = usePagedEntityHistory("credential", id ?? "");
 
   if (detail.isPending) {
     return (
@@ -58,6 +58,7 @@ export function UxCredentialDetailPage() {
       importers={importers}
       urlChecks={dependents.urlChecks}
       events={(history.data?.items ?? []).map(mapActivityItem)}
+      activityPagination={history.pagination}
     />
   );
 }

@@ -122,8 +122,8 @@ describe("sort whitelists match the core list contracts (spec 068)", () => {
       "componentCount",
     ]);
     expect([...USER_SORT_KEYS]).toEqual(["name", "role", "isActive", "lastActiveAt", "createdAt"]);
-    expect([...SESSION_SORT_KEYS]).toEqual(["createdAt", "lastSeenAt", "expiresAt"]);
-    expect([...CREDENTIAL_SORT_KEYS]).toEqual(["name", "status", "expiresAt", "lastUsedAt", "createdAt"]);
+    expect([...SESSION_SORT_KEYS]).toEqual(["createdAt", "lastSeenAt", "expiresAt", "location"]);
+    expect([...CREDENTIAL_SORT_KEYS]).toEqual(["name", "status", "expiresAt", "lastUsedAt", "usedByCount", "createdAt"]);
     expect([...USER_FILTER_KEYS]).toEqual(["role", "isActive"]);
     expect([...CREDENTIAL_FILTER_KEYS]).toEqual(["status"]);
   });

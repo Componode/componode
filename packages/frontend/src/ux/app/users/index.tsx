@@ -13,6 +13,7 @@ import {
   type UserSortKey,
 } from "@/api/hooks/users";
 import { mapUser } from "@/api/mappers/operations";
+import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useListState, type ListFilterConfig } from "@/ux/hooks/use-list-state";
 import { useListSearch } from "@/ux/hooks/use-list-search";
 import { ROLE_META, type Role } from "@/ux/lib/domain";
@@ -41,6 +42,7 @@ export function UxUsersPage() {
   });
   const [query, setQuery] = useListSearch(list);
   const users = useUsersList(list);
+  useClampPage(list, users.data?.pagination);
 
   const rows = users.data?.data ?? [];
   const pagination = users.data?.pagination;
