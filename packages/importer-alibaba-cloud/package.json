@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@alicloud/bssopenapi20171214": "^4.1.1",
-    "@alicloud/openapi-core": "^1.0.8",
+    "@alicloud/openapi-core": "^1.0.9",
     "@alicloud/resourcecenter20221201": "^1.6.0",
     "@alicloud/sts20150401": "^1.2.0",
     "@componode/core": "workspace:*",
