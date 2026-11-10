@@ -1,6 +1,6 @@
 import type * as React from "react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/ux/components/ui/hover-card"
-import type { OrgEntity, TeamEntity } from "@/api/types"
+import type { LobListItem, TeamListItem } from "@/api/types"
 import {
   AgentStatusBadge,
   CredentialStatusBadge,
@@ -57,25 +57,20 @@ const text = (v: string | null | undefined): React.ReactNode => (v ? v : <Dash /
 const count = (n: number): React.ReactNode => <span className="tabular">{n}</span>
 
 /** Row shapes the registry understands — view types where they exist, the
- *  API org rows the org pages already consume, plus optional forward-compat
- *  fields the current list payloads don't all carry yet. */
+ *  API org list rows the org pages already consume. */
 export interface SummaryRowMap {
   component: Component
   product: Product
   componentGroup: ComponentGroupView
   user: User
-  team: TeamEntity & { productCount?: number }
-  lob: OrgEntity & { teamCount?: number; productCount?: number }
+  team: TeamListItem
+  lob: LobListItem
   agent: ImportAgent
   credential: Credential
   importerSource: ImporterSource
   importerConfig: ImporterConfig
-  importRun: ImportRun & { completedAt?: string | null }
-  edgeSuggestion: Suggestion & {
-    score?: number | null
-    status?: string | null
-    createdAt?: string | null
-  }
+  importRun: ImportRun
+  edgeSuggestion: Suggestion
   audit: AuditEvent
   /**
    * Fallback for rows without a curated kind — emits whichever generic
@@ -283,27 +278,18 @@ export const SUMMARY_FIELDS: {
       ),
     },
   ],
-  importRun: (r) => {
-    // The view type predates `completedAt` on list rows — derive the finish
-    // instant from startedAt + durationSec when the field isn't carried.
-    const finishedIso =
-      r.completedAt ??
-      (r.startedAt && r.durationSec != null
-        ? new Date(new Date(r.startedAt).getTime() + r.durationSec * 1000).toISOString()
-        : null)
-    return [
-      { label: "Status", value: <RunStatusBadge value={r.status} /> },
-      { label: "Started", value: <RelativeTime iso={r.startedAt} /> },
-      {
-        label: "Finished",
-        value: finishedIso ? <RelativeTime iso={finishedIso} /> : <Dash />,
-      },
-      { label: "Duration", value: formatDuration(r.durationSec) },
-      { label: "Processed", value: count(r.assetsProcessed) },
-      { label: "Created", value: count(r.assetsCreated) },
-      { label: "Updated", value: count(r.assetsUpdated) },
-    ]
-  },
+  importRun: (r) => [
+    { label: "Status", value: <RunStatusBadge value={r.status} /> },
+    { label: "Started", value: <RelativeTime iso={r.startedAt} /> },
+    {
+      label: "Finished",
+      value: r.completedAt ? <RelativeTime iso={r.completedAt} /> : <Dash />,
+    },
+    { label: "Duration", value: formatDuration(r.durationSec) },
+    { label: "Processed", value: count(r.assetsProcessed) },
+    { label: "Created", value: count(r.assetsCreated) },
+    { label: "Updated", value: count(r.assetsUpdated) },
+  ],
   edgeSuggestion: (s) => [
     {
       label: "Edge",

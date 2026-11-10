@@ -245,10 +245,13 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
       };
       const { kind } = req.query as { kind?: string };
       if (kind !== undefined && kind !== "component" && kind !== "group") {
-        return reply.status(400).send({
-          code: "VALIDATION_FAILED",
-          message: "kind must be 'component' or 'group'",
-        });
+        return validationFailed(reply, [
+          {
+            code: "custom",
+            path: ["kind"],
+            message: "kind must be 'component' or 'group'",
+          },
+        ]);
       }
       try {
         await removeDependsOnEdge(id, targetId, kind ?? "component", toActor(req));

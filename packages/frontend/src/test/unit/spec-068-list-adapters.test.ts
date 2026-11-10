@@ -840,29 +840,29 @@ describe("spec-068 compat envelopes — parsing", () => {
     expect(qs.get("offset")).toBeNull();
   });
 
-  it("useSuggestions legacy positional args translate to page/pageSize", async () => {
-    renderHook(() => useSuggestions("DECIDED", 50, 50), { wrapper: makeWrapper() });
+  it("useSuggestions passes the options object through as page/pageSize (spec 069)", async () => {
+    renderHook(() => useSuggestions("DECIDED", { page: 2, pageSize: 50 }), {
+      wrapper: makeWrapper(),
+    });
     await waitFor(() => expect(api).toHaveBeenCalled());
     const qs = new URLSearchParams(requestedUrl().split("?")[1]);
     expect(qs.get("status")).toBe("DECIDED");
-    expect(qs.get("page")).toBe("2"); // offset 50 / limit 50 + 1
+    expect(qs.get("page")).toBe("2");
     expect(qs.get("pageSize")).toBe("50");
   });
 
-  it("useActivityFeed translates legacy limit/offset and maps the envelope", async () => {
+  it("useActivityFeed sends page/pageSize verbatim — no legacy translation (spec 069)", async () => {
     vi.mocked(api).mockResolvedValue({
       data: [{ id: "e1", kind: "entity" }],
       pagination: { page: 1, pageSize: 5, total: 9, pageCount: 2, hasNext: true },
     } as never);
-    const { result } = renderHook(() => useActivityFeed({ limit: 5 }), {
+    const { result } = renderHook(() => useActivityFeed({ pageSize: 5 }), {
       wrapper: makeWrapper(),
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     const qs = new URLSearchParams(requestedUrl().split("?")[1]);
     expect(requestedUrl()).toContain("/audit/activity?");
     expect(qs.get("pageSize")).toBe("5");
-    expect(qs.get("limit")).toBeNull(); // strict schema rejects legacy keys
-    expect(qs.get("offset")).toBeNull();
     expect(result.current.data?.items).toHaveLength(1);
     expect(result.current.data?.total).toBe(9);
     expect(result.current.data?.hasNext).toBe(true);

@@ -32,15 +32,16 @@ async function buildTopologyFixture(api: Api, run: string) {
 }
 
 test.describe('product map topology (spec 059)', () => {
-  test('all relation families render at the top of Dependencies with direction', async ({ page, request }) => {
+  test('all relation families render on the Map tab with direction', async ({ page, request }) => {
     const api = await apiLogin(request, BASE, 'EDITOR');
     const run = uid();
     const fx = await buildTopologyFixture(api, run);
 
     await loginPage(page, 'VIEWER');
-    await page.goto(`/products/${fx.hubSlug}?tab=dependencies`);
+    await page.goto(`/products/${fx.hubSlug}?tab=map`);
 
-    // Topology sits at the top of Dependencies, above the authoring controls.
+    // Topology lives on the dedicated Map tab (prototype baseline, spec 069).
+    await expect(page.getByRole('tab', { name: 'Map' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByText('Product topology')).toBeVisible({ timeout: 15_000 });
     for (const lane of ['Composed by', 'Consumed by', 'Composes', 'Consumes from', 'Depends on groups']) {
       await expect(page.getByText(lane, { exact: true }).first()).toBeVisible();
@@ -62,7 +63,7 @@ test.describe('product map topology (spec 059)', () => {
     }
 
     await loginPage(page, 'VIEWER');
-    await page.goto(`/products/${fx.hubSlug}?tab=dependencies`);
+    await page.goto(`/products/${fx.hubSlug}?tab=map`);
 
     // +N shows only four nodes per lane until expanded.
     const expand = page.getByRole('button', { name: /\+\d+ more/ });
@@ -84,7 +85,7 @@ test.describe('product map topology (spec 059)', () => {
     await expect(page).toHaveURL(new RegExp(`/products/consumer-${run}`));
   });
 
-  test('legacy ?tab=map links land on Dependencies; empty products show an empty state', async ({ page, request }) => {
+  test('?tab=map selects the Map tab; empty products show the map empty state', async ({ page, request }) => {
     const api = await apiLogin(request, BASE, 'EDITOR');
     const run = uid();
     const lonely = await api('POST', '/api/v1/products', { name: `Lonely ${run}`, slug: `lonely-${run}`, type: 'PLATFORM' });
@@ -93,9 +94,9 @@ test.describe('product map topology (spec 059)', () => {
     await loginPage(page, 'VIEWER');
     await page.goto(`/products/lonely-${run}?tab=map`);
     await expect(page.getByText(/no relationships/i)).toBeVisible({ timeout: 15_000 });
-    // The resolved tab is Dependencies, not a removed Map tab.
-    await expect(page.getByRole('tab', { name: 'Dependencies' })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('tab', { name: 'Map' })).toHaveCount(0);
+    // ?tab=map is a first-class deep link — the Map tab itself is selected.
+    await expect(page.getByRole('tab', { name: 'Map' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Dependencies' })).toHaveAttribute('aria-selected', 'false');
   });
 
   test('topology stays usable without horizontal overflow and honors reduced motion', async ({ page, request }) => {
@@ -105,7 +106,7 @@ test.describe('product map topology (spec 059)', () => {
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await loginPage(page, 'VIEWER');
-    await page.goto(`/products/${fx.hubSlug}?tab=dependencies`);
+    await page.goto(`/products/${fx.hubSlug}?tab=map`);
     await expect(page.getByText('Product topology')).toBeVisible({ timeout: 15_000 });
 
     // No horizontal overflow at the current viewport (1280 desktop + 768 narrow projects).

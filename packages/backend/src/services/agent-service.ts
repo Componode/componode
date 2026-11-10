@@ -21,7 +21,20 @@ import type { DB, ImportAgentRow } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { hashToken } from "../utils/crypto.js";
 import { getManifests } from "./importer-registry.js";
-import { paginateQuery } from "../utils/pagination.js";
+import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
+
+type AgentSortKey = NonNullable<ListAgentsQuery["sort"]>;
+
+/** Sort whitelist mirrors listAgentsQuerySchema — `boundConfigCount` is a
+ *  select alias (spec 069 / B.3). */
+const AGENT_SORT_COLUMNS: Record<AgentSortKey, OrderTarget> = {
+  name: "import_agents.name",
+  status: "import_agents.status",
+  agentVersion: "import_agents.agentVersion",
+  boundConfigCount: "boundConfigCount",
+  lastSeenAt: "import_agents.lastSeenAt",
+  createdAt: "import_agents.createdAt",
+};
 
 // Minimal seam so the session service can be injected without a circular
 // import (agent-channel route wires the real instance).
@@ -315,22 +328,12 @@ export async function listAgents(
     q,
     { page: query.page, pageSize: query.pageSize },
     {
-      orderBy: (qb) => {
-        const primary =
-          query.sort === "status"
-            ? qb.orderBy("import_agents.status", query.order)
-            : query.sort === "agentVersion"
-              ? qb.orderBy("import_agents.agentVersion", query.order)
-              : query.sort === "boundConfigCount"
-                ? qb.orderBy("boundConfigCount", query.order)
-                : query.sort === "lastSeenAt"
-                  ? qb.orderBy("import_agents.lastSeenAt", query.order)
-                  : query.sort === "createdAt"
-                    ? qb.orderBy("import_agents.createdAt", query.order)
-                    : qb.orderBy("import_agents.name", query.order);
+      orderBy: (qb) =>
         // Deterministic tie-break (ADR-130).
-        return primary.orderBy("import_agents.id", query.order);
-      },
+        qb.orderBy(sortTarget(AGENT_SORT_COLUMNS, query.sort, AGENT_SORT_COLUMNS.name), query.order).orderBy(
+          "import_agents.id",
+          query.order,
+        ),
     },
   );
 

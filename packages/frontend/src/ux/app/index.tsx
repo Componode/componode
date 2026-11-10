@@ -26,7 +26,7 @@ export function UxIndexPage() {
   const summary = useDashboardSummary();
   // Enabled-importer count needs the full set — fetch-all sweep (spec 068).
   const configs = useAllImporterConfigs();
-  const activity = useActivityFeed({ limit: 5 });
+  const activity = useActivityFeed({ pageSize: 5 });
 
   const firstName = session.data?.displayName?.split(" ")[0] ?? session.data?.username ?? null;
 

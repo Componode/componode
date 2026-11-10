@@ -4,6 +4,7 @@ import { exchangeEnrollmentToken } from "../services/agent-service.js";
 import { AgentSessionService } from "../services/agent-session-service.js";
 import type { AgentRequest } from "../plugins/agent-auth.js";
 import { metrics } from "../plugins/metrics.js";
+import { validationFailed } from "./route-helpers.js";
 
 // Agent-facing channel (spec 025 US2, ADR-116): single-use enrollment
 // exchange + the bearer-authenticated outbound WebSocket stream. These routes
@@ -19,11 +20,7 @@ export async function agentChannelRoutes(
     async (req: FastifyRequest, reply: FastifyReply) => {
       const parsed = enrollAgentRequestSchema.safeParse(req.body);
       if (!parsed.success) {
-        return reply.status(400).send({
-          code: "VALIDATION_FAILED",
-          message: "Invalid input",
-          details: parsed.error.issues,
-        });
+        return validationFailed(reply, parsed.error.issues);
       }
       const result = await exchangeEnrollmentToken(parsed.data.token, sessions);
       if (!result) {

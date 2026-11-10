@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import {
   buildApiQueryString,
+  facetParam,
   fetchAllPages,
   type ListQueryState,
 } from "@/api/list-query";
@@ -42,11 +43,6 @@ export interface ImporterSourcesListFilters {
   importerName?: string;
 }
 
-const sourcesFacet = (state: ListQueryState, key: string): string | undefined => {
-  const v = state.filters[key];
-  return v !== undefined && v !== "" && v !== "all" ? v : undefined;
-};
-
 /**
  * Adapts resolved `useListState` output to `/importer-sources` API params
  * (spec 068). `"all"`-sentinel filters are omitted; other values pass
@@ -61,8 +57,8 @@ export function importerSourcesListParams(
     sort: (state.sort as ImporterSourcesSortKey | null) ?? "createdAt",
     order: state.order,
     search: state.search !== "" ? state.search : undefined,
-    status: sourcesFacet(state, "status"),
-    importerName: sourcesFacet(state, "importerName"),
+    status: facetParam(state, "status"),
+    importerName: facetParam(state, "importerName"),
   };
 }
 

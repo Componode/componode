@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { buildApiQueryString, type ListQueryState } from "@/api/list-query";
+import { buildApiQueryString, facetParam, type ListQueryState } from "@/api/list-query";
 import type { Paginated } from "@/api/types";
 import type { ActivityFeedItem, EntityChange } from "@componode/core";
 
@@ -31,9 +31,9 @@ const toFeedResult = (res: Paginated<ActivityFeedItem>): AuditFeedResult => ({
 
 /**
  * Query params accepted by `GET /audit/activity` and
- * `GET /audit/entities/:entityType/:entityId`. `limit`/`offset` are the
- * pre-068 spellings — still accepted and translated to `page`/`pageSize`
- * so older call sites (dashboard widget, per-user activity) keep working.
+ * `GET /audit/entities/:entityType/:entityId` — the spec-068
+ * `page`/`pageSize` contract only (spec 069 dropped the pre-068
+ * `limit`/`offset` spellings).
  */
 export interface ActivityFeedQuery {
   kind?: "entity" | "edge";
@@ -46,10 +46,6 @@ export interface ActivityFeedQuery {
   pageSize?: number;
   sort?: "createdAt" | "action" | "actor" | "kind" | "entityType";
   order?: "asc" | "desc";
-  /** @deprecated pre-068 spelling — translated to `pageSize`. */
-  limit?: number;
-  /** @deprecated pre-068 spelling — translated to `page`. */
-  offset?: number;
 }
 
 /** Sort whitelist for the audit feed (activityFeedQuerySchema). */
@@ -73,11 +69,6 @@ export const ACTIVITY_FILTER_KEYS = [
 ] as const;
 export type ActivityFilterKey = (typeof ACTIVITY_FILTER_KEYS)[number];
 
-const auditFacet = (state: ListQueryState, key: string): string | undefined => {
-  const v = state.filters[key];
-  return v !== undefined && v !== "" && v !== "all" ? v : undefined;
-};
-
 /**
  * The activity page stores `from`/`to` as `datetime-local` strings in the
  * URL; the API schema requires ISO datetimes (`z.string().datetime()`), so
@@ -96,12 +87,12 @@ const isoDateParam = (v: string | undefined): string | undefined => {
  */
 export function activityFeedParams(state: ListQueryState): ActivityFeedQuery {
   return {
-    kind: auditFacet(state, "kind") as "entity" | "edge" | undefined,
-    entityType: auditFacet(state, "entityType"),
-    action: auditFacet(state, "action"),
-    actor: auditFacet(state, "actor"),
-    from: isoDateParam(auditFacet(state, "from")),
-    to: isoDateParam(auditFacet(state, "to")),
+    kind: facetParam(state, "kind") as "entity" | "edge" | undefined,
+    entityType: facetParam(state, "entityType"),
+    action: facetParam(state, "action"),
+    actor: facetParam(state, "actor"),
+    from: isoDateParam(facetParam(state, "from")),
+    to: isoDateParam(facetParam(state, "to")),
     page: state.page,
     pageSize: state.pageSize,
     sort: (state.sort as AuditSortKey | null) ?? undefined,
@@ -109,28 +100,13 @@ export function activityFeedParams(state: ListQueryState): ActivityFeedQuery {
   };
 }
 
-/**
- * Translates pre-068 `limit`/`offset` callers onto `page`/`pageSize` and
- * strips the legacy keys — the endpoint schema is `.strict()` and rejects
- * unknown params (ADR-095).
- */
-function normalizeFeedQuery(query: ActivityFeedQuery): ActivityFeedQuery {
-  const { limit, offset, ...rest } = query;
-  const pageSize = rest.pageSize ?? limit;
-  const off = offset ?? 0;
-  const page =
-    rest.page ?? (pageSize ? Math.floor(off / pageSize) + 1 : undefined);
-  return { ...rest, page, pageSize };
-}
-
 export function useActivityFeed(query: ActivityFeedQuery = {}) {
-  const normalized = normalizeFeedQuery(query);
   return useQuery<AuditFeedResult>({
-    queryKey: ["audit", "activity", normalized],
+    queryKey: ["audit", "activity", query],
     queryFn: async () =>
       toFeedResult(
         await api<Paginated<ActivityFeedItem>>(
-          `/audit/activity${buildApiQueryString(normalized)}`,
+          `/audit/activity${buildApiQueryString(query)}`,
         ),
       ),
     placeholderData: (prev) => prev,
@@ -146,7 +122,7 @@ export function useEntityHistory(
   // the default is one standard pager page; callers that render a pager
   // (usePagedEntityHistory) pass explicit page/pageSize. The pre-T065
   // fixed 100-row window silently truncated longer histories.
-  const normalized = normalizeFeedQuery({ pageSize: 25, ...query });
+  const normalized = { pageSize: 25, ...query };
   return useQuery<AuditFeedResult>({
     queryKey: ["audit", "history", entityType, entityId, normalized],
     queryFn: async () =>

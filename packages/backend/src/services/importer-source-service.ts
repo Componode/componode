@@ -9,7 +9,23 @@ import type {
 import { canonicalizeSourceIdentity } from "@componode/core";
 import type { DB, ImporterSourceRow } from "../db/types.js";
 import { db } from "../db/connection.js";
-import { paginateQuery } from "../utils/pagination.js";
+import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
+
+type ImporterSourceSortKey = NonNullable<ImporterSourceListQuery["sort"]>;
+
+/** Sort whitelist mirrors the source list query schema — `name` sorts by
+ *  `externalIdentity`; the count/recency keys order by select aliases
+ *  (spec 069 / B.3). */
+const IMPORTER_SOURCE_SORT_COLUMNS: Record<ImporterSourceSortKey, OrderTarget> = {
+  name: "importer_sources.externalIdentity",
+  importerName: "importer_sources.importerName",
+  status: "importer_sources.status",
+  boundConfig: "boundConfigLabel",
+  components: "activeComponentMemberships",
+  instances: "activeInstanceMemberships",
+  lastCompletedRunAt: "lastCompletedRunAt",
+  createdAt: "importer_sources.createdAt",
+};
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { runAutoGroupPass } from "./source-group-service.js";
 
@@ -373,26 +389,12 @@ export async function listSources(
     q,
     { page: query.page, pageSize: query.pageSize },
     {
-      orderBy: (qb) => {
-        const primary =
-          query.sort === "importerName"
-            ? qb.orderBy("importer_sources.importerName", query.order)
-            : query.sort === "status"
-              ? qb.orderBy("importer_sources.status", query.order)
-              : query.sort === "boundConfig"
-                ? qb.orderBy("boundConfigLabel", query.order)
-                : query.sort === "components"
-                  ? qb.orderBy("activeComponentMemberships", query.order)
-                  : query.sort === "instances"
-                    ? qb.orderBy("activeInstanceMemberships", query.order)
-                    : query.sort === "lastCompletedRunAt"
-                      ? qb.orderBy("lastCompletedRunAt", query.order)
-                      : query.sort === "createdAt"
-                        ? qb.orderBy("importer_sources.createdAt", query.order)
-                        : qb.orderBy("importer_sources.externalIdentity", query.order);
+      orderBy: (qb) =>
         // Deterministic tie-break (ADR-130).
-        return primary.orderBy("importer_sources.id", query.order);
-      },
+        qb.orderBy(
+          sortTarget(IMPORTER_SOURCE_SORT_COLUMNS, query.sort, IMPORTER_SOURCE_SORT_COLUMNS.name),
+          query.order,
+        ).orderBy("importer_sources.id", query.order),
     },
   );
 

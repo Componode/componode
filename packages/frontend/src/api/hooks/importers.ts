@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import {
   buildApiQueryString,
+  facetParam,
   fetchAllPages,
   type ListQueryState,
 } from "@/api/list-query";
@@ -47,11 +48,6 @@ export interface ImporterConfigsListFilters {
   enabled?: string;
 }
 
-const configsFacet = (state: ListQueryState, key: string): string | undefined => {
-  const v = state.filters[key];
-  return v !== undefined && v !== "" && v !== "all" ? v : undefined;
-};
-
 /**
  * Adapts resolved `useListState` output to `/importer-configs` API params
  * (spec 068). The `enabled` URL sentinel `"all"` maps to "filter not
@@ -66,8 +62,8 @@ export function importerConfigsListParams(
     sort: (state.sort as ImporterConfigsSortKey | null) ?? "createdAt",
     order: state.order,
     search: state.search !== "" ? state.search : undefined,
-    importerName: configsFacet(state, "importerName"),
-    enabled: configsFacet(state, "enabled"),
+    importerName: facetParam(state, "importerName"),
+    enabled: facetParam(state, "enabled"),
   };
 }
 
@@ -241,14 +237,12 @@ export interface ImporterRunsListFilters {
 export function importerRunsListParams(
   state: ListQueryState,
 ): ImporterRunsListFilters {
-  const v = state.filters.status;
   return {
     page: state.page,
     pageSize: state.pageSize,
     sort: (state.sort as ImporterRunsSortKey | null) ?? "createdAt",
     order: state.order,
-    status:
-      v !== undefined && v !== "" && v !== "all" ? v : undefined,
+    status: facetParam(state, "status"),
   };
 }
 

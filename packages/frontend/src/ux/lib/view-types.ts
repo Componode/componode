@@ -137,6 +137,7 @@ export interface ImportRun {
   status: RunStatus;
   triggeredBy: string;
   startedAt: string | null;
+  completedAt: string | null;
   durationSec: number | null;
   assetsProcessed: number;
   assetsCreated: number;

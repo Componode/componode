@@ -13,7 +13,29 @@ import { db } from "../db/connection.js";
 import type { DB, LineOfBusinessRow, TeamRow } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { resolveIdOrSlug } from "../utils/ids.js";
-import { paginateQuery } from "../utils/pagination.js";
+import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
+
+type LobSortKey = NonNullable<ListLobsQuery["sort"]>;
+type TeamSortKey = NonNullable<ListTeamsQuery["sort"]>;
+
+/** Sort whitelists mirror the org query schemas — the count keys order by
+ *  the SELECT aliases of the same subqueries the columns display (FR-005,
+ *  spec 069 / B.3). */
+const LOB_SORT_COLUMNS: Record<LobSortKey, OrderTarget> = {
+  name: "line_of_businesses.name",
+  createdAt: "line_of_businesses.createdAt",
+  teamCount: "teamCount",
+  productCount: "productCount",
+};
+
+const TEAM_SORT_COLUMNS: Record<TeamSortKey, OrderTarget> = {
+  name: "teams.name",
+  createdAt: "teams.createdAt",
+  lob: "lob.name",
+  memberCount: "memberCount",
+  productCount: "productCount",
+  componentCount: "componentCount",
+};
 
 type OrgTable = "line_of_businesses" | "teams";
 const ENTITY_TYPE: Record<OrgTable, string> = {
@@ -175,26 +197,12 @@ export async function listOrgEntities(
       filtered,
       { page, pageSize },
       {
-        orderBy: (q) => {
-          const sort = (query as ListTeamsQuery).sort;
-          // FR-005: the count keys order by the SELECT aliases of the same
-          // correlated subqueries the columns display (Postgres resolves
-          // ORDER BY "memberCount" to the output column).
-          const primary =
-            sort === "createdAt"
-              ? q.orderBy("teams.createdAt", order)
-              : sort === "lob"
-                ? q.orderBy("lob.name", order)
-                : sort === "memberCount"
-                  ? q.orderBy("memberCount", order)
-                  : sort === "productCount"
-                    ? q.orderBy("productCount", order)
-                    : sort === "componentCount"
-                      ? q.orderBy("componentCount", order)
-                      : q.orderBy("teams.name", order);
+        orderBy: (q) =>
           // Deterministic tie-break (ADR-130).
-          return primary.orderBy("teams.id", order);
-        },
+          q.orderBy(
+            sortTarget(TEAM_SORT_COLUMNS, (query as ListTeamsQuery).sort, TEAM_SORT_COLUMNS.name),
+            order,
+          ).orderBy("teams.id", order),
       },
     );
     return { data: data.map(withLob), pagination };
@@ -230,20 +238,11 @@ export async function listOrgEntities(
     filtered,
     { page, pageSize },
     {
-      orderBy: (q) => {
-        // FR-005: count sorts order by the SELECT aliases of the same
-        // per-row count subqueries the card grid displays.
-        const sort = (query as ListLobsQuery).sort;
-        const primary =
-          sort === "createdAt"
-            ? q.orderBy("line_of_businesses.createdAt", order)
-            : sort === "teamCount"
-              ? q.orderBy("teamCount", order)
-              : sort === "productCount"
-                ? q.orderBy("productCount", order)
-                : q.orderBy("line_of_businesses.name", order);
-        return primary.orderBy("line_of_businesses.id", order);
-      },
+      orderBy: (q) =>
+        q.orderBy(
+          sortTarget(LOB_SORT_COLUMNS, (query as ListLobsQuery).sort, LOB_SORT_COLUMNS.name),
+          order,
+        ).orderBy("line_of_businesses.id", order),
     },
   );
   return {

@@ -18,7 +18,7 @@ export function UxProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const detail = useProduct(slug);
   const catalog = useAllComponents();
-  const suggestions = useSuggestions("PENDING", 0, 100);
+  const suggestions = useSuggestions("PENDING", { page: 1, pageSize: 100 });
   const history = usePagedEntityHistory("digital_product", detail.data?.product.id ?? "");
 
   if (detail.isPending) {

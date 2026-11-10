@@ -7,8 +7,8 @@ const uid = () => `pw-r-${Date.now().toString(36)}`;
 type Api = Awaited<ReturnType<typeof apiLogin>>;
 
 /** Seeds a component with an instance plus direct and group-mediated Product
- *  dependents (spec 060). Component-to-Component lanes have no writer yet —
- *  they assert honest empty states. */
+ *  dependents (spec 060). Component-to-Component lanes have no writer
+ *  exercised here — they render only when populated (spec 069). */
 async function buildRelationshipFixture(api: Api, run: string) {
   const comp = await api('POST', '/api/v1/components', {
     name: `RelComp ${run}`,
@@ -57,7 +57,7 @@ async function buildRelationshipFixture(api: Api, run: string) {
 }
 
 test.describe('component relationships tab (spec 060)', () => {
-  test('renders typed lanes, provenance, and nested instances', async ({ page, request }) => {
+  test('renders populated lanes, provenance, and nested instances', async ({ page, request }) => {
     const api = await apiLogin(request, BASE, 'EDITOR');
     const fx = await buildRelationshipFixture(api, uid());
 
@@ -65,16 +65,20 @@ test.describe('component relationships tab (spec 060)', () => {
     await page.goto(`/components/${fx.slug}?tab=relationships`);
 
     await expect(page.getByText('Component relationships')).toBeVisible({ timeout: 15_000 });
+
+    // Lanes with no data are hidden entirely (spec 069 / commit 7e33ef2) —
+    // the fixture populates only Product dependents; the six
+    // component-to-component lanes must be absent, not empty-stated.
+    await expect(page.getByText('Product dependents', { exact: true }).first()).toBeVisible();
     for (const lane of [
       'Depended on by',
       'Sourced by',
       'Exposed by',
-      'Product dependents',
       'Depends on',
       'Sources from',
       'Exposes',
     ]) {
-      await expect(page.getByText(lane, { exact: true }).first()).toBeVisible();
+      await expect(page.getByText(lane, { exact: true })).toHaveCount(0);
     }
 
     // Direct vs group-mediated provenance stays labeled on the node.
@@ -87,15 +91,12 @@ test.describe('component relationships tab (spec 060)', () => {
     await expect(page.getByText(`via RelGroup ${fx.run}`)).toBeVisible();
 
     // Instances nest under the focused component with environment + status.
-    await expect(page.getByText('Instances')).toBeVisible();
-    await expect(page.getByText('Production')).toBeVisible();
-    await expect(page.getByText('Running')).toBeVisible();
-
-    // Component-to-Component lanes have no writer yet — honest empty states.
-    for (const lane of ['Depended on by', 'Depends on']) {
-      const col = page.locator('div', { has: page.getByText(lane, { exact: true }) }).last();
-      await expect(col.getByText('None').first()).toBeVisible();
-    }
+    await expect(page.getByText('Instances', { exact: true })).toBeVisible();
+    // Scope to the instance row — "Running" also appears in the legend.
+    const instanceRow = page
+      .getByRole('listitem')
+      .filter({ has: page.getByText('Production', { exact: true }) });
+    await expect(instanceRow.getByText('Running', { exact: true })).toBeVisible();
   });
 
   test('keyboard operation, +N expansion, and inspection panel', async ({ page, request }) => {

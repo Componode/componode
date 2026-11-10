@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
+import { facetValue } from "@/api/list-query";
 import { useRunChanges, type RunChangesSortKey } from "@/api/hooks/audit";
 import { useCredentials } from "@/api/hooks/credentials";
 import {
@@ -45,14 +46,14 @@ export function UxRunDetailPage() {
     pageSize: errorsList.pageSize,
     sort: errorsList.sort ?? undefined,
     order: errorsList.order,
-    errorType: errorType === "" ? undefined : errorType,
+    errorType: facetValue(errorType),
   }, { refetchInterval: poll });
   const changes = useRunChanges(id ?? "", runId ?? "", {
     page: changesList.page,
     pageSize: changesList.pageSize,
     sort: changesList.sort ?? undefined,
     order: changesList.order,
-    action: action === "all" ? undefined : action,
+    action: facetValue(action),
   }, { refetchInterval: poll });
   useCrumbLabel(id, config.data?.config?.label ?? null);
 

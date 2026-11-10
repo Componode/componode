@@ -3,6 +3,7 @@ import { api } from "@/api/client";
 import {
   allPagesQueryString,
   buildApiQueryString,
+  facetParam,
   fetchAllPages,
   type ListQueryState,
 } from "@/api/list-query";
@@ -50,11 +51,6 @@ export interface AgentsListFilters {
   status?: string;
 }
 
-const agentsFacet = (state: ListQueryState, key: string): string | undefined => {
-  const v = state.filters[key];
-  return v !== undefined && v !== "" && v !== "all" ? v : undefined;
-};
-
 /**
  * Adapts resolved `useListState` output to `/agents` API params (spec 068).
  * The `status` URL sentinel `"all"` maps to "filter not applied"; every
@@ -67,7 +63,7 @@ export function agentsListParams(state: ListQueryState): AgentsListFilters {
     sort: (state.sort as AgentsSortKey | null) ?? "name",
     order: state.order,
     search: state.search !== "" ? state.search : undefined,
-    status: agentsFacet(state, "status"),
+    status: facetParam(state, "status"),
   };
 }
 

@@ -1,4 +1,4 @@
-import type { SelectQueryBuilder } from "kysely";
+import { sql, type RawBuilder, type SelectQueryBuilder } from "kysely";
 import type { Paginated, PaginationMeta } from "@componode/core";
 
 /**
@@ -20,6 +20,35 @@ import type { Paginated, PaginationMeta } from "@componode/core";
 export interface PageParams {
   page: number;
   pageSize: number;
+}
+
+/**
+ * An orderable target accepted by Kysely's `orderBy`: a column reference
+ * (table-qualified or a select alias) or a `sql` template expression
+ * (e.g. the audit feed's computed sort keys).
+ */
+export type OrderTarget = string | RawBuilder<unknown>;
+
+/**
+ * Resolves a whitelisted sort key to its orderable target (spec 069 /
+ * B.3). `map` keys MUST mirror the endpoint's Zod sort enum — the map is
+ * a lookup, never a second whitelist: unknown keys already fail schema
+ * validation upstream (ADR-095), and `fallback` covers a null/undefined
+ * sort for callers whose schema leaves it optional.
+ *
+ * String targets go through `sql.ref` — Kysely's typed `orderBy` only
+ * accepts compile-time column references, while the map's whole point is
+ * runtime lookup. `sql.ref` emits the identical reference node (and the
+ * values are static map entries, never user input — the sort *key* is
+ * what Zod whitelists, ADR-095).
+ */
+export function sortTarget<S extends string>(
+  map: Record<S, OrderTarget>,
+  sort: string | null | undefined,
+  fallback: OrderTarget,
+): RawBuilder<unknown> {
+  const target = (sort != null ? map[sort as S] : undefined) ?? fallback;
+  return typeof target === "string" ? sql.ref(target) : target;
 }
 
 /** Computes the contract pagination envelope for a filtered result set. */

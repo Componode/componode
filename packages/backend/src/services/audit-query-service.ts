@@ -2,7 +2,7 @@ import { sql, type SelectQueryBuilder } from "kysely";
 import { db } from "../db/connection.js";
 import type { DB } from "../db/types.js";
 import { isUuid } from "../utils/ids.js";
-import { paginateQuery, paginationMeta } from "../utils/pagination.js";
+import { paginateQuery, paginationMeta, sortTarget, type OrderTarget } from "../utils/pagination.js";
 import type {
   ActivityFeedItem,
   ActivityFeedQuery,
@@ -402,6 +402,26 @@ const ACTOR_SORT = sql`lower(coalesce("createdByName", "createdBy"::text, ''))`;
  */
 const ENTITY_TYPE_SORT = sql`coalesce("entityType", "fromEntityType")`;
 
+type ActivitySortKey = NonNullable<ActivityFeedQuery["sort"]>;
+type RunChangeSortKey = NonNullable<ListRunChangesQuery["sort"]>;
+
+/** Sort whitelists mirror the audit query schemas — `actor`/`entityType`
+ *  order by sql expressions on the derived feed table (spec 069 / B.3). */
+const ACTIVITY_SORT_COLUMNS: Record<ActivitySortKey, OrderTarget> = {
+  createdAt: "createdAt",
+  action: "action",
+  actor: ACTOR_SORT,
+  kind: "kind",
+  entityType: ENTITY_TYPE_SORT,
+};
+
+const RUN_CHANGE_SORT_COLUMNS: Record<RunChangeSortKey, OrderTarget> = {
+  createdAt: "entity_changes.createdAt",
+  action: "entity_changes.action",
+  entityType: "entity_changes.entityType",
+  actor: sql`coalesce("entity_changes"."createdByName", 'importer')`,
+};
+
 /** Maps a normalized UNION row back to the exact ActivityFeedItem shape. */
 function unionRowToFeedItem(row: AuditFeedRow): ActivityFeedItem {
   if (row.kind === "entity") {
@@ -447,18 +467,12 @@ async function pageFeedUnion(
   // Tiebreak preserves the pre-068 feed semantics: most recent first,
   // then stable id order.
   const feedTable = feed.as("feed");
-  let ordered = db.selectFrom(feedTable).selectAll();
-  ordered =
-    sort === "action"
-      ? ordered.orderBy("action", order)
-      : sort === "actor"
-        ? ordered.orderBy(ACTOR_SORT, order)
-        : sort === "kind"
-          ? ordered.orderBy("kind", order)
-          : sort === "entityType"
-            ? ordered.orderBy(ENTITY_TYPE_SORT, order)
-            : ordered.orderBy("createdAt", order);
-  ordered = ordered.orderBy("createdAt", "desc").orderBy("id", "asc");
+  const ordered = db
+    .selectFrom(feedTable)
+    .selectAll()
+    .orderBy(sortTarget(ACTIVITY_SORT_COLUMNS, sort, ACTIVITY_SORT_COLUMNS.createdAt), order)
+    .orderBy("createdAt", "desc")
+    .orderBy("id", "asc");
 
   const offset = (page - 1) * pageSize;
   const [countRow, rows] = await Promise.all([
@@ -549,18 +563,12 @@ export async function getRunChanges(
     q,
     { page: query.page, pageSize: query.pageSize },
     {
-      orderBy: (qb) => {
-        const primary =
-          query.sort === "action"
-            ? qb.orderBy("entity_changes.action", query.order)
-            : query.sort === "entityType"
-              ? qb.orderBy("entity_changes.entityType", query.order)
-              : query.sort === "actor"
-                ? qb.orderBy(sql`coalesce("entity_changes"."createdByName", 'importer')`, query.order)
-                : qb.orderBy("entity_changes.createdAt", query.order);
+      orderBy: (qb) =>
         // Deterministic tie-break (ADR-130).
-        return primary.orderBy("entity_changes.id", query.order);
-      },
+        qb.orderBy(
+          sortTarget(RUN_CHANGE_SORT_COLUMNS, query.sort, RUN_CHANGE_SORT_COLUMNS.createdAt),
+          query.order,
+        ).orderBy("entity_changes.id", query.order),
     },
   );
 

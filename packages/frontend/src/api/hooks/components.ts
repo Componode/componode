@@ -4,7 +4,7 @@ import type {
   CreateInstanceBlock,
 } from "@componode/core";
 import { api } from "@/api/client";
-import { fetchAllPages, type ListQueryState } from "@/api/list-query";
+import { buildApiQueryString, fetchAllPages, facetParam, type ListQueryState } from "@/api/list-query";
 import type {
   Component,
   ComponentInstance,
@@ -57,17 +57,6 @@ export interface ComponentListFilters {
   order?: "asc" | "desc";
 }
 
-function buildQueryString(filters: ComponentListFilters): string {
-  const params = new URLSearchParams();
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== "") {
-      params.set(key, String(value));
-    }
-  });
-  const qs = params.toString();
-  return qs ? `?${qs}` : "";
-}
-
 /**
  * Adapts resolved `useListState` output to `/components` API params
  * (spec 068). URL filter sentinels map to API values: `gone=hide|show` →
@@ -77,20 +66,16 @@ function buildQueryString(filters: ComponentListFilters): string {
  */
 export function componentsListParams(state: ListQueryState): ComponentListFilters {
   const f = state.filters;
-  const facet = (key: string) => {
-    const v = f[key];
-    return v !== undefined && v !== "" && v !== "all" ? v : undefined;
-  };
   return {
     page: state.page,
     pageSize: state.pageSize,
     sort: (state.sort as ComponentsSortKey | null) ?? "name",
     order: state.order,
     search: state.search !== "" ? state.search : undefined,
-    provider: facet("provider"),
-    category: facet("category"),
-    lifecycle: facet("lifecycle"),
-    wired: facet("wired"),
+    provider: facetParam(state, "provider"),
+    category: facetParam(state, "category"),
+    lifecycle: facetParam(state, "lifecycle"),
+    wired: facetParam(state, "wired"),
     includeRetired: true,
     includeGone: f.gone === "show",
   };
@@ -100,7 +85,7 @@ export function useComponents(filters: ComponentListFilters = {}) {
   return useQuery({
     queryKey: ["components", filters],
     queryFn: () =>
-      api<ComponentListResponse>(`/components${buildQueryString(filters)}`),
+      api<ComponentListResponse>(`/components${buildApiQueryString(filters)}`),
     // Keep the current page visible while the next page/sort/filter loads
     // (docs/ux.md §6 refetch row; spec 068 gradual consumption).
     placeholderData: (prev) => prev,
@@ -121,7 +106,7 @@ export function useAllComponents(
     queryFn: () =>
       fetchAllPages((page) =>
         api<ComponentListResponse>(
-          `/components${buildQueryString({ ...filters, page, pageSize: 100 })}`,
+          `/components${buildApiQueryString({ ...filters, page, pageSize: 100 })}`,
         ),
       ),
   });

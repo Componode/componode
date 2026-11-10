@@ -11,6 +11,7 @@ import { writeAuthEvent } from "../services/audit-service.js";
 import { requireRole } from "../plugins/rbac.js";
 import { SESSION_COOKIE_NAME, type AuthenticatedRequest } from "../plugins/session.js";
 import { toActor } from "../services/actor.js";
+import { validationFailed } from "./route-helpers.js";
 
 const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
@@ -33,11 +34,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     const { user, sessionToken } = await login(parsed.data.username, parsed.data.password, {
@@ -81,11 +78,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const parsed = passwordChangeSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     if (!req.user) {
@@ -110,7 +103,9 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const body = req.body as { userId?: string };
     if (!body?.userId) {
-      return reply.status(400).send({ code: "VALIDATION_FAILED", message: "userId is required" });
+      return validationFailed(reply, [
+        { code: "custom", path: ["userId"], message: "userId is required" },
+      ]);
     }
 
     const token = await generatePasswordReset(body.userId, toActor(req));
@@ -121,11 +116,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post("/auth/password/reset/confirm", async (req: FastifyRequest, reply: FastifyReply) => {
     const parsed = passwordResetConfirmSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     try {
@@ -154,11 +145,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     const defaultRole = String(await getSetting("defaultUserRole") ?? "VIEWER");

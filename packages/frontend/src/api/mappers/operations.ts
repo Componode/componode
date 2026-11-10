@@ -124,6 +124,7 @@ export function mapImportRun(r: ApiImportRun, usersById?: Map<string, string>): 
     status: narrowOrRaw<RunStatus>(r.status, RUN_STATUSES),
     triggeredBy: r.triggeredBy ? (usersById?.get(r.triggeredBy) ?? r.triggeredBy) : "system",
     startedAt: r.startedAt,
+    completedAt: r.completedAt,
     durationSec: runDurationSec(r.startedAt, r.completedAt),
     assetsProcessed: r.assetsProcessed,
     assetsCreated: r.assetsCreated,

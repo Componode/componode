@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { fetchAllPages, type ListQueryState } from "@/api/list-query";
+import { buildApiQueryString, fetchAllPages, facetParam, type ListQueryState } from "@/api/list-query";
 import type {
   ProductListResponse,
   ProductDetail,
@@ -61,50 +61,23 @@ export const PRODUCTS_MISSING_INCOMPLETE = "owner,dependencies,description";
  * option and the RETIRED filter can reach retired rows.
  */
 export function productsListParams(state: ListQueryState): ProductListParams {
-  const f = state.filters;
-  const facet = (key: string) => {
-    const v = f[key];
-    return v !== undefined && v !== "" && v !== "all" ? v : undefined;
-  };
-  const missing = f.missing;
+  const missing = facetParam(state, "missing");
   return {
     page: state.page,
     pageSize: state.pageSize,
     sort: (state.sort as ProductsSortKey | null) ?? "name",
     order: state.order,
     search: state.search !== "" ? state.search : undefined,
-    type: facet("type"),
-    criticality: facet("criticality"),
-    lifecycle: facet("lifecycle"),
-    missing:
-      missing === "incomplete"
-        ? PRODUCTS_MISSING_INCOMPLETE
-        : missing !== undefined && missing !== "" && missing !== "all"
-          ? missing
-          : undefined,
+    type: facetParam(state, "type"),
+    criticality: facetParam(state, "criticality"),
+    lifecycle: facetParam(state, "lifecycle"),
+    missing: missing === "incomplete" ? PRODUCTS_MISSING_INCOMPLETE : missing,
     includeRetired: true,
   };
 }
 
-function buildProductsQs(params: ProductListParams): string {
-  const search = new URLSearchParams();
-  if (params.page !== undefined) search.set("page", String(params.page));
-  if (params.pageSize !== undefined) search.set("pageSize", String(params.pageSize));
-  if (params.sort) search.set("sort", params.sort);
-  if (params.order) search.set("order", params.order);
-  if (params.search) search.set("search", params.search);
-  if (params.type) search.set("type", params.type);
-  if (params.lifecycle) search.set("lifecycle", params.lifecycle);
-  if (params.tag) search.set("tag", params.tag);
-  if (params.criticality) search.set("criticality", params.criticality);
-  if (params.missing) search.set("missing", params.missing);
-  if (params.includeRetired) search.set("includeRetired", "true");
-  const qs = search.toString();
-  return qs ? `?${qs}` : "";
-}
-
 export function useProducts(params: ProductListParams = {}, enabled = true) {
-  const qs = buildProductsQs(params);
+  const qs = buildApiQueryString(params);
   return useQuery({
     queryKey: ["products", qs],
     enabled,
@@ -128,7 +101,7 @@ export function useAllProducts(
     queryFn: () =>
       fetchAllPages((page) =>
         api<ProductListResponse>(
-          `/products${buildProductsQs({ ...params, page, pageSize: 100 })}`,
+          `/products${buildApiQueryString({ ...params, page, pageSize: 100 })}`,
         ),
       ),
   });

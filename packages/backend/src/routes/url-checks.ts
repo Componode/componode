@@ -8,7 +8,7 @@ import {
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole, hasPermission } from "../plugins/rbac.js";
 import { toActor } from "../services/actor.js";
-import { sendServiceError } from "./route-helpers.js";
+import { sendServiceError, validationFailed } from "./route-helpers.js";
 import { getSetup, upsertSetup } from "../services/monitoring-setup-service.js";
 import {
   listChecks,
@@ -22,18 +22,6 @@ const componentIdParam = z.object({
 });
 const checkIdParam = z.object({ id: z.string().uuid() });
 
-const badParams = (reply: FastifyReply) =>
-  reply.status(400).send({
-    code: "VALIDATION_FAILED",
-    message: "Invalid path parameters",
-  });
-
-const validationFailed = (reply: FastifyReply, issues: unknown) =>
-  reply.status(400).send({
-    code: "VALIDATION_FAILED",
-    message: "Invalid input",
-    details: issues,
-  });
 
 const forbidden = (reply: FastifyReply) =>
   reply.status(403).send({ code: "AUTH_FORBIDDEN", message: "Forbidden" });
@@ -46,7 +34,7 @@ export async function urlCheckRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.verifySession] },
     async (req: FastifyRequest, reply: FastifyReply) => {
       const params = componentIdParam.safeParse(req.params);
-      if (!params.success) return badParams(reply);
+      if (!params.success) return validationFailed(reply, params.error.issues);
       const setup = await getSetup(params.data.componentId);
       if (!setup) {
         return reply.status(404).send({
@@ -65,7 +53,7 @@ export async function urlCheckRoutes(app: FastifyInstance): Promise<void> {
     },
     async (req: AuthenticatedRequest, reply: FastifyReply) => {
       const params = componentIdParam.safeParse(req.params);
-      if (!params.success) return badParams(reply);
+      if (!params.success) return validationFailed(reply, params.error.issues);
       const parsed = updateMonitoringSetupSchema.safeParse(req.body);
       if (!parsed.success) return validationFailed(reply, parsed.error.issues);
       try {
@@ -99,7 +87,7 @@ export async function urlCheckRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.verifySession] },
     async (req: FastifyRequest, reply: FastifyReply) => {
       const params = componentIdParam.safeParse(req.params);
-      if (!params.success) return badParams(reply);
+      if (!params.success) return validationFailed(reply, params.error.issues);
       try {
         const result = await listChecks(params.data.componentId);
         return reply.status(200).send(result);
@@ -131,7 +119,7 @@ export async function urlCheckRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.verifySession] },
     async (req: FastifyRequest, reply: FastifyReply) => {
       const params = checkIdParam.safeParse(req.params);
-      if (!params.success) return badParams(reply);
+      if (!params.success) return validationFailed(reply, params.error.issues);
       try {
         const check = await getCheckDetail(params.data.id);
         return reply.status(200).send({ check });
@@ -162,7 +150,7 @@ export async function urlCheckRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.verifySession] },
     async (req: FastifyRequest, reply: FastifyReply) => {
       const params = checkIdParam.safeParse(req.params);
-      if (!params.success) return badParams(reply);
+      if (!params.success) return validationFailed(reply, params.error.issues);
       const query = urlCheckMetricsQuerySchema.safeParse(req.query);
       if (!query.success) return validationFailed(reply, query.error.issues);
       try {
@@ -182,7 +170,7 @@ export async function urlCheckRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.verifySession] },
     async (req: FastifyRequest, reply: FastifyReply) => {
       const params = checkIdParam.safeParse(req.params);
-      if (!params.success) return badParams(reply);
+      if (!params.success) return validationFailed(reply, params.error.issues);
       const query = urlCheckObservationsQuerySchema.safeParse(req.query);
       if (!query.success) return validationFailed(reply, query.error.issues);
       try {

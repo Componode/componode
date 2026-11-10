@@ -5,7 +5,8 @@ import type { ReactNode } from "react";
 import { useListState, type ListStateConfig } from "@/ux/hooks/use-list-state";
 import { useClampPage } from "@/ux/hooks/use-clamp-page";
 import { useDebouncedValue } from "@/ux/hooks/use-debounced-value";
-import { buildListQueryString } from "@/api/list-query";
+import { buildListQueryString, facetParam } from "@/api/list-query";
+import { useDebouncedParam } from "@/ux/hooks/use-debounced-param";
 import { ListToolbar, type FilterDef } from "@/ux/components/patterns/list-toolbar";
 import { ListPagination } from "@/ux/components/patterns/list-pagination";
 import { SortableTableHead } from "@/ux/components/patterns/sortable-header";
@@ -284,6 +285,44 @@ describe("buildListQueryString", () => {
         filters: {},
       }),
     ).toBe("");
+  });
+});
+
+describe("facetParam (spec 069 / B.4)", () => {
+  const state = (filters: Record<string, string>) => ({
+    page: 1,
+    pageSize: 25,
+    sort: null,
+    order: "asc" as const,
+    search: "",
+    filters,
+  });
+
+  it("passes through real values and drops unset sentinels", () => {
+    const s = state({ provider: "AWS", category: "all", lifecycle: "", owner: undefined as never });
+    expect(facetParam(s, "provider")).toBe("AWS");
+    expect(facetParam(s, "category")).toBeUndefined();
+    expect(facetParam(s, "lifecycle")).toBeUndefined();
+    expect(facetParam(s, "missing")).toBeUndefined();
+  });
+});
+
+describe("useDebouncedParam (spec 069 / B.4)", () => {
+  it("commits debounced text and maps empty input to the unset sentinel", () => {
+    vi.useFakeTimers();
+    const commit = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ v }) => useDebouncedParam(v, commit, "all"),
+      { initialProps: { v: "all" } },
+    );
+    expect(result.current[0]).toBe(""); // "all" displays as empty input
+    act(() => result.current[1]("GITHUB"));
+    act(() => vi.advanceTimersByTime(350));
+    expect(commit).toHaveBeenCalledWith("GITHUB");
+    rerender({ v: "GITHUB" });
+    act(() => result.current[1](""));
+    act(() => vi.advanceTimersByTime(350));
+    expect(commit).toHaveBeenCalledWith("all"); // emptied input → sentinel
   });
 });
 

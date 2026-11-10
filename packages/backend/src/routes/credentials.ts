@@ -16,6 +16,7 @@ import {
   updateCredential,
 } from "../services/credential-service.js";
 import { toActor } from "../services/actor.js";
+import { validationFailed } from "./route-helpers.js";
 
 export async function credentialRoutes(app: FastifyInstance): Promise<void> {
   app.get("/credentials", {
@@ -23,11 +24,7 @@ export async function credentialRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const parsed = listCredentialsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid query",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
     const result = await listCredentials(parsed.data);
     return reply.status(200).send(result);
@@ -38,11 +35,7 @@ export async function credentialRoutes(app: FastifyInstance): Promise<void> {
   }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
     const parsed = createCredentialSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     const credential = await createCredential(parsed.data, toActor(req));
@@ -69,11 +62,7 @@ export async function credentialRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as { id: string };
     const parsed = testCredentialSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     const result = await testCredential(id, parsed.data, toActor(req), app.agentSessions);
@@ -86,11 +75,7 @@ export async function credentialRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as { id: string };
     const parsed = updateCredentialSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        code: "VALIDATION_FAILED",
-        message: "Invalid input",
-        details: parsed.error.issues,
-      });
+      return validationFailed(reply, parsed.error.issues);
     }
 
     const credential = await updateCredential(id, parsed.data, toActor(req));

@@ -171,6 +171,14 @@ documented fallbacks, null-first-class fields kept explicit, masked
 `keyHints` passed verbatim (never values). View types live in
 `src/ux/lib/view-types.ts`; mappers are unit-tested.
 
+**Carve-out (spec 069):** modules under `ux/` — components, page-level
+list/table views, forms, detail views, and libs alike — MAY use
+`import type` entity imports from `@/api/types` for prop and local
+typing (view types remain preferred where they cover the needed
+fields). This permits type imports only: runtime (value) imports of
+API contracts, and any data fetching or transformation outside mappers,
+remain forbidden.
+
 ### Mutations
 
 TanStack Query hooks own all writes; `onSuccess` invalidates the read
