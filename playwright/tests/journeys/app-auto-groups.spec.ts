@@ -73,8 +73,15 @@ test.describe('docker app auto ComponentGroups (spec 070)', () => {
     expect(app, 'compose:pw-app app group').toBeTruthy();
     expect(app.name).toBe('pw-app');
     expect(app.slug).toMatch(/^docker-app-pw-app-[0-9a-f]{12}$/);
-    expect(app.teamOwnerId ?? null).toBeNull();
     expect(app.autoSourceId).toBeTruthy();
+
+    // Both browser projects share one database — a previous project's run
+    // may have assigned an owner (auto groups accept owner writes). Normalize
+    // before asserting the provisioning default.
+    const reset = await api('PATCH', `/api/v1/component-groups/${app.id}`, { teamOwnerId: null });
+    expect(reset.status).toBe(200);
+    const fresh = await api('GET', `/api/v1/component-groups/${app.id}`);
+    expect(fresh.body.group.teamOwnerId ?? null).toBeNull();
 
     // Exact member set: the compose workload (pw-app/worker) plus the
     // label-carrying network + volume. pw-web (standalone), unlabeled
@@ -93,7 +100,13 @@ test.describe('docker app auto ComponentGroups (spec 070)', () => {
     expect(del.status).toBe(409);
     expect(del.body.code).toBe('GROUP_AUTO_MANAGED');
 
-    // Group detail page renders like any other group.
+    // Group detail page renders like any other group. The owner team is
+    // created before navigation so the page's teams query includes it.
+    const teamName = `PW AppTeam ${uid()}`;
+    const team = await api('POST', '/api/v1/teams', { name: teamName });
+    expect(team.status).toBe(201);
+    const teamId = team.body.team?.id ?? team.body.id;
+
     await loginPage(page, 'EDITOR');
     await page.goto(`/component-groups/${app.slug}`);
     await expect(page.getByText('pw-app').first()).toBeVisible({ timeout: 15_000 });
@@ -101,6 +114,24 @@ test.describe('docker app auto ComponentGroups (spec 070)', () => {
     await expect(page.getByText('pw-data').first()).toBeVisible();
     await expect(page.getByText('pw-app/worker').first()).toBeVisible();
     await expect(page.getByText('pw-web')).toHaveCount(0);
+
+    // Auto-managed edit surface: delete is never offered, and the edit
+    // dialog exposes only name + owning team — derived fields
+    // (description, lifecycle) are not submitted, so saves can't trip
+    // GROUP_AUTO_MANAGED (bugfix on spec 070).
+    await expect(page.getByRole('button', { name: 'Delete group' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Edit group' }).click();
+    await expect(page.getByLabel('Owning team')).toBeVisible();
+    await expect(page.getByLabel('Lifecycle')).toHaveCount(0);
+    await expect(page.locator('#edit-group-desc')).toHaveCount(0);
+
+    // Owner assignment persists — the reported failure mode.
+    await page.getByLabel('Owning team').click();
+    await page.getByRole('option', { name: teamName }).click();
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByText('Group updated')).toBeVisible({ timeout: 10_000 });
+    const after = await api('GET', `/api/v1/component-groups/${app.id}`);
+    expect(after.body.group.teamOwnerId).toBe(teamId);
   });
 
   test('swarm run provisions a stack app group for labeled services', async ({ request }) => {
