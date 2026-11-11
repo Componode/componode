@@ -97,7 +97,6 @@ describe("dashboard summary", () => {
           resourceType: "repo",
           lifecycle,
           details: null,
-          componentGroupId: null,
           externalId: null,
           lastSeenAt: null,
           lastSeenInRunId: null,

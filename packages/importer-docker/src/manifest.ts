@@ -14,6 +14,7 @@ export const manifest = {
   reportsSourceIdentity: true,
   targetRefKey: "targetId",
   autoGroups: "source",
+  autoAppGroups: true,
   configSchema: dockerConfigSchema,
   targetProfileSchema: dockerTargetProfileSchema,
   secrets: [

@@ -91,7 +91,6 @@ export interface ComponentRow {
   resourceType: string;
   lifecycle: string;
   teamOwnerId: string | null;
-  componentGroupId: string | null;
   externalId: string | null;
   details: Record<string, unknown> | null;
   links: Generated<{ title: string; url: string }[]>;
@@ -132,10 +131,21 @@ export interface ComponentGroupRow {
   description: string | null;
   lifecycle: string;
   teamOwnerId: string | null;
+  // Auto-group provenance (spec 070, ADR-129 amendment): autoSourceId IS NOT
+  // NULL marks the group auto-managed; autoGroupKey NULL = the source's own
+  // group, 'compose:{p}'/'stack:{n}' = an app group.
+  autoSourceId: string | null;
+  autoGroupKey: string | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: Generated<string>;
   updatedAt: Generated<string>;
+}
+
+export interface ComponentGroupMemberRow {
+  componentId: string;
+  groupId: string;
+  createdAt: Generated<string>;
 }
 
 export interface LineOfBusinessRow {
@@ -215,9 +225,6 @@ export interface ImporterSourceRow {
   label: string | null;
   status: string;
   boundConfigId: string | null;
-  // Auto-managed ComponentGroup link (ADR-129, spec 067): the source→group
-  // provenance marker and the auto-managed flag for write guards.
-  componentGroupId: string | null;
   firstSeenInRunId: string | null;
   lastSeenInRunId: string | null;
   createdAt: Generated<string>;
@@ -461,6 +468,7 @@ export interface DB {
   components: ComponentRow;
   component_instances: ComponentInstanceRow;
   component_groups: ComponentGroupRow;
+  component_group_members: ComponentGroupMemberRow;
   line_of_businesses: LineOfBusinessRow;
   teams: TeamRow;
   product_composes: JunctionRow;

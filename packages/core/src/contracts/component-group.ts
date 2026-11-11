@@ -7,6 +7,11 @@ export interface ComponentGroup {
   description?: string | null;
   lifecycle: ComponentLifecycle;
   teamOwnerId?: string | null;
+  /** Spec 070: auto-group provenance — owning ImporterSource when
+   *  auto-managed (null = human-managed); autoGroupKey NULL = the source's
+   *  own group, 'compose:{p}'/'stack:{n}' = an app group. */
+  autoSourceId?: string | null;
+  autoGroupKey?: string | null;
   createdBy?: string | null;
   updatedBy?: string | null;
   createdAt: string;

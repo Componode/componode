@@ -317,7 +317,7 @@ plus the master key together form the backup unit.
 ## Persistence model
 
 <!-- GENERATED:persistence-tables -->
-PostgreSQL holds **38 tables** (see `DB` in `packages/backend/src/db/types.ts`):
+PostgreSQL holds **39 tables** (see `DB` in `packages/backend/src/db/types.ts`):
 
 | Table | Row interface |
 |---|---|
@@ -330,6 +330,7 @@ PostgreSQL holds **38 tables** (see `DB` in `packages/backend/src/db/types.ts`):
 | `components` | `ComponentRow` |
 | `component_instances` | `ComponentInstanceRow` |
 | `component_groups` | `ComponentGroupRow` |
+| `component_group_members` | `ComponentGroupMemberRow` |
 | `line_of_businesses` | `LineOfBusinessRow` |
 | `teams` | `TeamRow` |
 | `product_composes` | `JunctionRow` |

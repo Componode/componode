@@ -180,7 +180,6 @@ describe("edge suggestion generation", () => {
         resourceType: "repo",
         lifecycle: opts.lifecycle ?? "ACTIVE",
         details: opts.details ?? null,
-        componentGroupId: opts.componentGroupId ?? null,
         externalId: null,
         lastSeenAt: null,
         lastSeenInRunId: null,
@@ -190,6 +189,12 @@ describe("edge suggestion generation", () => {
         updatedAt: now(),
       } as never)
       .execute();
+    if (opts.componentGroupId) {
+      await testDb.db
+        .insertInto("component_group_members")
+        .values({ componentId: id, groupId: opts.componentGroupId })
+        .execute();
+    }
     return id;
   }
 
@@ -474,7 +479,7 @@ describe("edge suggestion generation", () => {
       method: "PATCH",
       url: `/api/v1/components/${memberB}`,
       ...authed(),
-      payload: { componentGroupId: groupId },
+      payload: { componentGroupIds: [groupId] },
     });
     expect(move.statusCode).toBe(200);
     const rowB = await suggestionRow(productId, memberB);

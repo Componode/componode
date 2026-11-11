@@ -88,7 +88,6 @@ describe("product bulk component dependencies", () => {
         resourceType: "repo",
         lifecycle: "ACTIVE",
         details: null,
-        componentGroupId: null,
         externalId: null,
         lastSeenAt: null,
         lastSeenInRunId: null,

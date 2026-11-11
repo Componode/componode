@@ -20,6 +20,7 @@ import { Input } from "@/ux/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select"
 import { ux } from "@/ux/lib/paths"
 import { SLUG_RE, deriveSlug } from "@/ux/lib/slug"
+import { GroupMultiSelect } from "@/ux/components/catalog/group-multi-select"
 
 const NONE = "__none__"
 
@@ -42,7 +43,7 @@ export function UxComponentNewPage() {
   const [provider, setProvider] = React.useState("")
   const [resourceType, setResourceType] = React.useState("")
   const [teamOwnerId, setTeamOwnerId] = React.useState(NONE)
-  const [componentGroupId, setComponentGroupId] = React.useState(NONE)
+  const [componentGroupIds, setComponentGroupIds] = React.useState<string[]>([])
 
   const [environment, setEnvironment] = React.useState("")
   const [instanceUrl, setInstanceUrl] = React.useState("")
@@ -72,7 +73,7 @@ export function UxComponentNewPage() {
         provider,
         resourceType: resourceType.trim(),
         ...(teamOwnerId !== NONE ? { teamOwnerId } : {}),
-        ...(componentGroupId !== NONE ? { componentGroupId } : {}),
+        ...(componentGroupIds.length > 0 ? { componentGroupIds } : {}),
         instance: {
           environment: environment as (typeof ENVIRONMENTS)[number],
           ...(instanceUrl.trim() ? { url: instanceUrl.trim() } : {}),
@@ -192,20 +193,12 @@ export function UxComponentNewPage() {
                 </Select>
               </Field>
               <Field>
-                <FieldLabel htmlFor="nc-group">Component group</FieldLabel>
-                <Select value={componentGroupId} onValueChange={setComponentGroupId}>
-                  <SelectTrigger id="nc-group" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>No group</SelectItem>
-                    {(groups.data ?? []).map((g) => (
-                      <SelectItem key={g.id} value={g.id}>
-                        {g.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <GroupMultiSelect
+                  id="nc-group"
+                  groups={groups.data ?? []}
+                  value={componentGroupIds}
+                  onChange={setComponentGroupIds}
+                />
               </Field>
             </div>
           </FieldGroup>

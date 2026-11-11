@@ -45,7 +45,11 @@ const CONTAINERS = [
   {
     Id: 'c002'.padEnd(64, '0'), Names: ['/pw-worker'], Image: 'busybox:1.36',
     ImageID: 'sha256:img2', Command: 'sleep 3600', Created: 1700000000, State: 'running',
-    Status: 'Up 2 hours', Labels: {}, Ports: [],
+    // Compose workload: project+service labels → joins the pw-app app
+    // group (spec 070); pw-web deliberately stays standalone.
+    Status: 'Up 2 hours',
+    Labels: { 'com.docker.compose.project': 'pw-app', 'com.docker.compose.service': 'worker' },
+    Ports: [],
   },
 ];
 
@@ -124,7 +128,11 @@ const CONTAINER_INSPECT_EXTRA: Record<string, Record<string, unknown>> = {
   },
   c002: {
     Image: IMAGES[1].Id,
-    Config: { Image: 'busybox:1.36', Labels: {}, Env: ['PATH=/usr/bin'] },
+    Config: {
+      Image: 'busybox:1.36',
+      Labels: CONTAINERS[1].Labels,
+      Env: ['PATH=/usr/bin'],
+    },
     NetworkSettings: { Ports: {}, Networks: { bridge: { IPAddress: '172.17.0.3' } } },
     Mounts: [],
   },
@@ -134,7 +142,7 @@ const SERVICES = [
   {
     ID: 'svc-1', Version: { Index: 10 }, CreatedAt: '2026-01-01T00:00:00Z', UpdatedAt: '2026-01-01T00:00:00Z',
     Spec: {
-      Name: 'pw-svc', Labels: {},
+      Name: 'pw-svc', Labels: { 'com.docker.stack.namespace': 'pw-stack' },
       TaskTemplate: { ContainerSpec: { Image: 'nginx:1.25' } },
       Mode: { Replicated: { Replicas: 2 } },
       EndpointSpec: { Ports: [{ Protocol: 'tcp', TargetPort: 80, PublishedPort: 8080, PublishMode: 'ingress' }] },

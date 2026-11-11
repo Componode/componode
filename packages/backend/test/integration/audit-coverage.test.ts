@@ -99,7 +99,6 @@ describe("audit coverage for consequential mutations", () => {
         resourceType: "repo",
         lifecycle: "ACTIVE",
         details: null,
-        componentGroupId: null,
         externalId: null,
         lastSeenAt: null,
         lastSeenInRunId: null,
@@ -304,12 +303,12 @@ describe("audit coverage for consequential mutations", () => {
       url: `/api/v1/components/${componentId}`,
       cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
       headers: csrfHeader,
-      payload: { componentGroupId: groupId },
+      payload: { componentGroupIds: [groupId] },
     });
     expect(res.statusCode).toBe(200);
     const row = await latestAuditRow(testDb.db, { entityType: "component", action: "updated", entityId: componentId });
     expect(row).toBeDefined();
-    expect(row?.changes).toMatchObject({ componentGroupId: groupId });
+    expect(row?.changes).toMatchObject({ componentGroupIds: { to: [groupId] } });
   });
 
   it("records importer config update events", async () => {

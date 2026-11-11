@@ -182,12 +182,12 @@ describe("quickstart: 003-component-catalog", () => {
       cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
       headers: csrfHeader,
       payload: {
-        componentGroupId: group.id,
+        componentGroupIds: [group.id],
       },
     });
     expect(assignRes.statusCode).toBe(200);
     const assignBody = JSON.parse(assignRes.payload);
-    expect(assignBody.component.componentGroupId).toBe(group.id);
+    expect(assignBody.component.componentGroups.map((g: any) => g.id)).toContain(group.id);
 
     // 8. Filter by component group
     const groupFilterRes = await app.inject({

@@ -28,6 +28,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/ux/components
 import { Input } from "@/ux/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select"
 import { ux } from "@/ux/lib/paths"
+import { GroupMultiSelect } from "@/ux/components/catalog/group-multi-select"
 
 const NONE = "__none__"
 
@@ -52,7 +53,7 @@ export function ComponentCreateDialog({ trigger }: { trigger?: React.ReactNode }
   const [provider, setProvider] = React.useState<string>("")
   const [resourceType, setResourceType] = React.useState("")
   const [teamOwnerId, setTeamOwnerId] = React.useState<string>(NONE)
-  const [componentGroupId, setComponentGroupId] = React.useState<string>(NONE)
+  const [componentGroupIds, setComponentGroupIds] = React.useState<string[]>([])
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
@@ -64,7 +65,7 @@ export function ComponentCreateDialog({ trigger }: { trigger?: React.ReactNode }
     setProvider("")
     setResourceType("")
     setTeamOwnerId(NONE)
-    setComponentGroupId(NONE)
+    setComponentGroupIds([])
     setError(null)
   }, [open])
 
@@ -84,7 +85,7 @@ export function ComponentCreateDialog({ trigger }: { trigger?: React.ReactNode }
         provider,
         resourceType: resourceType.trim(),
         ...(teamOwnerId !== NONE ? { teamOwnerId } : {}),
-        ...(componentGroupId !== NONE ? { componentGroupId } : {}),
+        ...(componentGroupIds.length > 0 ? { componentGroupIds } : {}),
       },
       {
         onSuccess: ({ component }) => {
@@ -205,20 +206,12 @@ export function ComponentCreateDialog({ trigger }: { trigger?: React.ReactNode }
               </Select>
             </Field>
             <Field>
-              <FieldLabel htmlFor="cc-group">Component group</FieldLabel>
-              <Select value={componentGroupId} onValueChange={setComponentGroupId}>
-                <SelectTrigger id="cc-group" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>No group</SelectItem>
-                  {(groups.data ?? []).map((g) => (
-                    <SelectItem key={g.id} value={g.id}>
-                      {g.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <GroupMultiSelect
+                id="cc-group"
+                groups={groups.data ?? []}
+                value={componentGroupIds}
+                onChange={setComponentGroupIds}
+              />
             </Field>
             {error && <p className="text-sm text-destructive">{error}</p>}
           </FieldGroup>

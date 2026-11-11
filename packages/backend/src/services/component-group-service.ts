@@ -19,6 +19,14 @@ import type { ComponentInstanceRow, ComponentRow } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
 import { tagsDiffer } from "./suggestion-signals.js";
+import {
+  addMemberships,
+  assertAssignableHumanGroups,
+  groupsOfComponent,
+  humanGroupIdsOfComponent,
+  replaceHumanMemberships,
+  type ComponentGroupRef,
+} from "./component-group-membership.js";
 
 function isValidSlug(slug: string): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && slug.length <= 100;
@@ -43,18 +51,19 @@ function actorName(actor: Actor): string | null {
 }
 
 /**
- * ADR-129 / spec 067: a group linked from `importer_sources.componentGroupId`
- * is auto-managed — its lifecycle and membership are derived by the
- * source-grouping pass. Humans may still rename/re-describe/re-own it, but
- * lifecycle writes and deletion are rejected with a controlled conflict.
+ * ADR-129 / spec 067+070: a group with `autoSourceId IS NOT NULL` is
+ * auto-managed — its lifecycle and membership are derived by the
+ * source-grouping pass (source groups and app groups alike). Humans may
+ * still rename/re-describe/re-own it, but lifecycle writes and deletion
+ * are rejected with a controlled conflict.
  */
 async function isAutoManagedGroup(groupId: string): Promise<boolean> {
-  const link = await db
-    .selectFrom("importer_sources")
-    .select("id")
-    .where("componentGroupId", "=", groupId)
+  const row = await db
+    .selectFrom("component_groups")
+    .select("autoSourceId")
+    .where("id", "=", groupId)
     .executeTakeFirst();
-  return link !== undefined;
+  return row?.autoSourceId != null;
 }
 
 function autoManagedConflict(): never {
@@ -92,12 +101,14 @@ export async function listComponentGroups(rawQuery: unknown) {
       "component_groups.lifecycle",
       "component_groups.teamOwnerId",
       "teams.name as teamOwnerName",
+      "component_groups.autoSourceId",
+      "component_groups.autoGroupKey",
       "component_groups.createdAt",
       "component_groups.updatedAt",
       // FR-010: pickers/labels show how many components the group expands to.
       eb
-        .selectFrom("components")
-        .whereRef("components.componentGroupId", "=", "component_groups.id")
+        .selectFrom("component_group_members")
+        .whereRef("component_group_members.groupId", "=", "component_groups.id")
         .select((eb2) => eb2.fn.countAll().as("c"))
         .as("memberCount"),
     ]);
@@ -147,11 +158,13 @@ function groupDetailQuery() {
       "component_groups.lifecycle",
       "component_groups.teamOwnerId",
       "teams.name as teamOwnerName",
+      "component_groups.autoSourceId",
+      "component_groups.autoGroupKey",
       "component_groups.createdAt",
       "component_groups.updatedAt",
       eb
-        .selectFrom("components")
-        .whereRef("components.componentGroupId", "=", "component_groups.id")
+        .selectFrom("component_group_members")
+        .whereRef("component_group_members.groupId", "=", "component_groups.id")
         .select((eb2) => eb2.fn.countAll().as("c"))
         .as("memberCount"),
     ]);
@@ -239,6 +252,8 @@ export async function createComponentGroup(
         "component_groups.description",
         "component_groups.lifecycle",
         "component_groups.teamOwnerId",
+        "component_groups.autoSourceId",
+        "component_groups.autoGroupKey",
         "teams.name as teamOwnerName",
         "component_groups.createdAt",
         "component_groups.updatedAt",
@@ -314,6 +329,8 @@ export async function updateComponentGroup(
         "component_groups.description",
         "component_groups.lifecycle",
         "component_groups.teamOwnerId",
+        "component_groups.autoSourceId",
+        "component_groups.autoGroupKey",
         "teams.name as teamOwnerName",
         "component_groups.createdAt",
         "component_groups.updatedAt",
@@ -403,14 +420,10 @@ export async function updateComponent(
     }
   }
 
-  if (parsed.componentGroupId) {
-    const group = await getComponentGroupById(parsed.componentGroupId);
-    if (!group) {
-      throw Object.assign(new Error("Component group not found"), {
-        statusCode: 404,
-        code: "NOT_FOUND",
-      });
-    }
+  // Spec 070: componentGroupIds manages HUMAN-group memberships only —
+  // auto-managed ids are rejected, unknown ids 404.
+  if (parsed.componentGroupIds !== undefined) {
+    await assertAssignableHumanGroups(parsed.componentGroupIds);
   }
 
   const existing = await db
@@ -425,31 +438,54 @@ export async function updateComponent(
     });
   }
 
+  const priorHumanGroups =
+    parsed.componentGroupIds !== undefined
+      ? await humanGroupIdsOfComponent(componentId)
+      : null;
+
   const updates: Record<string, unknown> = {};
-  if (parsed.componentGroupId !== undefined)
-    updates.componentGroupId = parsed.componentGroupId;
   if (parsed.teamOwnerId !== undefined) updates.teamOwnerId = parsed.teamOwnerId;
   if (parsed.links !== undefined)
     updates.links = JSON.stringify(parsed.links) as unknown as Link[];
   if (parsed.tags !== undefined) updates.tags = parsed.tags;
   if (parsed.sunsetAt !== undefined) updates.sunsetAt = parsed.sunsetAt;
-  if (Object.keys(updates).length === 0) {
+
+  const membershipChanged =
+    priorHumanGroups !== null &&
+    JSON.stringify([...priorHumanGroups].sort()) !==
+      JSON.stringify([...new Set(parsed.componentGroupIds ?? [])].sort());
+
+  if (Object.keys(updates).length === 0 && !membershipChanged) {
     return getComponentGroupByComponentId(componentId);
   }
 
   const result = await db.transaction().execute(async (trx) => {
-    await trx
-      .updateTable("components")
-      .set(updates)
-      .where("id", "=", componentId)
-      .execute();
+    if (Object.keys(updates).length > 0) {
+      await trx
+        .updateTable("components")
+        .set(updates)
+        .where("id", "=", componentId)
+        .execute();
+    }
+
+    let membershipAudit: Record<string, unknown> | null = null;
+    if (parsed.componentGroupIds !== undefined) {
+      const diff = await replaceHumanMemberships(
+        componentId,
+        parsed.componentGroupIds,
+        trx,
+      );
+      membershipAudit = {
+        componentGroupIds: { from: diff.before, to: diff.after },
+      };
+    }
 
     await writeEntityChange(
       {
         entityType: "component",
         entityId: componentId,
         action: "updated",
-        changes: updates,
+        changes: { ...updates, ...membershipAudit },
         actor,
       },
       trx,
@@ -461,11 +497,7 @@ export async function updateComponent(
   // ADR-113: a scoped pass re-scores this component's pairs and tombstones
   // pairs newly covered by a group move — post-commit, failure-isolated.
   // Guard on real changes, not mere presence in the PATCH body.
-  if (
-    (parsed.componentGroupId !== undefined &&
-      parsed.componentGroupId !== existing.componentGroupId) ||
-    (parsed.tags !== undefined && tagsDiffer(parsed.tags, existing.tags))
-  ) {
+  if (membershipChanged || (parsed.tags !== undefined && tagsDiffer(parsed.tags, existing.tags))) {
     await runSuggestionPass({ componentIds: [componentId] }, { componentId });
   }
   return result;
@@ -477,7 +509,9 @@ export async function updateComponent(
  * uuid v7, audit event. Importer-managed columns stay null.
  */
 export interface CreateComponentResult {
-  component: Selectable<ComponentRow> | undefined;
+  component:
+    | (Selectable<ComponentRow> & { componentGroups: ComponentGroupRef[] })
+    | undefined;
   // Composite create-with-instance — present only when the request
   // carried the instance block.
   instance?: Selectable<ComponentInstanceRow>;
@@ -529,14 +563,8 @@ export async function createComponent(
       });
     }
   }
-  if (parsed.componentGroupId) {
-    const group = await getComponentGroupById(parsed.componentGroupId);
-    if (!group) {
-      throw Object.assign(new Error("Component group not found"), {
-        statusCode: 404,
-        code: "NOT_FOUND",
-      });
-    }
+  if (parsed.componentGroupIds !== undefined) {
+    await assertAssignableHumanGroups(parsed.componentGroupIds);
   }
 
   const id = uuidv7();
@@ -553,7 +581,6 @@ export async function createComponent(
         resourceType: parsed.resourceType,
         lifecycle: "ACTIVE",
         teamOwnerId: parsed.teamOwnerId ?? null,
-        componentGroupId: parsed.componentGroupId ?? null,
         externalId: null,
         details: null,
         links: parsed.links ?? [],
@@ -579,14 +606,23 @@ export async function createComponent(
       trx,
     );
 
+    if (parsed.componentGroupIds && parsed.componentGroupIds.length > 0) {
+      await addMemberships(id, parsed.componentGroupIds, trx);
+    }
+
     const component = await trx
       .selectFrom("components")
       .selectAll()
       .where("components.id", "=", id)
       .executeTakeFirst();
+    // Spec 070 FR-002: the create response exposes memberships like every
+    // other component payload.
+    const payload = component
+      ? { ...component, componentGroups: await groupsOfComponent(id, trx) }
+      : component;
 
     if (!parsed.instance) {
-      return { component };
+      return { component: payload };
     }
 
     // Composite create (spec 051 US5): component + one instance in this
@@ -636,7 +672,7 @@ export async function createComponent(
       .where("id", "=", instanceId)
       .executeTakeFirst();
 
-    return { component, instance };
+    return { component: payload, instance };
   });
 }
 
@@ -644,9 +680,8 @@ async function getComponentGroupByComponentIdWithTrx(
   trx: import("kysely").Transaction<import("../db/types.js").DB> | typeof db,
   componentId: string,
 ) {
-  return trx
+  const component = await trx
     .selectFrom("components")
-    .leftJoin("component_groups", "components.componentGroupId", "component_groups.id")
     .select([
       "components.id",
       "components.name",
@@ -655,8 +690,6 @@ async function getComponentGroupByComponentIdWithTrx(
       "components.provider",
       "components.resourceType",
       "components.lifecycle",
-      "components.componentGroupId",
-      "component_groups.name as componentGroupName",
       "components.teamOwnerId",
       "components.links",
       "components.tags",
@@ -664,6 +697,11 @@ async function getComponentGroupByComponentIdWithTrx(
     ])
     .where("components.id", "=", componentId)
     .executeTakeFirst();
+  if (!component) return component;
+  return {
+    ...component,
+    componentGroups: await groupsOfComponent(componentId, trx),
+  };
 }
 
 async function getComponentGroupByComponentId(componentId: string) {

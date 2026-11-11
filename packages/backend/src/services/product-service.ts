@@ -338,13 +338,13 @@ async function computeComponentCountsForProducts(
     db
       .selectFrom("product_depends_on_component_group")
       .innerJoin(
-        "components",
-        "components.componentGroupId",
+        "component_group_members",
+        "component_group_members.groupId",
         "product_depends_on_component_group.componentGroupId",
       )
       .select([
         "product_depends_on_component_group.productId",
-        "components.id as componentId",
+        "component_group_members.componentId",
       ])
       .where("product_depends_on_component_group.productId", "in", ownerIds)
       .execute(),
@@ -482,9 +482,14 @@ export async function getProductDetail(slug: string) {
           "component_groups.id",
         )
         .innerJoin(
-          "components",
-          "components.componentGroupId",
+          "component_group_members",
+          "component_group_members.groupId",
           "component_groups.id",
+        )
+        .innerJoin(
+          "components",
+          "components.id",
+          "component_group_members.componentId",
         )
         .innerJoin(
           "digital_products",
@@ -524,8 +529,8 @@ export async function getProductDetail(slug: string) {
         "component_groups.slug",
         "component_groups.lifecycle",
         eb
-          .selectFrom("components")
-          .whereRef("components.componentGroupId", "=", "component_groups.id")
+          .selectFrom("component_group_members")
+          .whereRef("component_group_members.groupId", "=", "component_groups.id")
           .select((eb2) => eb2.fn.countAll().as("c"))
           .as("memberCount"),
       ])

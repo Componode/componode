@@ -25,10 +25,16 @@ export function workloadIdentity(
 ): WorkloadIdentity {
   const override = labels[componentIdLabel];
   if (override) {
+    const project = labels[COMPOSE_PROJECT_LABEL];
+    const service = labels[COMPOSE_SERVICE_LABEL];
     return {
       externalId: `workload:${override}`,
       kind: "override",
       workloadId: override,
+      // Compose labels stay factual attributes: an override workload inside
+      // a Compose project still joins that app group (spec 070 FR-008).
+      ...(project ? { composeProject: project } : {}),
+      ...(service ? { composeService: service } : {}),
     };
   }
   const project = labels[COMPOSE_PROJECT_LABEL];

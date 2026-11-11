@@ -70,7 +70,6 @@ async function mkComponent(
       resourceType: "rds",
       lifecycle: over.lifecycle ?? "ACTIVE",
       details: null,
-      componentGroupId: null,
       externalId: over.externalId ?? null,
       lastSeenAt: null,
       lastSeenInRunId: null,

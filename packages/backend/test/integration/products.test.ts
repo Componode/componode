@@ -71,7 +71,6 @@ async function mkComponent(testDb: TestDb, name: string) {
       resourceType: "repo",
       lifecycle: "ACTIVE",
       details: null,
-      componentGroupId: null,
       externalId: null,
       lastSeenAt: null,
       lastSeenInRunId: null,
@@ -638,9 +637,8 @@ describe("product hierarchy API", () => {
         ])
         .execute();
       await testDb.db
-        .updateTable("components")
-        .set({ componentGroupId: group })
-        .where("id", "=", compM)
+        .insertInto("component_group_members")
+        .values({ componentId: compM, groupId: group })
         .execute();
       await mkInstance(compC, "ERROR");
       await testDb.db

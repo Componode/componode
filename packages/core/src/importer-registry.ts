@@ -40,6 +40,12 @@ export interface ImporterManifest {
   // exclusively reports. `"source"` is the only strategy in v1.
   // Absent = non-adopter, never evaluated.
   autoGroups?: "source";
+  // Declares this importer adopts app-level auto ComponentGroups (spec 070,
+  // ADR-129 amendment): the backend maintains one auto-managed group per
+  // (source, app-boundary key) the importer strategy extracts from persisted
+  // component details. Orthogonal to `autoGroups` — either may be adopted
+  // independently. Absent = no app grouping.
+  autoAppGroups?: boolean;
 }
 
 export interface ImporterRegistry {

@@ -152,10 +152,24 @@ export interface ComponentGroup {
   lifecycle: string;
   teamOwnerId?: string | null;
   teamOwnerName?: string | null;
+  /** Spec 070: auto-group provenance — non-null = auto-managed group. */
+  autoSourceId?: string | null;
+  autoGroupKey?: string | null;
   memberCount?: number;
   /** Spec 068: returned on list rows (createdAt is a sort key). */
   createdAt?: string;
   updatedAt?: string;
+}
+
+/** Spec 070: one group membership on a component (multi-valued). */
+export interface ComponentGroupRef {
+  id: string;
+  name: string;
+  slug: string;
+  /** Present on group-edge refs (e.g. viaGroup); absent on membership refs. */
+  lifecycle?: string;
+  autoSourceId?: string | null;
+  autoGroupKey?: string | null;
 }
 
 export interface Link {
@@ -171,8 +185,7 @@ export interface Component {
   provider: string;
   resourceType: string;
   lifecycle: string;
-  componentGroupId: string | null;
-  componentGroupName: string | null;
+  componentGroups: ComponentGroupRef[];
   teamOwnerId?: string | null;
   teamOwnerName?: string | null;
   links?: Link[];
@@ -481,13 +494,6 @@ export interface ComponentProductDependent {
   name: string;
   slug: string;
   type: string;
-  lifecycle: string;
-}
-
-export interface ComponentGroupRef {
-  id: string;
-  name: string;
-  slug: string;
   lifecycle: string;
 }
 

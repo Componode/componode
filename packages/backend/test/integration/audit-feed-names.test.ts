@@ -56,7 +56,7 @@ describe("audit feed entity display names (G11)", () => {
     await testDb.db.insertInto("components").values({
       id: ids.component, name: "payments-db", slug: "payments-db",
       category: "DATABASE", provider: "AWS", resourceType: "rds",
-      lifecycle: "ACTIVE", teamOwnerId: null, componentGroupId: null,
+      lifecycle: "ACTIVE", teamOwnerId: null,
       externalId: null, details: null, sunsetAt: null,
       lastSeenAt: null, lastSeenInRunId: null,
       createdBy: null, updatedBy: null, createdAt: now(), updatedAt: now(),

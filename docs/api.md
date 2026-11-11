@@ -265,8 +265,12 @@ Query params for `GET /components`: `page`, `pageSize` (max 100), `category`,
 (`wired`/`unwired`, CSV or repeated — coverage classification from spec 023;
 invalid values return `400 VALIDATION_FAILED`).
 
-Components are created/updated by importers, not via the API — `PATCH` only
-reassigns `{ componentGroupId?, teamOwnerId? }` (nullable).
+Components are created manually via `POST /components` (importers upsert
+their own through runs, not this API). `PATCH /components/{id}` updates
+human-managed fields — `componentGroupIds[]` replaces the component's
+HUMAN group memberships (auto-managed group ids are rejected with
+`409 GROUP_AUTO_MANAGED`), alongside `teamOwnerId`, `links`, `tags`, and
+`sunsetAt` (all nullable/optional).
 
 ## Component groups
 

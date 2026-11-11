@@ -61,8 +61,7 @@ const apiComponent = {
   provider: "AWS",
   resourceType: "rds:db",
   lifecycle: "ACTIVE",
-  componentGroupId: null,
-  componentGroupName: null,
+  componentGroups: [],
   instanceCount: 1,
 };
 

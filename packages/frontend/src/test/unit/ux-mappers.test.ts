@@ -41,8 +41,7 @@ const component: ApiComponent = {
   provider: "AWS",
   resourceType: "rds:db",
   lifecycle: "ACTIVE",
-  componentGroupId: "g1",
-  componentGroupName: "Data stores",
+  componentGroups: [{ id: "g1", name: "Data stores", slug: "data-stores", lifecycle: "ACTIVE" }],
   teamOwnerName: "Payments",
   tags: ["sql"],
   sunsetAt: null,
@@ -132,20 +131,20 @@ describe("mapComponent", () => {
     const view = mapComponent(withInstances);
     expect(view.instances).toHaveLength(1);
     expect(view.instances[0]?.environment).toBe("PRODUCTION");
-    expect(view.componentGroupName).toBe("Data stores");
+    expect(view.componentGroups[0]?.name).toBe("Data stores");
     expect(view.instanceCount).toBe(2);
   });
 
   it("defaults missing names/tags and null lastSeenAt", () => {
     const bare: ApiComponent = {
       ...component,
-      componentGroupName: null,
+      componentGroups: [],
       teamOwnerName: undefined,
       tags: undefined,
       sunsetAt: undefined,
     };
     const view = mapComponent(bare);
-    expect(view.componentGroupName).toBeNull();
+    expect(view.componentGroups).toEqual([]);
     expect(view.teamOwnerName).toBeNull();
     expect(view.tags).toEqual([]);
     expect(view.sunsetAt).toBeNull();
@@ -687,7 +686,7 @@ describe("mapDepComponent", () => {
   it("joins the dep ref with catalog rows for provider/resourceType", () => {
     const row = mapDepComponent(
       { id: "c1", name: "pg", slug: "pg", category: "database", lifecycle: "ACTIVE", sources: ["COMPOSES"] } as never,
-      [{ id: "c1", provider: "AWS", resourceType: "rds", instanceCount: 2, componentGroupName: "data", lastSeenAt: "2026-11-01T00:00:00Z" } as never],
+      [{ id: "c1", provider: "AWS", resourceType: "rds", instanceCount: 2, componentGroups: [{ id: "g1", name: "data", slug: "data", lifecycle: "ACTIVE" }], lastSeenAt: "2026-11-01T00:00:00Z" } as never],
     );
     expect(row.provider).toBe("AWS");
     expect(row.resourceType).toBe("rds");

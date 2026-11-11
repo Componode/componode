@@ -28,7 +28,7 @@ test.describe('component group detail', () => {
       const c = await api('POST', '/api/v1/components', {
         name: `${name}-${run}`, slug: `${name}-${run}`,
         category: 'CONTAINER', provider: 'DOCKER', resourceType: 'container',
-        componentGroupId: groupId,
+        componentGroupIds: [groupId],
       });
       expect(c.status).toBe(201);
     }

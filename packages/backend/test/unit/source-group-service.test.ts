@@ -90,3 +90,77 @@ describe("docker source-group strategy", () => {
     expect(strategy!.groupName({ ...base, label: null }, null)).toBe("id-1");
   });
 });
+
+describe("docker app-group kinds (spec 070)", () => {
+  const strategy = getSourceGroupStrategy("docker")!;
+  const kinds = strategy.appGroupKinds ?? [];
+  const compose = kinds.find((k) => k.kind === "compose-project")!;
+  const swarm = kinds.find((k) => k.kind === "swarm-stack")!;
+  const source = {
+    id: "src-1",
+    importerName: "docker",
+    externalIdentity: "docker-engine:abc",
+    label: null,
+  };
+
+  it("registers exactly the compose-project and swarm-stack kinds", () => {
+    expect(kinds.map((k) => k.kind)).toEqual([
+      "compose-project",
+      "swarm-stack",
+    ]);
+  });
+
+  it("extracts composeProject from workload details", () => {
+    expect(
+      compose.keysOf({ composeProject: "componode", composeService: "app" }),
+    ).toEqual(["componode"]);
+  });
+
+  it("extracts the compose project label from infra details", () => {
+    expect(
+      compose.keysOf({
+        labels: { "com.docker.compose.project": "componode" },
+      }),
+    ).toEqual(["componode"]);
+  });
+
+  it("unions direct field and label, deduped", () => {
+    expect(
+      compose.keysOf({
+        composeProject: "componode",
+        labels: { "com.docker.compose.project": "componode" },
+      }),
+    ).toEqual(["componode"]);
+    expect(
+      compose.keysOf({
+        composeProject: "a",
+        labels: { "com.docker.compose.project": "b" },
+      }).sort(),
+    ).toEqual(["a", "b"]);
+  });
+
+  it("returns no keys for unlabeled or absent details", () => {
+    expect(compose.keysOf(null)).toEqual([]);
+    expect(compose.keysOf({})).toEqual([]);
+    expect(compose.keysOf({ labels: { "com.docker.compose.project": "" } })).toEqual([]);
+    expect(swarm.keysOf({ stack: "mystack" })).toEqual(["mystack"]);
+    expect(swarm.keysOf({ stack: 42 })).toEqual([]);
+    expect(swarm.keysOf(null)).toEqual([]);
+  });
+
+  it("keys autoGroupKey, slug and name per boundary", () => {
+    expect(compose.autoGroupKey("componode")).toBe("compose:componode");
+    expect(swarm.autoGroupKey("mystack")).toBe("stack:mystack");
+    expect(compose.groupName("componode")).toBe("componode");
+    const slug = compose.slugBase(source, "componode");
+    expect(slug).toMatch(/^docker-app-componode-[0-9a-f]{12}$/);
+    // Same key on a different source → different slug (per-source identity).
+    expect(
+      compose.slugBase({ ...source, id: "src-2" }, "componode"),
+    ).not.toBe(slug);
+    expect(compose.groupDescription(source, "componode")).toContain(
+      "componode",
+    );
+    expect(compose.groupDescription(source, "componode")).toContain("src-1" in source ? "docker-engine:abc" : "");
+  });
+});

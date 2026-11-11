@@ -24,8 +24,7 @@ const component = {
   provider: "GITHUB",
   resourceType: "repository",
   lifecycle: "ACTIVE",
-  componentGroupId: "g1",
-  componentGroupName: "Core",
+  componentGroups: [{ id: "g1", name: "Core", slug: "core" }],
   teamOwnerId: "t1",
   teamOwnerName: "Payments",
   tags: ["prod"],
@@ -62,7 +61,7 @@ describe("ComponentEditDialog (F012, bugfix 036)", () => {
       {
         id: "c1",
         teamOwnerId: "t1",
-        componentGroupId: "g1",
+        componentGroupIds: ["g1"],
         tags: ["prod"],
         links: [],
         sunsetAt: "2027-01-15T00:00:00.000Z",
@@ -75,7 +74,7 @@ describe("ComponentEditDialog (F012, bugfix 036)", () => {
     open();
     expect((document.getElementById("ce-sunset") as HTMLInputElement).value).toBe("2027-01-15");
     expect(document.getElementById("ce-team")?.textContent).toContain("Payments");
-    expect(document.getElementById("ce-group")?.textContent).toContain("Core");
+    expect(document.getElementById("ce-group-g1")?.getAttribute("data-state")).toBe("checked");
   });
 });
 

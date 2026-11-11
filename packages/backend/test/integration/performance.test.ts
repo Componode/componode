@@ -20,7 +20,6 @@ function buildComponentRecord(i: number) {
     resourceType: "github:repository",
     lifecycle: "ACTIVE",
     details: null,
-    componentGroupId: null,
     externalId: null,
     lastSeenAt: null,
     lastSeenInRunId: null,

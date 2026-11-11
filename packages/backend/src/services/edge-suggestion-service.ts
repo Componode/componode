@@ -360,15 +360,7 @@ export async function generateSuggestions(
 
   let componentsQuery = db
     .selectFrom("components")
-    .select([
-      "id",
-      "name",
-      "slug",
-      "provider",
-      "tags",
-      "details",
-      "componentGroupId",
-    ])
+    .select(["id", "name", "slug", "provider", "tags", "details"])
     .where("lifecycle", "!=", "RETIRED");
   if ("componentIds" in scope) {
     componentsQuery = componentsQuery.where("id", "in", scope.componentIds);
@@ -389,7 +381,7 @@ export async function generateSuggestions(
   const componentIds = components.map((c) => c.id);
 
   // Coverage sources: direct component edges and group edges expanded
-  // through each component's componentGroupId (ADR-110).
+  // through each component's group memberships (ADR-110, spec 070).
   const directEdges = await db
     .selectFrom("product_depends_on_component")
     .select(["productId", "componentId"])
@@ -414,9 +406,29 @@ export async function generateSuggestions(
       .filter((e) => e.productId && e.componentId)
       .map((e) => `${e.productId}:${e.componentId}`),
   );
-  const isCovered = (productId: string, componentGroupId: string | null) =>
-    componentGroupId !== null &&
-    (groupCoverage.get(productId)?.has(componentGroupId) ?? false);
+  // Spec 070: coverage is multi-membership — a component is covered when
+  // ANY of its groups is a DEPENDS_ON target of the product.
+  const componentGroups = new Map<string, Set<string>>();
+  if (componentIds.length > 0) {
+    const memberRows = await db
+      .selectFrom("component_group_members")
+      .select(["componentId", "groupId"])
+      .where("componentId", "in", componentIds)
+      .execute();
+    for (const r of memberRows) {
+      let set = componentGroups.get(r.componentId);
+      if (!set) componentGroups.set(r.componentId, (set = new Set()));
+      set.add(r.groupId);
+    }
+  }
+  const isCovered = (productId: string, componentId: string) => {
+    const depended = groupCoverage.get(productId);
+    if (!depended) return false;
+    const groups = componentGroups.get(componentId);
+    if (!groups) return false;
+    for (const g of groups) if (depended.has(g)) return true;
+    return false;
+  };
 
   // Partition candidate pairs: covered → tombstones, signal hits → staged.
   const tombstonePairs: { productId: string; componentId: string }[] = [];
@@ -441,7 +453,7 @@ export async function generateSuggestions(
     for (const component of preparedComponents) {
       if (
         directCoverage.has(`${product.row.id}:${component.row.id}`) ||
-        isCovered(product.row.id, component.row.componentGroupId)
+        isCovered(product.row.id, component.row.id)
       ) {
         tombstonePairs.push({
           productId: product.row.id,

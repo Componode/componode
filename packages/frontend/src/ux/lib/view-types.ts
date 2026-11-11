@@ -75,8 +75,8 @@ export interface Component {
   provider: Provider;
   resourceType: string;
   lifecycle: Lifecycle;
-  componentGroupId: string | null;
-  componentGroupName: string | null;
+  /** Spec 070: all group memberships — human + auto-managed. */
+  componentGroups: { id: string; name: string; slug: string; autoSourceId?: string | null; autoGroupKey?: string | null }[];
   teamOwnerId: string | null;
   teamOwnerName: string | null;
   tags: string[];
@@ -104,6 +104,9 @@ export interface ComponentGroupView {
   /** Owning team display name, null when unassigned. */
   team: string | null;
   members: number;
+  /** Spec 070: auto-group provenance — non-null = auto-managed. */
+  autoSourceId?: string | null;
+  autoGroupKey?: string | null;
 }
 
 export interface ImporterConfig {

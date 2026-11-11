@@ -59,7 +59,10 @@ export const componentRelationshipsQuerySchema = z.object({
 }).strict();
 
 export const updateComponentGroupAssignmentSchema = z.object({
-  componentGroupId: z.string().uuid().nullable().optional(),
+  // Spec 070: multi-membership — the desired set of HUMAN-managed group
+  // memberships (auto-managed groups are system-owned and rejected
+  // service-side). Absent = unchanged; [] = clear human memberships.
+  componentGroupIds: z.array(z.string().uuid()).optional(),
   teamOwnerId: z.string().uuid().nullable().optional(),
 });
 
@@ -83,7 +86,7 @@ export const createComponentSchema = z.object({
   provider: z.enum(COMPONENT_PROVIDERS as unknown as [string, ...string[]]),
   resourceType: z.string().min(1, "Resource type is required").max(100),
   teamOwnerId: z.string().uuid().optional(),
-  componentGroupId: z.string().uuid().nullable().optional(),
+  componentGroupIds: z.array(z.string().uuid()).optional(),
   links: linksSchema.optional(),
   tags: tagsSchema.optional(),
   sunsetAt: z.string().datetime({ offset: true }).nullable().optional(),

@@ -7,29 +7,57 @@ import { metrics } from "../plugins/metrics.js";
 import { logger as appLogger } from "../plugins/logging.js";
 import { getManifest } from "./importer-registry.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
-import { generateUniqueSlug } from "../utils/slug.js";
+import { generateUniqueSlug, slugify } from "../utils/slug.js";
 
 /**
- * Source-scoped auto ComponentGroups (ADR-129, spec 067).
+ * Source-scoped auto ComponentGroups (ADR-129, spec 067) + app-level auto
+ * ComponentGroups (spec 070, ADR-129 amendment).
  *
  * The pass fully recomputes, for every enabled ImporterSource whose importer
- * declares the capability, the set of components that source is the SOLE
- * effective-active reporter of, and maintains at most one auto-managed
- * ComponentGroup per source linked through `importer_sources.componentGroupId`.
+ * declares the capability, auto-managed ComponentGroups maintained through
+ * `component_groups.autoSourceId` / `autoGroupKey`:
  *
- * Membership rule (null-or-ours): a sole-reported component joins the source's
- * group only when unassigned or already in it; components parked in a
- * human-managed group are never reclaimed. Members that lose exclusivity —
- * a second effective-active reporter appears, or the source stops being
- * effective-active — are evicted to NULL. Opted-out sources (`autoGroup:
- * false` on the bound config) are skipped entirely: their group and members
- * are frozen, never torn down.
+ * - Source group (`autoGroupKey IS NULL`, at most one per source): members
+ *   are the components the source is the SOLE effective-active reporter of.
+ * - App groups (`autoGroupKey = 'compose:{p}' | 'stack:{n}'`, one per
+ *   (source, boundary key)): members are components the source reports
+ *   (effective-active, NOT necessarily sole) that carry the matching
+ *   app-boundary label in their persisted details.
+ *
+ * Membership is additive: a component may hold memberships in human groups,
+ * the source group, and any number of app groups simultaneously. Within a
+ * group the pass owns, the member set is fully derived — ineligible members
+ * are evicted; memberships in groups the pass does not own are never
+ * touched. Opted-out sources (`autoGroup: false` on the bound config) are
+ * skipped entirely: their groups and members are frozen, never torn down.
  */
 
 export interface SourceGroupIdentity {
   importerName: string;
   externalIdentity: string;
   label: string | null;
+}
+
+/** A source plus its durable id — strategies hash identity+key on it. */
+export type SourceGroupSubject = SourceGroupIdentity & { id: string };
+
+/**
+ * Spec 070: one app-boundary dimension a strategy can extract — e.g. a
+ * compose project or a swarm stack. Keys come from persisted component
+ * `details`; the importer owns the semantics.
+ */
+export interface AppGroupKindSpec {
+  /** Human label for logs/tests ("compose-project", "swarm-stack"). */
+  kind: string;
+  /** Extract boundary keys (project/stack names) from persisted details. */
+  keysOf(details: Record<string, unknown> | null): string[];
+  /** The `autoGroupKey` value for a key, e.g. `compose:componode`. */
+  autoGroupKey(key: string): string;
+  /** Deterministic slug base (hash included by the strategy). */
+  slugBase(source: SourceGroupSubject, key: string): string;
+  /** Display name at provision time — the boundary label verbatim. */
+  groupName(key: string): string;
+  groupDescription(source: SourceGroupIdentity, key: string): string;
 }
 
 export interface SourceGroupStrategy {
@@ -42,6 +70,33 @@ export interface SourceGroupStrategy {
   engineComponentName?(
     members: ReadonlyArray<{ name: string; resourceType: string }>,
   ): string | null;
+  /** Spec 070: app-boundary dimensions (compose projects, swarm stacks). */
+  appGroupKinds?: AppGroupKindSpec[];
+}
+
+function appKeyHash(sourceId: string, autoGroupKey: string): string {
+  return createHash("sha256")
+    .update(`${sourceId}:${autoGroupKey}`)
+    .digest("hex")
+    .slice(0, 12);
+}
+
+function dockerAppKind(
+  kind: "compose-project" | "swarm-stack",
+  keysOf: AppGroupKindSpec["keysOf"],
+  prefix: "compose" | "stack",
+  boundaryNoun: string,
+): AppGroupKindSpec {
+  return {
+    kind,
+    keysOf,
+    autoGroupKey: (key) => `${prefix}:${key}`,
+    slugBase: (source, key) =>
+      `docker-app-${slugify(key) || "app"}-${appKeyHash(source.id, `${prefix}:${key}`)}`,
+    groupName: (key) => key,
+    groupDescription: (source, key) =>
+      `Auto-managed group for ${boundaryNoun} "${key}" on Docker source "${source.externalIdentity}" (spec 070).`,
+  };
 }
 
 const STRATEGIES: Record<string, SourceGroupStrategy> = {
@@ -56,6 +111,36 @@ const STRATEGIES: Record<string, SourceGroupStrategy> = {
       `Auto-managed group for Docker source "${s.externalIdentity}" — membership is derived from exclusive source reporting (ADR-129).`,
     engineComponentName: (members) =>
       members.find((c) => c.resourceType === "docker-engine")?.name ?? null,
+    appGroupKinds: [
+      dockerAppKind(
+        "compose-project",
+        (details) => {
+          if (!details) return [];
+          const keys = new Set<string>();
+          const direct = details.composeProject;
+          if (typeof direct === "string" && direct) keys.add(direct);
+          const labels = details.labels;
+          if (labels && typeof labels === "object") {
+            const lp = (labels as Record<string, unknown>)[
+              "com.docker.compose.project"
+            ];
+            if (typeof lp === "string" && lp) keys.add(lp);
+          }
+          return [...keys];
+        },
+        "compose",
+        "compose project",
+      ),
+      dockerAppKind(
+        "swarm-stack",
+        (details) => {
+          const stack = details?.stack;
+          return typeof stack === "string" && stack ? [stack] : [];
+        },
+        "stack",
+        "swarm stack",
+      ),
+    ],
   },
 };
 
@@ -105,48 +190,77 @@ export function reduceSoleReporters(
   return sole;
 }
 
+/** sourceId → ALL componentIds it effective-active reports (any count). */
+function reduceAllReporters(
+  pairs: ReadonlyArray<{ componentId: string; sourceId: string }>,
+): Map<string, Set<string>> {
+  const bySource = new Map<string, Set<string>>();
+  for (const { componentId, sourceId } of pairs) {
+    let set = bySource.get(sourceId);
+    if (!set) {
+      set = new Set();
+      bySource.set(sourceId, set);
+    }
+    set.add(componentId);
+  }
+  return bySource;
+}
+
 export interface AutoGroupPassReport {
   sourcesEvaluated: number;
   groupsEnsured: number;
   membersAssigned: number;
   membersEvicted: number;
   lifecycleFlips: number;
+  appGroupsEnsured: number;
+  appMembersAssigned: number;
+  appMembersEvicted: number;
 }
 
-interface EvaluatedSource extends SourceGroupIdentity {
-  id: string;
+interface EvaluatedSource extends SourceGroupSubject {
   status: string;
-  componentGroupId: string | null;
+}
+
+interface SourcePlan {
+  source: EvaluatedSource;
+  mode: "full" | "cleanup";
+  sourceCapable: boolean;
+  appCapable: boolean;
+  /** Existing source group id (autoGroupKey IS NULL), if any. */
+  ownGroupId: string | null;
+  /** Existing app groups: autoGroupKey → groupId. */
+  appGroups: Map<string, string>;
 }
 
 /**
- * How a source's linked group participates in this pass:
+ * How a source's auto groups participate in this pass:
  * - `full`: effective-active + capable + enabled — ensure, assign, evict,
  *   derive lifecycle (the normal evaluated path).
- * - `cleanup`: RETIRED + capable + enabled + already linked — the source no
- *   longer counts as a reporter, so every member loses exclusivity; evict
- *   all and derive lifecycle. The link stays so reactivation resumes `full`.
- * Anything else (opted out via `autoGroup: false`, non-capable, unlinked
- * inactive) is skipped entirely — frozen, never torn down.
+ * - `cleanup`: inactive + capable + enabled + already linked — the source
+ *   no longer counts as a reporter, so every member loses eligibility;
+ *   evict all and derive lifecycle. Groups stay so reactivation resumes.
+ * Anything else (opted out via `autoGroup: false`, non-capable, unbound,
+ * inactive + unlinked) is skipped entirely — frozen, never torn down.
  */
-type MaintenanceMode = "full" | "cleanup";
-
-interface ComponentRow {
+interface PassComponent {
   id: string;
   name: string;
   resourceType: string;
-  componentGroupId: string | null;
   lifecycle: string;
+  details: Record<string, unknown> | null;
+}
+
+interface Capability {
+  source: boolean;
+  app: boolean;
 }
 
 async function loadSourcePlans(
   trx: Transaction<DB>,
-): Promise<{
-  plans: Array<{ source: EvaluatedSource; mode: MaintenanceMode }>;
-}> {
+): Promise<{ plans: SourcePlan[] }> {
   // FOR UPDATE serializes overlapping passes: a concurrent trigger blocks
   // on the shared source rows until the holder commits, then re-reads the
-  // committed componentGroupId links — no duplicate group provisioning.
+  // committed group links — no duplicate group provisioning.
   const sources = await trx
     .selectFrom("importer_sources")
     .selectAll()
@@ -168,76 +282,140 @@ async function loadSourcePlans(
     : [];
   const scopeByConfig = new Map(configs.map((c) => [c.id, c.scope]));
 
-  const capabilityCache = new Map<string, boolean>();
+  // Existing auto groups per source: own group (autoGroupKey NULL) + app
+  // groups keyed by autoGroupKey.
+  const autoGroupRows = await trx
+    .selectFrom("component_groups")
+    .select(["id", "autoSourceId", "autoGroupKey"])
+    .where(
+      "autoSourceId",
+      "in",
+      sources.map((s) => s.id),
+    )
+    .execute();
+  const groupsBySource = new Map<
+    string,
+    { ownGroupId: string | null; appGroups: Map<string, string> }
+  >();
+  for (const g of autoGroupRows) {
+    if (!g.autoSourceId) continue;
+    let bucket = groupsBySource.get(g.autoSourceId);
+    if (!bucket) {
+      bucket = { ownGroupId: null, appGroups: new Map() };
+      groupsBySource.set(g.autoSourceId, bucket);
+    }
+    if (g.autoGroupKey === null) bucket.ownGroupId = g.id;
+    else bucket.appGroups.set(g.autoGroupKey, g.id);
+  }
+
+  const capabilityCache = new Map<string, Capability>();
   const effectiveActive = new Set(["ACTIVE", "UNMONITORED"]);
-  const plans: Array<{ source: EvaluatedSource; mode: MaintenanceMode }> = [];
+  const plans: SourcePlan[] = [];
   for (const s of sources) {
-    let capable = capabilityCache.get(s.importerName);
-    if (capable === undefined) {
+    let capability = capabilityCache.get(s.importerName);
+    if (capability === undefined) {
       try {
         const manifest = await getManifest(s.importerName);
-        capable =
-          manifest.autoGroups === "source" &&
-          getSourceGroupStrategy(s.importerName) !== undefined;
+        const strategy = getSourceGroupStrategy(s.importerName);
+        capability = {
+          source:
+            manifest.autoGroups === "source" && strategy !== undefined,
+          app:
+            manifest.autoAppGroups === true &&
+            (strategy?.appGroupKinds?.length ?? 0) > 0,
+        };
       } catch {
-        capable = false;
+        capability = { source: false, app: false };
       }
-      capabilityCache.set(s.importerName, capable);
+      capabilityCache.set(s.importerName, capability);
     }
-    if (!capable) continue;
-    // Enablement is per bound config: an unbound source (config deleted,
-    // UNMONITORED) has no scope to read — frozen, never evaluated.
-    if (!s.boundConfigId) continue;
-    const scope = scopeByConfig.get(s.boundConfigId);
-    if (!isAutoGroupEnabled(scope)) continue;
+    if (!capability.source && !capability.app) continue;
+
+    const groups = groupsBySource.get(s.id) ?? {
+      ownGroupId: null,
+      appGroups: new Map<string, string>(),
+    };
+    const hasGroups = groups.ownGroupId !== null || groups.appGroups.size > 0;
     const source: EvaluatedSource = {
       id: s.id,
       importerName: s.importerName,
       externalIdentity: s.externalIdentity,
       label: s.label,
       status: s.status,
-      componentGroupId: s.componentGroupId,
     };
+
+    // Enablement is per bound config: an unbound source (config deleted,
+    // UNMONITORED) has no scope to read — frozen, never evaluated. The one
+    // exception is a RETIRED unbound source that still owns groups: cleanup
+    // is lifecycle teardown, not maintenance, so it proceeds without a
+    // scope (spec 070 FR-012).
+    if (!s.boundConfigId) {
+      if (effectiveActive.has(s.status) || !hasGroups) continue;
+      plans.push({
+        source,
+        mode: "cleanup",
+        sourceCapable: capability.source,
+        appCapable: capability.app,
+        ownGroupId: groups.ownGroupId,
+        appGroups: groups.appGroups,
+      });
+      continue;
+    }
+    const scope = scopeByConfig.get(s.boundConfigId);
+    if (!isAutoGroupEnabled(scope)) continue;
+
     if (effectiveActive.has(s.status)) {
-      plans.push({ source, mode: "full" });
-    } else if (source.componentGroupId) {
-      plans.push({ source, mode: "cleanup" });
+      plans.push({
+        source,
+        mode: "full",
+        sourceCapable: capability.source,
+        appCapable: capability.app,
+        ownGroupId: groups.ownGroupId,
+        appGroups: groups.appGroups,
+      });
+    } else if (hasGroups) {
+      plans.push({
+        source,
+        mode: "cleanup",
+        sourceCapable: capability.source,
+        appCapable: capability.app,
+        ownGroupId: groups.ownGroupId,
+        appGroups: groups.appGroups,
+      });
     }
     // Inactive + unlinked: nothing to maintain.
   }
   return { plans };
 }
 
-async function ensureGroup(
+/**
+ * Durable find-or-create for one auto-managed group, keyed on provenance
+ * columns — the partial unique indexes guarantee at most one group per
+ * (source, autoGroupKey) pair (`null` = the source's own group).
+ */
+async function ensureAutoGroup(
   trx: Transaction<DB>,
   source: EvaluatedSource,
-  strategy: SourceGroupStrategy,
-  eligibleComponents: ComponentRow[],
+  autoGroupKey: string | null,
+  fields: { baseSlug: string; name: string; description: string },
   actor: Actor,
 ): Promise<{ groupId: string; created: boolean }> {
-  if (source.componentGroupId) {
-    const existing = await trx
-      .selectFrom("component_groups")
-      .select("id")
-      .where("id", "=", source.componentGroupId)
-      .executeTakeFirst();
-    if (existing) return { groupId: existing.id, created: false };
-  }
+  let lookup = trx
+    .selectFrom("component_groups")
+    .select("id")
+    .where("autoSourceId", "=", source.id);
+  lookup =
+    autoGroupKey === null
+      ? lookup.where("autoGroupKey", "is", null)
+      : lookup.where("autoGroupKey", "=", autoGroupKey);
+  const existing = await lookup.executeTakeFirst();
+  if (existing) return { groupId: existing.id, created: false };
 
-  const engineName =
-    strategy.engineComponentName?.(eligibleComponents) ?? null;
-  const identity: SourceGroupIdentity = {
-    importerName: source.importerName,
-    externalIdentity: source.externalIdentity,
-    label: source.label,
-  };
-  const baseSlug = strategy.slugBase(identity);
   const now = new Date().toISOString();
   const groupId = uuidv7();
 
-  // Slug is display identity only — the source link is the durable marker.
-  // A taken base gets a numeric suffix; uniqueness is re-checked per attempt.
-  const slug = await generateUniqueSlug(baseSlug, async (candidate) => {
+  // Slug is display identity only — the provenance link is authoritative.
+  const slug = await generateUniqueSlug(fields.baseSlug, async (candidate) => {
     const clash = await trx
       .selectFrom("component_groups")
       .select("id")
@@ -250,21 +428,18 @@ async function ensureGroup(
     .insertInto("component_groups")
     .values({
       id: groupId,
-      name: strategy.groupName(identity, engineName),
+      name: fields.name,
       slug,
-      description: strategy.groupDescription(identity),
+      description: fields.description,
       lifecycle: "RETIRED",
       teamOwnerId: null,
+      autoSourceId: source.id,
+      autoGroupKey,
       createdBy: actor.id,
       updatedBy: null,
       createdAt: now,
       updatedAt: now,
     })
-    .execute();
-  await trx
-    .updateTable("importer_sources")
-    .set({ componentGroupId: groupId, updatedAt: now })
-    .where("id", "=", source.id)
     .execute();
   await writeEntityChange(
     {
@@ -272,9 +447,10 @@ async function ensureGroup(
       entityId: groupId,
       action: "created",
       changes: {
-        name: strategy.groupName(identity, engineName),
+        name: fields.name,
         slug,
         autoManaged: true,
+        autoGroupKey,
         sourceId: source.id,
       },
       actor,
@@ -282,6 +458,93 @@ async function ensureGroup(
     trx,
   );
   return { groupId, created: true };
+}
+
+function sourceGroupIdentity(source: EvaluatedSource): SourceGroupIdentity {
+  return {
+    importerName: source.importerName,
+    externalIdentity: source.externalIdentity,
+    label: source.label,
+  };
+}
+
+async function ensureSourceGroup(
+  trx: Transaction<DB>,
+  source: EvaluatedSource,
+  strategy: SourceGroupStrategy,
+  eligibleComponents: PassComponent[],
+  actor: Actor,
+): Promise<{ groupId: string; created: boolean }> {
+  const identity = sourceGroupIdentity(source);
+  const engineName =
+    strategy.engineComponentName?.(eligibleComponents) ?? null;
+  return ensureAutoGroup(
+    trx,
+    source,
+    null,
+    {
+      baseSlug: strategy.slugBase(identity),
+      name: strategy.groupName(identity, engineName),
+      description: strategy.groupDescription(identity),
+    },
+    actor,
+  );
+}
+
+async function ensureAppGroup(
+  trx: Transaction<DB>,
+  source: EvaluatedSource,
+  kind: AppGroupKindSpec,
+  key: string,
+  actor: Actor,
+): Promise<{ groupId: string; created: boolean }> {
+  const autoGroupKey = kind.autoGroupKey(key);
+  const identity = sourceGroupIdentity(source);
+  return ensureAutoGroup(
+    trx,
+    source,
+    autoGroupKey,
+    {
+      baseSlug: kind.slugBase(source, key),
+      name: kind.groupName(key),
+      description: kind.groupDescription(identity, key),
+    },
+    actor,
+  );
+}
+
+/**
+ * Recompute one owned group's member set: evict current members not in
+ * `eligible`, insert memberships for eligible components not already
+ * members. Additive — memberships in other groups are untouched.
+ */
+async function syncGroupMembers(
+  trx: Transaction<DB>,
+  groupId: string,
+  eligible: ReadonlySet<string>,
+  currentMembers: ReadonlySet<string>,
+): Promise<{ assigned: number; evicted: number }> {
+  const toEvict = [...currentMembers].filter((id) => !eligible.has(id));
+  let evicted = 0;
+  if (toEvict.length > 0) {
+    const res = await trx
+      .deleteFrom("component_group_members")
+      .where("groupId", "=", groupId)
+      .where("componentId", "in", toEvict)
+      .executeTakeFirst();
+    evicted = Number(res.numDeletedRows ?? 0);
+  }
+  const toAssign = [...eligible].filter((id) => !currentMembers.has(id));
+  let assigned = 0;
+  if (toAssign.length > 0) {
+    const res = await trx
+      .insertInto("component_group_members")
+      .values(toAssign.map((componentId) => ({ componentId, groupId })))
+      .onConflict((oc) => oc.doNothing())
+      .executeTakeFirst();
+    assigned = Number(res.numInsertedOrUpdatedRows ?? 0);
+  }
+  return { assigned, evicted };
 }
 
 async function applyPass(
@@ -295,11 +558,15 @@ async function applyPass(
     membersAssigned: 0,
     membersEvicted: 0,
     lifecycleFlips: 0,
+    appGroupsEnsured: 0,
+    appMembersAssigned: 0,
+    appMembersEvicted: 0,
   };
   if (plans.length === 0) return report;
 
-  // Sole-effective-active-reporter sets over ALL sources — a reporter that
-  // cannot hold a group still counts toward exclusivity.
+  // Effective-active reporter pairs over ALL sources — a reporter that
+  // cannot hold a group still counts toward source-group exclusivity and
+  // toward app-group membership.
   const pairs = await trx
     .selectFrom("source_component_memberships")
     .innerJoin(
@@ -315,78 +582,92 @@ async function applyPass(
     .where("importer_sources.status", "in", ["ACTIVE", "UNMONITORED"])
     .execute();
   const soleReporters = reduceSoleReporters(pairs);
+  const allReporters = reduceAllReporters(pairs);
 
-  // Component universe: every sole-reported component of a `full` source
-  // plus every current member of a maintained (full or cleanup) group.
-  const eligibleBySource = new Map<string, Set<string>>();
+  // Component universe: sole-reported + app-reported components of `full`
+  // sources, plus every current member of a maintained group.
   const neededComponentIds = new Set<string>();
-  const linkedGroupIds = new Set<string>();
-  for (const { source, mode } of plans) {
-    if (source.componentGroupId) linkedGroupIds.add(source.componentGroupId);
-    if (mode !== "full") continue;
-    const eligible = soleReporters.get(source.id) ?? new Set<string>();
-    eligibleBySource.set(source.id, eligible);
-    for (const id of eligible) neededComponentIds.add(id);
+  const maintainedGroupIds = new Set<string>();
+  for (const plan of plans) {
+    if (plan.ownGroupId) maintainedGroupIds.add(plan.ownGroupId);
+    for (const gid of plan.appGroups.values()) maintainedGroupIds.add(gid);
+    if (plan.mode !== "full") continue;
+    for (const id of soleReporters.get(plan.source.id) ?? []) {
+      neededComponentIds.add(id);
+    }
+    if (plan.appCapable) {
+      for (const id of allReporters.get(plan.source.id) ?? []) {
+        neededComponentIds.add(id);
+      }
+    }
   }
 
-  const componentRows = new Map<string, ComponentRow>();
-  const loadComponents = async (ids: string[]) => {
-    if (ids.length === 0) return;
+  const currentMembersByGroup = new Map<string, Set<string>>();
+  if (maintainedGroupIds.size > 0) {
+    const memberRows = await trx
+      .selectFrom("component_group_members")
+      .select(["componentId", "groupId"])
+      .where("groupId", "in", [...maintainedGroupIds])
+      .execute();
+    for (const r of memberRows) {
+      let set = currentMembersByGroup.get(r.groupId);
+      if (!set) {
+        set = new Set();
+        currentMembersByGroup.set(r.groupId, set);
+      }
+      set.add(r.componentId);
+      neededComponentIds.add(r.componentId);
+    }
+  }
+
+  const componentRows = new Map<string, PassComponent>();
+  if (neededComponentIds.size > 0) {
     const rows = await trx
       .selectFrom("components")
-      .select(["id", "name", "resourceType", "componentGroupId", "lifecycle"])
-      .where("id", "in", ids)
+      .select(["id", "name", "resourceType", "lifecycle", "details"])
+      .where("id", "in", [...neededComponentIds])
       .execute();
-    for (const r of rows) componentRows.set(r.id, r as ComponentRow);
-  };
-  await loadComponents([...neededComponentIds]);
-  if (linkedGroupIds.size > 0) {
-    const members = await trx
-      .selectFrom("components")
-      .select(["id", "name", "resourceType", "componentGroupId", "lifecycle"])
-      .where("componentGroupId", "in", [...linkedGroupIds])
-      .execute();
-    for (const r of members) componentRows.set(r.id, r as ComponentRow);
+    for (const r of rows) {
+      componentRows.set(r.id, {
+        ...r,
+        details: (r.details ?? null) as Record<string, unknown> | null,
+      });
+    }
   }
 
-  // Index current members by group so eviction is O(members), not
-  // O(sources × catalog).
-  const membersByGroup = new Map<string, ComponentRow[]>();
-  for (const comp of componentRows.values()) {
-    if (comp.componentGroupId === null) continue;
-    const bucket = membersByGroup.get(comp.componentGroupId) ?? [];
-    bucket.push(comp);
-    membersByGroup.set(comp.componentGroupId, bucket);
-  }
+  const now = new Date().toISOString();
+  // groupId → {sourceId, isApp} for lifecycle audit attribution.
+  const maintainedGroups = new Map<
+    string,
+    { sourceId: string; isApp: boolean }
+  >();
 
-  // Phase 1 — ensure a group per `full` source, then evict members that are
-  // no longer eligible: `full` keeps its sole-reporter set, `cleanup` keeps
-  // nothing (a retired source is nobody's effective-active reporter).
-  const groupIdBySource = new Map<string, string>();
-  // componentId → the auto-managed group it is being evicted from; the
-  // UPDATE guards on that group so a human reassignment landing mid-pass
-  // is never nulled.
-  const evictions = new Map<string, string>();
-  for (const { source, mode } of plans) {
-    const strategy = getSourceGroupStrategy(source.importerName);
+  // Phase 1 — source groups: ensure, sync members (sole-reporter rule).
+  for (const plan of plans) {
+    if (!plan.sourceCapable) continue;
+    const strategy = getSourceGroupStrategy(plan.source.importerName);
     if (!strategy) continue;
-    const eligible = eligibleBySource.get(source.id) ?? new Set<string>();
-    let groupId = source.componentGroupId;
-    if (mode === "full") {
+    const eligible =
+      plan.mode === "full"
+        ? (soleReporters.get(plan.source.id) ?? new Set<string>())
+        : new Set<string>();
+    let groupId = plan.ownGroupId;
+    if (plan.mode === "full") {
       const eligibleRows = [...eligible]
         .map((id) => componentRows.get(id))
-        .filter((c): c is ComponentRow => c !== undefined);
-      const ensured = await ensureGroup(
+        .filter((c): c is PassComponent => c !== undefined);
+      const ensured = await ensureSourceGroup(
         trx,
-        source,
+        plan.source,
         strategy,
         eligibleRows,
         actor,
       );
       groupId = ensured.groupId;
       if (ensured.created) report.groupsEnsured++;
+      plan.ownGroupId = groupId;
     } else if (groupId) {
-      // Cleanup: the linked group row must still exist; if it vanished
+      // Cleanup: the group row must still exist; if it vanished
       // defensively there is nothing left to clean.
       const existing = await trx
         .selectFrom("component_groups")
@@ -397,77 +678,124 @@ async function applyPass(
     } else {
       continue;
     }
-    groupIdBySource.set(source.id, groupId);
+    maintainedGroups.set(groupId, { sourceId: plan.source.id, isApp: false });
+    const current = currentMembersByGroup.get(groupId) ?? new Set<string>();
+    const { assigned, evicted } = await syncGroupMembers(
+      trx,
+      groupId,
+      eligible,
+      current,
+    );
+    report.membersAssigned += assigned;
+    report.membersEvicted += evicted;
+    currentMembersByGroup.set(groupId, new Set(eligible));
+  }
 
-    for (const comp of membersByGroup.get(groupId) ?? []) {
-      if (eligible.has(comp.id)) continue;
-      evictions.set(comp.id, groupId);
+  // Phase 2 — app groups: per (source, boundary key). Membership =
+  // reported-by-this-source AND carrying the key; additive across sources.
+  for (const plan of plans) {
+    if (!plan.appCapable) continue;
+    const strategy = getSourceGroupStrategy(plan.source.importerName);
+    const kinds = strategy?.appGroupKinds ?? [];
+    if (kinds.length === 0) continue;
+
+    // Discover keys among this source's reported components (full mode
+    // only — cleanup evaluates existing groups to empty).
+    const buckets = new Map<string, { kind: AppGroupKindSpec; key: string; members: Set<string> }>();
+    if (plan.mode === "full") {
+      for (const compId of allReporters.get(plan.source.id) ?? []) {
+        const comp = componentRows.get(compId);
+        if (!comp?.details) continue;
+        for (const kind of kinds) {
+          for (const key of kind.keysOf(comp.details)) {
+            const autoGroupKey = kind.autoGroupKey(key);
+            let bucket = buckets.get(autoGroupKey);
+            if (!bucket) {
+              bucket = { kind, key, members: new Set() };
+              buckets.set(autoGroupKey, bucket);
+            }
+            bucket.members.add(compId);
+          }
+        }
+      }
+    }
+
+    // Union of existing groups and newly discovered keys. `kind`/`key`
+    // are only needed to CREATE a group — existing groups carry their
+    // provenance in autoGroupKey already.
+    const keysToMaintain = new Map<
+      string,
+      { kind: AppGroupKindSpec | null; key: string; eligible: Set<string> }
+    >();
+    for (const autoGroupKey of plan.appGroups.keys()) {
+      const bucket = buckets.get(autoGroupKey);
+      keysToMaintain.set(autoGroupKey, {
+        kind: bucket?.kind ?? null,
+        key: bucket?.key ?? "",
+        eligible: bucket?.members ?? new Set<string>(),
+      });
+    }
+    for (const [autoGroupKey, bucket] of buckets) {
+      if (!keysToMaintain.has(autoGroupKey)) {
+        keysToMaintain.set(autoGroupKey, {
+          kind: bucket.kind,
+          key: bucket.key,
+          eligible: bucket.members,
+        });
+      }
+    }
+
+    for (const [autoGroupKey, entry] of keysToMaintain) {
+      const eligible =
+        plan.mode === "full" ? entry.eligible : new Set<string>();
+      let groupId = plan.appGroups.get(autoGroupKey) ?? null;
+      if (plan.mode === "full" && !groupId) {
+        if (!entry.kind) continue; // unreachable — new keys always carry a kind
+        const ensured = await ensureAppGroup(
+          trx,
+          plan.source,
+          entry.kind,
+          entry.key,
+          actor,
+        );
+        groupId = ensured.groupId;
+        if (ensured.created) {
+          report.appGroupsEnsured++;
+          plan.appGroups.set(autoGroupKey, groupId);
+        }
+      } else if (plan.mode === "cleanup" && groupId) {
+        const existing = await trx
+          .selectFrom("component_groups")
+          .select("id")
+          .where("id", "=", groupId)
+          .executeTakeFirst();
+        if (!existing) continue;
+      } else if (!groupId) {
+        continue;
+      }
+      maintainedGroups.set(groupId, { sourceId: plan.source.id, isApp: true });
+      const current = currentMembersByGroup.get(groupId) ?? new Set<string>();
+      const { assigned, evicted } = await syncGroupMembers(
+        trx,
+        groupId,
+        eligible,
+        current,
+      );
+      report.appMembersAssigned += assigned;
+      report.appMembersEvicted += evicted;
+      currentMembersByGroup.set(groupId, new Set(eligible));
     }
   }
 
-  // Phase 2 — assign sole-reported components that are unassigned after
-  // evictions. Foreign human-managed groups are never reclaimed.
-  const effectiveGroup = (comp: ComponentRow): string | null =>
-    evictions.has(comp.id) ? null : comp.componentGroupId;
-  const assignments = new Map<string, string>();
-  for (const { source, mode } of plans) {
-    if (mode !== "full") continue;
-    const groupId = groupIdBySource.get(source.id);
-    if (!groupId) continue;
-    const eligible = eligibleBySource.get(source.id) ?? new Set<string>();
-    for (const compId of eligible) {
-      const comp = componentRows.get(compId);
-      if (!comp) continue;
-      const current = effectiveGroup(comp);
-      if (current === null) assignments.set(compId, groupId);
+  // Phase 3 — derived lifecycle for every maintained group: ACTIVE iff
+  // ≥1 member component is ACTIVE. Transitions are audited like human
+  // lifecycle writes; membership churn stays unaudited derived state.
+  for (const [groupId, meta] of maintainedGroups) {
+    const members = currentMembersByGroup.get(groupId) ?? new Set<string>();
+    let activeMembers = 0;
+    for (const compId of members) {
+      if (componentRows.get(compId)?.lifecycle === "ACTIVE") activeMembers++;
     }
-  }
-
-  // Phase 3 — apply writes. Evictions first, assignments second so a
-  // component stale-membered in one source's group but sole-reported by
-  // another lands directly in the right group.
-  const now = new Date().toISOString();
-  const evictByGroup = new Map<string, string[]>();
-  for (const [compId, fromGroup] of evictions) {
-    const bucket = evictByGroup.get(fromGroup) ?? [];
-    bucket.push(compId);
-    evictByGroup.set(fromGroup, bucket);
-  }
-  for (const [fromGroup, ids] of evictByGroup) {
-    const res = await trx
-      .updateTable("components")
-      .set({ componentGroupId: null, updatedAt: now })
-      .where("id", "in", ids)
-      .where("componentGroupId", "=", fromGroup)
-      .execute();
-    report.membersEvicted += Number(res[0]?.numUpdatedRows ?? 0);
-  }
-  const byTarget = new Map<string, string[]>();
-  for (const [compId, groupId] of assignments) {
-    const bucket = byTarget.get(groupId) ?? [];
-    bucket.push(compId);
-    byTarget.set(groupId, bucket);
-  }
-  for (const [groupId, ids] of byTarget) {
-    const res = await trx
-      .updateTable("components")
-      .set({ componentGroupId: groupId, updatedAt: now })
-      .where("id", "in", ids)
-      .where("componentGroupId", "is", null)
-      .execute();
-    report.membersAssigned += Number(res[0]?.numUpdatedRows ?? 0);
-  }
-
-  // Phase 4 — derived lifecycle: ACTIVE iff ≥1 member component is ACTIVE.
-  // Transitions are audited like human lifecycle writes (plan.md audit
-  // decision) — membership churn stays unaudited derived state.
-  for (const [sourceId, groupId] of groupIdBySource) {
-    const members = await trx
-      .selectFrom("components")
-      .select("lifecycle")
-      .where("componentGroupId", "=", groupId)
-      .execute();
-    const activeMembers = members.filter((m) => m.lifecycle === "ACTIVE").length;
     const next = activeMembers > 0 ? "ACTIVE" : "RETIRED";
     const current = await trx
       .selectFrom("component_groups")
@@ -491,7 +819,8 @@ async function applyPass(
             name: current.name,
             slug: current.slug,
             autoManaged: true,
-            sourceId,
+            autoGroupKey: meta.isApp ? "app" : null,
+            sourceId: meta.sourceId,
           },
           actor,
         },

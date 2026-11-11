@@ -81,6 +81,9 @@ describe("component groups", () => {
     expect(create.statusCode).toBe(201);
     const createBody = JSON.parse(create.payload);
     expect(createBody.group.name).toBe("Payment Services");
+    // Spec 070: group payloads expose auto-group provenance (null = human).
+    expect(createBody.group.autoSourceId).toBeNull();
+    expect(createBody.group.autoGroupKey).toBeNull();
 
     const list = await app.inject({
       method: "GET",
@@ -135,6 +138,8 @@ describe("component groups", () => {
     expect(update.statusCode).toBe(200);
     const updateBody = JSON.parse(update.payload);
     expect(updateBody.group.name).toBe("New Name");
+    expect(updateBody.group.autoSourceId).toBeNull();
+    expect(updateBody.group.autoGroupKey).toBeNull();
 
     const del = await app.inject({
       method: "DELETE",
@@ -184,7 +189,6 @@ describe("component groups", () => {
         provider: "GITHUB",
         resourceType: "github:repository",
         lifecycle: "ACTIVE",
-        componentGroupId: null,
         externalId: null,
         details: null,
         lastSeenAt: null,
@@ -201,22 +205,22 @@ describe("component groups", () => {
       url: "/api/v1/components/018f0000-0000-7e10-a000-000000000001",
       cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
       headers: csrfHeader,
-      payload: { componentGroupId: groupId },
+      payload: { componentGroupIds: [groupId] },
     });
     expect(assign.statusCode).toBe(200);
     const assignBody = JSON.parse(assign.payload);
-    expect(assignBody.component.componentGroupId).toBe(groupId);
+    expect(assignBody.component.componentGroups.map((g: any) => g.id)).toContain(groupId);
 
     const unassign = await app.inject({
       method: "PATCH",
       url: "/api/v1/components/018f0000-0000-7e10-a000-000000000001",
       cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
       headers: csrfHeader,
-      payload: { componentGroupId: null },
+      payload: { componentGroupIds: [] },
     });
     expect(unassign.statusCode).toBe(200);
     const unassignBody = JSON.parse(unassign.payload);
-    expect(unassignBody.component.componentGroupId).toBeNull();
+    expect(unassignBody.component.componentGroups ?? []).toHaveLength(0);
   });
 
   // Bugfix 066: the update schema must accept explicit nulls — the service
@@ -345,7 +349,6 @@ describe("component groups", () => {
             provider: "GITHUB",
             resourceType: "github:repository",
             lifecycle: "ACTIVE",
-            componentGroupId: groupId,
             externalId: null,
             details: null,
             lastSeenAt: null,
@@ -355,6 +358,13 @@ describe("component groups", () => {
             createdAt: nowIso,
             updatedAt: nowIso,
           } as any)
+          .execute();
+        await testDb.db
+          .insertInto("component_group_members")
+          .values({
+            componentId: `018f0000-0000-7e10-a000-${slug === "counted-a" ? "000000000061" : "000000000062"}`,
+            groupId,
+          })
           .execute();
       }
 

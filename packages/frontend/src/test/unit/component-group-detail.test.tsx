@@ -56,12 +56,12 @@ const MEMBERS = [
   {
     id: "c1", name: "web-api", slug: "web-api", category: "SERVICE",
     provider: "DOCKER", resourceType: "container", lifecycle: "ACTIVE",
-    componentGroupId: GROUP_ID, componentGroupName: "Dockers", instanceCount: 2,
+    componentGroups: [{ id: GROUP_ID, name: "Dockers", slug: "dockers" }], instanceCount: 2,
   },
   {
     id: "c2", name: "worker", slug: "worker", category: "SERVICE",
     provider: "DOCKER", resourceType: "container", lifecycle: "ACTIVE",
-    componentGroupId: GROUP_ID, componentGroupName: "Dockers", instanceCount: 1,
+    componentGroups: [{ id: GROUP_ID, name: "Dockers", slug: "dockers" }], instanceCount: 1,
   },
 ];
 

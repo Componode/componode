@@ -367,6 +367,15 @@ export async function listSources(
         .whereRef("source_instance_memberships.sourceId", "=", "importer_sources.id")
         .where("active", "=", true)
         .as("activeInstanceMemberships"),
+      // Spec 070: the source's OWN auto group (autoGroupKey IS NULL) —
+      // app groups surface through /component-groups instead.
+      eb
+        .selectFrom("component_groups")
+        .select("component_groups.id")
+        .whereRef("component_groups.autoSourceId", "=", "importer_sources.id")
+        .where("component_groups.autoGroupKey", "is", null)
+        .limit(1)
+        .as("componentGroupId"),
     ]);
 
   if (query.status) {
@@ -432,6 +441,15 @@ export async function getSource(id: string) {
     )
     .selectAll("importer_sources")
     .select(["importer_configs.label as boundConfigLabel"])
+    .select((eb) =>
+      eb
+        .selectFrom("component_groups")
+        .select("component_groups.id")
+        .whereRef("component_groups.autoSourceId", "=", "importer_sources.id")
+        .where("component_groups.autoGroupKey", "is", null)
+        .limit(1)
+        .as("componentGroupId"),
+    )
     .where("importer_sources.id", "=", id)
     .executeTakeFirst();
   if (!r) return null;

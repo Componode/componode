@@ -48,7 +48,6 @@ async function seedComponent(
       provider: "GITHUB",
       resourceType: "github:repository",
       lifecycle: "ACTIVE",
-      componentGroupId: null,
       externalId: null,
       details: null,
       lastSeenAt: null,
