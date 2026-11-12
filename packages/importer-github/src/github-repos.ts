@@ -97,7 +97,11 @@ function normalizeProtectionRule(rule: unknown): Record<string, unknown> | null 
 function githubEnvironmentGovernance(
   env: GithubEnvironment,
 ): Record<string, unknown> | null {
-  const hasRules = Array.isArray(env.protection_rules);
+  const protectionRules = Array.isArray(env.protection_rules)
+    ? (env.protection_rules as unknown[])
+        .map(normalizeProtectionRule)
+        .filter((r): r is Record<string, unknown> => r !== null)
+    : [];
   const policy =
     env.deployment_branch_policy !== null &&
     typeof env.deployment_branch_policy === "object"
@@ -105,14 +109,12 @@ function githubEnvironmentGovernance(
       : null;
   const hasBypass = typeof env.can_admins_bypass === "boolean";
 
-  if (!hasRules && !policy && !hasBypass) return null;
+  // GitHub returns protection_rules: [] on unprotected envs — an empty
+  // ruleset with no policy/bypass is no governance data at all.
+  if (protectionRules.length === 0 && !policy && !hasBypass) return null;
 
   return {
-    protectionRules: hasRules
-      ? (env.protection_rules as unknown[])
-          .map(normalizeProtectionRule)
-          .filter((r): r is Record<string, unknown> => r !== null)
-      : [],
+    protectionRules,
     deploymentBranchPolicy: policy
       ? {
           protectedBranches:

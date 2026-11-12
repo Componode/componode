@@ -163,3 +163,12 @@ Round-2 findings — all LOW/judgement; resolved inline and verified (46 importe
 - [X] T040 [code-review: standards] Remove unreachable `!result.data` check in `fetchPackageAssets`; return immutable filtered tags result in `fetchVersionInventory`; update `playwright/contracts/mock-api-contracts.md` route list.
 - [X] T041 [code-review: spec] Treat `getLatestRelease` 404 as empty-not-degraded in `github-repos.ts` (release-less repos no longer emit permanent `releases` UNAVAILABLE markers); unit test added.
 - Justified, no task: `paginate.iterator` signal limitation (plugin doesn't forward `signal` — inter-page abort checks retained, same as pre-existing call sites); pagination-list triplication (different entry shapes, marginal gain); unbounded table render (FR-014 requires full inventory; consistent with existing instance tables); `ReleaseInventoryEntry.id` nullability and `githubEnvironment` null fields (frontend-safe, contract examples non-normative).
+
+---
+
+## Phase 9: Review (code-review round 3 vs main)
+
+- [X] T042 [code-review: standards] Extract identical `Section` helper into `DetailSection` in `packages/frontend/src/ux/components/patterns/primitives.tsx`; update 36 usages across `docker-details.tsx` + `github-details.tsx`.
+- [X] T043 [code-review: standards] `githubEnvironmentGovernance` (`github-repos.ts`) now returns null when protection rules normalize to empty AND no branch policy AND no admin-bypass — `protection_rules: []` alone no longer emits a noise block.
+- [X] T044 [code-review: spec] Document draft-release visibility (push-access requirement, no API signal) in `docs/importers/github.md` behavior notes — resolves US2-AS3 adjudication.
+- Justified, no task: paginate `signal` forwarding (plugin limitation, pre-existing), pagination triplication, unbounded inventory tables, null-vs-omit detail fields, `ReleaseInventoryEntry.id` nullability.

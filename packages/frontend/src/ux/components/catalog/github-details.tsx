@@ -1,4 +1,4 @@
-import { DescriptionList, RelativeTime } from "@/ux/components/patterns/primitives"
+import { DescriptionList, DetailSection, RelativeTime } from "@/ux/components/patterns/primitives"
 import { ExternalLink } from "@/ux/components/patterns/external-link"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Badge } from "@/ux/components/ui/badge"
@@ -231,17 +231,6 @@ function degradedCapabilitiesOf(
 
 // ---- section components ----
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-2">
-      <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {title}
-      </h4>
-      {children}
-    </section>
-  )
-}
-
 const shortSha = (sha: string) => sha.slice(0, 7)
 
 function ForkRefLink({ fork }: { fork: ForkRef }) {
@@ -343,12 +332,12 @@ function RepoSection({ facts }: { facts: RepoFacts }) {
   ]
   if (!items.length) return null
   return (
-    <Section title="Repository">
+    <DetailSection title="Repository">
       <DescriptionList
         className="sm:grid-cols-[minmax(10rem,auto)_1fr]"
         items={items}
       />
-    </Section>
+    </DetailSection>
   )
 }
 
@@ -356,7 +345,7 @@ function BranchesSection({ branches }: { branches: BranchEntry[] }) {
   if (!branches.length) return null
   const showActivity = branches.some((b) => b.lastActivityAt)
   return (
-    <Section title="Branches">
+    <DetailSection title="Branches">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -400,7 +389,7 @@ function BranchesSection({ branches }: { branches: BranchEntry[] }) {
           ))}
         </TableBody>
       </Table>
-    </Section>
+    </DetailSection>
   )
 }
 
@@ -417,7 +406,7 @@ const assetsLabel = (r: ReleaseEntry) => {
 function ReleasesSection({ releases }: { releases: ReleaseEntry[] }) {
   if (!releases.length) return null
   return (
-    <Section title="Releases">
+    <DetailSection title="Releases">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -466,14 +455,14 @@ function ReleasesSection({ releases }: { releases: ReleaseEntry[] }) {
           ))}
         </TableBody>
       </Table>
-    </Section>
+    </DetailSection>
   )
 }
 
 function TagsSection({ tags }: { tags: TagEntry[] }) {
   if (!tags.length) return null
   return (
-    <Section title="Tags">
+    <DetailSection title="Tags">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -507,14 +496,14 @@ function TagsSection({ tags }: { tags: TagEntry[] }) {
           ))}
         </TableBody>
       </Table>
-    </Section>
+    </DetailSection>
   )
 }
 
 function LanguagesSection({ languages }: { languages: [string, number][] }) {
   if (!languages.length) return null
   return (
-    <Section title="Languages">
+    <DetailSection title="Languages">
       <DescriptionList
         className="sm:grid-cols-[minmax(10rem,auto)_1fr]"
         items={languages.map(([lang, bytes]) => ({
@@ -522,7 +511,7 @@ function LanguagesSection({ languages }: { languages: [string, number][] }) {
           value: formatBytes(bytes),
         }))}
       />
-    </Section>
+    </DetailSection>
   )
 }
 

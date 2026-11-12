@@ -96,7 +96,10 @@ endpoint, the smallest authenticated request available.
   each entry with the last commit timestamp). Leave it off for large orgs.
 - **`includeReleaseInventory`** (default on) pages through *all* releases
   and tags — independent of `includeReleases`, which only feeds the
-  latest-release version fallback for environment instances.
+  latest-release version fallback for environment instances. GitHub only
+  returns **draft** releases to tokens with push access; without it the
+  inventory silently covers published releases only (there is no API
+  signal distinguishing "no drafts" from "drafts hidden").
 - **`includeLanguageBreakdown`** (default off) adds one
   `GET /repos/{o}/{r}/languages` call per repository.
 - Sections the token can't reach degrade to `capabilities.*` markers —

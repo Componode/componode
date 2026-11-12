@@ -1,4 +1,4 @@
-import { DescriptionList, RelativeTime } from "@/ux/components/patterns/primitives"
+import { DescriptionList, DetailSection, RelativeTime } from "@/ux/components/patterns/primitives"
 import { Badge } from "@/ux/components/ui/badge"
 import { ENVIRONMENT_META } from "@/ux/lib/domain"
 import { formatBytes } from "@/ux/lib/format"
@@ -216,17 +216,6 @@ export function hasInstanceDetails(i: ComponentInstance): boolean {
 }
 
 // ---- section components ----
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-2">
-      <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {title}
-      </h4>
-      {children}
-    </section>
-  )
-}
 
 const secs = (s: number) => `${Math.round(s * 1000) / 1000}s`
 
@@ -481,52 +470,52 @@ export function InstanceDetails({ instance }: { instance: ComponentInstance }) {
   return (
     <div className="space-y-4">
       {instance.environmentOverride ? (
-        <Section title="Environment">
+        <DetailSection title="Environment">
           <p className="text-sm text-muted-foreground">
             Manually overridden to {ENVIRONMENT_META[instance.environment].label}; the
             importer reports {ENVIRONMENT_META[instance.reportedEnvironment].label}.
           </p>
-        </Section>
+        </DetailSection>
       ) : null}
       {obs ? (
-        <Section title="Observation">
+        <DetailSection title="Observation">
           <ObservationDetails obs={obs} />
-        </Section>
+        </DetailSection>
       ) : null}
       {swarmObs ? (
-        <Section title="Observation">
+        <DetailSection title="Observation">
           <SwarmObservationDetails obs={swarmObs} />
-        </Section>
+        </DetailSection>
       ) : null}
       {image ? (
-        <Section title="Image">
+        <DetailSection title="Image">
           <ContainerImageDetails img={image} />
-        </Section>
+        </DetailSection>
       ) : null}
       {hostConfig ? (
-        <Section title="Host config">
+        <DetailSection title="Host config">
           <HostConfigDetails cfg={hostConfig} />
-        </Section>
+        </DetailSection>
       ) : null}
       {healthcheck ? (
-        <Section title="Health check definition">
+        <DetailSection title="Health check definition">
           <HealthcheckDetails hc={healthcheck} />
-        </Section>
+        </DetailSection>
       ) : null}
       {ports.length ? (
-        <Section title="Ports">
+        <DetailSection title="Ports">
           <PortsDetails ports={ports} />
-        </Section>
+        </DetailSection>
       ) : null}
       {networks.length ? (
-        <Section title="Networks">
+        <DetailSection title="Networks">
           <NetworksDetails networks={networks} />
-        </Section>
+        </DetailSection>
       ) : null}
       {ghEnv ? (
-        <Section title="GitHub environment">
+        <DetailSection title="GitHub environment">
           <GithubEnvironmentDetails env={ghEnv} />
-        </Section>
+        </DetailSection>
       ) : null}
     </div>
   )
@@ -582,7 +571,7 @@ export function EngineDetailsSection({ details }: { details: Component["details"
   const e = engineDetailsOf(details)
   if (!e) return null
   return (
-    <Section title="Engine">
+    <DetailSection title="Engine">
       <DescriptionList
         className="sm:grid-cols-1"
         items={[
@@ -609,7 +598,7 @@ export function EngineDetailsSection({ details }: { details: Component["details"
             : []),
         ]}
       />
-    </Section>
+    </DetailSection>
   )
 }
 
@@ -644,7 +633,7 @@ export function ImageDetailsSection({ details }: { details: Component["details"]
   const img = imageDetailsOf(details)
   if (!img) return null
   return (
-    <Section title="Image provenance">
+    <DetailSection title="Image provenance">
       <div className="space-y-3">
         <DescriptionList
           className="sm:grid-cols-1"
@@ -688,7 +677,7 @@ export function ImageDetailsSection({ details }: { details: Component["details"]
         ) : null}
         {img.ociLabels ? <LabelPairs labels={img.ociLabels} /> : null}
       </div>
-    </Section>
+    </DetailSection>
   )
 }
 
@@ -744,7 +733,7 @@ export function NetworkDetailsSection({ details }: { details: Component["details
   const n = networkDetailsOf(details)
   if (!n) return null
   return (
-    <Section title="Network">
+    <DetailSection title="Network">
       <div className="space-y-3">
         <DescriptionList
           className="sm:grid-cols-1"
@@ -780,7 +769,7 @@ export function NetworkDetailsSection({ details }: { details: Component["details
         ) : null}
         {n.labels ? <LabelPairs labels={n.labels} /> : null}
       </div>
-    </Section>
+    </DetailSection>
   )
 }
 
@@ -813,7 +802,7 @@ export function VolumeDetailsSection({ details }: { details: Component["details"
   const v = volumeDetailsOf(details)
   if (!v) return null
   return (
-    <Section title="Volume">
+    <DetailSection title="Volume">
       <div className="space-y-3">
         <DescriptionList
           className="sm:grid-cols-1"
@@ -838,6 +827,6 @@ export function VolumeDetailsSection({ details }: { details: Component["details"
         />
         {v.labels ? <LabelPairs labels={v.labels} /> : null}
       </div>
-    </Section>
+    </DetailSection>
   )
 }

@@ -75,3 +75,15 @@ export function DescriptionList({ items, className }: { items: { label: string; 
     </dl>
   )
 }
+
+/** Titled subsection inside a detail card (bounded detail renderers). */
+export function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-2">
+      <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {title}
+      </h4>
+      {children}
+    </section>
+  )
+}
