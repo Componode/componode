@@ -109,7 +109,7 @@
 - [X] T028 Playwright journey spec (importers or journeys dir): run mock importer → assert `GET /api/v1/components/{id}` `details.branches`/`releases`/`tags` populated + env instance `rawConfig.githubEnvironment` → assert component page renders GitHub section (per constitution VI + FR-018)
 - [X] T029 Update `docs/importers/github.md`: inventory description, branch-instances selector semantics, new toggles table rows (via `pnpm docs:importers` regen for GENERATED region + hand-edit prose sections), token scope notes per permission family (Contents/Metadata, Actions, Deployments)
 - [X] T030 Full verification sweep: `pnpm lint && pnpm typecheck && pnpm test && pnpm build` for importer-github + frontend; `pnpm docs:oracle:check`/`docs:sidebar:check`/`docs:api:check` as applicable; targeted `pnpm e2e -- --grep <spec>`; `git status` clean except intended files
-- [ ] T031 Commit spec artifacts + implementation on `072-github-branch-inventory`; push; open PR per repo convention (do NOT include `.devin/sec-review/`)
+- [X] T031 Commit spec artifacts + implementation on `072-github-branch-inventory`; push; open PR per repo convention (do NOT include `.devin/sec-review/`)
 
 ---
 
