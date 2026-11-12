@@ -1,6 +1,11 @@
 import type { Octokit } from "octokit";
 import type { DiscoveredAsset } from "@componode/core";
-import { withCapability } from "./capabilities.js";
+import {
+  capabilityMarker,
+  withCapability,
+  worstCapabilityMarker,
+  type CapabilityMarker,
+} from "./capabilities.js";
 
 const PACKAGE_TYPES = ["container", "npm", "maven", "nuget", "rubygems", "docker"] as const;
 
@@ -106,39 +111,52 @@ export async function* fetchPackageAssets(
   octokit: Octokit,
   org: string,
   signal: AbortSignal,
+  onDegraded?: (marker: CapabilityMarker) => void,
 ): AsyncGenerator<DiscoveredAsset> {
-  for (const packageType of PACKAGE_TYPES) {
-    if (signal.aborted) return;
+  // Per-type failures degrade individually (other types still yield), but
+  // the worst marker must reach the caller — swallowing it here would leave
+  // capabilities.packages OK on a total outage (FR-013).
+  let worst: CapabilityMarker = { status: "OK" };
+  try {
+    for (const packageType of PACKAGE_TYPES) {
+      if (signal.aborted) return;
 
-    const result = await withCapability(async () => {
-      const packages: GithubPackage[] = [];
-      for await (const { data } of octokit.paginate.iterator(
-        octokit.rest.packages.listPackagesForOrganization,
-        { org, package_type: packageType, per_page: 100 },
-      )) {
-        packages.push(...(data as GithubPackage[]));
-        if (signal.aborted) break;
+      const result = await withCapability(async () => {
+        const packages: GithubPackage[] = [];
+        for await (const { data } of octokit.paginate.iterator(
+          octokit.rest.packages.listPackagesForOrganization,
+          { org, package_type: packageType, per_page: 100 },
+        )) {
+          packages.push(...(data as GithubPackage[]));
+          if (signal.aborted) break;
+        }
+        return packages;
+      });
+      if (result.status !== "OK") {
+        worst = worstCapabilityMarker(worst, capabilityMarker(result));
+        continue;
       }
-      return packages;
-    });
-    if (result.status !== "OK" || !result.data) continue;
+      if (!result.data) continue;
 
-    for (const pkg of result.data) {
-      yield {
-        category: "PACKAGE_REGISTRY",
-        provider: "GITHUB",
-        resourceType: "github:package",
-        name: `${pkg.package_type}:${pkg.name}`,
-        externalId: String(pkg.id),
-        slug: `${packageType}-${pkg.id}`.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        details: {
-          packageType: pkg.package_type,
-          visibility: pkg.visibility ?? null,
-          htmlUrl: pkg.html_url ?? null,
-          owner: pkg.owner?.login ?? null,
-        },
-        instances: [],
-      };
+      for (const pkg of result.data) {
+        yield {
+          category: "PACKAGE_REGISTRY",
+          provider: "GITHUB",
+          resourceType: "github:package",
+          name: `${pkg.package_type}:${pkg.name}`,
+          externalId: String(pkg.id),
+          slug: `${packageType}-${pkg.id}`.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          details: {
+            packageType: pkg.package_type,
+            visibility: pkg.visibility ?? null,
+            htmlUrl: pkg.html_url ?? null,
+            owner: pkg.owner?.login ?? null,
+          },
+          instances: [],
+        };
+      }
     }
+  } finally {
+    onDegraded?.(worst);
   }
 }

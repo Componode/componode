@@ -155,13 +155,16 @@ test.describe('github importer branch/release inventory (spec 072)', () => {
     expect(draftRel.draft).toBe(true);
     expect(draftRel.publishedAt ?? null).toBeNull();
 
-    // Tag inventory: plain tags (no release record) are present alongside
-    // release-backed tags — the full paginated /tags list is stored.
+    // Tag inventory: plain tags lacking releases (FR-007) — nightly and
+    // legacy-2025 have no release record; release-backed v1.0.0 is filtered
+    // out (it already appears under releases). The mock still serves all
+    // three tags, matching the real GitHub /tags endpoint.
     const tags = d.tags ?? [];
-    expect(tags.length, 'all fixture tags inventoried').toBe(3);
+    expect(tags.length, 'plain tags lacking releases').toBe(2);
     const tagByName = new Map<string, any>(tags.map((t: any) => [t.name, t] as [string, any]));
     expect(tagByName.get('nightly')?.sha).toBe(SHA_NIGHTLY);
     expect(tagByName.get('legacy-2025')).toBeTruthy();
+    expect(tagByName.has('v1.0.0'), 'release-backed tag excluded').toBe(false);
 
     // Per-repo capability markers record the touched families.
     expect(d.capabilities?.branches?.status).toBe('OK');
@@ -258,13 +261,15 @@ test.describe('github importer branch/release inventory (spec 072)', () => {
     await expect(releasesSection.getByText('draft', { exact: true })).toBeVisible();
     await expect(releasesSection.getByText('2 assets', { exact: false })).toBeVisible();
 
-    // Tags table — plain tag without a release is listed.
+    // Tags table — plain tags lacking releases; release-backed v1.0.0 is
+    // excluded (it renders under Releases instead).
     const tagsSection = page.locator('section').filter({
       has: page.getByRole('heading', { name: 'Tags', exact: true }),
     });
     await expect(tagsSection).toBeVisible();
     await expect(tagsSection.getByText('nightly', { exact: true })).toBeVisible();
     await expect(tagsSection.getByText('legacy-2025', { exact: true })).toBeVisible();
+    await expect(tagsSection.getByText('v1.0.0', { exact: true })).toHaveCount(0);
 
     // Environment instance expander renders the governance block. The
     // externalId `env:production` uniquely identifies the row.

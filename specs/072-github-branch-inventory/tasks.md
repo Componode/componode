@@ -138,3 +138,16 @@ Phase 6 polish depends on all stories; T027 mock work can start any time after T
 ## Implementation strategy
 
 MVP = Phase 2 + Phase 3 (US1 alone delivers the reported fix: all branches visible). US2/US3 are additive enrichments on the same plumbing. Each phase ends with package verification green before the next begins.
+
+---
+
+## Phase 7: Review (code-review round 1 vs main)
+
+**Source**: `code-review` skill, fixed point `main`, spec `specs/072-github-branch-inventory/spec.md`. Justified non-findings (no task): roadmap "Shipped"/spec "Draft" status matches house convention (071 identical); `docker-details.tsx` hosting githubEnvironment accepted (shared instance-details renderer, rename = churn); resourceType if-cascade matches existing convention; `null` vs omitted detail fields accepted (frontend shapers handle both); guard-helper duplication partially addressed via formatBytes extraction only.
+
+- [ ] T032 [HIGH] [code-review: spec] Fix silent package-capability degradation per FR-013/SC-003: `fetchPackageAssets` (`github-extras.ts:105-144`) wraps each package-type call in `withCapability`+`continue`, so per-type 403s never reach the `try/catch` in `importer.ts:298-312` → `capabilities.packages` stays `OK` on total failure. Propagate the worst per-type marker via an `onDegraded` callback (or equivalent), merge into the org `packages` marker, keep partial results, add/adjust unit test proving degraded marker + `warnIfDegraded`.
+- [ ] T033 [MEDIUM] [code-review: spec] `details.tags[]` must contain only tags lacking releases per FR-007 ("plain tags lacking releases"): filter release-backed tag names inside `fetchVersionInventory` (`github-inventory.ts` — releases+tags fetched together; when releases fetch fails keep all tags as safe degradation). Update `test/importer.test.ts` (v1.0.0 must NOT appear in tags) and `playwright/tests/importers/github-inventory.spec.ts` (tag count/comment/`beta-2026-01` expectations) + mock if needed.
+- [ ] T034 [MEDIUM] [code-review: spec] Record the `branchInstances` capability marker when the shared branch-list fetch degrades (contract §4 family currently never appears): in `importer.ts` repo loop, set `repoCaps.branchInstances` alongside `repoCaps.branches` gated by `includeBranchInstances`/`includeBranchInventory` respectively (same `branchesResult` marker); add unit test asserting the marker under `/branches` 403.
+- [ ] T035 [LOW] [code-review: standards] `GithubRepo` should `extends RepoLike` and the `repo as RepoLike` cast at `importer.ts:372` dropped (redundant structural superset).
+- [ ] T036 [LOW] [code-review: standards] Extract duplicated `formatBytes` into `packages/frontend/src/ux/lib/format.ts` (next to `formatNumber`); update imports in `docker-details.tsx` and `github-details.tsx`.
+- [ ] T037 [LOW] [code-review: spec] Align `specs/072-github-branch-inventory/contracts/github-inventory.md` §4 family list with implementation — add `releases` (latest-release fallback degradation is marked per FR-013).

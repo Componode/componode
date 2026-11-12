@@ -31,22 +31,15 @@ import {
   type CapabilityMarker,
 } from "./capabilities.js";
 
-interface GithubRepo {
-  id: number;
-  full_name: string;
-  name: string;
-  owner: { login: string };
-  html_url: string;
+interface GithubRepo extends RepoLike {
   fork: boolean;
   archived: boolean;
   disabled?: boolean;
   language: string | null;
   topics: string[] | null | undefined;
   visibility: string | null;
-  default_branch: string | null;
   created_at?: string | null;
   updated_at: string | null;
-  pushed_at: string | null;
   size?: number | null;
   license?: {
     key?: string | null;
@@ -297,15 +290,21 @@ export class GithubImporter implements Importer {
     const packageAssets: DiscoveredAsset[] = [];
     if (parsed.includePackages && !context.signal.aborted) {
       context.reportPhase("Listing organization packages");
-      const marker: CapabilityMarker = { status: "OK" };
+      let marker: CapabilityMarker = { status: "OK" };
       try {
-        for await (const asset of fetchPackageAssets(octokit, parsed.org, context.signal)) {
+        for await (const asset of fetchPackageAssets(
+          octokit,
+          parsed.org,
+          context.signal,
+          (degraded) => {
+            marker = worstCapabilityMarker(marker, degraded);
+          },
+        )) {
           if (context.signal.aborted) return;
           packageAssets.push(asset);
         }
       } catch (err) {
-        marker.status = "ERROR";
-        marker.message = err instanceof Error ? err.message : String(err);
+        marker = { status: "ERROR", message: err instanceof Error ? err.message : String(err) };
       }
       capabilities.packages = marker;
       warnIfDegraded(context.logger, "packages", marker);
@@ -354,7 +353,14 @@ export class GithubImporter implements Importer {
         const branchesResult = await withCapability(() =>
           listAllBranches(octokit, owner, repoName, context.signal),
         );
-        repoCaps.branches = capabilityMarker(branchesResult);
+        // The shared fetch feeds two contract families — mark each under
+        // its own consumer's toggle so a degraded list surfaces on both.
+        if (parsed.includeBranchInventory) {
+          repoCaps.branches = capabilityMarker(branchesResult);
+        }
+        if (parsed.includeBranchInstances) {
+          repoCaps.branchInstances = capabilityMarker(branchesResult);
+        }
         if (branchesResult.status === "OK") {
           branchList = branchesResult.data;
         }
@@ -369,7 +375,7 @@ export class GithubImporter implements Importer {
 
       const instances = await buildRepoInstances(
         octokit,
-        repo as RepoLike,
+        repo,
         parsed,
         context.signal,
         { branches: branchList, getBranchDetail, capabilities: repoCaps },

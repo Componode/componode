@@ -46,6 +46,19 @@ export const formatDateTime = (iso: string) =>
 export const formatNumber = (n: number) =>
   new Intl.NumberFormat("en").format(n);
 
+const BYTE_UNITS = ["B", "KiB", "MiB", "GiB", "TiB"];
+
+/** Bytes → "340 B"/"1.5 MiB"/"12 GiB" (binary units, one decimal under 10). */
+export const formatBytes = (n: number) => {
+  let v = n;
+  let u = 0;
+  while (v >= 1024 && u < BYTE_UNITS.length - 1) {
+    v /= 1024;
+    u += 1;
+  }
+  return `${u === 0 ? v : v.toFixed(v >= 10 ? 0 : 1)} ${BYTE_UNITS[u]}`;
+};
+
 export function formatDuration(sec: number | null): string {
   if (sec == null) return "—";
   if (sec < 60) return `${sec}s`;

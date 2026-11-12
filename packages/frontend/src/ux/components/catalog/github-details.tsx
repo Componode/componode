@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/ux/components/ui/table"
-import { formatNumber } from "@/ux/lib/format"
+import { formatBytes, formatNumber } from "@/ux/lib/format"
 import type { Component } from "@/ux/lib/view-types"
 
 // Bounded GitHub detail rendering (ADR-121, spec 072): every shaper below
@@ -255,17 +255,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       {children}
     </section>
   )
-}
-
-const formatBytes = (n: number) => {
-  const units = ["B", "KiB", "MiB", "GiB", "TiB"]
-  let v = n
-  let u = 0
-  while (v >= 1024 && u < units.length - 1) {
-    v /= 1024
-    u += 1
-  }
-  return `${u === 0 ? v : v.toFixed(v >= 10 ? 0 : 1)} ${units[u]}`
 }
 
 const shortSha = (sha: string) => sha.slice(0, 7)

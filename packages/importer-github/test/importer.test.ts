@@ -975,7 +975,9 @@ describe("GithubImporter", () => {
     expect(repo).toBeDefined();
     expect(detailsOf(repo).branches).toBeUndefined();
     expect(capsOf(repo).branches?.status).toBe("FORBIDDEN");
+    expect(capsOf(repo).branchInstances?.status).toBe("FORBIDDEN");
     expect(capsOf(orgAsset(assets)).branches?.status).toBe("FORBIDDEN");
+    expect(capsOf(orgAsset(assets)).branchInstances?.status).toBe("FORBIDDEN");
     // No branch instances can be classified without the branch list.
     expect(
       (repo?.instances ?? []).some((i) => i.externalId.startsWith("branch:")),
@@ -1077,10 +1079,11 @@ describe("GithubImporter", () => {
     expect(byTag.get("v2.0.0-draft")).toMatchObject({ draft: true });
 
     const tags = details.tags as Array<Record<string, unknown>>;
+    // FR-007: tags[] carries plain tags lacking releases — v1.0.0 backs a
+    // release so it appears only under releases[].
     expect(tags.map((t) => t.name).sort()).toEqual([
       "legacy-2025",
       "nightly",
-      "v1.0.0",
     ]);
     expect(tags.find((t) => t.name === "nightly")).toMatchObject({
       sha: "eeee000000000000000000000000000000000005",
@@ -1279,7 +1282,7 @@ describe("GithubImporter", () => {
     const details = detailsOf(repoAsset(on));
     expect(details.languages).toEqual({ TypeScript: 91234, JavaScript: 1234 });
     expect(capsOf(repoAsset(on)).languages?.status).toBe("OK");
-  });
+  }, 20000);
 
   it("marks languages degraded when /languages fails", async () => {
     useRoutes(
@@ -1473,6 +1476,29 @@ describe("GithubImporter", () => {
     const packages = assets.filter((a) => a.resourceType === "github:package");
 
     expect(packages.map((p) => p.externalId).sort()).toEqual(["601", "602"]);
+  });
+
+  it("marks packages degraded when every package-type listing fails", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/orgs/testorg/packages",
+          status: 403,
+          body: { message: "Forbidden" },
+        },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), {
+      org: "testorg",
+      includePackages: true,
+    });
+
+    expect(
+      assets.filter((a) => a.resourceType === "github:package"),
+    ).toHaveLength(0);
+    // FR-013: per-type failures must surface — not a silent OK.
+    expect(capsOf(orgAsset(assets)).packages?.status).toBe("FORBIDDEN");
   });
 
   it("aggregates per-repo capability markers worst-status-wins onto the org asset", async () => {

@@ -68,7 +68,7 @@ Unchanged: `includeEnvironments` (deployment-environment instances only — it n
     }
   ],
 
-  "tags": [                         // includeReleaseInventory; [] when empty
+  "tags": [                         // includeReleaseInventory; plain tags LACKING releases (FR-007); [] when empty
     { "name": "nightly", "sha": "def456…", "htmlUrl": "https://github.com/o/r/releases/tag/nightly" }
   ],
 
@@ -109,7 +109,7 @@ Rules:
 
 ## 4. `details.capabilities` — `github:organization` (aggregate)
 
-Org-scoped keys unchanged (`billing`, `runners`, `packages`, `teams`-adjacent markers). Repo-scoped families added with worst-status-wins across repos: `branches`, `branchInstances`, `branchActivity`, `versionInventory`, `languages`, `environments`, `deployments`. Marker shape: `{status: "OK"|"FORBIDDEN"|"ERROR"|"UNAVAILABLE", message?}` — message on aggregate failures notes the affected repo count.
+Org-scoped keys unchanged (`billing`, `runners`, `packages`, `teams`-adjacent markers). Repo-scoped families added with worst-status-wins across repos: `branches`, `branchInstances`, `branchActivity`, `versionInventory`, `releases` (latest-release env-instance fallback), `languages`, `environments`, `deployments`. Marker shape: `{status: "OK"|"FORBIDDEN"|"ERROR"|"UNAVAILABLE", message?}` — message on aggregate failures notes the affected repo count.
 
 ## 5. Degradation contract
 

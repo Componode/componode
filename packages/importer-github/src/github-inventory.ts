@@ -264,6 +264,14 @@ export async function fetchVersionInventory(
     withCapability(() => listAllReleases(octokit, owner, repo, signal)),
     withCapability(() => listAllTags(octokit, owner, repo, htmlUrl, signal)),
   ]);
+  // FR-007: tags[] carries plain tags *lacking* releases — release-backed
+  // tags already appear in releases[]. When the releases fetch failed we
+  // can't tell which tags are covered, so keep the full list (the
+  // versionInventory marker already records the degradation).
+  if (releases.status === "OK" && tags.status === "OK") {
+    const releaseTagNames = new Set(releases.data.map((r) => r.tagName));
+    tags.data = tags.data.filter((t) => !releaseTagNames.has(t.name));
+  }
   return { releases, tags };
 }
 
