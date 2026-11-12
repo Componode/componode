@@ -262,8 +262,13 @@ export function mapComponent(
     provider: narrow<Provider>(c.provider, PROVIDERS, "OTHER"),
     resourceType: c.resourceType,
     lifecycle: narrow<Lifecycle>(c.lifecycle, LIFECYCLES, "ACTIVE"),
-    componentGroupId: c.componentGroupId ?? null,
-    componentGroupName: c.componentGroupName ?? null,
+    componentGroups: (c.componentGroups ?? []).map((g) => ({
+      id: g.id,
+      name: g.name,
+      slug: g.slug,
+      autoSourceId: g.autoSourceId ?? null,
+      autoGroupKey: g.autoGroupKey ?? null,
+    })),
     teamOwnerId: c.teamOwnerId ?? null,
     teamOwnerName: c.teamOwnerName ?? null,
     tags: c.tags ?? [],
@@ -317,7 +322,8 @@ export function mapDepComponent(
     provider: full ? narrow<Provider>(full.provider, PROVIDERS, "OTHER") : null,
     resourceType: full?.resourceType ?? null,
     instanceCount: full?.instanceCount ?? null,
-    componentGroupName: full?.componentGroupName ?? null,
+    componentGroupName:
+      full?.componentGroups?.map((g) => g.name).join(", ") || null,
     lastSeenAt: full?.lastSeenAt ?? null,
     sources: ref.sources.map(depSourceLabel),
     worstStatus: worstInstanceStatus(instances, ref.id),
@@ -333,5 +339,7 @@ export function mapComponentGroup(g: ApiComponentGroup): ComponentGroupView {
     lifecycle: narrow<Lifecycle>(g.lifecycle, LIFECYCLES, "ACTIVE"),
     team: g.teamOwnerName ?? null,
     members: g.memberCount ?? 0,
+    autoSourceId: g.autoSourceId ?? null,
+    autoGroupKey: g.autoGroupKey ?? null,
   };
 }

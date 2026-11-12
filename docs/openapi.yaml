@@ -1265,7 +1265,7 @@ paths:
         `details`, `lastSeen*`) are never accepted and stay null. Lifecycle
         starts `ACTIVE`. `slug` must be lowercase kebab-case and unique
         across components (`409 SLUG_CONFLICT`). `404` when
-        `teamOwnerId`/`componentGroupId` reference unknown entities.
+        `teamOwnerId`/`componentGroupIds` reference unknown entities.
       requestBody:
         required: true
         content:
@@ -1287,7 +1287,13 @@ paths:
                 provider: { type: string }
                 resourceType: { type: string, minLength: 1, maxLength: 100 }
                 teamOwnerId: { type: string, format: uuid }
-                componentGroupId: { type: string, format: uuid, nullable: true }
+                componentGroupIds:
+                  type: array
+                  description: >-
+                    Spec 070: desired HUMAN-managed group memberships.
+                    Auto-managed groups are rejected with
+                    GROUP_AUTO_MANAGED.
+                  items: { type: string, format: uuid }
                 links:
                   type: array
                   maxItems: 20
@@ -1401,7 +1407,13 @@ paths:
               type: object
               additionalProperties: false
               properties:
-                componentGroupId: { type: string, format: uuid, nullable: true }
+                componentGroupIds:
+                  type: array
+                  description: >-
+                    Spec 070: replace the component's HUMAN-managed group
+                    memberships. Absent = unchanged; [] = clear. Memberships
+                    in auto-managed groups are never touched.
+                  items: { type: string, format: uuid }
                 teamOwnerId: { type: string, format: uuid, nullable: true }
                 links:
                   type: array
@@ -5111,7 +5123,13 @@ components:
         resourceType: { type: string }
         lifecycle: { $ref: "#/components/schemas/Lifecycle" }
         teamOwnerId: { type: string, format: uuid, nullable: true }
-        componentGroupId: { type: string, format: uuid, nullable: true }
+        componentGroups:
+          type: array
+          description: >-
+            Spec 070: all group memberships (human + auto-managed), ordered
+            by group name. Multi-valued — a component may belong to any
+            number of groups.
+          items: { $ref: "#/components/schemas/ComponentGroupRef" }
         externalId: { type: string, nullable: true }
         details: { type: object, nullable: true }
         links:
@@ -5186,6 +5204,18 @@ components:
         updatedBy: { type: string, format: uuid, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    ComponentGroupRef:
+      type: object
+      description: >-
+        Spec 070: one group membership on a component. `autoSourceId` /
+        `autoGroupKey` non-null marks an auto-managed group whose membership
+        is system-owned (not human-editable via component writes).
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        autoSourceId: { type: string, format: uuid, nullable: true }
+        autoGroupKey: { type: string, nullable: true }
     ComponentGroup:
       type: object
       properties:
@@ -5195,6 +5225,21 @@ components:
         description: { type: string, nullable: true }
         lifecycle: { $ref: "#/components/schemas/Lifecycle" }
         teamOwnerId: { type: string, format: uuid, nullable: true }
+        autoSourceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >-
+            Spec 070: provenance — the ImporterSource that owns this
+            auto-managed group; null for human-managed groups. Sole
+            predicate for GROUP_AUTO_MANAGED write guards.
+        autoGroupKey:
+          type: string
+          nullable: true
+          description: >-
+            App-boundary key within the owning source (e.g.
+            `compose:myproject`, `stack:mystack`); null = the source's own
+            group.
         memberCount:
           type: integer
           description: Current member components (present on list responses)

@@ -93,11 +93,16 @@ describe("platform product workflow", () => {
         resourceType: "repo",
         lifecycle: over.lifecycle ?? "ACTIVE",
         details: null,
-        componentGroupId: over.componentGroupId ?? null,
         createdAt: now(),
         updatedAt: now(),
       } as never)
       .execute();
+    if (over.componentGroupId) {
+      await testDb.db
+        .insertInto("component_group_members")
+        .values({ componentId: id, groupId: over.componentGroupId })
+        .execute();
+    }
     return id;
   }
 
@@ -589,9 +594,8 @@ describe("platform product workflow", () => {
       const groupId = await mkGroup("promo-grp");
       // Put the promoted component inside the group.
       await testDb.db
-        .updateTable("components")
-        .set({ componentGroupId: groupId })
-        .where("id", "=", compId)
+        .insertInto("component_group_members")
+        .values({ componentId: compId, groupId })
         .execute();
       const consumer = await mkProduct("promo-grp-consumer");
       await addDep(consumer, { componentId: compId });

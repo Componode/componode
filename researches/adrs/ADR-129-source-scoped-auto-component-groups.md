@@ -158,3 +158,38 @@ targets without persisted rows).
 
 **Spec**: `specs/067-auto-component-groups/` (Draft — implementation
 scheduled separately via speckit-plan/tasks).
+
+---
+
+## Amendment — spec 070: multi-membership + app-level auto groups
+
+Spec 070 promoted the single-valued membership model this ADR assumed:
+
+- **`components.componentGroupId` → `component_group_members` join
+  table.** A component may belong to any number of groups — human,
+  source-auto, and app-auto simultaneously. Every group read path
+  (component/group detail, `DEPENDS_ON` expansion, coverage suppression,
+  edge-suggestion coverage, UI) resolves through the join table; API
+  payloads expose `componentGroups[]` and accept `componentGroupIds[]`
+  for HUMAN-managed memberships only.
+- **Provenance moved onto `component_groups`:** `autoSourceId` +
+  `autoGroupKey` replace `importer_sources.componentGroupId`. Every
+  auto-managed group — source (`autoGroupKey IS NULL`) or app
+  (`compose:{project}` / `stack:{name}`) — has exactly one owning source;
+  `autoSourceId IS NOT NULL` is the sole `GROUP_AUTO_MANAGED` predicate.
+- **App-level groups:** importers may additionally declare
+  `autoAppGroups` and supply `appGroupKinds` strategies that extract
+  boundary keys from persisted component `details`. Docker adopts
+  Compose projects and Swarm stacks; membership requires effective-active
+  reporting by the owning source AND a matching label carrier (workloads,
+  project-labeled networks/volumes, stack services — never images,
+  engine, nodes, or standalone containers). Groups are per-source:
+  identical project names on different engines produce distinct groups.
+- **Additive semantics:** auto passes own the member set of groups they
+  provision — they evict ineligible members (including human-placed
+  ones, per the spec-070 clarification) but never touch memberships in
+  groups they don't own. Human writes replace only HUMAN-managed
+  memberships; auto memberships are system-owned.
+- **Deferred (unchanged):** topology-inferred clusters, image lineage,
+  custom label keys, fleet-wide app identity, per-component auto
+  opt-out, non-Docker adopters.

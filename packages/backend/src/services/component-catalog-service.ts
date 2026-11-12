@@ -1,11 +1,13 @@
 import { sql, type SqlBool } from "kysely";
 import { db } from "../db/connection.js";
+import type { DB } from "../db/types.js";
 import { listComponentsQuerySchema, type ListComponentsQuery } from "@componode/core";
 import {
   coveragePopulationPredicate,
   hasNonGoneInstanceOrNone,
   wiredComponentIdsQuery,
 } from "./catalog-coverage-service.js";
+import { groupsOfComponents } from "./component-group-membership.js";
 import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
 
 type ComponentSortKey = NonNullable<ListComponentsQuery["sort"]>;
@@ -36,7 +38,6 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
 
   let query = db
     .selectFrom("components")
-    .leftJoin("component_groups", "components.componentGroupId", "component_groups.id")
     .leftJoin("teams", "components.teamOwnerId", "teams.id");
 
   const lifecycles = normalizeValues(parsed.lifecycle);
@@ -81,17 +82,42 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
   if (groupValues) {
     const hasNone = groupValues.includes("none");
     const nonNone = groupValues.filter((g) => g !== "none");
+    // Spec 070: membership is multi-valued — the filter matches a component
+    // having ANY membership in a group with the slug; "none" = zero
+    // memberships of any kind.
+    const applyGroupFilter = (
+      eb: import("kysely").ExpressionBuilder<DB, "components">,
+      mode: "none" | "slugs" | "either",
+    ) => {
+      const memberJoin = eb
+        .selectFrom("component_group_members")
+        .innerJoin(
+          "component_groups",
+          "component_group_members.groupId",
+          "component_groups.id",
+        )
+        .select("component_group_members.componentId")
+        .whereRef("component_group_members.componentId", "=", "components.id")
+        .$if(mode !== "none", (qb) =>
+          qb.where("component_groups.slug", "in", nonNone),
+        );
+      const hasAnyMembership = eb
+        .selectFrom("component_group_members")
+        .select("component_group_members.componentId")
+        .whereRef("component_group_members.componentId", "=", "components.id");
+      if (mode === "none") return eb.not(eb.exists(hasAnyMembership));
+      if (mode === "slugs") return eb.exists(memberJoin);
+      return eb.or([
+        eb.not(eb.exists(hasAnyMembership)),
+        eb.exists(memberJoin),
+      ]);
+    };
     if (hasNone && nonNone.length === 0) {
-      query = query.where("components.componentGroupId", "is", null);
+      query = query.where((eb) => applyGroupFilter(eb, "none"));
     } else if (!hasNone) {
-      query = query.where("component_groups.slug", "in", nonNone);
+      query = query.where((eb) => applyGroupFilter(eb, "slugs"));
     } else {
-      query = query.where((eb) =>
-        eb.or([
-          eb("components.componentGroupId", "is", null),
-          eb("component_groups.slug", "in", nonNone),
-        ]),
-      );
+      query = query.where((eb) => applyGroupFilter(eb, "either"));
     }
   }
 
@@ -173,8 +199,6 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
       "components.provider",
       "components.resourceType",
       "components.lifecycle",
-      "components.componentGroupId",
-      "component_groups.name as componentGroupName",
       "components.teamOwnerId",
       "teams.name as teamOwnerName",
       "components.links",
@@ -213,10 +237,15 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
     },
   );
 
+  const groupsByComponent = await groupsOfComponents(
+    components.map((c) => c.id),
+  );
+
   return {
     data: components.map((c) => ({
       ...c,
       instanceCount: Number(c.instanceCount),
+      componentGroups: groupsByComponent.get(c.id) ?? [],
     })),
     pagination,
   };
@@ -225,7 +254,6 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
 export async function getComponentById(id: string) {
   const component = await db
     .selectFrom("components")
-    .leftJoin("component_groups", "components.componentGroupId", "component_groups.id")
     .leftJoin("teams", "components.teamOwnerId", "teams.id")
     .select([
       "components.id",
@@ -235,8 +263,6 @@ export async function getComponentById(id: string) {
       "components.provider",
       "components.resourceType",
       "components.lifecycle",
-      "components.componentGroupId",
-      "component_groups.name as componentGroupName",
       "components.teamOwnerId",
       "teams.name as teamOwnerName",
       "components.externalId",
@@ -269,8 +295,11 @@ export async function getComponentById(id: string) {
     .orderBy("environment")
     .execute();
 
+  const componentGroups = await groupsOfComponents([id]);
+
   return {
     ...component,
+    componentGroups: componentGroups.get(id) ?? [],
     totalInstanceCount: Number(component.totalInstanceCount ?? 0),
     instances,
   };

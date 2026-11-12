@@ -108,7 +108,6 @@ describe("catalog coverage & hygiene (spec 023)", () => {
         provider: "GITHUB",
         resourceType: "repo",
         lifecycle: over.lifecycle ?? "ACTIVE",
-        componentGroupId: over.componentGroupId ?? null,
         sunsetAt: over.sunsetAt ?? null,
         details: null,
         externalId: null,
@@ -120,6 +119,12 @@ describe("catalog coverage & hygiene (spec 023)", () => {
         updatedAt: now(),
       } as never)
       .execute();
+    if (over.componentGroupId) {
+      await testDb.db
+        .insertInto("component_group_members")
+        .values({ componentId: id, groupId: over.componentGroupId })
+        .execute();
+    }
     return id;
   }
 

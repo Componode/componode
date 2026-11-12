@@ -120,7 +120,6 @@ describe("edge suggestions queue", () => {
         resourceType: "repo",
         lifecycle: opts.lifecycle ?? "ACTIVE",
         details: opts.details ?? null,
-        componentGroupId: null,
         externalId: null,
         lastSeenAt: null,
         lastSeenInRunId: null,

@@ -266,9 +266,9 @@ export async function addDependsOnEdge(
       );
       // Group coverage tombstones — one per current member (ADR-113).
       const members = await trx
-        .selectFrom("components")
-        .select("id")
-        .where("componentGroupId", "=", groupId)
+        .selectFrom("component_group_members")
+        .select("componentId as id")
+        .where("groupId", "=", groupId)
         .execute();
       await supersedeSuggestionPairs(
         trx,
@@ -389,9 +389,9 @@ export async function removeDependsOnEdge(
       kind === "group"
         ? (
             await trx
-              .selectFrom("components")
-              .select("id")
-              .where("componentGroupId", "=", targetId)
+              .selectFrom("component_group_members")
+              .select("componentId as id")
+              .where("groupId", "=", targetId)
               .execute()
           ).map((c) => c.id)
         : [targetId];

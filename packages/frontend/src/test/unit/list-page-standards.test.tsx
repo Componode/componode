@@ -512,8 +512,7 @@ describe("TitleWithSummary / SUMMARY_FIELDS", () => {
     provider: "GITHUB",
     resourceType: "service",
     lifecycle: "ACTIVE",
-    componentGroupId: null,
-    componentGroupName: null,
+    componentGroups: [],
     teamOwnerId: null,
     teamOwnerName: "Payments",
     tags: ["billing", "core"],
@@ -530,7 +529,7 @@ describe("TitleWithSummary / SUMMARY_FIELDS", () => {
     const fields = summaryFieldsFor("component", component);
     const labels = fields.map((f) => f.label);
     for (const expected of [
-      "Provider", "Category", "Resource type", "Owner", "Group",
+      "Provider", "Category", "Resource type", "Owner", "Groups",
       "Lifecycle", "Instances", "Health", "Last seen", "Tags",
     ]) {
       expect(labels).toContain(expected);

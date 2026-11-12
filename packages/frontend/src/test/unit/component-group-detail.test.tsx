@@ -56,12 +56,12 @@ const MEMBERS = [
   {
     id: "c1", name: "web-api", slug: "web-api", category: "SERVICE",
     provider: "DOCKER", resourceType: "container", lifecycle: "ACTIVE",
-    componentGroupId: GROUP_ID, componentGroupName: "Dockers", instanceCount: 2,
+    componentGroups: [{ id: GROUP_ID, name: "Dockers", slug: "dockers" }], instanceCount: 2,
   },
   {
     id: "c2", name: "worker", slug: "worker", category: "SERVICE",
     provider: "DOCKER", resourceType: "container", lifecycle: "ACTIVE",
-    componentGroupId: GROUP_ID, componentGroupName: "Dockers", instanceCount: 1,
+    componentGroups: [{ id: GROUP_ID, name: "Dockers", slug: "dockers" }], instanceCount: 1,
   },
 ];
 
@@ -186,5 +186,42 @@ describe("UxComponentGroupDetailPage (bugfix 066)", () => {
       expect.objectContaining({ description: null }),
       expect.anything(),
     );
+  });
+
+  it("auto-managed group: edit dialog offers only name and owner, never lifecycle", () => {
+    vi.mocked(useComponentGroup).mockReturnValue({
+      data: {
+        group: group({
+          autoSourceId: "src-uuid-1",
+          autoGroupKey: null,
+          description: "Auto-managed group for src-A",
+        }),
+      },
+      isPending: false, error: null,
+    } as never);
+    renderPage();
+    fireEvent.click(screen.getByText("Edit group"));
+
+    // Name + owner remain; description and lifecycle are not offered.
+    expect(document.getElementById("edit-group-name")).toBeTruthy();
+    expect(screen.getByLabelText("Owning team")).toBeTruthy();
+    expect(document.getElementById("edit-group-desc")).toBeNull();
+    expect(screen.queryByLabelText("Lifecycle")).toBeNull();
+
+    fireEvent.submit(document.querySelector("form")!);
+    expect(updateMutate).toHaveBeenCalledTimes(1);
+    const payload = updateMutate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload.id).toBe(GROUP_ID);
+    expect(payload).not.toHaveProperty("lifecycle");
+    expect(payload).not.toHaveProperty("description");
+  });
+
+  it("auto-managed group: delete action is hidden", () => {
+    vi.mocked(useComponentGroup).mockReturnValue({
+      data: { group: group({ autoSourceId: "src-uuid-1", autoGroupKey: null }) },
+      isPending: false, error: null,
+    } as never);
+    renderPage();
+    expect(screen.queryByText("Delete group")).toBeNull();
   });
 });

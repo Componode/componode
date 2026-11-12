@@ -101,11 +101,6 @@ export interface UpdateComponentGroupInput {
   teamOwnerId?: string | null;
 }
 
-export interface AssignComponentGroupInput {
-  componentId: string;
-  componentGroupId: string | null;
-}
-
 // Detail read accepts id-or-slug — the route slug resolves directly (spec 033).
 export function useComponentGroup(idOrSlug: string | undefined) {
   return useQuery({
@@ -157,19 +152,3 @@ export function useDeleteComponentGroup() {
   });
 }
 
-export function useAssignComponentGroup() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (vars: AssignComponentGroupInput) =>
-      api<{ component: { componentGroupId: string | null } }>(
-        `/components/${vars.componentId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ componentGroupId: vars.componentGroupId }),
-        },
-      ),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["components"] });
-    },
-  });
-}

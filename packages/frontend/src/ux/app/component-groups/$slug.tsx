@@ -83,6 +83,9 @@ export function UxComponentGroupDetailPage() {
   }
 
   const view = mapComponentGroup(group);
+  // Auto-managed groups (ADR-129): membership and lifecycle are derived —
+  // humans may only rename and assign an owning team.
+  const isAutoManaged = view.autoSourceId != null;
 
   return (
     <PageContainer>
@@ -108,7 +111,11 @@ export function UxComponentGroupDetailPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Edit group</DialogTitle>
-                <DialogDescription>Update the group name, owner, and lifecycle.</DialogDescription>
+                <DialogDescription>
+                  {isAutoManaged
+                    ? "Auto-managed group — only the name and owning team can be changed."
+                    : "Update the group name, owner, and lifecycle."}
+                </DialogDescription>
               </DialogHeader>
               <form
                 onSubmit={(e) => {
@@ -119,9 +126,17 @@ export function UxComponentGroupDetailPage() {
                     {
                       id: group.id,
                       name: String(fd.get("name") ?? "").trim() || undefined,
-                      description: String(fd.get("description") ?? "").trim() || null,
-                      lifecycle: String(fd.get("lifecycle") ?? "") || undefined,
                       teamOwnerId: team === NO_TEAM ? null : team || undefined,
+                      // Auto-managed groups reject lifecycle writes
+                      // (GROUP_AUTO_MANAGED) — never send derived fields.
+                      ...(!isAutoManaged
+                        ? {
+                            description:
+                              String(fd.get("description") ?? "").trim() || null,
+                            lifecycle:
+                              String(fd.get("lifecycle") ?? "") || undefined,
+                          }
+                        : {}),
                     },
                     {
                       onSuccess: () => {
@@ -138,10 +153,12 @@ export function UxComponentGroupDetailPage() {
                     <FieldLabel htmlFor="edit-group-name">Name</FieldLabel>
                     <Input id="edit-group-name" name="name" defaultValue={view.name} required maxLength={100} />
                   </Field>
-                  <Field>
-                    <FieldLabel htmlFor="edit-group-desc">Description</FieldLabel>
-                    <Textarea id="edit-group-desc" name="description" defaultValue={view.description ?? ""} maxLength={500} />
-                  </Field>
+                  {!isAutoManaged && (
+                    <Field>
+                      <FieldLabel htmlFor="edit-group-desc">Description</FieldLabel>
+                      <Textarea id="edit-group-desc" name="description" defaultValue={view.description ?? ""} maxLength={500} />
+                    </Field>
+                  )}
                   <Field>
                     <FieldLabel>Owning team</FieldLabel>
                     <Select name="team" defaultValue={group.teamOwnerId ?? NO_TEAM}>
@@ -154,16 +171,18 @@ export function UxComponentGroupDetailPage() {
                       </SelectContent>
                     </Select>
                   </Field>
-                  <Field>
-                    <FieldLabel>Lifecycle</FieldLabel>
-                    <Select name="lifecycle" defaultValue={group.lifecycle}>
-                      <SelectTrigger aria-label="Lifecycle"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ACTIVE">Active</SelectItem>
-                        <SelectItem value="RETIRED">Retired</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
+                  {!isAutoManaged && (
+                    <Field>
+                      <FieldLabel>Lifecycle</FieldLabel>
+                      <Select name="lifecycle" defaultValue={group.lifecycle}>
+                        <SelectTrigger aria-label="Lifecycle"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ACTIVE">Active</SelectItem>
+                          <SelectItem value="RETIRED">Retired</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  )}
                 </FieldGroup>
                 <DialogFooter className="mt-4">
                   <Button type="submit" disabled={updateGroup.isPending}>Save changes</Button>
@@ -236,6 +255,7 @@ export function UxComponentGroupDetailPage() {
         </Card>
       </div>
 
+      {!isAutoManaged && (
       <DangerZone
         actions={[
           {
@@ -260,6 +280,7 @@ export function UxComponentGroupDetailPage() {
           },
         ]}
       />
+      )}
     </PageContainer>
   );
 }

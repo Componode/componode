@@ -34,13 +34,13 @@ export async function computeHealthForProducts(
     db
       .selectFrom("product_depends_on_component_group")
       .innerJoin(
-        "components",
-        "components.componentGroupId",
+        "component_group_members",
+        "component_group_members.groupId",
         "product_depends_on_component_group.componentGroupId",
       )
       .select([
         "product_depends_on_component_group.productId",
-        "components.id as componentId",
+        "component_group_members.componentId",
       ])
       .where(
         "product_depends_on_component_group.productId",

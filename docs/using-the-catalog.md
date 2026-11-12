@@ -98,13 +98,17 @@ states, not errors — the view never infers relations.
 
 **Component Groups** (`/component-groups`) — human-declared equivalences:
 "these three imported things are the same logical component," plus
-system-provisioned **auto-managed groups**: importers that declare the
-capability (e.g. Docker) get one group per source, and components that
-source exclusively reports are grouped automatically. Auto-managed groups
-derive their lifecycle from member activity — you can rename them, but
-lifecycle edits and deletion are rejected (`GROUP_AUTO_MANAGED`); retire
-the group through its source instead. Products can depend on a group
-instead of a single component.
+system-provisioned **auto-managed groups**. A component can belong to
+several groups at once: importers that declare the capability (e.g.
+Docker) maintain one group per source for exclusively reported
+components, and — for Docker — one group per Compose project and Swarm
+stack so an application's workloads, networks, and volumes arrive
+pre-grouped. Auto-managed groups derive their lifecycle from member
+activity — you can rename them, but lifecycle edits and deletion are
+rejected (`GROUP_AUTO_MANAGED`); retire the group through its source
+instead. Human group assignments never remove auto-managed memberships,
+and auto passes never touch memberships in groups they don't own.
+Products can depend on a group instead of a single component.
 
 ![Component groups: human-declared equivalences across imported assets](./assets/component-groups.png)
 

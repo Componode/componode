@@ -70,7 +70,7 @@ const apiProduct = {
 const apiComponent = {
   id: "c1", name: "orders-db", slug: "orders-db", category: "DATABASE",
   provider: "AWS", resourceType: "rds:db", lifecycle: "ACTIVE",
-  componentGroupId: null, componentGroupName: null, instanceCount: 1,
+  componentGroups: [], instanceCount: 1,
 };
 
 const EMPTY_PAGE = { page: 1, pageSize: 25, total: 0, pageCount: 0, hasNext: false };

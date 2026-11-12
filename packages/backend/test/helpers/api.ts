@@ -126,6 +126,7 @@ export async function truncateImportTables(db: import("kysely").Kysely<unknown>)
       import_run_errors,
       import_runs,
       component_instances,
+      component_group_members,
       components,
       component_groups,
       importer_config_credentials,

@@ -283,6 +283,23 @@ Set `autoGroup: false` to opt a config out — its source's group is frozen
 as-is, never torn down, and resumes maintenance if a later bound config
 re-enables it.
 
+### Application groups
+
+The same pass also maintains **app-level groups** — one auto-managed group
+per Compose project and per Swarm stack discovered on the engine. A
+workload joins its project/stack group when it is effectively reported by
+this source _and_ carries the boundary label: Compose workloads via
+`details.composeProject`, Compose networks/volumes via the
+`com.docker.compose.project` label, and Swarm services via
+`details.stack`. Images, the engine component, nodes, secrets, and
+standalone containers stay in the source group only.
+
+App groups are per-source — two engines running a project with the same
+name get separate groups (slug `docker-app-{key}-{hash}`). Membership is
+additive: a component can sit in the source group, an app group, and any
+human-managed groups at once. The same `autoGroup` opt-out freezes app
+groups together with the source group.
+
 
 ## Common failures
 

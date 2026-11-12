@@ -16,7 +16,6 @@ async function insertComponent(db: TestDb["db"], values: Record<string, unknown>
     .values({
       lifecycle: "ACTIVE",
       details: null,
-      componentGroupId: null,
       externalId: null,
       lastSeenAt: null,
       lastSeenInRunId: null,
@@ -491,7 +490,7 @@ describe("POST /components — manual creation (spec 042, G29)", () => {
     expect(unknownKey.statusCode).toBe(400);
   });
 
-  it("404s on unknown teamOwnerId/componentGroupId references", async () => {
+  it("404s on unknown teamOwnerId/componentGroupIds references", async () => {
     const res = await create(adminSession, {
       name: "Bad Ref",
       slug: "bad-ref",
@@ -499,6 +498,7 @@ describe("POST /components — manual creation (spec 042, G29)", () => {
       provider: "OTHER",
       resourceType: "service",
       teamOwnerId: "018f0000-0000-7e10-a000-000000000099",
+      componentGroupIds: ["018f0000-0000-7e10-a000-000000000098"],
     });
     expect(res.statusCode).toBe(404);
     expect(JSON.parse(res.payload).code).toBe("NOT_FOUND");

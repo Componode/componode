@@ -267,7 +267,7 @@ describe("importer-sources", () => {
     const now = new Date().toISOString();
     const mk = (id: string, importerName: string, externalIdentity: string, label: string | null, status: string, createdAt: string) => ({
       id, importerName, externalIdentity, label, status,
-      boundConfigId: null, componentGroupId: null,
+      boundConfigId: null,
       firstSeenInRunId: null, lastSeenInRunId: null,
       createdAt, updatedAt: createdAt,
     });

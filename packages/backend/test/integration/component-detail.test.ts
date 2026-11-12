@@ -81,7 +81,6 @@ describe("component detail", () => {
       provider: "GITHUB",
       resourceType: "github:repository",
       lifecycle: "ACTIVE",
-      componentGroupId: group.id,
       externalId: "payment-api",
       details: { language: "typescript" },
       createdBy: null,
@@ -90,6 +89,10 @@ describe("component detail", () => {
       updatedAt: now(),
     };
     await testDb.db.insertInto("components").values(component as any).execute();
+    await testDb.db
+      .insertInto("component_group_members")
+      .values({ componentId: component.id, groupId: group.id })
+      .execute();
 
     await testDb.db.insertInto("component_instances").values({
       id: "018f0000-0000-7e10-a000-000000000003",
@@ -139,7 +142,10 @@ describe("component detail", () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload);
     expect(body.component.name).toBe("Payment API");
-    expect(body.component.componentGroupName).toBe("Payments Group");
+    // Spec 070: memberships are plural — componentGroups[] carries refs.
+    expect(
+      body.component.componentGroups.map((g: any) => g.name),
+    ).toContain("Payments Group");
     expect(body.component.instances).toHaveLength(1);
     expect(body.component.instances[0].environment).toBe("PRODUCTION");
   });
@@ -156,6 +162,7 @@ describe("component detail", () => {
   describe("relationships read (spec 060)", () => {
     async function mkComponent(values: Record<string, unknown>) {
       const id = uuidv7();
+      const { componentGroupId, ...rest } = values;
       await testDb.db
         .insertInto("components")
         .values({
@@ -167,7 +174,6 @@ describe("component detail", () => {
           resourceType: "repo",
           lifecycle: "ACTIVE",
           details: null,
-          componentGroupId: null,
           externalId: null,
           lastSeenAt: null,
           lastSeenInRunId: null,
@@ -175,9 +181,15 @@ describe("component detail", () => {
           updatedBy: null,
           createdAt: now(),
           updatedAt: now(),
-          ...values,
+          ...rest,
         } as any)
         .execute();
+      if (componentGroupId) {
+        await testDb.db
+          .insertInto("component_group_members")
+          .values({ componentId: id, groupId: componentGroupId as string })
+          .execute();
+      }
       return id;
     }
 

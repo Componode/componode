@@ -43,9 +43,9 @@ export async function getComponentRelationships(
 ): Promise<ComponentRelationships | null> {
   const component = await db
     .selectFrom("components")
-    .select([...RELATED_COMPONENT_SELECT, "components.componentGroupId"])
+    .select(RELATED_COMPONENT_SELECT)
     .where("components.id", "=", componentId)
-    .$castTo<RelatedComponent & { componentGroupId: string | null }>()
+    .$castTo<RelatedComponent>()
     .executeTakeFirst();
 
   if (!component) return null;
@@ -142,10 +142,18 @@ export async function getComponentRelationships(
     .$castTo<ComponentProductDependent>()
     .execute();
 
-  // Group-mediated reach: only through the focused component's own group —
-  // empty groups and unrelated groups never surface (spec 060 US2).
+  // Group-mediated reach: through EVERY group the focused component
+  // belongs to — empty groups and unrelated groups never surface
+  // (spec 060 US2, spec 070 multi-membership).
+  const componentGroupIds = (
+    await db
+      .selectFrom("component_group_members")
+      .select("groupId")
+      .where("componentId", "=", componentId)
+      .execute()
+  ).map((r) => r.groupId);
   const viaGroupDependents: Promise<GroupMediatedDependent[]> =
-    component.componentGroupId === null
+    componentGroupIds.length === 0
       ? Promise.resolve([])
       : db
           .selectFrom("product_depends_on_component_group")
@@ -168,8 +176,8 @@ export async function getComponentRelationships(
           ])
           .where(
             "product_depends_on_component_group.componentGroupId",
-            "=",
-            component.componentGroupId,
+            "in",
+            componentGroupIds,
           )
           .where("digital_products.lifecycle", "!=", "RETIRED")
           .orderBy("digital_products.name")

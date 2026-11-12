@@ -318,7 +318,6 @@ describe("team ↔ LOB association (G12)", () => {
           resourceType: "github:repository",
           lifecycle: "ACTIVE",
           teamOwnerId,
-          componentGroupId: null,
           externalId: null,
           details: null,
           lastSeenAt: null,

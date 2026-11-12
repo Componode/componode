@@ -12,6 +12,7 @@ import { Field, FieldGroup, FieldLabel } from "@/ux/components/ui/field"
 import { Input } from "@/ux/components/ui/input"
 import { LinksEditor, TagsInput } from "@/ux/components/forms/list-editors"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select"
+import { GroupMultiSelect } from "@/ux/components/catalog/group-multi-select"
 import type { Component, Link } from "@/ux/lib/view-types"
 
 const NONE = "__none__"
@@ -44,7 +45,7 @@ export function ComponentEditDialog({ component: c, trigger }: { component: Comp
   const groups = useAllComponentGroups()
 
   const [teamOwnerId, setTeamOwnerId] = React.useState<string>(NONE)
-  const [componentGroupId, setComponentGroupId] = React.useState<string>(NONE)
+  const [componentGroupIds, setComponentGroupIds] = React.useState<string[]>([])
   const [tags, setTags] = React.useState<string[]>([])
   const [links, setLinks] = React.useState<Link[]>([])
   const [sunset, setSunset] = React.useState("")
@@ -53,7 +54,11 @@ export function ComponentEditDialog({ component: c, trigger }: { component: Comp
   React.useEffect(() => {
     if (!open) return
     setTeamOwnerId(c.teamOwnerId ?? NONE)
-    setComponentGroupId(c.componentGroupId ?? NONE)
+    // Spec 070: the picker manages HUMAN-group memberships only — auto
+    // memberships are system-owned and render read-only.
+    setComponentGroupIds(
+      c.componentGroups.filter((g) => !g.autoSourceId).map((g) => g.id),
+    )
     setTags(c.tags)
     setLinks(c.links)
     setSunset(c.sunsetAt ? c.sunsetAt.slice(0, 10) : "")
@@ -65,7 +70,7 @@ export function ComponentEditDialog({ component: c, trigger }: { component: Comp
       {
         id: c.id,
         teamOwnerId: teamOwnerId === NONE ? null : teamOwnerId,
-        componentGroupId: componentGroupId === NONE ? null : componentGroupId,
+        componentGroupIds,
         tags,
         links,
         sunsetAt: sunset ? new Date(`${sunset}T00:00:00Z`).toISOString() : null,
@@ -116,20 +121,13 @@ export function ComponentEditDialog({ component: c, trigger }: { component: Comp
               </Select>
             </Field>
             <Field>
-              <FieldLabel htmlFor="ce-group">Component group</FieldLabel>
-              <Select value={componentGroupId} onValueChange={setComponentGroupId}>
-                <SelectTrigger id="ce-group" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>No group</SelectItem>
-                  {groupList.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>
-                      {g.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <GroupMultiSelect
+                id="ce-group"
+                groups={groupList}
+                value={componentGroupIds}
+                onChange={setComponentGroupIds}
+                autoMemberships={c.componentGroups.filter((g) => g.autoSourceId)}
+              />
             </Field>
             <Field>
               <FieldLabel htmlFor="ce-sunset">Sunset date</FieldLabel>

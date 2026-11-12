@@ -1,4 +1,6 @@
+import { Fragment } from "react"
 import type * as React from "react"
+import { ux } from "@/ux/lib/paths"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/ux/components/ui/hover-card"
 import type { LobListItem, TeamListItem } from "@/api/types"
 import {
@@ -120,7 +122,24 @@ export const SUMMARY_FIELDS: {
       label: "Owner",
       value: c.teamOwnerName ?? <span className="text-muted-foreground">Unowned</span>,
     },
-    { label: "Group", value: text(c.componentGroupName) },
+    {
+      label: "Groups",
+      value:
+        c.componentGroups.length > 0 ? (
+          <span className="break-words">
+            {c.componentGroups.map((g, i) => (
+              <Fragment key={g.id}>
+                {i > 0 && ", "}
+                <a href={ux(`/component-groups/${g.slug}`)} className="text-primary hover:underline">
+                  {g.name}
+                </a>
+              </Fragment>
+            ))}
+          </span>
+        ) : (
+          text(null)
+        ),
+    },
     { label: "Lifecycle", value: <LifecycleBadge value={c.lifecycle} /> },
     { label: "Instances", value: count(c.instanceCount) },
     { label: "Health", value: <HealthBadge value={c.worstStatus} /> },

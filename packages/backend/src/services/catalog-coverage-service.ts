@@ -74,18 +74,18 @@ export function wiredComponentIdsQuery() {
     .where("digital_products.lifecycle", "!=", "RETIRED")
     .union((eb) =>
       eb
-        .selectFrom("components")
+        .selectFrom("component_group_members")
         .innerJoin(
           "product_depends_on_component_group",
           "product_depends_on_component_group.componentGroupId",
-          "components.componentGroupId",
+          "component_group_members.groupId",
         )
         .innerJoin(
           "digital_products",
           "digital_products.id",
           "product_depends_on_component_group.productId",
         )
-        .select("components.id")
+        .select("component_group_members.componentId as id")
         .where("digital_products.lifecycle", "!=", "RETIRED"),
     )
     // JunctionRow types FKs optional for inserts; componentId is NOT NULL.

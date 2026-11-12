@@ -467,6 +467,20 @@ describe("workload identity", () => {
     expect(s.externalId).toBe("docker-engine:e1::web-1");
     expect(instanceExternalId("docker-engine:e1", "cid")).toBe("docker-engine:e1::cid");
   });
+
+  it("override workload keeps compose labels as factual attributes (spec 070)", () => {
+    // An override-identified container inside a Compose project still
+    // carries the app-boundary label — details must expose it so the
+    // grouping pass can join the app group.
+    const w = workloadIdentity(
+      { "componode.component-id": "api-x", "com.docker.compose.project": "p", "com.docker.compose.service": "s" },
+      "/n", "src", "componode.component-id",
+    );
+    expect(w.kind).toBe("override");
+    expect(w.externalId).toBe("workload:api-x");
+    expect(w.composeProject).toBe("p");
+    expect(w.composeService).toBe("s");
+  });
 });
 
 describe("target profile schema", () => {

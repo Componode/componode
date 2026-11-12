@@ -113,7 +113,6 @@ describe("component metadata PATCH", () => {
       url: `/api/v1/components/${id}`,
       ...authed(editorSession),
       payload: {
-        componentGroupId: null,
         tags: ["beta", " PCI ", "beta"],
         sunsetAt: "2027-01-01T00:00:00.000Z",
       },

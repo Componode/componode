@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–069, bugfix 066)
+## Shipped (features 001–070, bugfix 066)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -419,6 +419,14 @@ file tracks shipped and upcoming work — update it when a spec completes.
   per-service whitelisted sort maps, view-type hygiene, a single
   entity-label registry, and removal of the pre-068 pagination compat
   signatures.
+- `070-app-auto-groups` — app-level auto ComponentGroups + multi-group
+  membership (ADR-129 amendment): `component_group_members` replaces the
+  single-valued `componentGroupId`, so a component belongs to any number
+  of human, source-auto, and app-auto groups at once; Docker maintains
+  one auto group per Compose project and per Swarm stack per source
+  (`autoSourceId`/`autoGroupKey` provenance on `component_groups`), with
+  the same derived lifecycle, `GROUP_AUTO_MANAGED` guards, and
+  `autoGroup` opt-out as source groups.
 
 ## Next — post-v1.1
 
@@ -432,7 +440,8 @@ dependencies in the Product topology (061), prototype UX parity (062),
 guided Docker importer onboarding (063), Docker importer enrichment
 (064), Docker infrastructure inventory (065), a component-group
 detail bugfix (066), source-scoped auto ComponentGroups (067),
-standardized list pages (068), and list-standards follow-ups (069).
+standardized list pages (068), list-standards follow-ups (069), and
+app-level auto ComponentGroups with multi-group membership (070).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new

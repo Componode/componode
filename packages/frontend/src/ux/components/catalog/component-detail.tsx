@@ -177,7 +177,21 @@ export function ComponentDetail({ component: c }: { component: Component }) {
               className="sm:grid-cols-1"
               items={[
                 { label: "Resource type", value: <code className="font-mono text-xs">{c.resourceType}</code> },
-                { label: "Group", value: c.componentGroupName ?? "—" },
+                {
+                  label: "Groups",
+                  value:
+                    c.componentGroups.length > 0 ? (
+                      <span className="flex flex-wrap gap-x-2 gap-y-0.5">
+                        {c.componentGroups.map((g) => (
+                          <a key={g.id} href={ux(`/component-groups/${g.slug}`)} className="text-primary hover:underline">
+                            {g.name}
+                          </a>
+                        ))}
+                      </span>
+                    ) : (
+                      "—"
+                    ),
+                },
                 { label: "Owning team", value: c.teamOwnerName ?? "Unowned" },
                 { label: "Sunset", value: c.sunsetAt ? formatDate(c.sunsetAt) : "Not scheduled" },
                 { label: "Last seen", value: <RelativeTime iso={c.lastSeenAt} /> },

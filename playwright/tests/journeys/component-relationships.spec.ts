@@ -34,7 +34,7 @@ async function buildRelationshipFixture(api: Api, run: string) {
   const groupId = group.body.group?.id ?? group.body.id;
 
   const assign = await api('PATCH', `/api/v1/components/${componentId}`, {
-    componentGroupId: groupId,
+    componentGroupIds: [groupId],
   });
   expect(assign.status).toBe(200);
 

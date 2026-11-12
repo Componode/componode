@@ -97,7 +97,6 @@ describe("product health", () => {
         resourceType: "repo",
         lifecycle: over.lifecycle ?? "ACTIVE",
         details: null,
-        componentGroupId: over.componentGroupId ?? null,
         externalId: null,
         lastSeenAt: null,
         lastSeenInRunId: null,
@@ -107,6 +106,12 @@ describe("product health", () => {
         updatedAt: now(),
       } as never)
       .execute();
+    if (over.componentGroupId) {
+      await testDb.db
+        .insertInto("component_group_members")
+        .values({ componentId: id, groupId: over.componentGroupId })
+        .execute();
+    }
     return id;
   }
 
