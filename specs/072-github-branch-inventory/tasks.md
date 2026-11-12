@@ -174,3 +174,17 @@ Round-2 findings — all LOW/judgement; resolved inline and verified (46 importe
 - Justified, no task: paginate `signal` forwarding (plugin limitation, pre-existing), pagination triplication, unbounded inventory tables, null-vs-omit detail fields, `ReleaseInventoryEntry.id` nullability.
 
 - [X] T045 [code-review: standards] Add `.changeset/github-branch-inventory-072.md` (importer-github + frontend, minor) per ADR-031.
+
+---
+
+## Phase 10: Amendment — every branch emits an instance (user-directed)
+
+**Source**: user review of PR #260 — "branches should come as instances to follow the DPAM pattern". Spec amended (Clarifications session 2, US1, FR-003, SC-005); spec-011 selector semantics → classifier-only with `OTHER` fallback.
+
+- [X] T046 [P] Update `buildRepoInstances` branch block (`github-repos.ts`): remove the `!environment` selector — emit one instance per branch with `environment = resolveEnvironment(...) ?? "OTHER"`; `rawConfig` gains `{branch, sha, protected, isDefault, lastActivityAt?}` from the shared `BranchListItem`; per-branch `getBranchDetail` fetch gated on `config.includeBranchActivity` (deduped with inventory via shared cache); `deployedAt = lastActivityAt ?? repo.pushed_at`; keep `externalId: branch:{name}`, `url` tree link, `status: RUNNING`, `version: branch.name`
+- [X] T047 Update `config.ts` describe() text: `includeBranchInstances` → "Emit one instance per repository branch (environment from mapping, OTHER fallback)"; `environmentMapping` → classifier wording with OTHER fallback
+- [X] T048 Update `test/importer.test.ts`: rewrite "emits branch instances only for mapped branches" → per-branch instances incl. `branch:trunk`→OTHER, `deployedAt`=pushed_at default; update coexistence assertions in the details.branches test (all 4 `branch:*` externalIds present, env per built-in mapping); extend activity test asserting instance `deployedAt`/`rawConfig.lastActivityAt`; verify all 46+ tests green
+- [X] T049 Frontend: add `githubBranchOf` parser + "GitHub branch" `DetailSection` in `docker-details.tsx` `InstanceDetails`/`hasInstanceDetails` (branch name, SHA, protected, default, last activity, branch link via `instance.url`); unit tests in `docker-details.test.tsx`
+- [X] T050 Update `playwright/tests/importers/github-inventory.spec.ts`: assert all fixture branches emit `branch:*` instances (`OTHER` for unmapped, DEV/STAGING for mapped), rawConfig branch facts; extend page test — expand a `branch:*` row and assert the GitHub branch section renders
+- [X] T051 Update `docs/importers/github.md` prose (instances bullet, mapping semantics, branch-instance toggle row) + regenerate via `pnpm docs:importers`; verify `docs:importers:check`
+- [X] T052 Verification sweep: importer-github + frontend lint/typecheck/test/build; targeted Playwright github specs; commit + push to PR #260

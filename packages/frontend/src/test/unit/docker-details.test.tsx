@@ -358,3 +358,69 @@ describe("githubEnvironment instance details (spec 072)", () => {
     expect(screen.getByText("No")).toBeTruthy(); // admins can bypass: false
   });
 });
+
+describe("githubBranch instance details (spec 072 amendment)", () => {
+  const githubComponent = (
+    rawConfig: ComponentInstance["rawConfig"],
+    over: Partial<ComponentInstance> = {},
+  ) =>
+    component([instance(rawConfig, over)], {
+      category: "REPOSITORY",
+      provider: "GITHUB",
+      resourceType: "github:repository",
+      name: "acme/widgets",
+    });
+
+  it("expands and renders branch facts plus the GitHub link", () => {
+    const c = githubComponent(
+      {
+        branch: "feature/checkout",
+        sha: "abc123def4567890",
+        protected: true,
+        isDefault: false,
+        lastActivityAt: "2026-02-03T00:00:00Z",
+        unknownKey: "never-render",
+      },
+      {
+        externalId: "branch:feature/checkout",
+        environment: "OTHER",
+        url: "https://github.com/acme/widgets/tree/feature/checkout",
+      },
+    );
+    wrap(<ComponentDetail component={c} />);
+    expand();
+    expect(screen.getByText("GitHub branch")).toBeTruthy();
+    expect(screen.getByText("feature/checkout")).toBeTruthy();
+    expect(screen.getByText("abc123def4567890")).toBeTruthy();
+    expect(screen.getByText("Protected")).toBeTruthy();
+    expect(screen.getByText("Repository default")).toBeTruthy();
+    expect(screen.getByText("Last activity")).toBeTruthy();
+    const link = screen.getByRole("link", { name: /open branch/i });
+    expect(link.getAttribute("href")).toBe(
+      "https://github.com/acme/widgets/tree/feature/checkout",
+    );
+    expect(screen.queryByText(/never-render/)).toBeNull();
+    expect(screen.queryByText("unknownKey")).toBeNull();
+  });
+
+  it("shows the expand control when only branch facts are present", () => {
+    const c = githubComponent({ branch: "main", isDefault: true });
+    wrap(<ComponentDetail component={c} />);
+    expand();
+    expect(screen.getByText("GitHub branch")).toBeTruthy();
+    expect(screen.getByText("main", { exact: true })).toBeTruthy();
+    // absent optional facts render nothing rather than placeholders
+    expect(screen.queryByText("Head SHA")).toBeNull();
+    expect(screen.queryByText("Last activity")).toBeNull();
+  });
+
+  it("does not render the branch section for env instances", () => {
+    const c = githubComponent({
+      environment: "production",
+      deploymentState: "success",
+    });
+    wrap(<ComponentDetail component={c} />);
+    // no branch key → no expand control at all for this rawConfig
+    expect(screen.queryByRole("button", { name: /details/i })).toBeNull();
+  });
+});

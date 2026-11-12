@@ -15,14 +15,14 @@ includeBranchInventory: z.boolean().default(true)
 includeBranchActivity: z.boolean().default(false)
   .describe("Fetch last-commit timestamps per branch (one extra API call per branch)"),
 includeBranchInstances: z.boolean().default(true)
-  .describe("Emit environment-mapped branch instances (spec-011 semantics)"),
+  .describe("Emit one instance per repository branch (environment from mapping, OTHER fallback)"),
 includeReleaseInventory: z.boolean().default(true)
   .describe("Import releases and tags inventory into component details"),
 includeLanguageBreakdown: z.boolean().default(false)
   .describe("Import per-language byte breakdown (one extra API call per repo)"),
 ```
 
-Unchanged: `includeEnvironments` (deployment-environment instances only — it never gated branch instances and still doesn't; branch instances are now governed solely by `includeBranchInstances`), `includeReleases` (latest-release fallback for env instances — independent of `includeReleaseInventory`), `environmentMapping` (still the classifier-and-selector for *instances* only).
+Unchanged: `includeEnvironments` (deployment-environment instances only — it never gated branch instances and still doesn't; branch instances are now governed solely by `includeBranchInstances`), `includeReleases` (latest-release fallback for env instances — independent of `includeReleaseInventory`), `environmentMapping` (classifier for *instances* — mapped names keep their environment, unmapped names fall back to `OTHER`; spec-011 selector semantics amended).
 
 ## 2. `details` payload — `github:repository`
 
@@ -105,7 +105,23 @@ Rules:
 }
 ```
 
-`githubEnvironment` is omitted entirely when the environments call fails or returns no governance data. Branch-instance `rawConfig` (`{branch}`) unchanged.
+`githubEnvironment` is omitted entirely when the environments call fails or returns no governance data.
+
+## 3b. `rawConfig` — branch instances (`branch:{name}`)
+
+Every provider-reported branch emits one instance (amends spec-011 selector semantics — mapping classifies, never selects):
+
+```jsonc
+{
+  "branch": "feature/checkout",
+  "sha": "abc123…",                  // head SHA from the shared branch list (null when absent)
+  "protected": false,
+  "isDefault": false,                // name === repo.default_branch
+  "lastActivityAt": "2026-02-03T00:00:00Z"  // only when includeBranchActivity
+}
+```
+
+Instance fields: `environment` = built-in/`environmentMapping` classification or `OTHER`; `url` = `{html_url}/tree/{branch}`; `status` = `RUNNING`; `version` = branch name; `deployedAt` = last-commit activity when `includeBranchActivity` is on, else repo `pushed_at`. `lastActivityAt` in `rawConfig` mirrors the inventory field when activity is enabled.
 
 ## 4. `details.capabilities` — `github:organization` (aggregate)
 

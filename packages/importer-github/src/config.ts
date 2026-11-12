@@ -46,7 +46,7 @@ export const githubConfigSchema = z.object({
   includeBranchInstances: z
     .boolean()
     .default(true)
-    .describe("Emit environment-mapped branch instances (spec-011 semantics)"),
+    .describe("Emit one instance per repository branch (environment from mapping, OTHER fallback)"),
   includeReleaseInventory: z
     .boolean()
     .default(true)
@@ -59,7 +59,7 @@ export const githubConfigSchema = z.object({
   environmentMapping: z
     .record(z.string(), z.enum(ENVIRONMENTS))
     .optional()
-    .describe("Map GitHub environment names to DEV/TEST/STAGING/DEMO/PRODUCTION/OTHER"),
+    .describe("Map GitHub environment and branch names to DEV/TEST/STAGING/DEMO/PRODUCTION/OTHER (unmapped names report OTHER)"),
 });
 
 export type GithubConfig = z.infer<typeof githubConfigSchema>;

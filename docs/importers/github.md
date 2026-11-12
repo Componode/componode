@@ -19,11 +19,12 @@ catalog components.
   inventory**, and per-repo capability markers — all visible on the
   component page under the GitHub section.
 - **Instances** for deployment environments (mapped to Componode
-  environments) and for branches whose names resolve through
-  `environmentMapping` — the mapping is the selector for branch instances,
-  so unmapped branches appear in the inventory but never as instances.
-  Workflows, deployments, and the latest-release fallback feed instance
-  versions depending on which sections you enable.
+  environments) and **one instance per repository branch** — every branch
+  becomes a `branch:*` instance whose environment is the
+  `environmentMapping`/built-in classification or `OTHER` when unmapped
+  (the mapping classifies, it no longer selects). Workflows, deployments,
+  and the latest-release fallback feed instance versions depending on
+  which sections you enable.
 
 ## Prerequisites in GitHub
 
@@ -75,25 +76,33 @@ endpoint, the smallest authenticated request available.
 | `includePackages` | bool | no | `false` | Import org packages (needs `admin:org`) |
 | `includeBranchInventory` | bool | no | `true` | Import the full branch inventory into component details |
 | `includeBranchActivity` | bool | no | `false` | Fetch last-commit timestamps per branch (one extra API call per branch) |
-| `includeBranchInstances` | bool | no | `true` | Emit environment-mapped branch instances (spec-011 semantics) |
+| `includeBranchInstances` | bool | no | `true` | Emit one instance per repository branch (environment from mapping, OTHER fallback) |
 | `includeReleaseInventory` | bool | no | `true` | Import releases and tags inventory into component details |
 | `includeLanguageBreakdown` | bool | no | `false` | Import per-language byte breakdown (one extra API call per repo) |
-| `environmentMapping` | record | no | — | Map GitHub environment names to DEV/TEST/STAGING/DEMO/PRODUCTION/OTHER |
+| `environmentMapping` | record | no | — | Map GitHub environment and branch names to DEV/TEST/STAGING/DEMO/PRODUCTION/OTHER (unmapped names report OTHER) |
 <!-- /GENERATED:contract -->
 
 
 ## Behavior notes
 
-- **Branches are inventory, not instances.** Every branch of an imported
-  repository lands in the component's `details.branches` (name, SHA,
-  protected flag, default-branch flag, optional last-commit activity).
-  Only branches whose names resolve through `environmentMapping` also emit
-  `branch:*` instances — `main`/`master` are never implicitly production.
-  Set `includeBranchInstances: false` to suppress those instances while
-  keeping the inventory, or `includeBranchInventory: false` to skip the
-  inventory fetch entirely.
+- **Every branch is both an instance and an inventory entry.** Each
+  repository branch emits a `branch:{name}` instance — `environment` is the
+  built-in/`environmentMapping` classification (`main`/`master` are never
+  implicitly production; unmapped names report `OTHER`), `version` is the
+  branch name, and `rawConfig` carries the head SHA, protected flag,
+  default-branch flag, and optional last-activity — expandable on the
+  component page. Deleted branches transition their instance to `GONE`
+  like any other instance. The component's `details.branches` inventory
+  (name, SHA, protected flag, default-branch flag, optional last-commit
+  activity) carries the same facts plus GitHub links. Set
+  `includeBranchInstances: false` to suppress the instances while keeping
+  the inventory, or `includeBranchInventory: false` to skip the inventory
+  fetch entirely — the branch *list* call is shared, so either toggle
+  alone still costs one call.
 - **`includeBranchActivity` costs one API call per branch** (it enriches
-  each entry with the last commit timestamp). Leave it off for large orgs.
+  each inventory entry and each branch instance's `deployedAt` with the
+  last commit timestamp; without it instances fall back to the repo's
+  last-push time). Leave it off for large orgs.
 - **`includeReleaseInventory`** (default on) pages through *all* releases
   and tags — independent of `includeReleases`, which only feeds the
   latest-release version fallback for environment instances. GitHub only

@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User request — "The GitHub importer is not bringing or presenting all the branches from the repositories… reassess the GitHub Importer code, check the official GitHub API reference and propose what can be fixed and included as valuable information for the DPAM scope." Research completed in `researches/github-importer-branches-research.md`. Confirmed root cause: the importer enumerates every branch but emits a `ComponentInstance` only for branch names matching the environment mapping (classifier-and-selector per spec 011 FR-007); `main`, `master`, `feature/*`, `dependabot/*` etc. are silently dropped — verified live: `Componode/componode` (7 branches) and `Componode/v0-componode-dpam` (5 branches) both produce **zero** branch instances. Ratified approach (research §4–§7): keep spec-011 mapped-branch *instances* unchanged and add a **complete inventory layer** carried on the repository component's details — branches, releases, tags, and repository/environment metadata the GitHub API already returns or cheaply provides. Governing docs: ADR-014 (environment-as-instance), ADR-034 (instance upsert key), ADR-057 (no importer-declared product edges), ADR-119/ADR-120 (source identity & membership details), spec 011 (GitHub importer expansion — its branch-instance semantics stay valid).
+**Input**: User request — "The GitHub importer is not bringing or presenting all the branches from the repositories… reassess the GitHub Importer code, check the official GitHub API reference and propose what can be fixed and included as valuable information for the DPAM scope." Research completed in `researches/github-importer-branches-research.md`. Confirmed root cause: the importer enumerates every branch but emits a `ComponentInstance` only for branch names matching the environment mapping (classifier-and-selector per spec 011 FR-007); `main`, `master`, `feature/*`, `dependabot/*` etc. are silently dropped — verified live: `Componode/componode` (7 branches) and `Componode/v0-componode-dpam` (5 branches) both produce **zero** branch instances. Ratified approach (research §4–§7): keep spec-011 mapped-branch *instances* unchanged and add a **complete inventory layer** carried on the repository component's details — branches, releases, tags, and repository/environment metadata the GitHub API already returns or cheaply provides. Governing docs: ADR-014 (environment-as-instance), ADR-034 (instance upsert key), ADR-057 (no importer-declared product edges), ADR-119/ADR-120 (source identity & membership details), spec 011 (GitHub importer expansion — its branch-instance semantics stay valid). **Amended during implementation review**: the user directed that branches belong in the instance model per the DPAM pattern — see Clarifications session 2 below; spec-011 selector semantics are amended accordingly.
 
 ## Clarifications
 
@@ -21,23 +21,28 @@ All decisions resolved during research — no open markers:
 - **Repo/environment metadata → enrich existing payloads**: fields the importer already receives (repo object, environments response) are surfaced instead of discarded; only genuinely new calls (languages breakdown, per-branch activity) are opt-in.
 - **Q: Where should the inventory live — `details` or `sourceDetails`? → A: canonical `details`** (user-confirmed): the branch/version inventory and repo metadata live in the repository component's `details` payload — visible on the component page today with zero backend/API changes. Per-source `sourceDetails` was rejected: it is not exposed by the component detail API and would add backend surface for no benefit (same-org configs share one Source identity anyway).
 
+### Session 2026-11-12 — Amendment: branches as instances
+
+User review of the implementation reversed the earlier "inventory, not instances" decision: per the DPAM pattern (component = asset, instances = its variations), **every repository branch emits a `ComponentInstance`** keyed `branch:{name}`. `environmentMapping` is demoted from classifier-and-selector to **classifier-only** — mapped branches keep their mapped environment, all others land in `OTHER` (the same fallback GitHub deployment environments already use at `github-repos.ts`). This amends spec-011 FR-007's selector semantics; mapped-branch instance payloads remain byte-identical, and `details.branches[]` stays as the richer repository-metadata surface (protected/isDefault/activity fields instances don't model). Per-branch commit lookups stay gated behind `includeBranchActivity` — with it off, branch instances fall back to the repo's `pushed_at` for `deployedAt`.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - See every branch of an imported repository (Priority: P1)
 
-An operator opens an imported GitHub repository component and sees the **complete branch inventory**: every branch name, its head commit SHA, whether it is protected, whether it is the repository's default branch, and a link to it on GitHub — including `main`, `master`, `feature/*`, `dependabot/*`, and any other branches that today emit nothing. Branch instances classified through the environment mapping continue to appear in the instances table exactly as before.
+An operator opens an imported GitHub repository component and sees every branch in the **instances table** — one `ComponentInstance` per branch, environment = mapping result or `OTHER`, with branch facts in `rawConfig` — and in the **branch inventory** on the details payload (name, head SHA, protected, isDefault, optional last-activity, GitHub link) — including `main`, `master`, `feature/*`, `dependabot/*`, and any other branches that today emit nothing.
 
-**Why this priority**: This is the reported defect — the catalog currently claims a repository while showing none of its branches. Branch inventory is the DPAM fact "which code lines exist in this asset" and costs almost nothing to collect (the list-branches response already carries name/SHA/protection).
+**Why this priority**: This is the reported defect — the catalog currently claims a repository while showing none of its branches. Branches are the component's variations: per the DPAM pattern they belong in the instance model; the inventory retains the provider facts instances don't model.
 
-**Independent Test**: run the importer against a repo with `main` plus several non-environment branch names; verify the component detail payload and page show every branch with correct default/protected flags, while the instances table still shows only mapping-classified branch instances.
+**Independent Test**: run the importer against a repo with `main` plus several non-environment branch names; verify the instances table shows one instance per branch (`OTHER` for unmapped) and the details inventory lists every branch with correct default/protected flags.
 
 **Acceptance Scenarios**:
 
-1. **Given** a repo with branches `main`, `develop`, `feature/x`, `dependabot/npm`, **When** imported with defaults, **Then** the component's branch inventory lists all four branches with head SHA, `protected` flag, `isDefault` on `main`, and GitHub URLs — regardless of environment mapping.
-2. **Given** `environmentMapping` classifying `develop→DEV`, **When** imported, **Then** the instances table still shows the `develop` branch instance AND the inventory lists all branches — the two views coexist.
-3. **Given** a repo with >100 branches, **When** imported, **Then** the inventory contains every branch (paginated completely), not just the first page.
-4. **Given** branch inventory disabled in config, **When** imported, **Then** no inventory is emitted and mapped branch instances behave exactly as spec 011 defined.
-5. **Given** the branches endpoint fails (permissions/rate limit), **When** the run completes, **Then** the run succeeds, repo components still emit, and the failure is visible via a capability marker — never silent.
+1. **Given** a repo with branches `main`, `develop`, `feature/x`, `dependabot/npm`, **When** imported with defaults, **Then** the instances table shows four `branch:*` instances — `develop`→DEV via the built-in mapping, the rest→OTHER — and the inventory lists all four with head SHA, `protected` flag, `isDefault` on `main`, and GitHub URLs.
+2. **Given** `environmentMapping` classifying `feature/x→STAGING`, **When** imported, **Then** that branch's instance reports STAGING while unmapped branches report OTHER — mapping classifies, never selects.
+3. **Given** a repo with >100 branches, **When** imported, **Then** every branch emits an instance and appears in the inventory (both fully paginated), not just the first page.
+4. **Given** branch inventory disabled but branch instances enabled, **When** imported, **Then** no `details.branches` is emitted yet every branch still appears as an instance; with branch instances disabled, no `branch:*` instances emit while the inventory still lists all branches.
+5. **Given** the branches endpoint fails (permissions/rate limit), **When** the run completes, **Then** the run succeeds, repo components still emit, no `branch:*` instances are created, and the failure is visible via capability markers — never silent.
+6. **Given** a branch deleted on GitHub, **When** the next run completes, **Then** its instance transitions to GONE via source-scoped reconciliation and it disappears from the inventory.
 
 ---
 
@@ -77,16 +82,16 @@ An operator sees the repository's own metadata — default branch name, archived
 
 ### Edge Cases
 
-- **Branch renamed on GitHub**: inventory reflects the new name on the next run; inventory is not identity-keyed so no stale-instance problem arises (instances remain keyed `branch:{name}` per spec 011).
-- **Branch deleted**: disappears from inventory on next run — details overwrite wholesale each run, no reconciliation needed.
-- **Repo with zero branches** (empty repo): inventory is an empty list — valid, not an error.
+- **Branch renamed on GitHub**: the old `branch:{old}` instance transitions to GONE via reconciliation while `branch:{new}` is discovered; the inventory simply reflects the new name (it is not identity-keyed).
+- **Branch deleted**: its instance transitions to GONE via source-scoped reconciliation AND it disappears from the inventory on the next run.
+- **Repo with zero branches** (empty repo): no branch instances and an empty inventory — valid, not an error.
 - **Default branch renamed**: `isDefault` follows `default_branch` from the repo object, not a hardcoded `main`/`master` guess.
 - **GHES instances**: inventory behaves identically; `externalId` qualification rules are unchanged (inventory lives in details, not keys).
 - **Rate limits**: per-branch activity lookups are opt-in and bounded; all inventory reads degrade via capability markers without failing the run.
 - **`repos` allowlist scoping**: inventory applies to allowlisted repos exactly as repo listing does.
 - **Multiple importer configs on the same org**: inventory is per-source data on the shared component; last-writer-wins on details is acceptable (same underlying source).
 - **Environments/packages >100 items**: existing single-page truncation is fixed as part of this feature's correctness work.
-- **Branch instances vs inventory divergence**: an environment-mapped branch appears in both places by design; inventory never feeds instance classification.
+- **Branch instances vs inventory divergence**: every branch appears in both places by design — the instance answers "this branch exists as a variation of the component" while the inventory carries the richer provider facts (protected/isDefault/activity) instances don't model. Instance classification never reads the inventory.
 
 ## Requirements *(mandatory)*
 
@@ -96,8 +101,8 @@ An operator sees the repository's own metadata — default branch name, archived
 
 - **FR-001**: For every imported repository, the component's `details` payload MUST carry a complete branch inventory — every branch reported by the provider, fully paginated — when branch inventory is enabled (default on).
 - **FR-002**: Each inventoried branch MUST include at minimum: name, head commit SHA, head URL, protected flag, `isDefault` marker (derived from the repository's reported default branch — never a hardcoded name), and last-activity timestamp when the activity option is enabled.
-- **FR-003**: Branch inventory MUST be emitted independently of environment mapping — mapping remains the selector for *instances* only (spec 011 semantics unchanged).
-- **FR-004**: The configuration MUST allow disabling branch inventory independently of branch instances, and MUST allow disabling branch-instance emission entirely (today it is unconditional).
+- **FR-003**: Every provider-reported branch MUST emit a `ComponentInstance` (`externalId: branch:{name}`) when branch instances are enabled (default on); `environment` MUST be the built-in/`environmentMapping` classification result or `OTHER` — mapping classifies, never selects (amends spec-011 FR-007 selector semantics). Instance payload: `url` = branch tree URL, `status` = RUNNING, `version` = branch name, `deployedAt` = last-commit activity when `includeBranchActivity` is enabled else the repo's `pushed_at`, `rawConfig` = `{branch, sha, protected, isDefault, lastActivityAt?}` sourced from the shared branch list.
+- **FR-004**: The configuration MUST allow disabling branch inventory independently of branch instances, and MUST allow disabling branch-instance emission entirely.
 - **FR-005**: When per-branch activity is enabled, last-activity MUST come from the provider's commit data per branch; when disabled, inventory MUST still emit without activity timestamps at no extra per-branch API cost.
 - **FR-006**: The repository component detail page MUST render the branch inventory (name, default/protected markers, SHA, activity, link) for GitHub repository components.
 
@@ -119,24 +124,24 @@ An operator sees the repository's own metadata — default branch name, archived
 - **FR-014**: Paginated GitHub list endpoints used by the importer (environments, packages, and any new inventory endpoints) MUST fetch all pages — no silent 100-item truncation.
 - **FR-015**: Read calls MUST tolerate provider rate-limit responses (429 and secondary-limit 403s) with bounded backoff honoring `Retry-After`/`X-RateLimit-Reset`, within the run's existing cancellation semantics.
 - **FR-016**: Importer version metadata MUST be consistent between manifest and implementation.
-- **FR-017**: User-facing importer documentation MUST describe the new inventory fields, every new config toggle with defaults, the mapping-is-selector semantics for branch instances, and required token scopes — regenerated via the docs pipeline, not hand-edited generated regions.
+- **FR-017**: User-facing importer documentation MUST describe the new inventory fields, every new config toggle with defaults, the mapping-as-classifier (`OTHER` fallback) semantics for branch instances, and required token scopes — regenerated via the docs pipeline, not hand-edited generated regions.
 - **FR-018**: All new behavior MUST be covered by importer unit tests (including `validateDiscoveredAsset` harness usage), backend/frontend tests where applicable, and Playwright coverage of the component-detail surface per project testing rules.
 
 ### Key Entities *(include if feature involves data)*
 
 - **Component** (`REPOSITORY`, `github:repository`): `details` gains `branches[]`, `releases[]`, `tags[]`, and repo metadata facts — all overwritten each run, no new entity or table.
-- **ComponentInstance** (environment instances): `rawConfig`/details gain environment governance facts; branch instances unchanged (spec 011).
+- **ComponentInstance** (environment + branch instances): environment instances gain governance facts in `rawConfig.githubEnvironment`; every branch emits a `branch:{name}` instance whose `rawConfig` carries `{branch, sha, protected, isDefault, lastActivityAt?}`.
 - **ImporterConfig**: gains inventory/activity toggles alongside existing `include*` flags and `environmentMapping`.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: 100% of branches on an imported repository are visible in its inventory — verified against live repos where today 0 of 7 and 0 of 5 branches appear.
+- **SC-001**: 100% of branches on an imported repository are visible — as instances AND in the inventory — verified against live repos where today 0 of 7 and 0 of 5 branches appear.
 - **SC-002**: Operators can answer "which branches/versions exist for this repo" from the component page without leaving Componode or calling the GitHub API.
 - **SC-003**: Zero silent capability failures — 100% of degraded GitHub sections surface a status marker.
 - **SC-004**: Default configuration adds at most ~2 API calls per repository for inventory (list branches + list releases + list tags amortized); per-branch activity stays opt-in.
-- **SC-005**: Existing spec-011 behavior is preserved — mapped branch instances, environment instances, billing/workflows/runners/packages unchanged unless toggled.
+- **SC-005**: Existing behavior is preserved where it matters — mapped branch instances keep identical `externalId`/`environment`/payload, environment instances, billing/workflows/runners/packages unchanged unless toggled; the only deliberate change is unmapped branches now emitting `OTHER` instances (spec-011 selector semantics amended).
 
 ## Assumptions
 

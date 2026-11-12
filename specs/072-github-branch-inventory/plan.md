@@ -6,7 +6,7 @@
 
 ## Summary
 
-The GitHub importer already enumerates every branch (`listBranches`, fully paginated) but emits a `ComponentInstance` only for names matching the environment mapping — `main`, `master`, `feature/*`, `dependabot/*` are silently dropped (verified: 0 branch instances on `Componode/componode` and `Componode/v0-componode-dpam`). Spec-011 ratified that selector behavior for *instances*; this feature adds the missing **inventory layer**: complete branch, release/tag, and repository/environment metadata carried in each repo component's `details` payload — visible on the component page via a new provider-details section — plus the importer correctness fixes found in the audit (capability markers, pagination, rate-limit retries, manifest drift, docs).
+The GitHub importer already enumerates every branch (`listBranches`, fully paginated) but emits a `ComponentInstance` only for names matching the environment mapping — `main`, `master`, `feature/*`, `dependabot/*` are silently dropped (verified: 0 branch instances on `Componode/componode` and `Componode/v0-componode-dpam`). **Amended during review**: every branch now emits a `branch:{name}` instance (environment = classification or `OTHER` — spec-011 selector semantics amended, mapping becomes classifier-only), while the **inventory layer** added here carries the richer provider facts in each repo component's `details` payload — branches, releases/tags, and repository/environment metadata — visible on the component page via a new provider-details section, plus the importer correctness fixes found in the audit (capability markers, pagination, rate-limit retries, manifest drift, docs).
 
 No `DiscoveredAsset`/core/backend contract change is required: `details` is free-form JSONB already returned by `GET /components/{id}` (`component-catalog-service.ts:270`), and instance `rawConfig` already reaches the frontend. The work is concentrated in `packages/importer-github` (new inventory module + config toggles + capability/pagination/retry fixes), one new frontend details component, the Playwright GitHub mock, docs, and tests.
 
@@ -26,7 +26,7 @@ No `DiscoveredAsset`/core/backend contract change is required: `details` is free
 
 **Performance Goals**: default config adds ≤3 API calls/repo (releases list, tags list — branches list already fetched); per-branch activity and language breakdown opt-in; fully paginated everywhere
 
-**Constraints**: pull-only importer (constitution II); inventory in `details` not instances (spec clarification); spec-011 mapped-branch instance semantics unchanged; every optional capability degrades via markers, never fails the run; no security-scanning endpoints (spec-011 FR-019)
+**Constraints**: pull-only importer (constitution II); inventory in `details` + every branch as a `branch:{name}` instance with `OTHER` fallback (amended spec clarification); mapped-branch instance payloads unchanged; every optional capability degrades via markers, never fails the run; no security-scanning endpoints (spec-011 FR-019)
 
 **Scale/Scope**: ~1 new importer module, edits to `config.ts`/`importer.ts`/`github-repos.ts`/`github-extras.ts`/`client.ts`/`manifest.ts`, 1 new frontend component + wiring, mock server extension, importer guide + generated docs, unit + Playwright tests. No openapi.yaml change (no endpoint surface change).
 
@@ -39,7 +39,7 @@ No `DiscoveredAsset`/core/backend contract change is required: `details` is free
 | I. Single-org | PASS | No tenancy surface. |
 | II. Importer-first | PASS | Pull-only `AsyncGenerator<DiscoveredAsset>`; all new fetches are reads; `details`/`rawConfig` are contract-sanctioned free-form payloads. |
 | III. Two-level taxonomy | PASS | No new categories/providers; reuses `REPOSITORY`/`GITHUB`/`github:repository`. |
-| IV. Environment-as-instance | PASS | Deliberately *avoids* modeling branches as instances — inventory is component metadata, not environment state. Spec-011 branch instances untouched. |
+| IV. Environment-as-instance | PASS | Amended: branches now emit instances per the DPAM pattern (component variations = instances); `environment` carries the classified value or `OTHER` — the same fallback deployment environments already use. `details.branches[]` remains the factual inventory layer; no environment state is fabricated (status/deployedAt follow the established branch-instance conventions). |
 | V. Factual vs. meaning | PASS | Inventory is pure factual layer (what the source reports); no product edges, no human-curation replacement. |
 | VI. Test-first | PASS | tasks.md sequences failing tests first: importer unit (inventory shape, toggles, pagination, degradation), frontend unit (details section), Playwright journey (mock-backed inventory on component page). |
 | VII. Observability | PASS | New capabilities record markers + `warnIfDegraded` logs; existing rate-limit logging retained; octokit retry/throttle emits its own warnings. |

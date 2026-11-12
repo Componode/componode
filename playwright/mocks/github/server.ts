@@ -84,10 +84,11 @@ interface Repo {
   languages: Record<string, number>;
 }
 
-// svc-alpha: 4 branches — `main` (default+protected, unmapped), `develop`
-// (mapped → DEV branch instance), `feature/checkout-flow` and a dependabot
-// branch (both unmapped → inventory only). Inventory therefore differs from
-// the instance set, which is the point of the feature.
+// svc-alpha: 4 branches — `main` (default+protected, unmapped → OTHER
+// instance), `develop` (built-in mapped → DEV instance), `feature/checkout-flow`
+// and a dependabot branch (both unmapped → OTHER instances). Every branch is
+// both an instance and an inventory entry — the inventory carries the richer
+// facts (protected/isDefault/activity).
 const ALPHA_BRANCHES: BranchFixture[] = [
   { name: 'main', sha: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4', protected: true, lastCommitAt: '2026-01-05T10:00:00Z' },
   { name: 'develop', sha: 'b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5', protected: false, lastCommitAt: '2026-01-04T10:00:00Z' },

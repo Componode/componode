@@ -1,4 +1,5 @@
 import { DescriptionList, DetailSection, RelativeTime } from "@/ux/components/patterns/primitives"
+import { ExternalLink } from "@/ux/components/patterns/external-link"
 import { Badge } from "@/ux/components/ui/badge"
 import { ENVIRONMENT_META } from "@/ux/lib/domain"
 import { formatBytes } from "@/ux/lib/format"
@@ -202,6 +203,34 @@ function githubEnvironmentOf(i: ComponentInstance): GithubEnvironment | null {
   return hasDefined(out) ? out : null
 }
 
+// ---- instance rawConfig: githubBranch (spec 072 amendment) ----
+// One instance per repository branch — facts normalized by the GitHub
+// importer from the shared branch list as TOP-LEVEL rawConfig keys (the
+// `branch` string discriminates them from env instances, which carry
+// `environment`/`deploymentId` instead).
+
+interface GithubBranch {
+  branch?: string
+  sha?: string
+  protected?: boolean
+  isDefault?: boolean
+  lastActivityAt?: string
+}
+
+function githubBranchOf(i: ComponentInstance): GithubBranch | null {
+  const raw = i.rawConfig
+  if (!raw) return null
+  const branch = str(raw.branch)
+  if (!branch) return null
+  return {
+    branch,
+    sha: str(raw.sha),
+    protected: bool(raw.protected),
+    isDefault: bool(raw.isDefault),
+    lastActivityAt: str(raw.lastActivityAt),
+  }
+}
+
 export function hasInstanceDetails(i: ComponentInstance): boolean {
   return Boolean(
     dockerObservationOf(i) ||
@@ -211,7 +240,8 @@ export function hasInstanceDetails(i: ComponentInstance): boolean {
       swarmObservationOf(i) ||
       swarmPortsOf(i).length ||
       networksOf(i).length ||
-      githubEnvironmentOf(i),
+      githubEnvironmentOf(i) ||
+      githubBranchOf(i),
   )
 }
 
@@ -422,6 +452,65 @@ function GithubEnvironmentDetails({ env }: { env: GithubEnvironment }) {
   )
 }
 
+function GithubBranchDetails({
+  branch,
+  url,
+}: {
+  branch: GithubBranch
+  url: string | null
+}) {
+  return (
+    <DescriptionList
+      className="sm:grid-cols-[minmax(10rem,auto)_1fr]"
+      items={[
+        {
+          label: "Branch",
+          value: <code className="font-mono text-xs">{branch.branch}</code>,
+        },
+        ...(branch.sha
+          ? [
+              {
+                label: "Head SHA",
+                value: <code className="font-mono text-xs">{branch.sha}</code>,
+              },
+            ]
+          : []),
+        ...(branch.protected !== undefined
+          ? [{ label: "Protected", value: branch.protected ? "Yes" : "No" }]
+          : []),
+        ...(branch.isDefault !== undefined
+          ? [
+              {
+                label: "Repository default",
+                value: branch.isDefault ? "Yes" : "No",
+              },
+            ]
+          : []),
+        ...(branch.lastActivityAt
+          ? [
+              {
+                label: "Last activity",
+                value: <RelativeTime iso={branch.lastActivityAt} />,
+              },
+            ]
+          : []),
+        ...(url
+          ? [
+              {
+                label: "GitHub",
+                value: (
+                  <ExternalLink href={url} className="text-primary hover:underline">
+                    Open branch
+                  </ExternalLink>
+                ),
+              },
+            ]
+          : []),
+      ]}
+    />
+  )
+}
+
 function ContainerImageDetails({ img }: { img: ContainerImage }) {
   return (
     <DescriptionList
@@ -467,6 +556,7 @@ export function InstanceDetails({ instance }: { instance: ComponentInstance }) {
   const ports = swarmPortsOf(instance)
   const networks = networksOf(instance)
   const ghEnv = githubEnvironmentOf(instance)
+  const ghBranch = githubBranchOf(instance)
   return (
     <div className="space-y-4">
       {instance.environmentOverride ? (
@@ -515,6 +605,11 @@ export function InstanceDetails({ instance }: { instance: ComponentInstance }) {
       {ghEnv ? (
         <DetailSection title="GitHub environment">
           <GithubEnvironmentDetails env={ghEnv} />
+        </DetailSection>
+      ) : null}
+      {ghBranch ? (
+        <DetailSection title="GitHub branch">
+          <GithubBranchDetails branch={ghBranch} url={instance.url} />
         </DetailSection>
       ) : null}
     </div>

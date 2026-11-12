@@ -170,19 +170,33 @@ test.describe('github importer branch/release inventory (spec 072)', () => {
     expect(d.capabilities?.branches?.status).toBe('OK');
     expect(d.capabilities?.versionInventory?.status).toBe('OK');
 
-    // Instances: spec-011 semantics preserved — only mapping-classified
-    // branches emit instances; env instance carries governance facts.
+    // Instances: spec-072 amendment — EVERY branch emits a branch:*
+    // instance; the environment mapping classifies (develop→DEV via the
+    // built-in map), unmapped names fall back to OTHER. env instance
+    // carries governance facts.
     const insts = alpha.instances ?? [];
     const externalIds = insts.map((i: any) => i.externalId);
     expect(externalIds).toContain('branch:develop');
+    expect(externalIds).toContain('branch:main');
+    expect(externalIds).toContain('branch:feature/checkout-flow');
+    expect(externalIds).toContain('branch:dependabot/npm_and_yarn/lodash-4.17.21');
     expect(externalIds).toContain('env:production');
-    expect(externalIds).not.toContain('branch:main');
-    expect(externalIds).not.toContain('branch:feature/checkout-flow');
-    expect(externalIds).not.toContain('branch:dependabot/npm_and_yarn/lodash-4.17.21');
 
     const devInst = insts.find((i: any) => i.externalId === 'branch:develop');
     expect(devInst.environment).toBe('DEV');
     expect(devInst.rawConfig?.branch).toBe('develop');
+
+    const mainInst = insts.find((i: any) => i.externalId === 'branch:main');
+    expect(mainInst.environment).toBe('OTHER');
+    expect(mainInst.status).toBe('RUNNING');
+    expect(mainInst.version).toBe('main');
+    expect(mainInst.url).toContain('/tree/main');
+    expect(mainInst.rawConfig).toMatchObject({
+      branch: 'main',
+      protected: true,
+      isDefault: true,
+    });
+    expect(mainInst.rawConfig?.sha).toBe(SHA_MAIN);
 
     const prodInst = insts.find((i: any) => i.externalId === 'env:production');
     expect(prodInst.environment).toBe('PRODUCTION');
@@ -217,8 +231,14 @@ test.describe('github importer branch/release inventory (spec 072)', () => {
     expect(bStaging.isDefault).toBe(false);
     expect((bd.releases ?? []).map((r: any) => r.tagName)).toContain('v0.9.0');
     expect((bd.tags ?? []).map((t: any) => t.name)).toContain('beta-2026-01');
-    // svc-beta's `staging` branch still maps to a STAGING instance.
-    expect((beta.instances ?? []).map((i: any) => i.externalId)).toContain('branch:staging');
+    // svc-beta's `staging` branch maps to STAGING; unmapped `trunk`
+    // (the default branch) falls back to OTHER — both emit instances.
+    const betaIds = (beta.instances ?? []).map((i: any) => i.externalId);
+    expect(betaIds).toContain('branch:staging');
+    expect(betaIds).toContain('branch:trunk');
+    const trunkInst = (beta.instances ?? []).find((i: any) => i.externalId === 'branch:trunk');
+    expect(trunkInst.environment).toBe('OTHER');
+    expect(trunkInst.rawConfig?.isDefault).toBe(true);
   });
 
   test('component page renders the GitHub inventory sections', async ({ page, request }) => {
@@ -281,6 +301,16 @@ test.describe('github importer branch/release inventory (spec 072)', () => {
     await expect(page.getByText(/Required reviewers — 2 reviewers/)).toBeVisible();
     await expect(page.getByText('Deployment branch policy')).toBeVisible();
     await expect(page.getByText('Admins can bypass')).toBeVisible();
+
+    // Branch instance expander renders the GitHub branch facts block —
+    // `branch:main` is an OTHER instance (unmapped) with protected+default.
+    const mainRow = page.getByRole('row', { name: /branch:main/ });
+    await expect(mainRow).toBeVisible();
+    await mainRow.getByRole('button', { name: 'Show details' }).click();
+    await expect(page.getByRole('heading', { name: 'GitHub branch', exact: true })).toBeVisible();
+    await expect(page.getByText('Head SHA')).toBeVisible();
+    await expect(page.getByText(SHA_MAIN.slice(0, 12))).toBeVisible();
+    await expect(page.getByText('Repository default')).toBeVisible();
   });
 
   test('degraded GitHub capabilities surface markers and never fail the run', async ({ page, request }) => {

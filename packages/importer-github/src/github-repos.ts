@@ -274,32 +274,32 @@ export async function buildRepoInstances(
     }
   }
 
-  // Spec-011 mapped branch instances — the environment mapping remains the
-  // classifier-and-selector for INSTANCES only; the full branch list lives
-  // in the component's details inventory (spec 072). Gated independently by
-  // includeBranchInstances; the shared branch list + detail fetcher mean
-  // the activity lookup never duplicates these getBranch calls.
+  // Spec-072 branch instances — every provider branch is a component
+  // variation (DPAM pattern): one `branch:{name}` instance each, with the
+  // environment mapping acting as classifier only (mapped env or OTHER —
+  // the same fallback deployment environments use above). This amends the
+  // spec-011 selector semantics. The shared branch list feeds both this
+  // path and the details inventory; per-branch commit lookups stay opt-in
+  // via includeBranchActivity and dedupe through the shared fetcher.
   if (config.includeBranchInstances && deps.branches) {
     let branchInstancesMarker: CapabilityMarker = { status: "OK" };
-    let attempted = false;
 
     for (const branch of deps.branches) {
       if (signal.aborted) return instances;
 
-      const environment = resolveEnvironment(
-        branch.name,
-        config.environmentMapping,
-      );
-      if (!environment) continue;
-      attempted = true;
+      const environment =
+        resolveEnvironment(branch.name, config.environmentMapping) ?? "OTHER";
 
-      const detail = await deps.getBranchDetail(branch.name);
-      branchInstancesMarker = worstCapabilityMarker(
-        branchInstancesMarker,
-        capabilityMarker(detail),
-      );
-      const lastCommit =
-        detail.status === "OK" ? (detail.data?.committedAt ?? null) : null;
+      let lastActivityAt: string | null = null;
+      if (config.includeBranchActivity) {
+        const detail = await deps.getBranchDetail(branch.name);
+        branchInstancesMarker = worstCapabilityMarker(
+          branchInstancesMarker,
+          capabilityMarker(detail),
+        );
+        lastActivityAt =
+          detail.status === "OK" ? (detail.data?.committedAt ?? null) : null;
+      }
 
       instances.push({
         environment,
@@ -307,14 +307,18 @@ export async function buildRepoInstances(
         url: `${repo.html_url}/tree/${encodeURIComponent(branch.name)}`,
         status: "RUNNING",
         version: branch.name,
-        deployedAt: lastCommit ?? repo.pushed_at,
-        rawConfig: { branch: branch.name },
+        deployedAt: lastActivityAt ?? repo.pushed_at,
+        rawConfig: {
+          branch: branch.name,
+          sha: branch.commit?.sha ?? null,
+          protected: branch.protected ?? false,
+          isDefault: branch.name === repo.default_branch,
+          ...(lastActivityAt ? { lastActivityAt } : {}),
+        },
       });
     }
 
-    if (attempted) {
-      deps.capabilities.branchInstances = branchInstancesMarker;
-    }
+    deps.capabilities.branchInstances = branchInstancesMarker;
   }
 
   return instances;

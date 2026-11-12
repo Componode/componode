@@ -279,7 +279,7 @@ describe("GithubImporter", () => {
     expect(repo?.externalId).toBe("123");
   });
 
-  it("emits branch instances only for mapped branches", async () => {
+  it("emits one instance per branch — mapped env or OTHER fallback", async () => {
     withDeploymentRoutes();
 
     const assets = await collectAssets(new GithubImporter(), {
@@ -291,16 +291,26 @@ describe("GithubImporter", () => {
       i.externalId.startsWith("branch:"),
     );
 
-    expect(branchInstances).toHaveLength(2);
+    // Spec-072 amendment: every branch is an instance — mapping classifies
+    // (main→PRODUCTION, develop→DEV), unmapped trunk→OTHER.
+    expect(branchInstances).toHaveLength(3);
     expect(branchInstances.find((i) => i.externalId === "branch:main")).toMatchObject({
       environment: "PRODUCTION",
       status: "RUNNING",
       version: "main",
-      deployedAt: "2024-07-01T00:00:00Z",
+      // includeBranchActivity off → repo pushed_at fallback.
+      deployedAt: "2024-01-01T00:00:00Z",
+      rawConfig: { branch: "main", sha: null, protected: false, isDefault: true },
     });
     expect(branchInstances.find((i) => i.externalId === "branch:develop")).toMatchObject({
       environment: "DEV",
-      deployedAt: "2024-07-02T00:00:00Z",
+      deployedAt: "2024-01-01T00:00:00Z",
+      rawConfig: { branch: "develop", isDefault: false },
+    });
+    expect(branchInstances.find((i) => i.externalId === "branch:trunk")).toMatchObject({
+      environment: "OTHER",
+      deployedAt: "2024-01-01T00:00:00Z",
+      rawConfig: { branch: "trunk", isDefault: false },
     });
   });
 
@@ -828,7 +838,7 @@ describe("GithubImporter", () => {
 
   // US1 — T011
 
-  it("emits every branch in details.branches alongside mapped branch instances", async () => {
+  it("emits every branch in details.branches alongside per-branch instances", async () => {
     useRoutes(inventoryRoutes());
 
     const assets = await collectAssets(new GithubImporter(), { org: "testorg" });
@@ -858,13 +868,34 @@ describe("GithubImporter", () => {
     const dependabot = branches.find((b) => b.name === "dependabot/npm/lodash");
     expect(dependabot).toMatchObject({ sha: SHA_DEPENDABOT, protected: true });
 
-    // Spec-011 coexistence: only mapping-classified branches emit instances.
-    const externalIds = (repo?.instances ?? []).map((i) => i.externalId);
-    expect(externalIds).toContain("branch:develop");
-    expect(externalIds).not.toContain("branch:main");
-    expect(externalIds).not.toContain("branch:feature/checkout");
-    expect(externalIds).not.toContain("branch:dependabot/npm/lodash");
+    // Amended semantics: every branch emits a branch:* instance — env from
+    // the built-in mapping (develop→DEV) or OTHER fallback — while
+    // details.branches carries the richer inventory.
+    const branchInsts = (repo?.instances ?? []).filter((i) =>
+      i.externalId.startsWith("branch:"),
+    );
+    expect(branchInsts.map((i) => i.externalId).sort()).toEqual([
+      "branch:dependabot/npm/lodash",
+      "branch:develop",
+      "branch:feature/checkout",
+      "branch:main",
+    ]);
+    expect(
+      branchInsts.find((i) => i.externalId === "branch:develop")?.environment,
+    ).toBe("DEV");
+    expect(
+      branchInsts.find((i) => i.externalId === "branch:main")?.environment,
+    ).toBe("OTHER");
+    expect(
+      branchInsts.find((i) => i.externalId === "branch:main")?.rawConfig,
+    ).toMatchObject({
+      branch: "main",
+      sha: SHA_MAIN,
+      protected: true,
+      isDefault: true,
+    });
     expect(capsOf(repo).branches?.status).toBe("OK");
+    expect(capsOf(repo).branchInstances?.status).toBe("OK");
   });
 
   it("omits details.branches when includeBranchInventory is false but keeps branch instances", async () => {
@@ -949,13 +980,29 @@ describe("GithubImporter", () => {
     ).toBe("2026-02-02T00:00:00Z");
     expect(capsOf(repo).branchActivity?.status).toBe("OK");
 
-    // One getBranch call per branch — `develop` is shared between the
-    // instance path and the activity lookup (no duplicate API call).
+    // One getBranch call per branch — shared between the instance path and
+    // the activity lookup (no duplicate API call).
     const detailCalls = fetchSpy.mock.calls.filter((c) => {
       const p = new URL(String(c[0])).pathname;
       return /^\/repos\/testorg\/repo\/branches\/[^/]+/.test(p);
     });
     expect(detailCalls).toHaveLength(4);
+
+    // With activity on, branch instances carry the per-branch commit date
+    // as deployedAt and mirror lastActivityAt into rawConfig.
+    const mainInst = (repo?.instances ?? []).find(
+      (i) => i.externalId === "branch:main",
+    );
+    expect(mainInst?.deployedAt).toBe("2026-02-04T00:00:00Z");
+    expect(mainInst?.rawConfig).toMatchObject({
+      branch: "main",
+      lastActivityAt: "2026-02-04T00:00:00Z",
+    });
+    const dependabotInst = (repo?.instances ?? []).find(
+      (i) => i.externalId === "branch:dependabot/npm/lodash",
+    );
+    expect(dependabotInst?.environment).toBe("OTHER");
+    expect(dependabotInst?.deployedAt).toBe("2026-02-02T00:00:00Z");
   });
 
   it("records FORBIDDEN capability markers and completes when /branches fails", async () => {
