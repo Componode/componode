@@ -6,26 +6,49 @@ import { fetchOrganizationAsset } from "./github-org.js";
 import { fetchBillingSnapshot, type RepoBilling } from "./github-billing.js";
 import { buildRepoInstances, type RepoLike } from "./github-repos.js";
 import {
+  createBranchDetailFetcher,
+  fetchBranchInventory,
+  fetchLanguageBreakdown,
+  fetchVersionInventory,
+  listAllBranches,
+  type BranchInventoryEntry,
+  type BranchListItem,
+  type ReleaseInventoryEntry,
+  type TagInventoryEntry,
+} from "./github-inventory.js";
+import {
   fetchWorkflowAssets,
   fetchRunnerAssets,
   fetchPackageAssets,
 } from "./github-extras.js";
-import { withCapability, warnIfDegraded, type CapabilityMap, type CapabilityMarker } from "./capabilities.js";
+import {
+  capabilityMarker,
+  capabilityStatusRank,
+  warnIfDegraded,
+  worstCapabilityMarker,
+  withCapability,
+  type CapabilityMap,
+  type CapabilityMarker,
+} from "./capabilities.js";
 
-interface GithubRepo {
-  id: number;
-  full_name: string;
-  name: string;
-  owner: { login: string };
-  html_url: string;
+interface GithubRepo extends RepoLike {
   fork: boolean;
   archived: boolean;
+  disabled?: boolean;
   language: string | null;
   topics: string[] | null | undefined;
   visibility: string | null;
-  default_branch: string | null;
+  created_at?: string | null;
   updated_at: string | null;
-  pushed_at: string | null;
+  size?: number | null;
+  license?: {
+    key?: string | null;
+    name?: string | null;
+    spdx_id?: string | null;
+  } | null;
+  open_issues_count?: number | null;
+  parent?: { full_name?: string | null; html_url?: string | null } | null;
+  source?: { full_name?: string | null; html_url?: string | null } | null;
 }
 
 function generateComponentSlug(name: string): string {
@@ -49,7 +72,7 @@ async function* listOrgRepos(
       const response = await octokit.rest.repos.get({
         owner,
         repo: repoName,
-        signal,
+        request: { signal },
       });
       yield response.data as GithubRepo;
     }
@@ -60,7 +83,6 @@ async function* listOrgRepos(
     org,
     type: "all",
     per_page: 100,
-    signal,
   });
 
   for await (const { data } of iterator) {
@@ -71,10 +93,67 @@ async function* listOrgRepos(
   }
 }
 
+function repoRef(
+  v: { full_name?: string | null; html_url?: string | null } | null | undefined,
+): { fullName: string | null; htmlUrl: string | null } | null {
+  return v
+    ? { fullName: v.full_name ?? null, htmlUrl: v.html_url ?? null }
+    : null;
+}
+
+interface RepoInventory {
+  branches?: BranchInventoryEntry[];
+  releases?: ReleaseInventoryEntry[];
+  tags?: TagInventoryEntry[];
+  languages?: Record<string, number>;
+  capabilities: CapabilityMap;
+}
+
+function buildRepoDetails(
+  repo: GithubRepo,
+  repoBilling: RepoBilling | undefined,
+  inventory: RepoInventory,
+): Record<string, unknown> {
+  return {
+    language: repo.language,
+    topics: repo.topics ?? [],
+    visibility: repo.visibility,
+    htmlUrl: repo.html_url,
+    // Repo metadata scalars — always emitted (FR-010); the repo object is
+    // already fetched, so these cost zero extra API calls.
+    defaultBranch: repo.default_branch ?? null,
+    archived: repo.archived ?? false,
+    disabled: repo.disabled ?? false,
+    fork: repo.fork ?? false,
+    forkParent: repoRef(repo.parent),
+    forkSource: repoRef(repo.source),
+    sizeKb: repo.size ?? null,
+    license: repo.license
+      ? {
+          key: repo.license.key ?? null,
+          name: repo.license.name ?? null,
+          spdxId: repo.license.spdx_id ?? null,
+        }
+      : null,
+    openIssuesCount: repo.open_issues_count ?? null,
+    createdAt: repo.created_at ?? null,
+    pushedAt: repo.pushed_at ?? null,
+    updatedAt: repo.updated_at ?? null,
+    ...(repoBilling ? { billing: repoBilling } : {}),
+    // Inventory keys are absent entirely when their toggle is off; `[]`
+    // when on but the source legitimately returns empty.
+    ...(inventory.branches ? { branches: inventory.branches } : {}),
+    ...(inventory.releases ? { releases: inventory.releases } : {}),
+    ...(inventory.tags ? { tags: inventory.tags } : {}),
+    ...(inventory.languages ? { languages: inventory.languages } : {}),
+    capabilities: inventory.capabilities,
+  };
+}
+
 function buildDiscoveredAsset(
   repo: GithubRepo,
   instances: DiscoveredAsset["instances"],
-  repoBilling: RepoBilling | undefined,
+  details: Record<string, unknown>,
 ): DiscoveredAsset {
   return {
     category: "REPOSITORY",
@@ -83,13 +162,7 @@ function buildDiscoveredAsset(
     name: repo.full_name,
     externalId: String(repo.id),
     slug: generateComponentSlug(repo.name),
-    details: {
-      language: repo.language,
-      topics: repo.topics ?? [],
-      visibility: repo.visibility,
-      htmlUrl: repo.html_url,
-      ...(repoBilling ? { billing: repoBilling } : {}),
-    },
+    details,
     instances,
   };
 }
@@ -98,7 +171,7 @@ const GITHUB_API_BASE = "https://api.github.com";
 
 export class GithubImporter implements Importer {
   readonly name = "github";
-  readonly version = "1.1.0";
+  readonly version = "1.2.0";
 
   async *run(
     config: Record<string, unknown>,
@@ -123,7 +196,7 @@ export class GithubImporter implements Importer {
     try {
       const orgResponse = await octokit.rest.orgs.get({
         org: parsed.org,
-        signal: context.signal,
+        request: { signal: context.signal },
       });
       orgId = (orgResponse.data as { id?: number | string }).id;
     } catch (err) {
@@ -159,7 +232,7 @@ export class GithubImporter implements Importer {
 
     const logRateLimit = async () => {
       const rateLimit = await withCapability(() =>
-        octokit.rest.rateLimit.get({ signal: context.signal }),
+        octokit.rest.rateLimit.get({ request: { signal: context.signal } }),
       );
       if (rateLimit.status === "OK" && rateLimit.data) {
         const core = (rateLimit.data.data as {
@@ -217,28 +290,34 @@ export class GithubImporter implements Importer {
     const packageAssets: DiscoveredAsset[] = [];
     if (parsed.includePackages && !context.signal.aborted) {
       context.reportPhase("Listing organization packages");
-      const marker: CapabilityMarker = { status: "OK" };
+      let marker: CapabilityMarker = { status: "OK" };
       try {
-        for await (const asset of fetchPackageAssets(octokit, parsed.org, context.signal)) {
+        for await (const asset of fetchPackageAssets(
+          octokit,
+          parsed.org,
+          context.signal,
+          (degraded) => {
+            marker = worstCapabilityMarker(marker, degraded);
+          },
+        )) {
           if (context.signal.aborted) return;
           packageAssets.push(asset);
         }
       } catch (err) {
-        marker.status = "ERROR";
-        marker.message = err instanceof Error ? err.message : String(err);
+        marker = { status: "ERROR", message: err instanceof Error ? err.message : String(err) };
       }
       capabilities.packages = marker;
       warnIfDegraded(context.logger, "packages", marker);
     }
 
+    // The org asset is built early (its profile feeds nothing downstream,
+    // but org-scoped capability markers must exist before repo-scoped ones
+    // merge in) and yielded AFTER the repo loop so details.capabilities can
+    // aggregate per-repo degradation worst-status-wins (research D5).
+    let orgAsset: DiscoveredAsset | undefined;
     if (parsed.includeOrganization && !context.signal.aborted) {
       context.reportPhase("Fetching organization");
-      const orgAsset = await fetchOrganizationAsset(octokit, parsed, capabilities, context.signal, context.logger);
-      if (billing) {
-        (orgAsset.details as Record<string, unknown>).billing = billing.billing;
-      }
-      (orgAsset.details as Record<string, unknown>).capabilities = capabilities;
-      yield qualifyGhes(orgAsset);
+      orgAsset = await fetchOrganizationAsset(octokit, parsed, capabilities, context.signal, context.logger);
     }
 
     for (const asset of [...runnerAssets, ...packageAssets]) {
@@ -246,6 +325,10 @@ export class GithubImporter implements Importer {
     }
 
     context.reportPhase("Listing repositories");
+
+    // Repo-scoped families rolled up onto the org asset: how many repos
+    // reported each family degraded (for the aggregate marker message).
+    const degradedRepoFamilies = new Map<string, number>();
 
     for await (const repo of listOrgRepos(octokit, parsed, context.signal)) {
       if (context.signal.aborted) {
@@ -257,9 +340,125 @@ export class GithubImporter implements Importer {
 
       context.reportPhase(`Processing ${repo.full_name}`);
 
-      const instances = await buildRepoInstances(octokit, repo as RepoLike, parsed, context.signal);
+      const repoCaps: CapabilityMap = {};
+      const owner = repo.owner.login;
+      const repoName = repo.name;
+
+      // One branch-list fetch shared by instance classification and the
+      // branch inventory — skipped entirely when both consumers are off.
+      const needBranchList =
+        parsed.includeBranchInstances || parsed.includeBranchInventory;
+      let branchList: BranchListItem[] | undefined;
+      if (needBranchList) {
+        const branchesResult = await withCapability(() =>
+          listAllBranches(octokit, owner, repoName, context.signal),
+        );
+        // The shared fetch feeds two contract families — mark each under
+        // its own consumer's toggle so a degraded list surfaces on both.
+        if (parsed.includeBranchInventory) {
+          repoCaps.branches = capabilityMarker(branchesResult);
+        }
+        if (parsed.includeBranchInstances) {
+          repoCaps.branchInstances = capabilityMarker(branchesResult);
+        }
+        if (branchesResult.status === "OK") {
+          branchList = branchesResult.data;
+        }
+      }
+
+      const getBranchDetail = createBranchDetailFetcher(
+        octokit,
+        owner,
+        repoName,
+        context.signal,
+      );
+
+      const instances = await buildRepoInstances(
+        octokit,
+        repo,
+        parsed,
+        context.signal,
+        { branches: branchList, getBranchDetail, capabilities: repoCaps },
+      );
+
+      let branches: BranchInventoryEntry[] | undefined;
+      if (parsed.includeBranchInventory && branchList) {
+        const result = await fetchBranchInventory(branchList, repo, {
+          includeActivity: parsed.includeBranchActivity,
+          getBranchDetail,
+          signal: context.signal,
+        });
+        branches = result.entries;
+        if (result.activityMarker) {
+          repoCaps.branchActivity = result.activityMarker;
+        }
+      }
+
+      let releases: ReleaseInventoryEntry[] | undefined;
+      let tags: TagInventoryEntry[] | undefined;
+      if (parsed.includeReleaseInventory) {
+        const versionInventory = await fetchVersionInventory(
+          octokit,
+          owner,
+          repoName,
+          repo.html_url,
+          context.signal,
+        );
+        repoCaps.versionInventory = worstCapabilityMarker(
+          capabilityMarker(versionInventory.releases),
+          capabilityMarker(versionInventory.tags),
+        );
+        if (versionInventory.releases.status === "OK") {
+          releases = versionInventory.releases.data;
+        }
+        if (versionInventory.tags.status === "OK") {
+          tags = versionInventory.tags.data;
+        }
+      }
+
+      let languages: Record<string, number> | undefined;
+      if (parsed.includeLanguageBreakdown) {
+        const languagesResult = await fetchLanguageBreakdown(
+          octokit,
+          owner,
+          repoName,
+          context.signal,
+        );
+        repoCaps.languages = capabilityMarker(languagesResult);
+        if (languagesResult.status === "OK") {
+          languages = languagesResult.data;
+        }
+      }
+
+      // Per-repo degradation → warnings + worst-status-wins merge into the
+      // org asset's capability map (yielded after this loop).
+      for (const [family, marker] of Object.entries(repoCaps)) {
+        warnIfDegraded(context.logger, `${repo.full_name}/${family}`, marker);
+        if (marker.status !== "OK") {
+          degradedRepoFamilies.set(
+            family,
+            (degradedRepoFamilies.get(family) ?? 0) + 1,
+          );
+        }
+        const existing = capabilities[family];
+        if (
+          !existing ||
+          capabilityStatusRank(marker.status) >
+            capabilityStatusRank(existing.status)
+        ) {
+          capabilities[family] = { ...marker };
+        }
+      }
+
       const repoBilling = billing?.repoBilling.get(repo.full_name);
-      yield qualifyGhes(buildDiscoveredAsset(repo, instances, repoBilling));
+      const details = buildRepoDetails(repo, repoBilling, {
+        branches,
+        releases,
+        tags,
+        languages,
+        capabilities: repoCaps,
+      });
+      yield qualifyGhes(buildDiscoveredAsset(repo, instances, details));
 
       if (parsed.includeWorkflows) {
         for await (const asset of fetchWorkflowAssets(octokit, repo, context.signal)) {
@@ -267,6 +466,24 @@ export class GithubImporter implements Importer {
           yield qualifyGhes(asset);
         }
       }
+    }
+
+    if (orgAsset && !context.signal.aborted) {
+      // Aggregate repo-scoped degradation onto the org markers — the
+      // message notes how many repositories reported each family degraded.
+      for (const [family, count] of degradedRepoFamilies) {
+        const marker = capabilities[family];
+        if (marker && marker.status !== "OK") {
+          marker.message = marker.message
+            ? `${marker.message} — affected repositories: ${count}`
+            : `Affected repositories: ${count}`;
+        }
+      }
+      if (billing) {
+        (orgAsset.details as Record<string, unknown>).billing = billing.billing;
+      }
+      (orgAsset.details as Record<string, unknown>).capabilities = capabilities;
+      yield qualifyGhes(orgAsset);
     }
 
     if (!context.signal.aborted) {

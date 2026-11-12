@@ -5,7 +5,7 @@ import {
   validateDiscoveredAssetDetailed,
   type ImporterContext,
 } from "@componode/core";
-import { mockFetch } from "./fetch-mock.js";
+import { mockFetch, nextPageLink, type MockRoute } from "./fetch-mock.js";
 
 function makeContext(): ImporterContext {
   return {
@@ -279,7 +279,7 @@ describe("GithubImporter", () => {
     expect(repo?.externalId).toBe("123");
   });
 
-  it("emits branch instances only for mapped branches", async () => {
+  it("emits one instance per branch — mapped env or OTHER fallback", async () => {
     withDeploymentRoutes();
 
     const assets = await collectAssets(new GithubImporter(), {
@@ -291,16 +291,26 @@ describe("GithubImporter", () => {
       i.externalId.startsWith("branch:"),
     );
 
-    expect(branchInstances).toHaveLength(2);
+    // Spec-072 amendment: every branch is an instance — mapping classifies
+    // (main→PRODUCTION, develop→DEV), unmapped trunk→OTHER.
+    expect(branchInstances).toHaveLength(3);
     expect(branchInstances.find((i) => i.externalId === "branch:main")).toMatchObject({
       environment: "PRODUCTION",
       status: "RUNNING",
       version: "main",
-      deployedAt: "2024-07-01T00:00:00Z",
+      // includeBranchActivity off → repo pushed_at fallback.
+      deployedAt: "2024-01-01T00:00:00Z",
+      rawConfig: { branch: "main", sha: null, protected: false, isDefault: true },
     });
     expect(branchInstances.find((i) => i.externalId === "branch:develop")).toMatchObject({
       environment: "DEV",
-      deployedAt: "2024-07-02T00:00:00Z",
+      deployedAt: "2024-01-01T00:00:00Z",
+      rawConfig: { branch: "develop", isDefault: false },
+    });
+    expect(branchInstances.find((i) => i.externalId === "branch:trunk")).toMatchObject({
+      environment: "OTHER",
+      deployedAt: "2024-01-01T00:00:00Z",
+      rawConfig: { branch: "trunk", isDefault: false },
     });
   });
 
@@ -716,5 +726,911 @@ describe("GithubImporter", () => {
       expect.stringContaining("rate limit"),
       expect.objectContaining({ limit: 5000, remaining: 4900 }),
     );
+  });
+
+  // --- spec 072: branch/version inventory, repo metadata, governance --------
+
+  function makeBranchItem(name: string, sha: string, isProtected = false) {
+    return {
+      name,
+      commit: {
+        sha,
+        url: `https://api.github.com/repos/testorg/repo/commits/${sha}`,
+      },
+      protected: isProtected,
+    };
+  }
+
+  function makeBranchDetail(name: string, sha: string, date: string) {
+    return {
+      name,
+      commit: {
+        sha,
+        commit: { committer: { date } },
+      },
+    };
+  }
+
+  function makeReleaseItem(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 7300,
+      tag_name: "v1.0.0",
+      name: "v1.0.0",
+      draft: false,
+      prerelease: false,
+      target_commitish: "main",
+      published_at: "2026-01-03T00:00:00Z",
+      html_url: "https://github.com/testorg/repo/releases/tag/v1.0.0",
+      assets: [
+        { name: "repo-1.0.0.zip", size: 1024 },
+        { name: "checksums.txt", size: 256 },
+      ],
+      ...overrides,
+    };
+  }
+
+  function makeTagItem(name: string, sha: string) {
+    return {
+      name,
+      commit: {
+        sha,
+        url: `https://api.github.com/repos/testorg/repo/commits/${sha}`,
+      },
+    };
+  }
+
+  const SHA_MAIN = "aaaa000000000000000000000000000000000001";
+  const SHA_DEVELOP = "bbbb000000000000000000000000000000000002";
+  const SHA_FEATURE = "cccc000000000000000000000000000000000003";
+  const SHA_DEPENDABOT = "dddd000000000000000000000000000000000004";
+
+  const INVENTORY_BRANCHES = [
+    makeBranchItem("main", SHA_MAIN, true),
+    makeBranchItem("develop", SHA_DEVELOP),
+    makeBranchItem("feature/checkout", SHA_FEATURE),
+    makeBranchItem("dependabot/npm/lodash", SHA_DEPENDABOT, true),
+  ];
+
+  // Standard inventory fixture for testorg/repo: every branch, empty
+  // environments, empty releases/tags. `extra` routes take precedence over
+  // the standards (registered first) for failure-injection overrides.
+  function inventoryRoutes(extra: MockRoute[] = []): MockRoute[] {
+    return [
+      ...extra,
+      ...BASE_ROUTES,
+      {
+        path: "/repos/testorg/repo/environments",
+        body: { total_count: 0, environments: [] },
+      },
+      { path: "/repos/testorg/repo/branches", body: INVENTORY_BRANCHES },
+      {
+        path: "/repos/testorg/repo/branches/develop",
+        body: makeBranchDetail("develop", SHA_DEVELOP, "2026-02-01T00:00:00Z"),
+      },
+      { path: "/repos/testorg/repo/releases", body: [] },
+      { path: "/repos/testorg/repo/tags", body: [] },
+    ];
+  }
+
+  function useRoutes(routes: MockRoute[]) {
+    fetchSpy.mockRestore();
+    fetchSpy = mockFetch(routes);
+  }
+
+  function repoAsset(assets: Awaited<ReturnType<typeof collectAssets>>) {
+    return assets.find((a) => a.resourceType === "github:repository");
+  }
+
+  function orgAsset(assets: Awaited<ReturnType<typeof collectAssets>>) {
+    return assets.find((a) => a.resourceType === "github:organization");
+  }
+
+  function detailsOf(asset: { details?: unknown } | undefined) {
+    return (asset?.details ?? {}) as Record<string, unknown>;
+  }
+
+  function capsOf(asset: { details?: unknown } | undefined) {
+    return (detailsOf(asset).capabilities ?? {}) as Record<
+      string,
+      { status: string; message?: string }
+    >;
+  }
+
+  // US1 — T011
+
+  it("emits every branch in details.branches alongside per-branch instances", async () => {
+    useRoutes(inventoryRoutes());
+
+    const assets = await collectAssets(new GithubImporter(), { org: "testorg" });
+    const repo = repoAsset(assets);
+    const branches = detailsOf(repo).branches as Array<Record<string, unknown>>;
+
+    expect(branches.map((b) => b.name).sort()).toEqual([
+      "dependabot/npm/lodash",
+      "develop",
+      "feature/checkout",
+      "main",
+    ]);
+
+    const main = branches.find((b) => b.name === "main");
+    expect(main).toMatchObject({
+      sha: SHA_MAIN,
+      protected: true,
+      isDefault: true,
+    });
+    expect(main?.url).toContain("/tree/main");
+    expect(main?.lastActivityAt).toBeUndefined();
+
+    const develop = branches.find((b) => b.name === "develop");
+    expect(develop).toMatchObject({ sha: SHA_DEVELOP, isDefault: false });
+    const feature = branches.find((b) => b.name === "feature/checkout");
+    expect(feature?.sha).toBe(SHA_FEATURE);
+    const dependabot = branches.find((b) => b.name === "dependabot/npm/lodash");
+    expect(dependabot).toMatchObject({ sha: SHA_DEPENDABOT, protected: true });
+
+    // Amended semantics: every branch emits a branch:* instance — env from
+    // the built-in mapping (develop→DEV) or OTHER fallback — while
+    // details.branches carries the richer inventory.
+    const branchInsts = (repo?.instances ?? []).filter((i) =>
+      i.externalId.startsWith("branch:"),
+    );
+    expect(branchInsts.map((i) => i.externalId).sort()).toEqual([
+      "branch:dependabot/npm/lodash",
+      "branch:develop",
+      "branch:feature/checkout",
+      "branch:main",
+    ]);
+    expect(
+      branchInsts.find((i) => i.externalId === "branch:develop")?.environment,
+    ).toBe("DEV");
+    expect(
+      branchInsts.find((i) => i.externalId === "branch:main")?.environment,
+    ).toBe("OTHER");
+    expect(
+      branchInsts.find((i) => i.externalId === "branch:main")?.rawConfig,
+    ).toMatchObject({
+      branch: "main",
+      sha: SHA_MAIN,
+      protected: true,
+      isDefault: true,
+    });
+    expect(capsOf(repo).branches?.status).toBe("OK");
+    expect(capsOf(repo).branchInstances?.status).toBe("OK");
+  });
+
+  it("omits details.branches when includeBranchInventory is false but keeps branch instances", async () => {
+    useRoutes(inventoryRoutes());
+
+    const assets = await collectAssets(new GithubImporter(), {
+      org: "testorg",
+      includeBranchInventory: false,
+    });
+    const repo = repoAsset(assets);
+
+    expect(detailsOf(repo).branches).toBeUndefined();
+    const externalIds = (repo?.instances ?? []).map((i) => i.externalId);
+    expect(externalIds).toContain("branch:develop");
+  });
+
+  it("suppresses branch instances when includeBranchInstances is false but keeps inventory", async () => {
+    useRoutes(inventoryRoutes());
+
+    const assets = await collectAssets(new GithubImporter(), {
+      org: "testorg",
+      includeBranchInstances: false,
+    });
+    const repo = repoAsset(assets);
+
+    const branches = detailsOf(repo).branches as Array<Record<string, unknown>>;
+    expect(branches).toHaveLength(4);
+    const externalIds = (repo?.instances ?? []).map((i) => i.externalId);
+    expect(externalIds.some((id) => id.startsWith("branch:"))).toBe(false);
+  });
+
+  it("skips the branches call entirely when both branch toggles are off", async () => {
+    useRoutes(inventoryRoutes());
+
+    await collectAssets(new GithubImporter(), {
+      org: "testorg",
+      includeBranchInventory: false,
+      includeBranchInstances: false,
+    });
+
+    const branchCalls = fetchSpy.mock.calls.filter((c) =>
+      /\/repos\/testorg\/repo\/branches/.test(new URL(String(c[0])).pathname),
+    );
+    expect(branchCalls).toHaveLength(0);
+  });
+
+  it("adds lastActivityAt per branch when includeBranchActivity is on, deduped with the instance path", async () => {
+    useRoutes([
+      ...inventoryRoutes(),
+      {
+        path: "/repos/testorg/repo/branches/main",
+        body: makeBranchDetail("main", SHA_MAIN, "2026-02-04T00:00:00Z"),
+      },
+      {
+        path: "/repos/testorg/repo/branches/feature%2Fcheckout",
+        body: makeBranchDetail("feature/checkout", SHA_FEATURE, "2026-02-03T00:00:00Z"),
+      },
+      {
+        path: "/repos/testorg/repo/branches/dependabot%2Fnpm%2Flodash",
+        body: makeBranchDetail("dependabot/npm/lodash", SHA_DEPENDABOT, "2026-02-02T00:00:00Z"),
+      },
+    ]);
+
+    const assets = await collectAssets(new GithubImporter(), {
+      org: "testorg",
+      includeBranchActivity: true,
+    });
+    const repo = repoAsset(assets);
+    const branches = detailsOf(repo).branches as Array<Record<string, unknown>>;
+
+    expect(branches.find((b) => b.name === "main")?.lastActivityAt).toBe(
+      "2026-02-04T00:00:00Z",
+    );
+    expect(branches.find((b) => b.name === "develop")?.lastActivityAt).toBe(
+      "2026-02-01T00:00:00Z",
+    );
+    expect(branches.find((b) => b.name === "feature/checkout")?.lastActivityAt).toBe(
+      "2026-02-03T00:00:00Z",
+    );
+    expect(
+      branches.find((b) => b.name === "dependabot/npm/lodash")?.lastActivityAt,
+    ).toBe("2026-02-02T00:00:00Z");
+    expect(capsOf(repo).branchActivity?.status).toBe("OK");
+
+    // One getBranch call per branch — shared between the instance path and
+    // the activity lookup (no duplicate API call).
+    const detailCalls = fetchSpy.mock.calls.filter((c) => {
+      const p = new URL(String(c[0])).pathname;
+      return /^\/repos\/testorg\/repo\/branches\/[^/]+/.test(p);
+    });
+    expect(detailCalls).toHaveLength(4);
+
+    // With activity on, branch instances carry the per-branch commit date
+    // as deployedAt and mirror lastActivityAt into rawConfig.
+    const mainInst = (repo?.instances ?? []).find(
+      (i) => i.externalId === "branch:main",
+    );
+    expect(mainInst?.deployedAt).toBe("2026-02-04T00:00:00Z");
+    expect(mainInst?.rawConfig).toMatchObject({
+      branch: "main",
+      lastActivityAt: "2026-02-04T00:00:00Z",
+    });
+    const dependabotInst = (repo?.instances ?? []).find(
+      (i) => i.externalId === "branch:dependabot/npm/lodash",
+    );
+    expect(dependabotInst?.environment).toBe("OTHER");
+    expect(dependabotInst?.deployedAt).toBe("2026-02-02T00:00:00Z");
+  });
+
+  it("records FORBIDDEN capability markers and completes when /branches fails", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/repos/testorg/repo/branches",
+          status: 403,
+          body: { message: "Forbidden" },
+        },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), { org: "testorg" });
+    const repo = repoAsset(assets);
+
+    expect(repo).toBeDefined();
+    expect(detailsOf(repo).branches).toBeUndefined();
+    expect(capsOf(repo).branches?.status).toBe("FORBIDDEN");
+    expect(capsOf(repo).branchInstances?.status).toBe("FORBIDDEN");
+    expect(capsOf(orgAsset(assets)).branches?.status).toBe("FORBIDDEN");
+    expect(capsOf(orgAsset(assets)).branchInstances?.status).toBe("FORBIDDEN");
+    // No branch instances can be classified without the branch list.
+    expect(
+      (repo?.instances ?? []).some((i) => i.externalId.startsWith("branch:")),
+    ).toBe(false);
+  });
+
+  // US2 — T017
+
+  function versionRoutes(): MockRoute[] {
+    const releasesPage1 = [
+      makeReleaseItem({
+        id: 7302,
+        tag_name: "v2.0.0-draft",
+        name: "v2.0.0 (draft)",
+        draft: true,
+        published_at: null,
+        html_url: "https://github.com/testorg/repo/releases/tag/v2.0.0-draft",
+        assets: [],
+      }),
+      makeReleaseItem({
+        id: 7301,
+        tag_name: "v1.1.0-rc.1",
+        name: "v1.1.0 release candidate",
+        prerelease: true,
+        target_commitish: "develop",
+        published_at: "2026-01-04T00:00:00Z",
+        html_url: "https://github.com/testorg/repo/releases/tag/v1.1.0-rc.1",
+        assets: [{ name: "rc.zip", size: 2048 }],
+      }),
+    ];
+    const releasesPage2 = [
+      makeReleaseItem({ id: 7300, tag_name: "v1.0.0", name: "v1.0.0" }),
+    ];
+    const tagsPage1 = [
+      makeTagItem("nightly", "eeee000000000000000000000000000000000005"),
+      makeTagItem("v1.0.0", "ffff000000000000000000000000000000000006"),
+    ];
+    const tagsPage2 = [
+      makeTagItem("legacy-2025", "99990000000000000000000000000000000007"),
+    ];
+    return inventoryRoutes([
+      {
+        path: "/repos/testorg/repo/releases",
+        query: { page: "2" },
+        body: releasesPage2,
+      },
+      {
+        path: "/repos/testorg/repo/releases",
+        headers: {
+          link: nextPageLink(
+            "https://api.github.com/repos/testorg/repo/releases?page=2&per_page=100",
+          ),
+        },
+        body: releasesPage1,
+      },
+      {
+        path: "/repos/testorg/repo/tags",
+        query: { page: "2" },
+        body: tagsPage2,
+      },
+      {
+        path: "/repos/testorg/repo/tags",
+        headers: {
+          link: nextPageLink(
+            "https://api.github.com/repos/testorg/repo/tags?page=2&per_page=100",
+          ),
+        },
+        body: tagsPage1,
+      },
+    ]);
+  }
+
+  it("emits fully paginated releases and tags inventories", async () => {
+    useRoutes(versionRoutes());
+
+    const assets = await collectAssets(new GithubImporter(), { org: "testorg" });
+    const repo = repoAsset(assets);
+    const details = detailsOf(repo);
+
+    const releases = details.releases as Array<Record<string, unknown>>;
+    expect(releases).toHaveLength(3);
+    const byTag = new Map(releases.map((r) => [r.tagName, r]));
+    const v100 = byTag.get("v1.0.0");
+    expect(v100).toMatchObject({
+      id: 7300,
+      draft: false,
+      prerelease: false,
+      targetCommitish: "main",
+      assetCount: 2,
+      assetsTotalBytes: 1280,
+      publishedAt: "2026-01-03T00:00:00Z",
+    });
+    expect(v100?.htmlUrl).toContain("/releases/tag/v1.0.0");
+    expect(byTag.get("v1.1.0-rc.1")).toMatchObject({
+      prerelease: true,
+      assetCount: 1,
+      assetsTotalBytes: 2048,
+    });
+    expect(byTag.get("v2.0.0-draft")).toMatchObject({ draft: true });
+
+    const tags = details.tags as Array<Record<string, unknown>>;
+    // FR-007: tags[] carries plain tags lacking releases — v1.0.0 backs a
+    // release so it appears only under releases[].
+    expect(tags.map((t) => t.name).sort()).toEqual([
+      "legacy-2025",
+      "nightly",
+    ]);
+    expect(tags.find((t) => t.name === "nightly")).toMatchObject({
+      sha: "eeee000000000000000000000000000000000005",
+    });
+    expect(tags.find((t) => t.name === "nightly")?.htmlUrl).toContain(
+      "/releases/tag/nightly",
+    );
+
+    expect(capsOf(repo).versionInventory?.status).toBe("OK");
+  });
+
+  it("keeps the includeReleases env fallback when includeReleaseInventory is off", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/repos/testorg/repo/environments",
+          body: {
+            total_count: 1,
+            environments: [{ name: "prod" }],
+          },
+        },
+        {
+          path: "/repos/testorg/repo/deployments",
+          query: { environment: "prod" },
+          body: [{ id: 900 }],
+        },
+        {
+          path: "/repos/testorg/repo/deployments/900/statuses",
+          body: [{ state: "success" }],
+        },
+        {
+          path: "/repos/testorg/repo/releases/latest",
+          body: { tag_name: "v9.9.9", published_at: "2026-02-01T00:00:00Z" },
+        },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), {
+      org: "testorg",
+      includeReleaseInventory: false,
+    });
+    const repo = repoAsset(assets);
+    const details = detailsOf(repo);
+
+    expect(details.releases).toBeUndefined();
+    expect(details.tags).toBeUndefined();
+
+    const env = (repo?.instances ?? []).find((i) => i.externalId === "env:prod");
+    expect(env).toMatchObject({
+      environment: "PRODUCTION",
+      version: "v9.9.9",
+      deployedAt: "2026-02-01T00:00:00Z",
+    });
+    // The latest-release fallback was exercised → releases marker recorded.
+    expect(capsOf(repo).releases?.status).toBe("OK");
+  });
+
+  it("treats a 404 latest-release as empty, not degraded, on release-less repos", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/repos/testorg/repo/environments",
+          body: {
+            total_count: 1,
+            environments: [{ name: "prod" }],
+          },
+        },
+        {
+          path: "/repos/testorg/repo/deployments",
+          query: { environment: "prod" },
+          body: [],
+        },
+        {
+          path: "/repos/testorg/repo/releases/latest",
+          status: 404,
+          body: { message: "Not Found" },
+        },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), { org: "testorg" });
+    const repo = repoAsset(assets);
+    const env = (repo?.instances ?? []).find((i) => i.externalId === "env:prod");
+
+    expect(env).toBeDefined();
+    expect(env?.version ?? null).toBeNull();
+    // A release-less repo is not a capability failure — no UNAVAILABLE noise.
+    expect(capsOf(repo).releases?.status).toBe("OK");
+  });
+
+  it("marks versionInventory degraded and still emits tags when /releases fails", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/repos/testorg/repo/releases",
+          status: 403,
+          body: { message: "Forbidden" },
+        },
+        {
+          path: "/repos/testorg/repo/tags",
+          body: [makeTagItem("nightly", "eeee000000000000000000000000000000000005")],
+        },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), { org: "testorg" });
+    const repo = repoAsset(assets);
+    const details = detailsOf(repo);
+
+    expect(details.releases).toBeUndefined();
+    expect((details.tags as unknown[]).length).toBe(1);
+    expect(capsOf(repo).versionInventory?.status).toBe("FORBIDDEN");
+    expect(capsOf(orgAsset(assets)).versionInventory?.status).toBe("FORBIDDEN");
+  });
+
+  // US3 — T021
+
+  it("emits repo metadata scalars and fork/license fields on details", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/orgs/testorg/repos",
+          body: [
+            makeRepo({
+              parent: null,
+              source: null,
+              size: 2048,
+              license: {
+                key: "apache-2.0",
+                name: "Apache License 2.0",
+                spdx_id: "Apache-2.0",
+              },
+              open_issues_count: 7,
+              created_at: "2025-06-01T00:00:00Z",
+              disabled: false,
+            }),
+          ],
+        },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), { org: "testorg" });
+    const details = detailsOf(repoAsset(assets));
+
+    expect(details.defaultBranch).toBe("main");
+    expect(details.archived).toBe(false);
+    expect(details.disabled).toBe(false);
+    expect(details.fork).toBe(false);
+    expect(details.forkParent).toBeNull();
+    expect(details.forkSource).toBeNull();
+    expect(details.sizeKb).toBe(2048);
+    expect(details.license).toMatchObject({
+      key: "apache-2.0",
+      name: "Apache License 2.0",
+      spdxId: "Apache-2.0",
+    });
+    expect(details.openIssuesCount).toBe(7);
+    expect(details.createdAt).toBe("2025-06-01T00:00:00Z");
+    expect(details.pushedAt).toBe("2024-01-01T00:00:00Z");
+    expect(details.updatedAt).toBe("2024-01-01T00:00:00Z");
+  });
+
+  it("surfaces fork provenance when the repo is a fork", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/orgs/testorg/repos",
+          body: [
+            makeRepo({
+              id: 321,
+              full_name: "testorg/forked",
+              name: "forked",
+              fork: true,
+              parent: {
+                full_name: "upstream/original",
+                html_url: "https://github.com/upstream/original",
+              },
+              source: {
+                full_name: "upstream/root",
+                html_url: "https://github.com/upstream/root",
+              },
+            }),
+          ],
+        },
+        {
+          path: "/repos/testorg/forked/environments",
+          body: { total_count: 0, environments: [] },
+        },
+        { path: "/repos/testorg/forked/branches", body: [] },
+        { path: "/repos/testorg/forked/releases", body: [] },
+        { path: "/repos/testorg/forked/tags", body: [] },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), {
+      org: "testorg",
+      includeForks: true,
+    });
+    const details = detailsOf(repoAsset(assets));
+
+    expect(details.fork).toBe(true);
+    expect(details.forkParent).toEqual({
+      fullName: "upstream/original",
+      htmlUrl: "https://github.com/upstream/original",
+    });
+    expect(details.forkSource).toEqual({
+      fullName: "upstream/root",
+      htmlUrl: "https://github.com/upstream/root",
+    });
+  });
+
+  it("emits languages only when includeLanguageBreakdown is on", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/repos/testorg/repo/languages",
+          body: { TypeScript: 91234, JavaScript: 1234 },
+        },
+      ]),
+    );
+
+    const off = await collectAssets(new GithubImporter(), { org: "testorg" });
+    expect(detailsOf(repoAsset(off)).languages).toBeUndefined();
+
+    const on = await collectAssets(new GithubImporter(), {
+      org: "testorg",
+      includeLanguageBreakdown: true,
+    });
+    const details = detailsOf(repoAsset(on));
+    expect(details.languages).toEqual({ TypeScript: 91234, JavaScript: 1234 });
+    expect(capsOf(repoAsset(on)).languages?.status).toBe("OK");
+  }, 20000);
+
+  it("marks languages degraded when /languages fails", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/repos/testorg/repo/languages",
+          status: 403,
+          body: { message: "Forbidden" },
+        },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), {
+      org: "testorg",
+      includeLanguageBreakdown: true,
+    });
+    const repo = repoAsset(assets);
+
+    expect(detailsOf(repo).languages).toBeUndefined();
+    expect(capsOf(repo).languages?.status).toBe("FORBIDDEN");
+  });
+
+  it("normalizes environment governance into rawConfig.githubEnvironment", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/repos/testorg/repo/environments",
+          body: {
+            total_count: 1,
+            environments: [
+              {
+                name: "production",
+                protection_rules: [
+                  { id: 1, type: "wait_timer", wait_timer: 30 },
+                  {
+                    id: 2,
+                    type: "required_reviewers",
+                    prevent_self_review: true,
+                    reviewers: [{ type: "User" }, { type: "Team" }],
+                  },
+                ],
+                deployment_branch_policy: {
+                  protected_branches: true,
+                  custom_branch_policies: false,
+                },
+                can_admins_bypass: true,
+              },
+            ],
+          },
+        },
+        {
+          path: "/repos/testorg/repo/deployments",
+          query: { environment: "production" },
+          body: [{ id: 900, ref: "main", created_at: "2026-02-01T00:00:00Z" }],
+        },
+        {
+          path: "/repos/testorg/repo/deployments/900/statuses",
+          body: [{ state: "success" }],
+        },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), { org: "testorg" });
+    const repo = repoAsset(assets);
+    const env = (repo?.instances ?? []).find(
+      (i) => i.externalId === "env:production",
+    );
+
+    expect(env?.environment).toBe("PRODUCTION");
+    const ghEnv = env?.rawConfig?.githubEnvironment as Record<string, unknown>;
+    expect(ghEnv).toBeDefined();
+    expect(ghEnv.protectionRules).toEqual([
+      { type: "wait_timer", waitTimerMinutes: 30 },
+      {
+        type: "required_reviewers",
+        preventSelfReview: true,
+        reviewerCount: 2,
+      },
+    ]);
+    expect(ghEnv.deploymentBranchPolicy).toEqual({
+      protectedBranches: true,
+      customBranchPolicies: false,
+    });
+    expect(ghEnv.canAdminsBypass).toBe(true);
+    expect(capsOf(repo).environments?.status).toBe("OK");
+    expect(capsOf(repo).deployments?.status).toBe("OK");
+  });
+
+  it("paginates environments fully and emits an instance per page", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/repos/testorg/repo/environments",
+          query: { page: "2" },
+          body: {
+            total_count: 3,
+            environments: [{ name: "canary" }],
+          },
+        },
+        {
+          path: "/repos/testorg/repo/environments",
+          headers: {
+            link: nextPageLink(
+              "https://api.github.com/repos/testorg/repo/environments?page=2&per_page=100",
+            ),
+          },
+          body: {
+            total_count: 3,
+            environments: [{ name: "prod" }, { name: "staging" }],
+          },
+        },
+        {
+          path: "/repos/testorg/repo/deployments",
+          body: [],
+        },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), { org: "testorg" });
+    const repo = repoAsset(assets);
+    const envIds = (repo?.instances ?? [])
+      .map((i) => i.externalId)
+      .filter((id) => id.startsWith("env:"));
+
+    expect(envIds.sort()).toEqual(["env:canary", "env:prod", "env:staging"]);
+    expect(capsOf(repo).environments?.status).toBe("OK");
+  });
+
+  it("records environments/deployments markers and completes on 403", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/repos/testorg/repo/environments",
+          status: 403,
+          body: { message: "Forbidden" },
+        },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), { org: "testorg" });
+    const repo = repoAsset(assets);
+
+    expect(repo).toBeDefined();
+    expect(capsOf(repo).environments?.status).toBe("FORBIDDEN");
+    expect(capsOf(orgAsset(assets)).environments?.status).toBe("FORBIDDEN");
+    // Branch inventory + instances are independent of environments.
+    expect(detailsOf(repo).branches).toHaveLength(4);
+    expect(
+      (repo?.instances ?? []).some((i) => i.externalId.startsWith("branch:")),
+    ).toBe(true);
+  });
+
+  it("paginates org packages fully when includePackages is on", async () => {
+    useRoutes([
+      ...inventoryRoutes(),
+      {
+        path: "/orgs/testorg/packages",
+        query: { package_type: "container", page: "2" },
+        body: [
+          {
+            id: 602,
+            name: "second-image",
+            package_type: "container",
+            visibility: "private",
+          },
+        ],
+      },
+      {
+        path: "/orgs/testorg/packages",
+        query: { package_type: "container" },
+        headers: {
+          link: nextPageLink(
+            "https://api.github.com/orgs/testorg/packages?package_type=container&page=2&per_page=100",
+          ),
+        },
+        body: [
+          {
+            id: 601,
+            name: "first-image",
+            package_type: "container",
+            visibility: "public",
+          },
+        ],
+      },
+    ]);
+
+    const assets = await collectAssets(new GithubImporter(), {
+      org: "testorg",
+      includePackages: true,
+    });
+    const packages = assets.filter((a) => a.resourceType === "github:package");
+
+    expect(packages.map((p) => p.externalId).sort()).toEqual(["601", "602"]);
+  });
+
+  it("marks packages degraded when every package-type listing fails", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/orgs/testorg/packages",
+          status: 403,
+          body: { message: "Forbidden" },
+        },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), {
+      org: "testorg",
+      includePackages: true,
+    });
+
+    expect(
+      assets.filter((a) => a.resourceType === "github:package"),
+    ).toHaveLength(0);
+    // FR-013: per-type failures must surface — not a silent OK.
+    expect(capsOf(orgAsset(assets)).packages?.status).toBe("FORBIDDEN");
+  });
+
+  it("aggregates per-repo capability markers worst-status-wins onto the org asset", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/orgs/testorg/repos",
+          body: [
+            makeRepo({ id: 201, full_name: "testorg/repo-a", name: "repo-a" }),
+            makeRepo({ id: 202, full_name: "testorg/repo-b", name: "repo-b" }),
+          ],
+        },
+        {
+          path: "/repos/testorg/repo-b/branches",
+          status: 403,
+          body: { message: "Forbidden" },
+        },
+        {
+          path: "/repos/testorg/repo-a/environments",
+          body: { total_count: 0, environments: [] },
+        },
+        { path: "/repos/testorg/repo-a/branches", body: INVENTORY_BRANCHES },
+        {
+          path: "/repos/testorg/repo-a/branches/develop",
+          body: makeBranchDetail("develop", SHA_DEVELOP, "2026-02-01T00:00:00Z"),
+        },
+        { path: "/repos/testorg/repo-a/releases", body: [] },
+        { path: "/repos/testorg/repo-a/tags", body: [] },
+        {
+          path: "/repos/testorg/repo-b/environments",
+          body: { total_count: 0, environments: [] },
+        },
+        { path: "/repos/testorg/repo-b/releases", body: [] },
+        { path: "/repos/testorg/repo-b/tags", body: [] },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), { org: "testorg" });
+    const repoA = assets.find(
+      (a) => a.resourceType === "github:repository" && a.name === "testorg/repo-a",
+    );
+    const repoB = assets.find(
+      (a) => a.resourceType === "github:repository" && a.name === "testorg/repo-b",
+    );
+
+    expect(capsOf(repoA).branches?.status).toBe("OK");
+    expect(capsOf(repoB).branches?.status).toBe("FORBIDDEN");
+
+    const orgCaps = capsOf(orgAsset(assets));
+    expect(orgCaps.branches?.status).toBe("FORBIDDEN");
+    expect(orgCaps.branches?.message).toContain("affected repositories: 1");
+    expect(orgCaps.versionInventory?.status).toBe("OK");
+    expect(orgCaps.environments?.status).toBe("OK");
   });
 });

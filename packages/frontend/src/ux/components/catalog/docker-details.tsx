@@ -1,18 +1,15 @@
-import { DescriptionList, RelativeTime } from "@/ux/components/patterns/primitives"
+import { DescriptionList, DetailSection, RelativeTime } from "@/ux/components/patterns/primitives"
+import { ExternalLink } from "@/ux/components/patterns/external-link"
 import { Badge } from "@/ux/components/ui/badge"
 import { ENVIRONMENT_META } from "@/ux/lib/domain"
+import { formatBytes } from "@/ux/lib/format"
+import { asObj, bool, hasDefined, num, str, strArr } from "@/ux/lib/guards"
 import type { Component, ComponentInstance } from "@/ux/lib/view-types"
 
 // Bounded Docker detail rendering (ADR-121, spec 064): every shaper below
 // extracts ONLY the allowlisted keys the importer contract names —
 // unknown rawConfig/details keys never render, and there is no generic
 // dump anywhere.
-
-const asObj = <T,>(v: unknown): T | null =>
-  v && typeof v === "object" ? (v as T) : null
-
-const hasDefined = (o: object) =>
-  Object.values(o).some((v) => v !== undefined)
 
 // ---- instance rawConfig: dockerObservation (ADR-121 A1, spec 047) ----
 
@@ -136,8 +133,6 @@ interface ContainerImage {
   imageId?: string
 }
 
-const str = (v: unknown) => (typeof v === "string" && v ? v : undefined)
-
 function containerImageOf(i: ComponentInstance): ContainerImage | null {
   const raw = i.rawConfig
   if (!raw) return null
@@ -149,6 +144,93 @@ function containerImageOf(i: ComponentInstance): ContainerImage | null {
   return hasDefined(out) ? out : null
 }
 
+// ---- instance rawConfig: githubEnvironment (spec 072) ----
+// Deployment-environment governance facts normalized by the GitHub
+// importer. protectionRules entries are allowlisted per `type` — unknown
+// rule types render their type label only, never raw provider payloads.
+
+interface GithubProtectionRule {
+  type?: string
+  waitTimerMinutes?: number
+  reviewerCount?: number
+  preventSelfReview?: boolean
+  protectedBranches?: boolean
+  customBranchPolicies?: boolean
+}
+
+interface GithubBranchPolicy {
+  protectedBranches?: boolean
+  customBranchPolicies?: boolean
+}
+
+interface GithubEnvironment {
+  protectionRules?: GithubProtectionRule[]
+  deploymentBranchPolicy?: GithubBranchPolicy | null
+  canAdminsBypass?: boolean
+}
+
+function githubEnvironmentOf(i: ComponentInstance): GithubEnvironment | null {
+  const raw = asObj<Record<string, unknown>>(i.rawConfig?.githubEnvironment)
+  if (!raw) return null
+  const rules = Array.isArray(raw.protectionRules)
+    ? raw.protectionRules.flatMap((r) => {
+        const o = asObj<Record<string, unknown>>(r)
+        const type = o ? str(o.type) : undefined
+        if (!o || !type) return []
+        const rule: GithubProtectionRule = {
+          type,
+          waitTimerMinutes: num(o.waitTimerMinutes),
+          reviewerCount: num(o.reviewerCount),
+          preventSelfReview: bool(o.preventSelfReview),
+          protectedBranches: bool(o.protectedBranches),
+          customBranchPolicies: bool(o.customBranchPolicies),
+        }
+        return [rule]
+      })
+    : undefined
+  const dbpRaw = asObj<Record<string, unknown>>(raw.deploymentBranchPolicy)
+  const dbp: GithubBranchPolicy | undefined = dbpRaw
+    ? {
+        protectedBranches: bool(dbpRaw.protectedBranches),
+        customBranchPolicies: bool(dbpRaw.customBranchPolicies),
+      }
+    : undefined
+  const out: GithubEnvironment = {
+    protectionRules: rules?.length ? rules : undefined,
+    deploymentBranchPolicy: dbp && hasDefined(dbp) ? dbp : undefined,
+    canAdminsBypass: bool(raw.canAdminsBypass),
+  }
+  return hasDefined(out) ? out : null
+}
+
+// ---- instance rawConfig: githubBranch (spec 072 amendment) ----
+// One instance per repository branch — facts normalized by the GitHub
+// importer from the shared branch list as TOP-LEVEL rawConfig keys (the
+// `branch` string discriminates them from env instances, which carry
+// `environment`/`deploymentId` instead).
+
+interface GithubBranch {
+  branch?: string
+  sha?: string
+  protected?: boolean
+  isDefault?: boolean
+  lastActivityAt?: string
+}
+
+function githubBranchOf(i: ComponentInstance): GithubBranch | null {
+  const raw = i.rawConfig
+  if (!raw) return null
+  const branch = str(raw.branch)
+  if (!branch) return null
+  return {
+    branch,
+    sha: str(raw.sha),
+    protected: bool(raw.protected),
+    isDefault: bool(raw.isDefault),
+    lastActivityAt: str(raw.lastActivityAt),
+  }
+}
+
 export function hasInstanceDetails(i: ComponentInstance): boolean {
   return Boolean(
     dockerObservationOf(i) ||
@@ -157,33 +239,13 @@ export function hasInstanceDetails(i: ComponentInstance): boolean {
       healthcheckOf(i) ||
       swarmObservationOf(i) ||
       swarmPortsOf(i).length ||
-      networksOf(i).length,
+      networksOf(i).length ||
+      githubEnvironmentOf(i) ||
+      githubBranchOf(i),
   )
 }
 
 // ---- section components ----
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-2">
-      <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {title}
-      </h4>
-      {children}
-    </section>
-  )
-}
-
-const formatBytes = (n: number) => {
-  const units = ["B", "KiB", "MiB", "GiB", "TiB"]
-  let v = n
-  let u = 0
-  while (v >= 1024 && u < units.length - 1) {
-    v /= 1024
-    u += 1
-  }
-  return `${u === 0 ? v : v.toFixed(v >= 10 ? 0 : 1)} ${units[u]}`
-}
 
 const secs = (s: number) => `${Math.round(s * 1000) / 1000}s`
 
@@ -314,6 +376,141 @@ function NetworksDetails({ networks }: { networks: string[] }) {
   )
 }
 
+function describeProtectionRule(r: GithubProtectionRule) {
+  switch (r.type) {
+    case "wait_timer":
+      return r.waitTimerMinutes !== undefined
+        ? `Wait timer — ${r.waitTimerMinutes} min`
+        : "Wait timer"
+    case "required_reviewers": {
+      const parts: string[] = []
+      if (r.reviewerCount !== undefined)
+        parts.push(
+          `${r.reviewerCount} reviewer${r.reviewerCount === 1 ? "" : "s"}`,
+        )
+      if (r.preventSelfReview !== undefined)
+        parts.push(
+          r.preventSelfReview ? "self-review prevented" : "self-review allowed",
+        )
+      return parts.length
+        ? `Required reviewers — ${parts.join(", ")}`
+        : "Required reviewers"
+    }
+    case "branch_policy": {
+      const parts: string[] = []
+      if (r.protectedBranches) parts.push("protected branches")
+      if (r.customBranchPolicies) parts.push("custom branch policies")
+      return parts.length ? `Branch policy — ${parts.join(", ")}` : "Branch policy"
+    }
+    default:
+      return <code className="font-mono text-xs">{r.type}</code>
+  }
+}
+
+function describeBranchPolicy(p: GithubBranchPolicy): string {
+  const parts: string[] = []
+  if (p.protectedBranches) parts.push("protected branches")
+  if (p.customBranchPolicies) parts.push("custom branch policies")
+  return parts.length ? parts.join(", ") : "No restrictions"
+}
+
+function GithubEnvironmentDetails({ env }: { env: GithubEnvironment }) {
+  return (
+    <div className="space-y-3">
+      {env.protectionRules?.length ? (
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">Protection rules</p>
+          <ul className="list-disc space-y-0.5 pl-5 text-sm">
+            {env.protectionRules.map((r, i) => (
+              <li key={i}>{describeProtectionRule(r)}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <DescriptionList
+        className="sm:grid-cols-[minmax(10rem,auto)_1fr]"
+        items={[
+          ...(env.deploymentBranchPolicy
+            ? [
+                {
+                  label: "Deployment branch policy",
+                  value: describeBranchPolicy(env.deploymentBranchPolicy),
+                },
+              ]
+            : []),
+          ...(env.canAdminsBypass !== undefined
+            ? [
+                {
+                  label: "Admins can bypass",
+                  value: env.canAdminsBypass ? "Yes" : "No",
+                },
+              ]
+            : []),
+        ]}
+      />
+    </div>
+  )
+}
+
+function GithubBranchDetails({
+  branch,
+  url,
+}: {
+  branch: GithubBranch
+  url: string | null
+}) {
+  return (
+    <DescriptionList
+      className="sm:grid-cols-[minmax(10rem,auto)_1fr]"
+      items={[
+        {
+          label: "Branch",
+          value: <code className="font-mono text-xs">{branch.branch}</code>,
+        },
+        ...(branch.sha
+          ? [
+              {
+                label: "Head SHA",
+                value: <code className="font-mono text-xs">{branch.sha}</code>,
+              },
+            ]
+          : []),
+        ...(branch.protected !== undefined
+          ? [{ label: "Protected", value: branch.protected ? "Yes" : "No" }]
+          : []),
+        ...(branch.isDefault !== undefined
+          ? [
+              {
+                label: "Repository default",
+                value: branch.isDefault ? "Yes" : "No",
+              },
+            ]
+          : []),
+        ...(branch.lastActivityAt
+          ? [
+              {
+                label: "Last activity",
+                value: <RelativeTime iso={branch.lastActivityAt} />,
+              },
+            ]
+          : []),
+        ...(url
+          ? [
+              {
+                label: "GitHub",
+                value: (
+                  <ExternalLink href={url} className="text-primary hover:underline">
+                    Open branch
+                  </ExternalLink>
+                ),
+              },
+            ]
+          : []),
+      ]}
+    />
+  )
+}
+
 function ContainerImageDetails({ img }: { img: ContainerImage }) {
   return (
     <DescriptionList
@@ -358,50 +555,62 @@ export function InstanceDetails({ instance }: { instance: ComponentInstance }) {
   const healthcheck = healthcheckOf(instance)
   const ports = swarmPortsOf(instance)
   const networks = networksOf(instance)
+  const ghEnv = githubEnvironmentOf(instance)
+  const ghBranch = githubBranchOf(instance)
   return (
     <div className="space-y-4">
       {instance.environmentOverride ? (
-        <Section title="Environment">
+        <DetailSection title="Environment">
           <p className="text-sm text-muted-foreground">
             Manually overridden to {ENVIRONMENT_META[instance.environment].label}; the
             importer reports {ENVIRONMENT_META[instance.reportedEnvironment].label}.
           </p>
-        </Section>
+        </DetailSection>
       ) : null}
       {obs ? (
-        <Section title="Observation">
+        <DetailSection title="Observation">
           <ObservationDetails obs={obs} />
-        </Section>
+        </DetailSection>
       ) : null}
       {swarmObs ? (
-        <Section title="Observation">
+        <DetailSection title="Observation">
           <SwarmObservationDetails obs={swarmObs} />
-        </Section>
+        </DetailSection>
       ) : null}
       {image ? (
-        <Section title="Image">
+        <DetailSection title="Image">
           <ContainerImageDetails img={image} />
-        </Section>
+        </DetailSection>
       ) : null}
       {hostConfig ? (
-        <Section title="Host config">
+        <DetailSection title="Host config">
           <HostConfigDetails cfg={hostConfig} />
-        </Section>
+        </DetailSection>
       ) : null}
       {healthcheck ? (
-        <Section title="Health check definition">
+        <DetailSection title="Health check definition">
           <HealthcheckDetails hc={healthcheck} />
-        </Section>
+        </DetailSection>
       ) : null}
       {ports.length ? (
-        <Section title="Ports">
+        <DetailSection title="Ports">
           <PortsDetails ports={ports} />
-        </Section>
+        </DetailSection>
       ) : null}
       {networks.length ? (
-        <Section title="Networks">
+        <DetailSection title="Networks">
           <NetworksDetails networks={networks} />
-        </Section>
+        </DetailSection>
+      ) : null}
+      {ghEnv ? (
+        <DetailSection title="GitHub environment">
+          <GithubEnvironmentDetails env={ghEnv} />
+        </DetailSection>
+      ) : null}
+      {ghBranch ? (
+        <DetailSection title="GitHub branch">
+          <GithubBranchDetails branch={ghBranch} url={instance.url} />
+        </DetailSection>
       ) : null}
     </div>
   )
@@ -421,12 +630,6 @@ interface EngineDetails {
   swarmNodeState?: string
   swarmControlAvailable?: boolean
   swarmManagers?: number
-}
-
-const strArr = (v: unknown) => {
-  if (!Array.isArray(v)) return undefined
-  const out = v.filter((x): x is string => typeof x === "string")
-  return out.length ? out : undefined
 }
 
 const strRecord = (v: unknown) => {
@@ -463,7 +666,7 @@ export function EngineDetailsSection({ details }: { details: Component["details"
   const e = engineDetailsOf(details)
   if (!e) return null
   return (
-    <Section title="Engine">
+    <DetailSection title="Engine">
       <DescriptionList
         className="sm:grid-cols-1"
         items={[
@@ -490,7 +693,7 @@ export function EngineDetailsSection({ details }: { details: Component["details"
             : []),
         ]}
       />
-    </Section>
+    </DetailSection>
   )
 }
 
@@ -525,7 +728,7 @@ export function ImageDetailsSection({ details }: { details: Component["details"]
   const img = imageDetailsOf(details)
   if (!img) return null
   return (
-    <Section title="Image provenance">
+    <DetailSection title="Image provenance">
       <div className="space-y-3">
         <DescriptionList
           className="sm:grid-cols-1"
@@ -569,7 +772,7 @@ export function ImageDetailsSection({ details }: { details: Component["details"]
         ) : null}
         {img.ociLabels ? <LabelPairs labels={img.ociLabels} /> : null}
       </div>
-    </Section>
+    </DetailSection>
   )
 }
 
@@ -625,7 +828,7 @@ export function NetworkDetailsSection({ details }: { details: Component["details
   const n = networkDetailsOf(details)
   if (!n) return null
   return (
-    <Section title="Network">
+    <DetailSection title="Network">
       <div className="space-y-3">
         <DescriptionList
           className="sm:grid-cols-1"
@@ -661,7 +864,7 @@ export function NetworkDetailsSection({ details }: { details: Component["details
         ) : null}
         {n.labels ? <LabelPairs labels={n.labels} /> : null}
       </div>
-    </Section>
+    </DetailSection>
   )
 }
 
@@ -694,7 +897,7 @@ export function VolumeDetailsSection({ details }: { details: Component["details"
   const v = volumeDetailsOf(details)
   if (!v) return null
   return (
-    <Section title="Volume">
+    <DetailSection title="Volume">
       <div className="space-y-3">
         <DescriptionList
           className="sm:grid-cols-1"
@@ -719,6 +922,6 @@ export function VolumeDetailsSection({ details }: { details: Component["details"
         />
         {v.labels ? <LabelPairs labels={v.labels} /> : null}
       </div>
-    </Section>
+    </DetailSection>
   )
 }

@@ -273,3 +273,154 @@ describe("engine + image detail sections (spec 064)", () => {
     expect(screen.queryByText("should-not-render")).toBeNull();
   });
 });
+
+describe("githubEnvironment instance details (spec 072)", () => {
+  const githubComponent = (rawConfig: ComponentInstance["rawConfig"]) =>
+    component([instance(rawConfig)], {
+      category: "REPOSITORY",
+      provider: "GITHUB",
+      resourceType: "github:repository",
+      name: "acme/widgets",
+    });
+
+  it("expands and renders protection rules, branch policy and admin bypass", () => {
+    const c = githubComponent({
+      environment: "production",
+      deploymentState: "success",
+      githubEnvironment: {
+        protectionRules: [
+          { type: "wait_timer", waitTimerMinutes: 30 },
+          {
+            type: "required_reviewers",
+            preventSelfReview: true,
+            reviewerCount: 2,
+          },
+          { type: "branch_policy", protectedBranches: true },
+        ],
+        deploymentBranchPolicy: {
+          protectedBranches: true,
+          customBranchPolicies: false,
+        },
+        canAdminsBypass: true,
+      },
+    });
+    wrap(<ComponentDetail component={c} />);
+    expand();
+    expect(screen.getByText("GitHub environment")).toBeTruthy();
+    expect(screen.getByText(/Wait timer/)).toBeTruthy();
+    expect(screen.getByText(/30/)).toBeTruthy();
+    expect(screen.getByText(/Required reviewers/)).toBeTruthy();
+    expect(screen.getByText(/2 reviewers/)).toBeTruthy();
+    expect(screen.getByText(/self-review prevented/)).toBeTruthy();
+    expect(screen.getByText("Deployment branch policy")).toBeTruthy();
+    // "protected branches" appears in both the branch_policy rule and the
+    // deployment branch policy value
+    expect(screen.getAllByText(/protected branches/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Admins can bypass")).toBeTruthy();
+    expect(screen.getByText("Yes")).toBeTruthy();
+  });
+
+  it("renders an unknown protection-rule type without fabricating fields", () => {
+    const c = githubComponent({
+      githubEnvironment: {
+        protectionRules: [{ type: "custom_rule", waitTimerMinutes: 5 }],
+      },
+    });
+    wrap(<ComponentDetail component={c} />);
+    expand();
+    expect(screen.getByText("custom_rule")).toBeTruthy();
+    // waitTimerMinutes is only meaningful for wait_timer — not rendered here
+    expect(screen.queryByText(/5 min/)).toBeNull();
+  });
+
+  it("never renders unknown githubEnvironment keys", () => {
+    const c = githubComponent({
+      githubEnvironment: {
+        protectionRules: [{ type: "wait_timer", waitTimerMinutes: 10 }],
+        internalAudit: { secret: "never-render" },
+      },
+      mystery: "never-render",
+    });
+    wrap(<ComponentDetail component={c} />);
+    expand();
+    expect(screen.getByText("GitHub environment")).toBeTruthy();
+    expect(screen.queryByText(/never-render/)).toBeNull();
+    expect(screen.queryByText("internalAudit")).toBeNull();
+  });
+
+  it("shows the expand control when only githubEnvironment is present", () => {
+    const c = githubComponent({
+      githubEnvironment: { canAdminsBypass: false },
+    });
+    wrap(<ComponentDetail component={c} />);
+    expand();
+    expect(screen.getByText("GitHub environment")).toBeTruthy();
+    expect(screen.getByText("No")).toBeTruthy(); // admins can bypass: false
+  });
+});
+
+describe("githubBranch instance details (spec 072 amendment)", () => {
+  const githubComponent = (
+    rawConfig: ComponentInstance["rawConfig"],
+    over: Partial<ComponentInstance> = {},
+  ) =>
+    component([instance(rawConfig, over)], {
+      category: "REPOSITORY",
+      provider: "GITHUB",
+      resourceType: "github:repository",
+      name: "acme/widgets",
+    });
+
+  it("expands and renders branch facts plus the GitHub link", () => {
+    const c = githubComponent(
+      {
+        branch: "feature/checkout",
+        sha: "abc123def4567890",
+        protected: true,
+        isDefault: false,
+        lastActivityAt: "2026-02-03T00:00:00Z",
+        unknownKey: "never-render",
+      },
+      {
+        externalId: "branch:feature/checkout",
+        environment: "OTHER",
+        url: "https://github.com/acme/widgets/tree/feature/checkout",
+      },
+    );
+    wrap(<ComponentDetail component={c} />);
+    expand();
+    expect(screen.getByText("GitHub branch")).toBeTruthy();
+    expect(screen.getByText("feature/checkout")).toBeTruthy();
+    expect(screen.getByText("abc123def4567890")).toBeTruthy();
+    expect(screen.getByText("Protected")).toBeTruthy();
+    expect(screen.getByText("Repository default")).toBeTruthy();
+    expect(screen.getByText("Last activity")).toBeTruthy();
+    const link = screen.getByRole("link", { name: /open branch/i });
+    expect(link.getAttribute("href")).toBe(
+      "https://github.com/acme/widgets/tree/feature/checkout",
+    );
+    expect(screen.queryByText(/never-render/)).toBeNull();
+    expect(screen.queryByText("unknownKey")).toBeNull();
+  });
+
+  it("shows the expand control when only branch facts are present", () => {
+    const c = githubComponent({ branch: "main", isDefault: true });
+    wrap(<ComponentDetail component={c} />);
+    expand();
+    expect(screen.getByText("GitHub branch")).toBeTruthy();
+    expect(screen.getByText("main", { exact: true })).toBeTruthy();
+    // absent optional facts render nothing rather than placeholders
+    expect(screen.queryByText("Head SHA")).toBeNull();
+    expect(screen.queryByText("Last activity")).toBeNull();
+  });
+
+  it("does not render the branch section for env instances", () => {
+    const c = githubComponent({
+      environment: "production",
+      deploymentState: "success",
+    });
+    wrap(<ComponentDetail component={c} />);
+    // no branch key → no expand control at all for this rawConfig
+    expect(screen.queryByRole("button", { name: /details/i })).toBeNull();
+  });
+});

@@ -5,7 +5,7 @@ export const manifest = {
   label: "GitHub",
   description:
     "Import GitHub organizations, repositories, environments, billing usage, workflows, runners, and packages as components and instances.",
-  version: "1.0.0",
+  version: "1.2.0",
   implPath: "@componode/importer-github/importer",
   reportsSourceIdentity: true,
   configSchema: githubConfigSchema,

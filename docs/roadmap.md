@@ -434,6 +434,15 @@ file tracks shipped and upcoming work — update it when a spec completes.
   import runs keep refreshing the reported value underneath; provenance
   (`environmentOverride`/`environmentOverriddenBy`/`…At`) is exposed on
   the API and editable from the component detail Instances table.
+- `072-github-branch-inventory` — GitHub importer repository inventory:
+  every branch (SHA, protection, default flag, optional last activity),
+  the full release/tag inventory, repository facts, fork provenance, and
+  per-language breakdown land in component `details` behind new toggles,
+  while `environmentMapping` keeps selecting only environment-mapped
+  branch *instances* (spec-011 semantics preserved); environment
+  protection governance surfaces on instance `rawConfig`, per-repo and
+  org-aggregated capability markers report degraded families, and the
+  component page renders a bounded GitHub details section.
 
 ## Next — post-v1.1
 
@@ -448,8 +457,10 @@ guided Docker importer onboarding (063), Docker importer enrichment
 (064), Docker infrastructure inventory (065), a component-group
 detail bugfix (066), source-scoped auto ComponentGroups (067),
 standardized list pages (068), list-standards follow-ups (069),
-app-level auto ComponentGroups with multi-group membership (070), and
-human environment overrides on ComponentInstances (071).
+app-level auto ComponentGroups with multi-group membership (070),
+human environment overrides on ComponentInstances (071), and the GitHub
+importer branch/release/metadata inventory with bounded component-page
+details (072).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new

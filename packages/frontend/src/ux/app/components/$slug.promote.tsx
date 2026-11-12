@@ -11,7 +11,7 @@ import { ux } from "@/ux/lib/paths";
 export function UxComponentPromotePage() {
   const { slug } = useParams<{ slug: string }>();
   // Route params are slugs; the API addresses components by id — resolve via the list.
-  const lookup = useComponents({ search: slug, includeRetired: true, pageSize: 100 });
+  const lookup = useComponents({ search: slug, includeRetired: true, includeGone: true, pageSize: 100 });
   const componentId = lookup.data?.data.find((c) => c.slug === slug)?.id ?? null;
   const detail = useComponentDetail(componentId);
   const dependents = useComponentDependents(componentId);

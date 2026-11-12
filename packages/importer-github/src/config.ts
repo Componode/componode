@@ -35,10 +35,31 @@ export const githubConfigSchema = z.object({
   includeRunners: z.boolean().default(false).describe("Import org self-hosted runners (needs `admin:org`)"),
   includePackages: z.boolean().default(false).describe("Import org packages (needs `admin:org`)"),
 
+  includeBranchInventory: z
+    .boolean()
+    .default(true)
+    .describe("Import the full branch inventory into component details"),
+  includeBranchActivity: z
+    .boolean()
+    .default(false)
+    .describe("Fetch last-commit timestamps per branch (one extra API call per branch)"),
+  includeBranchInstances: z
+    .boolean()
+    .default(true)
+    .describe("Emit one instance per repository branch (environment from mapping, OTHER fallback)"),
+  includeReleaseInventory: z
+    .boolean()
+    .default(true)
+    .describe("Import releases and tags inventory into component details"),
+  includeLanguageBreakdown: z
+    .boolean()
+    .default(false)
+    .describe("Import per-language byte breakdown (one extra API call per repo)"),
+
   environmentMapping: z
     .record(z.string(), z.enum(ENVIRONMENTS))
     .optional()
-    .describe("Map GitHub environment names to DEV/TEST/STAGING/DEMO/PRODUCTION/OTHER"),
+    .describe("Map GitHub environment and branch names to DEV/TEST/STAGING/DEMO/PRODUCTION/OTHER (unmapped names report OTHER)"),
 });
 
 export type GithubConfig = z.infer<typeof githubConfigSchema>;
