@@ -1483,6 +1483,54 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+  /component-instances/{id}:
+    patch:
+      tags: [Components]
+      summary: Set or clear a component instance's environment override
+      x-permission: "component:update"
+      description: >-
+        Requires the `component:update` role (Editor+). Spec 071: writes the
+        human environment override layer — `environment` non-null sets it,
+        explicit `null` clears it so the effective value falls back to the
+        latest importer-reported environment. Import runs keep refreshing
+        the reported value underneath; only `environment` and its override
+        provenance fields change — slug, externalId, url, region, status,
+        memberships, and URL checks are untouched. GONE instances remain
+        editable; visibility rules are unchanged.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [environment]
+              properties:
+                environment:
+                  type: string
+                  nullable: true
+                  enum: [DEV, TEST, STAGING, DEMO, PRODUCTION, OTHER, null]
+                  description: >-
+                    Override value, or `null` to clear the override and
+                    restore the importer-reported environment.
+      responses:
+        "200":
+          description: Instance with updated override provenance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instance: { $ref: "#/components/schemas/ComponentInstance" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /components/platform-candidates:
     get:
       tags: [Components]
@@ -5177,6 +5225,33 @@ components:
         environment:
           type: string
           enum: [DEV, TEST, STAGING, DEMO, PRODUCTION, OTHER]
+          description: >-
+            Spec 071: the effective environment — the human override when
+            `environmentOverride` is set, otherwise the importer-reported
+            value (`reportedEnvironment`).
+        reportedEnvironment:
+          type: string
+          enum: [DEV, TEST, STAGING, DEMO, PRODUCTION, OTHER]
+          description: >-
+            Latest environment reported by the importer; keeps refreshing
+            on every import run regardless of any override.
+        environmentOverride:
+          type: string
+          enum: [DEV, TEST, STAGING, DEMO, PRODUCTION, OTHER]
+          nullable: true
+          description: >-
+            Human-set environment override; null when the instance follows
+            the importer-reported value.
+        environmentOverriddenBy:
+          type: string
+          format: uuid
+          nullable: true
+          description: Person who set the current override.
+        environmentOverriddenAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the current override was set.
         url: { type: string, nullable: true }
         region: { type: string, nullable: true }
         status:

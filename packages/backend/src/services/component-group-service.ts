@@ -9,13 +9,14 @@ import {
   type CreateComponentInput,
   type UpdateComponentGroupInput,
   type UpdateComponentInput,
+  type ComponentInstance,
   type Link,
   listComponentGroupsQuerySchema,
   type ListComponentGroupsQuery,
 } from "@componode/core";
 import type { Selectable } from "kysely";
 import { db } from "../db/connection.js";
-import type { ComponentInstanceRow, ComponentRow } from "../db/types.js";
+import type { ComponentRow } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
 import { tagsDiffer } from "./suggestion-signals.js";
@@ -27,6 +28,7 @@ import {
   replaceHumanMemberships,
   type ComponentGroupRef,
 } from "./component-group-membership.js";
+import { toApiComponentInstance } from "./component-instance-service.js";
 
 function isValidSlug(slug: string): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && slug.length <= 100;
@@ -513,8 +515,8 @@ export interface CreateComponentResult {
     | (Selectable<ComponentRow> & { componentGroups: ComponentGroupRef[] })
     | undefined;
   // Composite create-with-instance — present only when the request
-  // carried the instance block.
-  instance?: Selectable<ComponentInstanceRow>;
+  // carried the instance block. Serialized API shape (spec 071).
+  instance?: ComponentInstance;
 }
 
 export async function createComponent(
@@ -672,7 +674,10 @@ export async function createComponent(
       .where("id", "=", instanceId)
       .executeTakeFirst();
 
-    return { component: payload, instance };
+    return {
+      component: payload,
+      instance: instance ? toApiComponentInstance(instance) : instance,
+    };
   });
 }
 

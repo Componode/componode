@@ -67,6 +67,10 @@ const fullView: ComponentRelationshipsView = {
     {
       id: "i-prod",
       environment: "PRODUCTION",
+      reportedEnvironment: "PRODUCTION",
+      environmentOverride: null,
+      environmentOverriddenBy: null,
+      environmentOverriddenAt: null,
       region: "us-east-1",
       status: "RUNNING",
       version: "1.2.3",
@@ -78,6 +82,10 @@ const fullView: ComponentRelationshipsView = {
     {
       id: "i-dev",
       environment: "DEV",
+      reportedEnvironment: "DEV",
+      environmentOverride: null,
+      environmentOverriddenBy: null,
+      environmentOverriddenAt: null,
       region: null,
       status: "STOPPED",
       version: null,

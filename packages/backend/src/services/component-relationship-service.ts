@@ -1,5 +1,4 @@
 import type {
-  ComponentInstance,
   ComponentLifecycle,
   ComponentProductDependent,
   ComponentRelationKind,
@@ -11,6 +10,7 @@ import type {
 import { db } from "../db/connection.js";
 import { logger as appLogger } from "../plugins/logging.js";
 import { readRelationFamily } from "./product-service.js";
+import { toApiComponentInstance } from "./component-instance-service.js";
 
 /**
  * Spec 060 / ADR-128 — read-only one-hop Component relationship read.
@@ -224,7 +224,6 @@ export async function getComponentRelationships(
       .where("componentId", "=", componentId)
       .$if(!options.includeGone, (qb) => qb.where("status", "!=", "GONE"))
       .orderBy("environment")
-      .$castTo<ComponentInstance>()
       .execute(),
   );
 
@@ -270,7 +269,7 @@ export async function getComponentRelationships(
       exposes: exposesRows,
       exposedBy: exposedByRows,
       productDependents: { direct, viaGroups },
-      instances: instanceRows,
+      instances: instanceRows.map(toApiComponentInstance),
     },
     unavailableKinds,
   };

@@ -140,6 +140,10 @@ const component = {
     {
       id: "i1",
       environment: "PRODUCTION" as const,
+      reportedEnvironment: "PRODUCTION" as const,
+      environmentOverride: null,
+      environmentOverriddenBy: null,
+      environmentOverriddenAt: null,
       region: null,
       status: "RUNNING" as const,
       version: null,

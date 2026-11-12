@@ -79,7 +79,12 @@ operational status (`RUNNING`/`STOPPED`/`ERROR`/`GONE`). A resource that
 disappears from the source becomes `GONE` — it's marked, not deleted. A
 manually created `ACTIVE` Component with no instances offers **Add first
 instance** from its URL checks card — a focused recovery path that saves
-one environment without creating a second Component. URL checks
+one environment without creating a second Component. The environment an
+importer reports can be overridden per instance with the pencil on the
+Instances table: the override survives later import runs (the reported
+value keeps refreshing underneath and shows as provenance in the edit
+dialog), and **Reset to reported** returns the instance to following the
+importer. URL checks
 themselves are declared on a Web/API ImporterConfig and materialize on
 import runs; the card is read-only and links to the owning configuration.
 

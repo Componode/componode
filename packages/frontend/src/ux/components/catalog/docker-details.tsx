@@ -1,5 +1,6 @@
 import { DescriptionList, RelativeTime } from "@/ux/components/patterns/primitives"
 import { Badge } from "@/ux/components/ui/badge"
+import { ENVIRONMENT_META } from "@/ux/lib/domain"
 import type { Component, ComponentInstance } from "@/ux/lib/view-types"
 
 // Bounded Docker detail rendering (ADR-121, spec 064): every shaper below
@@ -359,6 +360,14 @@ export function InstanceDetails({ instance }: { instance: ComponentInstance }) {
   const networks = networksOf(instance)
   return (
     <div className="space-y-4">
+      {instance.environmentOverride ? (
+        <Section title="Environment">
+          <p className="text-sm text-muted-foreground">
+            Manually overridden to {ENVIRONMENT_META[instance.environment].label}; the
+            importer reports {ENVIRONMENT_META[instance.reportedEnvironment].label}.
+          </p>
+        </Section>
+      ) : null}
       {obs ? (
         <Section title="Observation">
           <ObservationDetails obs={obs} />

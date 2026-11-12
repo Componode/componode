@@ -16,6 +16,7 @@ import { formatDate } from "@/ux/lib/format"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ux/components/ui/tabs"
 import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import { ComponentEditDialog } from "@/ux/components/catalog/component-edit-dialog"
+import { InstanceEnvironmentDialog } from "@/ux/components/catalog/instance-environment-dialog"
 import {
   EngineDetailsSection,
   hasInstanceDetails,
@@ -99,7 +100,7 @@ export function ComponentDetail({ component: c }: { component: Component }) {
         <Card className="lg:col-span-2 overflow-hidden pb-0">
           <CardHeader>
             <CardTitle>Instances</CardTitle>
-            <CardDescription>One row per environment the importer observed. Instances reported gone are hidden here.</CardDescription>
+            <CardDescription>One row per environment the importer observed; gone instances are hidden. The pencil overrides the reported environment — overrides survive import runs until reset.</CardDescription>
             <CardAction>
               <Button variant="outline" size="sm" disabled={!flags.detailGoneInstances} title="Showing gone instances here needs detail-level API support (gap G26)">
                 Show gone
@@ -141,6 +142,12 @@ export function ComponentDetail({ component: c }: { component: Component }) {
                             </Button>
                           ) : null}
                           <EnvironmentBadge value={i.environment} />
+                          {i.environmentOverride ? (
+                            <Badge variant="outline" className="text-[10px]" title={`Reported: ${i.reportedEnvironment} — override wins until reset`}>
+                              overridden
+                            </Badge>
+                          ) : null}
+                          <InstanceEnvironmentDialog instance={i} />
                         </span>
                       </TableCell>
                       <TableCell>

@@ -201,7 +201,13 @@ export interface Component {
 export interface ComponentInstance {
   id: string;
   componentId: string;
+  /** Effective environment — override when set, else importer-reported (spec 071). */
   environment: string;
+  /** Importer-reported/baseline environment — equals `environment` when not overridden. */
+  reportedEnvironment: string;
+  environmentOverride: string | null;
+  environmentOverriddenBy: string | null;
+  environmentOverriddenAt: string | null;
   url: string | null;
   region: string | null;
   status: string;

@@ -240,6 +240,14 @@ export function mapComponentInstance(i: ApiInstance): ComponentInstance {
   return {
     id: i.id,
     environment: narrow<Environment>(i.environment, ENVIRONMENTS, "OTHER"),
+    reportedEnvironment: narrow<Environment>(
+      i.reportedEnvironment ?? i.environment,
+      ENVIRONMENTS,
+      "OTHER",
+    ),
+    environmentOverride: narrowOrNull<Environment>(i.environmentOverride, ENVIRONMENTS),
+    environmentOverriddenBy: i.environmentOverriddenBy ?? null,
+    environmentOverriddenAt: i.environmentOverriddenAt ?? null,
     region: i.region ?? null,
     status: narrow<InstanceStatus>(i.status, INSTANCE_STATUSES, "GONE"),
     version: i.version ?? null,
