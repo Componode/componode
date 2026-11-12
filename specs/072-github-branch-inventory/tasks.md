@@ -172,3 +172,5 @@ Round-2 findings — all LOW/judgement; resolved inline and verified (46 importe
 - [X] T043 [code-review: standards] `githubEnvironmentGovernance` (`github-repos.ts`) now returns null when protection rules normalize to empty AND no branch policy AND no admin-bypass — `protection_rules: []` alone no longer emits a noise block.
 - [X] T044 [code-review: spec] Document draft-release visibility (push-access requirement, no API signal) in `docs/importers/github.md` behavior notes — resolves US2-AS3 adjudication.
 - Justified, no task: paginate `signal` forwarding (plugin limitation, pre-existing), pagination triplication, unbounded inventory tables, null-vs-omit detail fields, `ReleaseInventoryEntry.id` nullability.
+
+- [X] T045 [code-review: standards] Add `.changeset/github-branch-inventory-072.md` (importer-github + frontend, minor) per ADR-031.
