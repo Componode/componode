@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { COMPONENT_CATEGORIES } from "../constants/component-categories.js";
 import { COMPONENT_PROVIDERS } from "../constants/component-providers.js";
+import { ENVIRONMENTS } from "../constants/environments.js";
 import { linksSchema, tagSchema, tagsSchema } from "./metadata.js";
 import {
   createInstanceBlockSchema,
@@ -13,6 +14,9 @@ import {
 } from "./list-params.js";
 
 const lifecycleEnum = ["ACTIVE", "RETIRED"] as [string, ...string[]];
+
+const enumOf = <T extends readonly string[]>(values: T) =>
+  z.enum(values as unknown as [string, ...string[]]);
 
 const stringOrStringArray = z.union([z.string(), z.array(z.string())]).optional();
 
@@ -118,6 +122,17 @@ export const updateComponentGroupSchema = createComponentGroupSchema
   });
 
 /**
+ * Spec 071: environment override on a ComponentInstance. The key is
+ * required — a catalog environment sets the override, explicit `null`
+ * clears it (effective returns to the latest importer-reported value).
+ */
+export const updateComponentInstanceSchema = z
+  .object({
+    environment: enumOf(ENVIRONMENTS).nullable(),
+  })
+  .strict();
+
+/**
  * Spec 068 / ADR-130: standardized list contract for component groups —
  * shared params plus `lifecycle`/`includeRetired` filters. An explicit
  * `lifecycle` value overrides the default RETIRED exclusion (service-side).
@@ -138,3 +153,4 @@ export type CreateComponentInput = z.infer<typeof createComponentSchema>;
 export type CreateComponentGroupInput = z.infer<typeof createComponentGroupSchema>;
 export type UpdateComponentGroupInput = z.infer<typeof updateComponentGroupSchema>;
 export type ListComponentGroupsQuery = z.infer<typeof listComponentGroupsQuerySchema>;
+export type UpdateComponentInstanceInput = z.infer<typeof updateComponentInstanceSchema>;

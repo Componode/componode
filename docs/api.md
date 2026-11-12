@@ -252,6 +252,7 @@ Notes:
 | GET | `/api/v1/components/:id` | Get a component by ID | Authenticated |
 | PATCH | `/api/v1/components/:id` | Update component assignment and curated metadata | `component:update` |
 | POST | `/api/v1/components/:id/instances` | Add the first instance to a zero-instance component | `component:update` |
+| PATCH | `/api/v1/component-instances/:id` | Set or clear a component instance's environment override | `component:update` |
 | GET | `/api/v1/components/platform-candidates` | List platform candidates (ADR-017 detection) | Authenticated |
 | GET | `/api/v1/components/:id/dependents` | List products that directly depend on a component | Authenticated |
 | GET | `/api/v1/components/:id/relationships` | Read a component's one-hop typed relationships (spec 060) | Authenticated |

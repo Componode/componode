@@ -8,6 +8,7 @@ import {
   wiredComponentIdsQuery,
 } from "./catalog-coverage-service.js";
 import { groupsOfComponents } from "./component-group-membership.js";
+import { toApiComponentInstance } from "./component-instance-service.js";
 import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
 
 type ComponentSortKey = NonNullable<ListComponentsQuery["sort"]>;
@@ -287,7 +288,7 @@ export async function getComponentById(id: string) {
     return null;
   }
 
-  const instances = await db
+  const instanceRows = await db
     .selectFrom("component_instances")
     .selectAll()
     .where("componentId", "=", id)
@@ -301,6 +302,6 @@ export async function getComponentById(id: string) {
     ...component,
     componentGroups: componentGroups.get(id) ?? [],
     totalInstanceCount: Number(component.totalInstanceCount ?? 0),
-    instances,
+    instances: instanceRows.map(toApiComponentInstance),
   };
 }

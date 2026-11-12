@@ -1164,4 +1164,74 @@ describe("source-scoped auto ComponentGroups (spec 067)", () => {
       expect(after.slug).toBe(appGroup.slug);
     });
   });
+
+  // Spec 071: a human environment override survives import reconciliation —
+  // runs keep refreshing the reported `environment` column while the
+  // override layer wins at serialization; clearing restores the latest
+  // reported value.
+  it("environment override survives runs; clear restores latest reported", async () => {
+    const envAsset = (environment: string): DiscoveredAsset => {
+      const a = asset("svc-a", "container", {});
+      a.instances = [
+        {
+          externalId: "svc-a-inst",
+          environment: environment as DiscoveredAsset["instances"][number]["environment"],
+          status: "RUNNING",
+        },
+      ];
+      return a;
+    };
+    const instanceOf = async () => {
+      const comp = await componentByExternalId("svc-a");
+      return (await db())
+        .selectFrom("component_instances")
+        .selectAll()
+        .where("componentId", "=", comp.id)
+        .executeTakeFirstOrThrow();
+    };
+    const patchEnv = (instanceId: string, environment: string | null) =>
+      app.inject({
+        method: "PATCH",
+        url: `/api/v1/component-instances/${instanceId}`,
+        cookies: { [SESSION_COOKIE_NAME]: adminSession, ...csrfCookie },
+        headers: csrfHeader,
+        payload: { environment },
+      });
+
+    (getImporter as any).mockResolvedValue(sourceImporter([envAsset("PRODUCTION")], "src-A"));
+    const configA = await createConfig();
+    await runOnce(configA);
+    const instance = await instanceOf();
+    expect(instance.environment).toBe("PRODUCTION");
+
+    // Human override to STAGING.
+    const set = await patchEnv(instance.id, "STAGING");
+    expect(set.statusCode).toBe(200);
+    expect(JSON.parse(set.payload).instance.environment).toBe("STAGING");
+
+    // Next run reports DEV — reported column refreshes, override holds.
+    (getImporter as any).mockResolvedValue(sourceImporter([envAsset("DEV")], "src-A"));
+    await runOnce(configA);
+    const after = await instanceOf();
+    expect(after.environment).toBe("DEV");
+    expect(after.environmentOverride).toBe("STAGING");
+
+    const detail = await app.inject({
+      method: "GET",
+      url: `/api/v1/components/${after.componentId}`,
+      cookies: { [SESSION_COOKIE_NAME]: adminSession },
+    });
+    const apiInstance = JSON.parse(detail.payload).component.instances.find(
+      (i: { id: string }) => i.id === after.id,
+    );
+    expect(apiInstance.environment).toBe("STAGING");
+    expect(apiInstance.reportedEnvironment).toBe("DEV");
+
+    // Clear → effective falls back to the latest reported value.
+    const clear = await patchEnv(after.id, null);
+    expect(clear.statusCode).toBe(200);
+    expect(JSON.parse(clear.payload).instance.environment).toBe("DEV");
+    const cleared = await instanceOf();
+    expect(cleared.environmentOverride).toBeNull();
+  });
 });

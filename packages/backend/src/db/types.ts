@@ -108,6 +108,11 @@ export interface ComponentInstanceRow {
   id: string;
   componentId: string;
   environment: string;
+  // Human override layer (spec 071): `environment` stays the
+  // importer-reported value; effective = environmentOverride ?? environment.
+  environmentOverride: string | null;
+  environmentOverriddenBy: string | null;
+  environmentOverriddenAt: string | null;
   url: string | null;
   region: string | null;
   status: string;

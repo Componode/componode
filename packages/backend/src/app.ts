@@ -28,6 +28,7 @@ import { importerSourceRoutes } from "./routes/importer-sources.js";
 import { credentialRoutes } from "./routes/credentials.js";
 import { dockerTargetRoutes } from "./routes/docker-targets.js";
 import { componentRoutes } from "./routes/components.js";
+import { componentInstanceRoutes } from "./routes/component-instances.js";
 import { componentGroupRoutes } from "./routes/component-groups.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
 import { searchRoutes } from "./routes/search.js";
@@ -145,6 +146,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(credentialRoutes, { prefix: "/api/v1" });
   await app.register(dockerTargetRoutes, { prefix: "/api/v1" });
   await app.register(componentRoutes, { prefix: "/api/v1" });
+  await app.register(componentInstanceRoutes, { prefix: "/api/v1" });
   await app.register(componentGroupRoutes, { prefix: "/api/v1" });
   await app.register(urlCheckRoutes, { prefix: "/api/v1" });
   await app.register(dashboardRoutes, { prefix: "/api/v1" });

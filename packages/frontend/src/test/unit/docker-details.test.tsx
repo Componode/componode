@@ -10,6 +10,9 @@ import type { Component, ComponentInstance } from "@/ux/lib/view-types";
 vi.mock("@/ux/components/catalog/component-edit-dialog", () => ({
   ComponentEditDialog: () => null,
 }));
+vi.mock("@/ux/components/catalog/instance-environment-dialog", () => ({
+  InstanceEnvironmentDialog: () => null,
+}));
 vi.mock("@/ux/components/catalog/url-checks-card", () => ({
   UrlChecksCard: () => null,
   OutcomeDots: () => null,
@@ -29,6 +32,10 @@ function instance(
   return {
     id: "i1",
     environment: "PRODUCTION",
+    reportedEnvironment: "PRODUCTION",
+    environmentOverride: null,
+    environmentOverriddenBy: null,
+    environmentOverriddenAt: null,
     region: null,
     status: "RUNNING",
     version: null,

@@ -154,6 +154,22 @@ export function useUpdateComponent() {
   });
 }
 
+/** Spec 071: set/clear a ComponentInstance's environment override.
+ *  `environment: null` clears the override back to the reported value. */
+export function useUpdateComponentInstanceEnvironment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: string; environment: string | null }) =>
+      api<{ instance: ComponentInstance }>(`/component-instances/${vars.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ environment: vars.environment }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["components"] });
+    },
+  });
+}
+
 /** Manual component creation (spec 042, G29) — re-exports the core schema type. */
 export type { CreateComponentInput };
 

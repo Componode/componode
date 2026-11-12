@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–070, bugfix 066)
+## Shipped (features 001–071, bugfix 066)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -427,6 +427,13 @@ file tracks shipped and upcoming work — update it when a spec completes.
   (`autoSourceId`/`autoGroupKey` provenance on `component_groups`), with
   the same derived lifecycle, `GROUP_AUTO_MANAGED` guards, and
   `autoGroup` opt-out as source groups.
+- `071-instance-environment-override` — human environment override for
+  ComponentInstances (ADR-034 amendment): `PATCH
+  /component-instances/{id}` sets or clears a per-instance override that
+  wins over the importer-reported environment at serialization, while
+  import runs keep refreshing the reported value underneath; provenance
+  (`environmentOverride`/`environmentOverriddenBy`/`…At`) is exposed on
+  the API and editable from the component detail Instances table.
 
 ## Next — post-v1.1
 
@@ -440,8 +447,9 @@ dependencies in the Product topology (061), prototype UX parity (062),
 guided Docker importer onboarding (063), Docker importer enrichment
 (064), Docker infrastructure inventory (065), a component-group
 detail bugfix (066), source-scoped auto ComponentGroups (067),
-standardized list pages (068), list-standards follow-ups (069), and
-app-level auto ComponentGroups with multi-group membership (070).
+standardized list pages (068), list-standards follow-ups (069),
+app-level auto ComponentGroups with multi-group membership (070), and
+human environment overrides on ComponentInstances (071).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new

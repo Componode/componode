@@ -56,7 +56,14 @@ export interface Product {
 
 export interface ComponentInstance {
   id: string;
+  /** Effective environment — the override when set, else reported (spec 071). */
   environment: Environment;
+  /** Latest importer-reported environment; refreshes on every import run. */
+  reportedEnvironment: Environment;
+  /** Human override — when non-null, `environment` carries this value. */
+  environmentOverride: Environment | null;
+  environmentOverriddenBy: string | null;
+  environmentOverriddenAt: string | null;
   region: string | null;
   status: InstanceStatus;
   version: string | null;

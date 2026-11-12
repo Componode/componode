@@ -315,6 +315,7 @@ export {
   updateComponentGroupSchema,
   listComponentGroupsQuerySchema,
   componentRelationshipsQuerySchema,
+  updateComponentInstanceSchema,
 } from "./schemas/components.js";
 export { searchQuerySchema } from "./schemas/search.js";
 export type { SearchQuery } from "./schemas/search.js";
@@ -373,6 +374,7 @@ export type {
   UpdateComponentGroupInput,
   ListComponentGroupsQuery,
   ComponentRelationshipsQuery,
+  UpdateComponentInstanceInput,
 } from "./schemas/components.js";
 export type {
   LoginInput,
