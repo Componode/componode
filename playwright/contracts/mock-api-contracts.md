@@ -36,7 +36,7 @@ The mock must implement the routes used by the importer:
 - `GET /orgs/{org}/teams`.
 - Organization Actions runners and packages.
 - Organization billing usage, Actions, Packages, shared-storage, AI-credit, and premium-request usage endpoints.
-- Repository environments, deployments, deployment statuses, latest release, branches, branch detail, and Actions workflows.
+- Repository environments, deployments, deployment statuses, latest release, branches, branch detail, releases list, tags, languages, and Actions workflows.
 
 Behavior contracts:
 

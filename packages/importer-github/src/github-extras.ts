@@ -136,8 +136,6 @@ export async function* fetchPackageAssets(
         worst = worstCapabilityMarker(worst, capabilityMarker(result));
         continue;
       }
-      if (!result.data) continue;
-
       for (const pkg of result.data) {
         yield {
           category: "PACKAGE_REGISTRY",

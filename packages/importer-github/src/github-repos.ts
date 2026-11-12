@@ -174,7 +174,13 @@ export async function buildRepoInstances(
                 request: { signal },
               }),
             );
-            releasesMarker = capabilityMarker(relResult);
+            // getLatestRelease 404s on repos with no releases — a
+            // legitimate empty state, not capability degradation, so it
+            // must not mark the family UNAVAILABLE on every run.
+            releasesMarker =
+              relResult.status === "UNAVAILABLE"
+                ? { status: "OK" }
+                : capabilityMarker(relResult);
             release =
               relResult.status === "OK"
                 ? (relResult.data.data as GithubRelease)

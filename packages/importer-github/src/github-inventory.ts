@@ -268,11 +268,15 @@ export async function fetchVersionInventory(
   // tags already appear in releases[]. When the releases fetch failed we
   // can't tell which tags are covered, so keep the full list (the
   // versionInventory marker already records the degradation).
+  let tagsResult = tags;
   if (releases.status === "OK" && tags.status === "OK") {
     const releaseTagNames = new Set(releases.data.map((r) => r.tagName));
-    tags.data = tags.data.filter((t) => !releaseTagNames.has(t.name));
+    tagsResult = {
+      ...tags,
+      data: tags.data.filter((t) => !releaseTagNames.has(t.name)),
+    };
   }
-  return { releases, tags };
+  return { releases, tags: tagsResult };
 }
 
 /** Opt-in per-language byte breakdown — `GET /languages` (one call per repo). */

@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/ux/components/ui/table"
 import { formatBytes, formatNumber } from "@/ux/lib/format"
+import { asObj, bool, hasDefined, num, str, strArr } from "@/ux/lib/guards"
 import type { Component } from "@/ux/lib/view-types"
 
 // Bounded GitHub detail rendering (ADR-121, spec 072): every shaper below
@@ -18,23 +19,6 @@ import type { Component } from "@/ux/lib/view-types"
 // (contracts/github-inventory.md) — unknown details keys never render, and
 // there is no generic dump anywhere. All outbound hrefs go through
 // ExternalLink → safeUrl (ADR-085).
-
-const asObj = <T,>(v: unknown): T | null =>
-  v && typeof v === "object" ? (v as T) : null
-
-const hasDefined = (o: object) =>
-  Object.values(o).some((v) => v !== undefined)
-
-const str = (v: unknown) => (typeof v === "string" && v ? v : undefined)
-const num = (v: unknown) =>
-  typeof v === "number" && Number.isFinite(v) ? v : undefined
-const bool = (v: unknown) => (typeof v === "boolean" ? v : undefined)
-
-const strArr = (v: unknown) => {
-  if (!Array.isArray(v)) return undefined
-  const out = v.filter((x): x is string => typeof x === "string" && x.length > 0)
-  return out.length ? out : undefined
-}
 
 // ---- component details: github:repository (spec 072) ----
 
@@ -221,6 +205,7 @@ const CAPABILITY_LABELS: Record<string, string> = {
   languages: "Language breakdown",
   environments: "Environments",
   deployments: "Deployments",
+  releases: "Latest release",
 }
 
 function degradedCapabilitiesOf(

@@ -1141,6 +1141,39 @@ describe("GithubImporter", () => {
     expect(capsOf(repo).releases?.status).toBe("OK");
   });
 
+  it("treats a 404 latest-release as empty, not degraded, on release-less repos", async () => {
+    useRoutes(
+      inventoryRoutes([
+        {
+          path: "/repos/testorg/repo/environments",
+          body: {
+            total_count: 1,
+            environments: [{ name: "prod" }],
+          },
+        },
+        {
+          path: "/repos/testorg/repo/deployments",
+          query: { environment: "prod" },
+          body: [],
+        },
+        {
+          path: "/repos/testorg/repo/releases/latest",
+          status: 404,
+          body: { message: "Not Found" },
+        },
+      ]),
+    );
+
+    const assets = await collectAssets(new GithubImporter(), { org: "testorg" });
+    const repo = repoAsset(assets);
+    const env = (repo?.instances ?? []).find((i) => i.externalId === "env:prod");
+
+    expect(env).toBeDefined();
+    expect(env?.version ?? null).toBeNull();
+    // A release-less repo is not a capability failure — no UNAVAILABLE noise.
+    expect(capsOf(repo).releases?.status).toBe("OK");
+  });
+
   it("marks versionInventory degraded and still emits tags when /releases fails", async () => {
     useRoutes(
       inventoryRoutes([

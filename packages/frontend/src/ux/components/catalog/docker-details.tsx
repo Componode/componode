@@ -2,18 +2,13 @@ import { DescriptionList, RelativeTime } from "@/ux/components/patterns/primitiv
 import { Badge } from "@/ux/components/ui/badge"
 import { ENVIRONMENT_META } from "@/ux/lib/domain"
 import { formatBytes } from "@/ux/lib/format"
+import { asObj, bool, hasDefined, num, str, strArr } from "@/ux/lib/guards"
 import type { Component, ComponentInstance } from "@/ux/lib/view-types"
 
 // Bounded Docker detail rendering (ADR-121, spec 064): every shaper below
 // extracts ONLY the allowlisted keys the importer contract names —
 // unknown rawConfig/details keys never render, and there is no generic
 // dump anywhere.
-
-const asObj = <T,>(v: unknown): T | null =>
-  v && typeof v === "object" ? (v as T) : null
-
-const hasDefined = (o: object) =>
-  Object.values(o).some((v) => v !== undefined)
 
 // ---- instance rawConfig: dockerObservation (ADR-121 A1, spec 047) ----
 
@@ -136,11 +131,6 @@ interface ContainerImage {
   imageDigest?: string
   imageId?: string
 }
-
-const str = (v: unknown) => (typeof v === "string" && v ? v : undefined)
-const num = (v: unknown) =>
-  typeof v === "number" && Number.isFinite(v) ? v : undefined
-const bool = (v: unknown) => (typeof v === "boolean" ? v : undefined)
 
 function containerImageOf(i: ComponentInstance): ContainerImage | null {
   const raw = i.rawConfig
@@ -556,12 +546,6 @@ interface EngineDetails {
   swarmNodeState?: string
   swarmControlAvailable?: boolean
   swarmManagers?: number
-}
-
-const strArr = (v: unknown) => {
-  if (!Array.isArray(v)) return undefined
-  const out = v.filter((x): x is string => typeof x === "string")
-  return out.length ? out : undefined
 }
 
 const strRecord = (v: unknown) => {
