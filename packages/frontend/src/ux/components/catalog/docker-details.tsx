@@ -137,6 +137,9 @@ interface ContainerImage {
 }
 
 const str = (v: unknown) => (typeof v === "string" && v ? v : undefined)
+const num = (v: unknown) =>
+  typeof v === "number" && Number.isFinite(v) ? v : undefined
+const bool = (v: unknown) => (typeof v === "boolean" ? v : undefined)
 
 function containerImageOf(i: ComponentInstance): ContainerImage | null {
   const raw = i.rawConfig
@@ -149,6 +152,65 @@ function containerImageOf(i: ComponentInstance): ContainerImage | null {
   return hasDefined(out) ? out : null
 }
 
+// ---- instance rawConfig: githubEnvironment (spec 072) ----
+// Deployment-environment governance facts normalized by the GitHub
+// importer. protectionRules entries are allowlisted per `type` — unknown
+// rule types render their type label only, never raw provider payloads.
+
+interface GithubProtectionRule {
+  type?: string
+  waitTimerMinutes?: number
+  reviewerCount?: number
+  preventSelfReview?: boolean
+  protectedBranches?: boolean
+  customBranchPolicies?: boolean
+}
+
+interface GithubBranchPolicy {
+  protectedBranches?: boolean
+  customBranchPolicies?: boolean
+}
+
+interface GithubEnvironment {
+  protectionRules?: GithubProtectionRule[]
+  deploymentBranchPolicy?: GithubBranchPolicy | null
+  canAdminsBypass?: boolean
+}
+
+function githubEnvironmentOf(i: ComponentInstance): GithubEnvironment | null {
+  const raw = asObj<Record<string, unknown>>(i.rawConfig?.githubEnvironment)
+  if (!raw) return null
+  const rules = Array.isArray(raw.protectionRules)
+    ? raw.protectionRules.flatMap((r) => {
+        const o = asObj<Record<string, unknown>>(r)
+        const type = o ? str(o.type) : undefined
+        if (!o || !type) return []
+        const rule: GithubProtectionRule = {
+          type,
+          waitTimerMinutes: num(o.waitTimerMinutes),
+          reviewerCount: num(o.reviewerCount),
+          preventSelfReview: bool(o.preventSelfReview),
+          protectedBranches: bool(o.protectedBranches),
+          customBranchPolicies: bool(o.customBranchPolicies),
+        }
+        return [rule]
+      })
+    : undefined
+  const dbpRaw = asObj<Record<string, unknown>>(raw.deploymentBranchPolicy)
+  const dbp: GithubBranchPolicy | undefined = dbpRaw
+    ? {
+        protectedBranches: bool(dbpRaw.protectedBranches),
+        customBranchPolicies: bool(dbpRaw.customBranchPolicies),
+      }
+    : undefined
+  const out: GithubEnvironment = {
+    protectionRules: rules?.length ? rules : undefined,
+    deploymentBranchPolicy: dbp && hasDefined(dbp) ? dbp : undefined,
+    canAdminsBypass: bool(raw.canAdminsBypass),
+  }
+  return hasDefined(out) ? out : null
+}
+
 export function hasInstanceDetails(i: ComponentInstance): boolean {
   return Boolean(
     dockerObservationOf(i) ||
@@ -157,7 +219,8 @@ export function hasInstanceDetails(i: ComponentInstance): boolean {
       healthcheckOf(i) ||
       swarmObservationOf(i) ||
       swarmPortsOf(i).length ||
-      networksOf(i).length,
+      networksOf(i).length ||
+      githubEnvironmentOf(i),
   )
 }
 
@@ -314,6 +377,82 @@ function NetworksDetails({ networks }: { networks: string[] }) {
   )
 }
 
+function describeProtectionRule(r: GithubProtectionRule) {
+  switch (r.type) {
+    case "wait_timer":
+      return r.waitTimerMinutes !== undefined
+        ? `Wait timer — ${r.waitTimerMinutes} min`
+        : "Wait timer"
+    case "required_reviewers": {
+      const parts: string[] = []
+      if (r.reviewerCount !== undefined)
+        parts.push(
+          `${r.reviewerCount} reviewer${r.reviewerCount === 1 ? "" : "s"}`,
+        )
+      if (r.preventSelfReview !== undefined)
+        parts.push(
+          r.preventSelfReview ? "self-review prevented" : "self-review allowed",
+        )
+      return parts.length
+        ? `Required reviewers — ${parts.join(", ")}`
+        : "Required reviewers"
+    }
+    case "branch_policy": {
+      const parts: string[] = []
+      if (r.protectedBranches) parts.push("protected branches")
+      if (r.customBranchPolicies) parts.push("custom branch policies")
+      return parts.length ? `Branch policy — ${parts.join(", ")}` : "Branch policy"
+    }
+    default:
+      return <code className="font-mono text-xs">{r.type}</code>
+  }
+}
+
+function describeBranchPolicy(p: GithubBranchPolicy): string {
+  const parts: string[] = []
+  if (p.protectedBranches) parts.push("protected branches")
+  if (p.customBranchPolicies) parts.push("custom branch policies")
+  return parts.length ? parts.join(", ") : "No restrictions"
+}
+
+function GithubEnvironmentDetails({ env }: { env: GithubEnvironment }) {
+  return (
+    <div className="space-y-3">
+      {env.protectionRules?.length ? (
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">Protection rules</p>
+          <ul className="list-disc space-y-0.5 pl-5 text-sm">
+            {env.protectionRules.map((r, i) => (
+              <li key={i}>{describeProtectionRule(r)}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <DescriptionList
+        className="sm:grid-cols-[minmax(10rem,auto)_1fr]"
+        items={[
+          ...(env.deploymentBranchPolicy
+            ? [
+                {
+                  label: "Deployment branch policy",
+                  value: describeBranchPolicy(env.deploymentBranchPolicy),
+                },
+              ]
+            : []),
+          ...(env.canAdminsBypass !== undefined
+            ? [
+                {
+                  label: "Admins can bypass",
+                  value: env.canAdminsBypass ? "Yes" : "No",
+                },
+              ]
+            : []),
+        ]}
+      />
+    </div>
+  )
+}
+
 function ContainerImageDetails({ img }: { img: ContainerImage }) {
   return (
     <DescriptionList
@@ -358,6 +497,7 @@ export function InstanceDetails({ instance }: { instance: ComponentInstance }) {
   const healthcheck = healthcheckOf(instance)
   const ports = swarmPortsOf(instance)
   const networks = networksOf(instance)
+  const ghEnv = githubEnvironmentOf(instance)
   return (
     <div className="space-y-4">
       {instance.environmentOverride ? (
@@ -401,6 +541,11 @@ export function InstanceDetails({ instance }: { instance: ComponentInstance }) {
       {networks.length ? (
         <Section title="Networks">
           <NetworksDetails networks={networks} />
+        </Section>
+      ) : null}
+      {ghEnv ? (
+        <Section title="GitHub environment">
+          <GithubEnvironmentDetails env={ghEnv} />
         </Section>
       ) : null}
     </div>

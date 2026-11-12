@@ -11,7 +11,7 @@ import { ux } from "@/ux/lib/paths";
 
 export function UxComponentHistoryPage() {
   const { slug } = useParams<{ slug: string }>();
-  const lookup = useComponents({ search: slug, includeRetired: true, pageSize: 100 });
+  const lookup = useComponents({ search: slug, includeRetired: true, includeGone: true, pageSize: 100 });
   const componentId = lookup.data?.data.find((c) => c.slug === slug)?.id ?? null;
   const detail = useComponentDetail(componentId);
   const history = usePagedEntityHistory("component", componentId ?? "");

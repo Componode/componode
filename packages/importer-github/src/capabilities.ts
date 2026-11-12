@@ -53,3 +53,26 @@ export function warnIfDegraded(
     });
   }
 }
+
+// Worst-status-wins ordering for capability rollups: unexpected failures
+// outrank permission gaps, which outrank missing endpoints, which outrank OK.
+const CAPABILITY_STATUS_RANK: Record<CapabilityStatus, number> = {
+  OK: 0,
+  UNAVAILABLE: 1,
+  FORBIDDEN: 2,
+  ERROR: 3,
+};
+
+export function capabilityStatusRank(status: CapabilityStatus): number {
+  return CAPABILITY_STATUS_RANK[status];
+}
+
+/** Returns the worse of two markers; ties keep `a` (first-seen wins). */
+export function worstCapabilityMarker(
+  a: CapabilityMarker,
+  b: CapabilityMarker,
+): CapabilityMarker {
+  return CAPABILITY_STATUS_RANK[b.status] > CAPABILITY_STATUS_RANK[a.status]
+    ? b
+    : a;
+}

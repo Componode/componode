@@ -25,6 +25,7 @@ import {
   NetworkDetailsSection,
   VolumeDetailsSection,
 } from "@/ux/components/catalog/docker-details"
+import { GithubDetailsSection } from "@/ux/components/catalog/github-details"
 import { ComponentRelationshipsPanel } from "@/ux/components/catalog/component-relationships"
 import { UrlChecksCard } from "@/ux/components/catalog/url-checks-card"
 import type { Component } from "@/ux/lib/view-types"
@@ -215,6 +216,9 @@ export function ComponentDetail({ component: c }: { component: Component }) {
             ) : null}
             {c.resourceType === "volume" ? (
               <VolumeDetailsSection details={c.details} />
+            ) : null}
+            {c.resourceType === "github:repository" ? (
+              <GithubDetailsSection details={c.details} />
             ) : null}
           </CardContent>
         </Card>

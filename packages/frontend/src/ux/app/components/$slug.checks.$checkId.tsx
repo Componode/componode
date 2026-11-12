@@ -15,7 +15,7 @@ export function UxUrlCheckDetailPage() {
   const { slug, checkId } = useParams<{ slug: string; checkId: string }>();
   // Route params are slugs (prototype convention); the API addresses
   // components by id — resolve slug→id through the list endpoint.
-  const lookup = useComponents({ search: slug, includeRetired: true, pageSize: 100 });
+  const lookup = useComponents({ search: slug, includeRetired: true, includeGone: true, pageSize: 100 });
   const componentId = lookup.data?.data.find((c) => c.slug === slug)?.id ?? null;
   const detail = useComponentDetail(componentId);
   const check = useUrlCheck(checkId ?? null);

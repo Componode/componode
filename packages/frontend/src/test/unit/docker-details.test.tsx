@@ -273,3 +273,88 @@ describe("engine + image detail sections (spec 064)", () => {
     expect(screen.queryByText("should-not-render")).toBeNull();
   });
 });
+
+describe("githubEnvironment instance details (spec 072)", () => {
+  const githubComponent = (rawConfig: ComponentInstance["rawConfig"]) =>
+    component([instance(rawConfig)], {
+      category: "REPOSITORY",
+      provider: "GITHUB",
+      resourceType: "github:repository",
+      name: "acme/widgets",
+    });
+
+  it("expands and renders protection rules, branch policy and admin bypass", () => {
+    const c = githubComponent({
+      environment: "production",
+      deploymentState: "success",
+      githubEnvironment: {
+        protectionRules: [
+          { type: "wait_timer", waitTimerMinutes: 30 },
+          {
+            type: "required_reviewers",
+            preventSelfReview: true,
+            reviewerCount: 2,
+          },
+          { type: "branch_policy", protectedBranches: true },
+        ],
+        deploymentBranchPolicy: {
+          protectedBranches: true,
+          customBranchPolicies: false,
+        },
+        canAdminsBypass: true,
+      },
+    });
+    wrap(<ComponentDetail component={c} />);
+    expand();
+    expect(screen.getByText("GitHub environment")).toBeTruthy();
+    expect(screen.getByText(/Wait timer/)).toBeTruthy();
+    expect(screen.getByText(/30/)).toBeTruthy();
+    expect(screen.getByText(/Required reviewers/)).toBeTruthy();
+    expect(screen.getByText(/2 reviewers/)).toBeTruthy();
+    expect(screen.getByText(/self-review prevented/)).toBeTruthy();
+    expect(screen.getByText("Deployment branch policy")).toBeTruthy();
+    // "protected branches" appears in both the branch_policy rule and the
+    // deployment branch policy value
+    expect(screen.getAllByText(/protected branches/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Admins can bypass")).toBeTruthy();
+    expect(screen.getByText("Yes")).toBeTruthy();
+  });
+
+  it("renders an unknown protection-rule type without fabricating fields", () => {
+    const c = githubComponent({
+      githubEnvironment: {
+        protectionRules: [{ type: "custom_rule", waitTimerMinutes: 5 }],
+      },
+    });
+    wrap(<ComponentDetail component={c} />);
+    expand();
+    expect(screen.getByText("custom_rule")).toBeTruthy();
+    // waitTimerMinutes is only meaningful for wait_timer — not rendered here
+    expect(screen.queryByText(/5 min/)).toBeNull();
+  });
+
+  it("never renders unknown githubEnvironment keys", () => {
+    const c = githubComponent({
+      githubEnvironment: {
+        protectionRules: [{ type: "wait_timer", waitTimerMinutes: 10 }],
+        internalAudit: { secret: "never-render" },
+      },
+      mystery: "never-render",
+    });
+    wrap(<ComponentDetail component={c} />);
+    expand();
+    expect(screen.getByText("GitHub environment")).toBeTruthy();
+    expect(screen.queryByText(/never-render/)).toBeNull();
+    expect(screen.queryByText("internalAudit")).toBeNull();
+  });
+
+  it("shows the expand control when only githubEnvironment is present", () => {
+    const c = githubComponent({
+      githubEnvironment: { canAdminsBypass: false },
+    });
+    wrap(<ComponentDetail component={c} />);
+    expand();
+    expect(screen.getByText("GitHub environment")).toBeTruthy();
+    expect(screen.getByText("No")).toBeTruthy(); // admins can bypass: false
+  });
+});

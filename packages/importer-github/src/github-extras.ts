@@ -110,17 +110,20 @@ export async function* fetchPackageAssets(
   for (const packageType of PACKAGE_TYPES) {
     if (signal.aborted) return;
 
-    const result = await withCapability(() =>
-      octokit.rest.packages.listPackagesForOrganization({
-        org,
-        package_type: packageType,
-        per_page: 100,
-        signal,
-      }),
-    );
+    const result = await withCapability(async () => {
+      const packages: GithubPackage[] = [];
+      for await (const { data } of octokit.paginate.iterator(
+        octokit.rest.packages.listPackagesForOrganization,
+        { org, package_type: packageType, per_page: 100 },
+      )) {
+        packages.push(...(data as GithubPackage[]));
+        if (signal.aborted) break;
+      }
+      return packages;
+    });
     if (result.status !== "OK" || !result.data) continue;
 
-    for (const pkg of result.data.data as GithubPackage[]) {
+    for (const pkg of result.data) {
       yield {
         category: "PACKAGE_REGISTRY",
         provider: "GITHUB",

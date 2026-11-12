@@ -12,9 +12,18 @@ catalog components.
 ## What it creates
 
 - One **organization component** carrying the coverage/capability summary.
-- One **component per repository**, plus instances for branches,
-  environments (mapped to Componode environments), latest release,
-  workflows, deployments — depending on which sections you enable.
+- One **component per repository**. Its details carry the repository facts
+  (default branch, fork provenance, size, license, timestamps) plus, by
+  default, the full **branch inventory** (every branch with commit SHA,
+  protection state, and default-branch flag), the **release and tag
+  inventory**, and per-repo capability markers — all visible on the
+  component page under the GitHub section.
+- **Instances** for deployment environments (mapped to Componode
+  environments) and for branches whose names resolve through
+  `environmentMapping` — the mapping is the selector for branch instances,
+  so unmapped branches appear in the inventory but never as instances.
+  Workflows, deployments, and the latest-release fallback feed instance
+  versions depending on which sections you enable.
 
 ## Prerequisites in GitHub
 
@@ -64,15 +73,41 @@ endpoint, the smallest authenticated request available.
 | `includeWorkflows` | bool | no | `false` | Import Actions workflows per repo |
 | `includeRunners` | bool | no | `false` | Import org self-hosted runners (needs `admin:org`) |
 | `includePackages` | bool | no | `false` | Import org packages (needs `admin:org`) |
+| `includeBranchInventory` | bool | no | `true` | Import the full branch inventory into component details |
+| `includeBranchActivity` | bool | no | `false` | Fetch last-commit timestamps per branch (one extra API call per branch) |
+| `includeBranchInstances` | bool | no | `true` | Emit environment-mapped branch instances (spec-011 semantics) |
+| `includeReleaseInventory` | bool | no | `true` | Import releases and tags inventory into component details |
+| `includeLanguageBreakdown` | bool | no | `false` | Import per-language byte breakdown (one extra API call per repo) |
 | `environmentMapping` | record | no | — | Map GitHub environment names to DEV/TEST/STAGING/DEMO/PRODUCTION/OTHER |
 <!-- /GENERATED:contract -->
 
 
 ## Behavior notes
 
-- Sections the token can't reach degrade to `capabilities.*` markers on the
-  organization component — the run still succeeds. Check
-  `details.capabilities` on the org component if a section is missing.
+- **Branches are inventory, not instances.** Every branch of an imported
+  repository lands in the component's `details.branches` (name, SHA,
+  protected flag, default-branch flag, optional last-commit activity).
+  Only branches whose names resolve through `environmentMapping` also emit
+  `branch:*` instances — `main`/`master` are never implicitly production.
+  Set `includeBranchInstances: false` to suppress those instances while
+  keeping the inventory, or `includeBranchInventory: false` to skip the
+  inventory fetch entirely.
+- **`includeBranchActivity` costs one API call per branch** (it enriches
+  each entry with the last commit timestamp). Leave it off for large orgs.
+- **`includeReleaseInventory`** (default on) pages through *all* releases
+  and tags — independent of `includeReleases`, which only feeds the
+  latest-release version fallback for environment instances.
+- **`includeLanguageBreakdown`** (default off) adds one
+  `GET /repos/{o}/{r}/languages` call per repository.
+- Sections the token can't reach degrade to `capabilities.*` markers —
+  per-repository under `details.capabilities` on each repo component and
+  aggregated (worst-status-wins) on the organization component — the run
+  still succeeds and the component page shows an incomplete-data notice.
+  Check `details.capabilities` if a section is missing. Token scope notes:
+  branch/tag/release/language inventory needs **Contents: read**;
+  environments need **Actions: read**; deployments need **Deployments:
+  read**; protection-rule *detail* beyond the protected flag needs
+  Administration read and is not fetched.
 - Large orgs with `includeWorkflows`/`includePackages`/`includeRunners` make
   substantially more API calls; enable them only if you need them.
 
