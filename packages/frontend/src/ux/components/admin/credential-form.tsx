@@ -8,6 +8,7 @@ import { Button } from "@/ux/components/ui/button"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/ux/components/ui/field"
 import { Input } from "@/ux/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/ux/components/ui/radio-group"
+import { SecretValueField } from "@/ux/components/forms/secret-value-field"
 import { useCreateCredential, useUpdateCredential } from "@/api/hooks/credentials"
 import { ux } from "@/ux/lib/paths"
 import type { SecretRefMap } from "@/api/types"
@@ -20,6 +21,8 @@ const KEY_NAME = /^[a-zA-Z][a-zA-Z0-9._-]*$/
 interface SecretRow {
   key: string
   value: string
+  /** Display-only: name of the file `value` was loaded from. */
+  fileName?: string
 }
 
 interface CredentialFormProps {
@@ -180,15 +183,27 @@ export function CredentialForm({ mode = "create", credential }: CredentialFormPr
                 </Field>
                 <Field className="flex-1" data-invalid={errors[`value-${i}`] ? true : undefined}>
                   <FieldLabel htmlFor={`c-value-${i}`}>{kind === "STORED" ? "Value" : "Reference"}</FieldLabel>
-                  <Input
-                    id={`c-value-${i}`}
-                    type={kind === "STORED" ? "password" : "text"}
-                    autoComplete="new-password"
-                    value={r.value}
-                    placeholder={kind === "STORED" ? "Secret value" : "MY_SECRET_VAR or path/under/secrets"}
-                    onChange={(e) => setRow(i, { value: e.target.value })}
-                    aria-invalid={errors[`value-${i}`] ? true : undefined}
-                  />
+                  {kind === "STORED" ? (
+                    <SecretValueField
+                      id={`c-value-${i}`}
+                      value={r.value}
+                      fileName={r.fileName}
+                      rows={3}
+                      placeholder="Paste the secret value, or upload a file"
+                      onChange={(v, fileName) => setRow(i, { value: v, fileName })}
+                      aria-invalid={errors[`value-${i}`] ? true : undefined}
+                    />
+                  ) : (
+                    <Input
+                      id={`c-value-${i}`}
+                      type="text"
+                      autoComplete="new-password"
+                      value={r.value}
+                      placeholder="MY_SECRET_VAR or path/under/secrets"
+                      onChange={(e) => setRow(i, { value: e.target.value })}
+                      aria-invalid={errors[`value-${i}`] ? true : undefined}
+                    />
+                  )}
                   {errors[`value-${i}`] && <FieldError>{errors[`value-${i}`]}</FieldError>}
                 </Field>
                 {!rotating && (

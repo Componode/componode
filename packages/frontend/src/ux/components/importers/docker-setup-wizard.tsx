@@ -11,14 +11,18 @@ import type { CredentialListItem } from "@/api/types";
 import {
   DOCKER_SETUP_SCHEDULES,
   DOCKER_SETUP_TRANSPORTS,
+  FILE_SECRET_KEYS,
+  PEM_FILE_ACCEPT,
   TRANSPORT_SECRET_KEYS,
   buildTargetProfile,
+  looksLikePem,
   SECRET_LABELS,
   credentialCoversKeys,
   suggestTargetId,
   transportSecretKeys,
   type SetupTransport,
 } from "@/ux/components/importers/docker-setup-logic";
+import { SecretValueField } from "@/ux/components/forms/secret-value-field";
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert";
 import { Button } from "@/ux/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ux/components/ui/card";
@@ -64,6 +68,8 @@ export function DockerSetupWizard() {
   const [routeFields, setRouteFields] = React.useState<Record<string, string>>({});
   const [secretMode, setSecretMode] = React.useState<"new" | "reuse">("new");
   const [secretValues, setSecretValues] = React.useState<Record<string, string>>({});
+  // Display-only: which file each secret value was loaded from (never sent).
+  const [secretFiles, setSecretFiles] = React.useState<Record<string, string>>({});
   const [credentialLabel, setCredentialLabel] = React.useState("");
   const [reuseCredentialId, setReuseCredentialId] = React.useState("");
   const [label, setLabel] = React.useState("");
@@ -134,6 +140,15 @@ export function DockerSetupWizard() {
       } else {
         for (const k of requiredSecretKeys) {
           if (!(secretValues[k] ?? "").trim()) e[`secret.${k}`] = `${SECRET_LABELS[k] ?? k} is required.`;
+        }
+        // File-shaped secrets must carry PEM armor — catches paste-mangled
+        // or wrong-file values before the probe hits OpenSSL.
+        for (const k of allSecretKeys) {
+          if (!FILE_SECRET_KEYS.has(k)) continue;
+          const v = (secretValues[k] ?? "").trim();
+          if (v && !looksLikePem(v)) {
+            e[`secret.${k}`] = `${SECRET_LABELS[k] ?? k} is not PEM-formatted — upload the file or check what you pasted.`;
+          }
         }
       }
     }
@@ -301,7 +316,7 @@ export function DockerSetupWizard() {
             <FieldGroup>
               <Field>
                 <FieldLabel>Connection type</FieldLabel>
-                <Select value={transport} onValueChange={(v) => { setTransport(v as SetupTransport); setRouteFields({}); setSecretValues({}); setReuseCredentialId(""); setSecretMode("new"); setErrors({}); }} disabled={profileLocked}>
+                <Select value={transport} onValueChange={(v) => { setTransport(v as SetupTransport); setRouteFields({}); setSecretValues({}); setSecretFiles({}); setReuseCredentialId(""); setSecretMode("new"); setErrors({}); }} disabled={profileLocked}>
                   <SelectTrigger id="ds-transport" className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {DOCKER_SETUP_TRANSPORTS.map((t) => (
@@ -398,18 +413,40 @@ export function DockerSetupWizard() {
                 </Field>
                 {[...requiredSecretKeys, ...secretSpec.optional].map((k) => {
                   const required = requiredSecretKeys.includes(k);
+                  const fileShaped = FILE_SECRET_KEYS.has(k);
                   return (
                     <Field key={k} data-invalid={errors[`secret.${k}`] ? true : undefined}>
                       <FieldLabel htmlFor={`ds-sec-${k}`}>{SECRET_LABELS[k] ?? k}{required ? "" : " (optional)"}</FieldLabel>
-                      <Input
-                        id={`ds-sec-${k}`}
-                        type="password"
-                        disabled={profileLocked}
-                        autoComplete="off"
-                        value={secretValues[k] ?? ""}
-                        onChange={(e) => setSecretValues((s) => ({ ...s, [k]: e.target.value }))}
-                        aria-invalid={errors[`secret.${k}`] ? true : undefined}
-                      />
+                      {fileShaped ? (
+                        <SecretValueField
+                          id={`ds-sec-${k}`}
+                          value={secretValues[k] ?? ""}
+                          fileName={secretFiles[k]}
+                          accept={PEM_FILE_ACCEPT}
+                          placeholder="Paste the PEM content"
+                          disabled={profileLocked}
+                          onChange={(v, fileName) => {
+                            setSecretValues((s) => ({ ...s, [k]: v }));
+                            setSecretFiles((s) => {
+                              const next = { ...s };
+                              if (fileName) next[k] = fileName;
+                              else delete next[k];
+                              return next;
+                            });
+                          }}
+                          aria-invalid={errors[`secret.${k}`] ? true : undefined}
+                        />
+                      ) : (
+                        <Input
+                          id={`ds-sec-${k}`}
+                          type="password"
+                          disabled={profileLocked}
+                          autoComplete="off"
+                          value={secretValues[k] ?? ""}
+                          onChange={(e) => setSecretValues((s) => ({ ...s, [k]: e.target.value }))}
+                          aria-invalid={errors[`secret.${k}`] ? true : undefined}
+                        />
+                      )}
                       {errors[`secret.${k}`] ? <FieldError>{errors[`secret.${k}`]}</FieldError> : null}
                     </Field>
                   );

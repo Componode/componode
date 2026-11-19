@@ -1,6 +1,7 @@
 import type Docker from "dockerode";
 import type { DockerTargetProfile } from "./target-profile.js";
 import { resolveDockerContext } from "./context-store.js";
+import { hasPemArmor } from "@componode/core/secrets";
 
 export type DockerOptions = Docker.DockerOptions;
 
@@ -24,6 +25,20 @@ function requiredSecret(secrets: Record<string, string>, key: string): string {
 }
 
 /**
+ * requiredSecret + PEM-armor check for key/cert material. Fail-fast with a
+ * key-naming error instead of OpenSSL's cryptic "PEM routines::no start
+ * line" when paste-mangled or wrong-file content reaches the transport
+ * (spec 063 bugfix). The armor check is a heuristic — OpenSSL still parses.
+ */
+function pemSecret(secrets: Record<string, string>, key: string): string {
+  const value = requiredSecret(secrets, key);
+  if (!hasPemArmor(value)) {
+    throw new Error(`secret "${key}" is not PEM-formatted (missing -----BEGIN armor line)`);
+  }
+  return value;
+}
+
+/**
  * Build dockerode connection options for a typed profile (ADR-121).
  * Fail-closed: no plaintext TCP, no TLS skip-verify, no password-only
  * SSH — profiles carrying those cannot validate. `ssh` uses
@@ -42,18 +57,18 @@ export function buildDockerOptions(
         protocol: "https",
         host: profile.host,
         port: profile.port,
-        cert: requiredSecret(secrets, profile.clientCertKey),
-        key: requiredSecret(secrets, profile.clientKeyKey),
+        cert: pemSecret(secrets, profile.clientCertKey),
+        key: pemSecret(secrets, profile.clientKeyKey),
       };
       if (profile.caCertKey) {
-        opts.ca = requiredSecret(secrets, profile.caCertKey);
+        opts.ca = pemSecret(secrets, profile.caCertKey);
       }
       return opts as DockerOptions;
     }
     case "ssh": {
       const expected = pinBytes(profile.hostKeySha256);
       const sshOptions: Record<string, unknown> = {
-        privateKey: requiredSecret(secrets, profile.privateKeyKey),
+        privateKey: pemSecret(secrets, profile.privateKeyKey),
         hostHash: "sha256",
         hostVerifier: (hash: string) =>
           Buffer.from(hash, "hex").equals(expected),

@@ -143,3 +143,12 @@ verifiable via `quickstart.md` scenarios.
 - [X] T044 Drop the dead `secretRef` pseudo-fields, the `secretRef` flag, and `isSecretRefField` — every consumer excluded them; `DOCKER_SETUP_TRANSPORTS[].fields` now contains only literal route fields (code-review: standards)
 - [X] T045 Accepted divergence: `SetupTransport`/`Transport` 4-member union stays declared locally in each frontend module — the contract lives in importer-docker (not importable per ADR-065) and core has no transport type; a shared ux type can follow when a third consumer appears (code-review: standards)
 - [X] T046 Inline `transportDef.fields` (dead `routeFieldsForInput` alias) and disable the Description field once the target exists — its edits feed only the skipped createTarget call (code-review: standards/spec, round 4 nits)
+
+## Phase 13: Bugfix — PEM secrets lost newlines on paste (probe "no start line")
+
+- [X] T047 Add `hasPemArmor` to `packages/core/src/utils/secrets.ts` (`@componode/core/secrets`) — true only when a `-----BEGIN <label>-----` marker sits alone on its own line, so space/strip-mangled PEM is rejected while CRLF files and openssl text output pass (bug: POST /docker-targets/probe returned OpenSSL `PEM routines::no start line` for pasted certs)
+- [X] T048 Add `SecretValueField` (`ux/components/forms/`) — client-side file picker (`file.text()`, filename + clear, read errors) plus a multi-line textarea so PEM newlines survive; value flows through the existing write-only secrets path, `fileName` is display-only state
+- [X] T049 Wire `SecretValueField` into the wizard secrets step for file-shaped keys (`FILE_SECRET_KEYS`/`PEM_FILE_ACCEPT`/`looksLikePem` in `docker-setup-logic.ts`); `sshPassphrase` stays a masked single-line input; `validateStep` rejects non-armored values before probing
+- [X] T050 Wire `SecretValueField` into `credential-form.tsx` STORED values (create + rotate) — same paste-mangling bug existed for manually created/reused credentials; AGENT_MANAGED references unchanged
+- [X] T051 Enforce PEM armor in `importer-docker` `buildDockerOptions` via `pemSecret` for tcp cert/key/ca and ssh privateKey — fail-fast `secret "<key>" is not PEM-formatted` instead of OpenSSL's cryptic error on hub probe, target test, agent runs, and stored-credential paths
+- [X] T052 Update `docs/importers/docker.md`, `docs/credentials-and-access.md`, and this spec's quickstart for upload-or-paste secret entry
