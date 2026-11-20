@@ -29,6 +29,7 @@ import {
   processAsset,
   reconcileRetiredComponents,
   managedCheckDefsFromScope,
+  resolveSbomFileScope,
   updateRun,
 } from "./import-run-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
@@ -70,6 +71,9 @@ export interface RemoteJobContext {
   /** targetRefKey declared but scope[key] missing/non-string — fails the
    *  run at the gate before dispatch (agent preflight stays authoritative). */
   missingTarget: boolean;
+  /** Spec 073: sbom-file's componentSlug failed to resolve at job load —
+   *  fails at the gate (in-process parity: TARGET_RESOLUTION_FAILED). */
+  targetResolutionError: string | null;
   /** Manifest `reportsSourceIdentity` — adopting importer contract. */
   reportsSourceIdentity: boolean;
   /** Durable source attribution once the source.identity frame lands. */
@@ -393,6 +397,13 @@ export class RemoteRunService implements RemoteRunHandler {
         result: "failed",
         errorType: "TARGET_RESOLUTION_FAILED",
         message: `Importer "${job.importerName}" requires a target reference in scope key "${job.targetRefKey}"`,
+      };
+    }
+    if (job.targetResolutionError) {
+      return {
+        result: "failed",
+        errorType: "TARGET_RESOLUTION_FAILED",
+        message: job.targetResolutionError,
       };
     }
     return null;
@@ -1078,6 +1089,19 @@ export function createDbRemoteRunStore(): RemoteRunStore {
         (typeof config.scope[targetRefKey] !== "string" ||
           (config.scope[targetRefKey] as string).trim() === "");
 
+      // Spec 073: sbom-file's componentSlug must resolve here so the dedup
+      // triple travels inside the job payload — an unresolvable slug fails
+      // at the gate rather than mid-run on the agent.
+      let scope = config.scope;
+      let targetResolutionError: string | null = null;
+      if (config.importerName === "sbom-file") {
+        try {
+          scope = await resolveSbomFileScope(config.importerName, config.scope);
+        } catch (err) {
+          targetResolutionError = err instanceof Error ? err.message : String(err);
+        }
+      }
+
       return {
         runId: run.id,
         runStatus: run.status,
@@ -1085,13 +1109,14 @@ export function createDbRemoteRunStore(): RemoteRunStore {
         configLabel: config.label,
         importerName: config.importerName,
         triggeredBy: run.triggeredBy,
-        scope: config.scope,
+        scope,
         secretRefMap,
         credentialIds,
         revokedCredentialLabel,
         missingSecretKeys,
         targetRefKey,
         missingTarget,
+        targetResolutionError,
         reportsSourceIdentity: manifest.reportsSourceIdentity === true,
         sourceId: run.sourceId ?? null,
         sourceIdentity: null,

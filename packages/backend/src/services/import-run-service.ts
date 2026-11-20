@@ -92,6 +92,49 @@ export function setRemoteRunDispatcher(d: RemoteRunDispatcher | null): void {
 
 // Shared run internals — reused by remote-run-service so remote runs get
 // identical upsert, reconciliation, and bookkeeping behavior (ADR-116).
+
+/**
+ * Spec 073 (FR-017): importer-sbom-file's `componentSlug` resolves at
+ * dispatch to the component's dedup triple (`resolvedComponent`), which the
+ * importer stamps verbatim — the run fails TARGET_RESOLUTION_FAILED before
+ * the importer starts when the slug is missing, points at a RETIRED
+ * component, or lands on a component with no externalId (manual components
+ * can't be dedup-targeted). Remote runs resolve at job load instead so the
+ * triple travels inside the job payload.
+ */
+export async function resolveSbomFileScope(
+  importerName: string,
+  scope: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if (importerName !== "sbom-file") return scope;
+  const slug = typeof scope.componentSlug === "string" ? scope.componentSlug.trim() : "";
+  const component = slug
+    ? await db
+        .selectFrom("components")
+        .select(["category", "provider", "externalId", "name", "slug", "lifecycle"])
+        .where("slug", "=", slug)
+        .executeTakeFirst()
+    : undefined;
+  if (!component || component.lifecycle === "RETIRED" || !component.externalId) {
+    throw Object.assign(
+      new Error(
+        `sbom-file: componentSlug "${slug || "(missing)"}" does not resolve to an active component`,
+      ),
+      { code: "TARGET_RESOLUTION_FAILED" },
+    );
+  }
+  return {
+    ...scope,
+    resolvedComponent: {
+      category: component.category,
+      provider: component.provider,
+      externalId: component.externalId,
+      name: component.name,
+      slug: component.slug,
+    },
+  };
+}
+
 export function runActor(importerName: string): Actor {
   return { id: null, name: `importer:${importerName}` };
 }
@@ -1180,6 +1223,13 @@ async function worker(runId: string): Promise<void> {
       },
     };
 
+    // Spec 073: sbom-file's componentSlug resolves to the component's
+    // dedup triple at dispatch — failure aborts before the importer runs.
+    const runScope = await resolveSbomFileScope(
+      config.importerName,
+      config.scope as Record<string, unknown>,
+    );
+
     // Spec 058: managed check definitions live in the validated config
     // scope — extracted once and synchronized inside each per-asset
     // transaction. Non-collection scopes yield null (other importers).
@@ -1195,7 +1245,7 @@ async function worker(runId: string): Promise<void> {
     const packages = { created: 0, updated: 0, unchanged: 0, removed: 0 };
     const bomScopes = new Map<string, BomScope>();
 
-    for await (const asset of importer.run(config.scope as Record<string, unknown>, secrets, context)) {
+    for await (const asset of importer.run(runScope, secrets, context)) {
       if (controller.signal.aborted) {
         throw Object.assign(new Error("AbortError"), { name: "AbortError" });
       }
