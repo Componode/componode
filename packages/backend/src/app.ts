@@ -32,6 +32,7 @@ import { componentInstanceRoutes } from "./routes/component-instances.js";
 import { componentGroupRoutes } from "./routes/component-groups.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
 import { searchRoutes } from "./routes/search.js";
+import { packageRoutes } from "./routes/packages.js";
 import { productRoutes } from "./routes/products.js";
 import { suggestionRoutes } from "./routes/suggestions.js";
 import { orgRoutes } from "./routes/org.js";
@@ -151,6 +152,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(urlCheckRoutes, { prefix: "/api/v1" });
   await app.register(dashboardRoutes, { prefix: "/api/v1" });
   await app.register(searchRoutes, { prefix: "/api/v1" });
+  await app.register(packageRoutes, { prefix: "/api/v1" });
   await app.register(productRoutes, { prefix: "/api/v1" });
   await app.register(suggestionRoutes, { prefix: "/api/v1" });
   await app.register(orgRoutes, { prefix: "/api/v1" });
