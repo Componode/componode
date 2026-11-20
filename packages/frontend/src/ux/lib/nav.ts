@@ -9,6 +9,7 @@ import {
   LayersIcon,
   LayoutDashboardIcon,
   type LucideIcon,
+  BlocksIcon,
   MonitorSmartphoneIcon,
   PackageIcon,
   RadioTowerIcon,
@@ -18,6 +19,7 @@ import {
   UsersRoundIcon,
 } from "lucide-react"
 import type { Role } from "@/ux/lib/domain"
+import { flags, type GapFlag } from "@/ux/lib/flags"
 import { ux } from "@/ux/lib/paths"
 
 export interface NavItem {
@@ -26,9 +28,15 @@ export interface NavItem {
   icon: LucideIcon
   /** Minimum role. Hide (don't disable) items the user cannot reach. */
   minRole?: Role
+  /** Gap flag gating the item — hidden while the flag is off. */
+  flag?: GapFlag
   /** Optional live count rendered as a nav pill. */
   badgeKey?: "pendingSuggestions" | "agentsAttention"
 }
+
+/** Item visible when role allows AND its gap flag (if any) is on. */
+export const navVisible = (role: Role, item: NavItem) =>
+  canAccess(role, item.minRole) && (!item.flag || flags[item.flag])
 
 export interface NavSection {
   label: string
@@ -47,6 +55,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { title: "Products", href: ux("/products"), icon: PackageIcon },
       { title: "Components", href: ux("/components"), icon: BoxesIcon },
       { title: "Component groups", href: ux("/component-groups"), icon: LayersIcon },
+      { title: "Packages", href: ux("/packages"), icon: BlocksIcon, flag: "packagesExplorer" },
       { title: "Suggestions", href: ux("/suggestions"), icon: SparklesIcon, badgeKey: "pendingSuggestions" },
     ],
   },
@@ -106,6 +115,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   products: "Products",
   components: "Components",
   "component-groups": "Component groups",
+  packages: "Packages",
   suggestions: "Suggestions",
   lobs: "Lines of business",
   teams: "Teams",

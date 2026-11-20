@@ -644,3 +644,21 @@ export interface UrlCheckMetricsView {
   vantageLabel: string;
   target: { availability: number; window: UrlCheckTargetWindow } | null;
 }
+
+// --- Packages explorer (spec 074) --------------------------------------------
+
+/** One row in the /packages rollup — mirrors `PackageListItem` in core. */
+export interface PackageView {
+  purl: string;
+  name: string;
+  ecosystem: string;
+  versionCount: number;
+  /** Top-5 versions by component count. */
+  versions: { version: string; componentCount: number }[];
+  componentCount: number;
+  catalogComponent: { id: string; slug: string; name: string } | null;
+  pendingSuggestionCount: number;
+  /** Derived display: versions beyond the top-5 chips. */
+  versionsOverflow: number;
+}
+

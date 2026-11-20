@@ -29,6 +29,9 @@ importers:
       dotenv:
         specifier: ^18.0.9
         version: 18.0.9
+      packageurl-js:
+        specifier: ^2.0.1
+        version: 2.0.1
       pg:
         specifier: ^8.23.1
         version: 8.23.1
@@ -298,6 +301,9 @@ packages:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
+
+  packageurl-js@2.0.1:
+    resolution: {integrity: sha512-N5ixXjzTy4QDQH0Q9YFjqIWd6zH6936Djpl2m9QNFmDv5Fum8q8BjkpAcHNMzOFE0IwQrFhJWex3AN6kS0OSwg==}
 
   pg-cloudflare@1.4.1:
     resolution: {integrity: sha512-6PQbsFWZcp9EmJEwy5cGQ2La+AMWpP46lgbb8X+U/XsHIUweYDNCpeuKck5RxL2MdVFi7krbbEi5nX4Zh7JhrQ==}
@@ -652,6 +658,8 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
+
+  packageurl-js@2.0.1: {}
 
   pg-cloudflare@1.4.1:
     optional: true

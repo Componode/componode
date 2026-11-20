@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { sql } from "kysely";
 import { startTestDb, type TestDb } from "../helpers/testcontainers.js";
 import { loginAs, SESSION_COOKIE_NAME } from "../helpers/api.js";
 import { uuidv7 } from "uuidv7";
@@ -78,6 +79,26 @@ describe("global search", () => {
         updatedAt: now(),
       } as any)
       .execute();
+
+    // Spec 074: a reported BOM entry feeds the Ctrl+K Packages group.
+    const bomComponentId = (
+      await testDb.db
+        .selectFrom("components")
+        .select("id")
+        .where("slug", "=", "payments-api")
+        .executeTakeFirstOrThrow()
+    ).id;
+    const { normalizePurlIdentity } = await import("@componode/core");
+    await sql`
+      INSERT INTO bom_entries
+        (id, "componentId", purl, "purlIdentity", name, version, ecosystem,
+         scope, "evidenceSource", licenses, direct, "lastReportedAt",
+         "createdAt", "updatedAt")
+      VALUES (${uuidv7()}, ${bomComponentId}, 'pkg:npm/lodash@4.17.21',
+              ${normalizePurlIdentity("pkg:npm/lodash@4.17.21")}, 'lodash',
+              '4.17.21', 'npm', 'RUNTIME', 'REGISTRY_API', '[]'::jsonb,
+              true, ${now()}, ${now()}, ${now()})
+    `.execute(testDb.db);
   });
 
   afterAll(async () => {
@@ -173,6 +194,68 @@ describe("global search", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().components.length).toBeGreaterThan(0);
     expect(elapsed).toBeLessThan(1000);
+  });
+
+  it("returns a Packages group with `name · ecosystem · n components` hits (spec 074)", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/search?q=lodash",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession },
+    });
+    expect(res.statusCode).toBe(200);
+    const packages = res.json().packages;
+    expect(packages.length).toBe(1);
+    expect(packages[0].name).toBe("lodash · npm · 1 component");
+    expect(packages[0].kind).toBe("package");
+    expect(packages[0].href).toBe("/packages?q=pkg%3Anpm%2Flodash");
+
+    const noMatch = await app.inject({
+      method: "GET",
+      url: "/api/v1/search?q=zzz-no-package",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession },
+    });
+    expect(noMatch.statusCode).toBe(200);
+    expect(noMatch.json().packages).toEqual([]);
+  });
+
+  it("caps the Packages group at 5 hits", async () => {
+    const bomComponentId = (
+      await testDb.db
+        .selectFrom("components")
+        .select("id")
+        .where("slug", "=", "payments-api")
+        .executeTakeFirstOrThrow()
+    ).id;
+    const { normalizePurlIdentity } = await import("@componode/core");
+    for (let i = 0; i < 6; i++) {
+      const purl = `pkg:npm/pwcap-${i}@1.0.0`;
+      await testDb.db
+        .insertInto("bom_entries")
+        .values({
+          id: uuidv7(),
+          componentId: bomComponentId,
+          purl,
+          purlIdentity: normalizePurlIdentity(purl) ?? purl,
+          name: `pwcap-${i}`,
+          version: "1.0.0",
+          ecosystem: "npm",
+          scope: "RUNTIME",
+          evidenceSource: "REGISTRY_API",
+          licenses: sql`'[]'::jsonb` as any,
+          direct: true,
+          lastReportedAt: now(),
+          createdAt: now(),
+          updatedAt: now(),
+        } as any)
+        .execute();
+    }
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/search?q=pwcap&limit=20",
+      cookies: { [SESSION_COOKIE_NAME]: adminSession },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().packages.length).toBe(5);
   });
 
   it("is readable by the viewer role (same read-only shape)", async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDebouncedValue } from "@/ux/hooks/use-debounced-value";
 
 /**
@@ -25,22 +25,33 @@ export function useDebouncedParam(
   unset = "",
 ): [string, (value: string) => void] {
   const shown = value === unset ? "" : value;
-  const [input, setInput] = useState(shown);
+  const [input, setInputRaw] = useState(shown);
   const debounced = useDebouncedValue(input);
+  // True only between a user edit and the next URL→input sync — commits
+  // are allowed only for text the user actually typed. An external reset
+  // (e.g. Clear filters) clears the flag before the stale debounced value
+  // can be re-committed over it.
+  const dirtyRef = useRef(false);
+  const setInput = (v: string) => {
+    dirtyRef.current = true;
+    setInputRaw(v);
+  };
 
   // URL → input: external navigation or a programmatic commit rewrites
   // the field (guarded — same-value writes are no-ops).
   useEffect(() => {
-    setInput(shown);
+    dirtyRef.current = false;
+    setInputRaw(shown);
   }, [shown]);
 
   // input → URL: commit the debounced text once it differs from state,
   // mapping an empty input back to the unset sentinel. `commit` identity
   // changes every render — the value comparison is the real guard.
+  // `input !== debounced` means the debounced text is stale mid-typing.
   useEffect(() => {
     const next = debounced === "" ? unset : debounced;
-    if (next !== value) commit(next);
-  }, [debounced, value, unset]);
+    if (dirtyRef.current && input === debounced && next !== value) commit(next);
+  }, [debounced, input, value, unset]);
 
   return [input, setInput];
 }

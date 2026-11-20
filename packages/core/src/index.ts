@@ -160,6 +160,12 @@ export type {
   BomSummary,
 } from "./contracts/bom-entry.js";
 export type {
+  PackageListItem,
+  PackageConsumerListItem,
+  PackagesFacets,
+  PackagesResponse,
+} from "./contracts/packages.js";
+export type {
   Importer,
   ImporterContext,
   SecretResolver,
@@ -209,6 +215,12 @@ export {
   type BomSummaryQuery,
   type BomExportQuery,
 } from "./schemas/bom.js";
+export {
+  listPackagesQuerySchema,
+  listPackageConsumersQuerySchema,
+  type ListPackagesQuery,
+  type ListPackageConsumersQuery,
+} from "./schemas/packages.js";
 
 // Standardized list contract (spec 068 / ADR-130): shared page/pageSize/
 // order/search params, per-endpoint sort whitelists, and the

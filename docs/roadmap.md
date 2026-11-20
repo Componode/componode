@@ -456,6 +456,16 @@ file tracks shipped and upcoming work — update it when a spec completes.
   `componentBom` flag — catalog promotion stays deferred to Phase 2
   (ADR-057 Amendment 1 keeps `bomEntries` out of the `relationships[]`
   prohibition).
+- `074-packages-explorer` — packages explorer (Phase 1b): the
+  workspace-level where-used read at `/packages`, grouping `bom_entries`
+  by a new stored `purlIdentity` column (normalized version-free purl,
+  migration 034) — one row per package with ecosystem, top-five version
+  chips, component count, and catalog state; expandable per
+  (component, version, scope) consumers; server-side search and
+  Ecosystem/Scope/In-catalog filters; `GET /packages` +
+  `GET /packages/consumers`; a BOM-row "See where it's used" action and
+  a Ctrl+K Packages group; ships behind the `packagesExplorer` flag —
+  catalog promotion stays deferred to Phase 2.
 
 ## Next — post-v1.1
 
@@ -471,9 +481,10 @@ guided Docker importer onboarding (063), Docker importer enrichment
 detail bugfix (066), source-scoped auto ComponentGroups (067),
 standardized list pages (068), list-standards follow-ups (069),
 app-level auto ComponentGroups with multi-group membership (070),
-human environment overrides on ComponentInstances (071), and the GitHub
+human environment overrides on ComponentInstances (071), the GitHub
 importer branch/release/metadata inventory with bounded component-page
-details (072).
+details (072), BOM inventory with read APIs, exports, and per-component
+surfaces (073), and the packages explorer where-used read (074).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new

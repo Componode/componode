@@ -1,6 +1,28 @@
 import { ApiClient } from '../scripts/http.js';
 import pg from 'pg';
+import { PackageURL } from 'packageurl-js';
 import { randomUUID as genId } from 'node:crypto';
+
+// Mirrors @componode/core `normalizePurlIdentity` (packages/core/src/utils/
+// purl.ts) — the version-free purl identity seeded on bom_entries rows. The
+// runner image installs only this workspace's deps, and /repo is mounted
+// read-only, so core's source cannot be imported directly here; same
+// packageurl-js version as core is pinned in package.json.
+function normalizePurlIdentity(purl: string): string | null {
+  try {
+    const parsed = PackageURL.fromString(purl);
+    return new PackageURL(
+      parsed.type,
+      parsed.namespace,
+      parsed.name,
+      null,
+      null,
+      null,
+    ).toString();
+  } catch {
+    return null;
+  }
+}
 
 // Supported-flow seed  --  creates actors, org structure, credentials, docker
 // target, importer configs, OIDC config, monitoring, and the Import Agent
@@ -216,20 +238,29 @@ export async function seedAppFlows(apiBase: string, pgUrl: string, env: Record<s
   const bomRow = (
     compId: string, srcId: string, purl: string, name: string,
     version: string, scope: string, direct: boolean,
+    ecosystem = 'npm', lastReportedDaysAgo = 10,
   ) =>
     pgClient.query(
       `INSERT INTO bom_entries
-         (id, "componentId", purl, name, version, ecosystem, scope,
+         (id, "componentId", purl, "purlIdentity", name, version, ecosystem, scope,
           "evidenceSource", "evidenceDetail", licenses, direct,
           "lastReportedAt", "sourceId")
-       VALUES ($1,$2,$3,$4,$5,'npm',$6,'SBOM_DOCUMENT','pw-seed','[]'::jsonb,$7,
-               now() - make_interval(days => 10), $8)`,
-      [genId(), compId, purl, name, version, scope, direct, srcId],
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'SBOM_DOCUMENT','pw-seed','[]'::jsonb,$9,
+               now() - make_interval(days => $10), $11)`,
+      [genId(), compId, purl, normalizePurlIdentity(purl) ?? purl, name,
+       version, ecosystem, scope, direct, lastReportedDaysAgo, srcId],
     );
   const staleId = idOf(bomStaleComp);
   await bomRow(staleId, srcIds[0]!, 'pkg:npm/pw-stale-lib@1.0.0', 'pw-stale-lib', '1.0.0', 'RUNTIME', true);
   await bomRow(staleId, srcIds[0]!, 'pkg:npm/pw-stale-dev@2.0.0', 'pw-stale-dev', '2.0.0', 'DEV', false);
   await bomRow(staleId, srcIds[1]!, 'pkg:npm/pw-stale-trans@0.1.0', 'pw-stale-trans', '0.1.0', 'TRANSITIVE', false);
+
+  // Spec 074 — a package shared by two components at different versions:
+  // /packages merges them into one row (versionCount 2, componentCount 2)
+  // and version chips filter the expanded consumers panel.
+  const sharedId = idOf(bomComp);
+  await bomRow(staleId, srcIds[0]!, 'pkg:npm/pw-shared-lib@2.0.0', 'pw-shared-lib', '2.0.0', 'RUNTIME', true, 'npm', 2);
+  await bomRow(sharedId, srcIds[1]!, 'pkg:npm/pw-shared-lib@1.9.0', 'pw-shared-lib', '1.9.0', 'RUNTIME', false, 'npm', 3);
 
   // sbom-file targeting requires an externalId on the component — the
   // manual create leaves it NULL, so backfill it (as an importer would)

@@ -57,3 +57,21 @@ re-keying. Accepted costs: a scope-drifting package occupies a second row
 by design (the key is the contract), and lossy export mappings are
 restored via namespaced `componode:*` CycloneDX properties rather than a
 lossless native field.
+
+---
+
+### Amendment 2 — `purlIdentity` column + where-used reads (spec 074)
+
+Phase 1b (packages explorer) adds a **stored** `purlIdentity` text column —
+the normalized, version-free purl computed at write time with the same
+`normalizePurlIdentity` helper Phase 2 uses for Library `externalId`
+matching (strip version/qualifiers/subpath, per-type normalization).
+Decision: identity is computed once on write, not per read query — one
+normalization path, an index the rollup and consumers queries actually
+use, and the Phase-2 promotion flow reuses the column without re-deriving.
+Migration 034 backfills from verbatim `purl` (unparseable rows fall back
+to the verbatim value so nothing is dropped), then sets `NOT NULL` and
+indexes it. The where-used reads (`GET /packages`,
+`GET /packages/consumers`, the search Packages group) group on
+`purlIdentity` and join **ACTIVE components only** — retired components
+keep their rows but don't inflate "where is it used".

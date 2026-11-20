@@ -59,7 +59,7 @@
 | [ADR-113](./adrs/ADR-113-staged-edge-suggestions.md)                                | Staged edge suggestions: server-generated DEPENDS_ON candidates (amends ADR-019); spec-042 amendment makes `DECIDED` queryable on `GET /suggestions` for the decided-history view             |
 | [ADR-114](./adrs/ADR-114-catalog-bootstrap-import.md)                               | Catalog bootstrap import: declarative product + dependency file                                                                                                                               |
 | [ADR-129](./adrs/ADR-129-source-scoped-auto-component-groups.md)                   | Source-scoped auto ComponentGroups: system-provisioned group per ImporterSource, sole-effective-reporter membership invariant, derived lifecycle (amends ADR-082, ADR-019, ADR-071); Docker first strategy — spec 067 (Draft)                                          |
-| [ADR-131](./adrs/ADR-131-bom-entry-entity.md)                                     | BomEntry entity: factual package inventory — self-parent tree, source-scoped diff-replace on COMPLETED runs, field-presence completeness, NULLS NOT DISTINCT keys, `direct` authoritative, `resolvedComponentId` Phase-2 only (amends ADR-057); spec 073                |
+| [ADR-131](./adrs/ADR-131-bom-entry-entity.md)                                     | BomEntry entity: factual package inventory — self-parent tree, source-scoped diff-replace on COMPLETED runs, field-presence completeness, NULLS NOT DISTINCT keys, `direct` authoritative, `resolvedComponentId` Phase-2 only (amends ADR-057); spec 073 — Amendment 2 (spec 074): stored `purlIdentity` + where-used reads |
 
 ### Monitoring
 

@@ -16,7 +16,8 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/ux/components/ui/command"
-import { canAccess, NAV_SECTIONS } from "@/ux/lib/nav"
+import { canAccess, NAV_SECTIONS, navVisible } from "@/ux/lib/nav"
+import { flags } from "@/ux/lib/flags"
 import type { Provider } from "@/ux/lib/domain"
 import { ux } from "@/ux/lib/paths"
 
@@ -94,6 +95,15 @@ function CommandMenu({ open, setOpen }: { open: boolean; setOpen: (v: boolean) =
                 ))}
               </CommandGroup>
             )}
+            {flags.packagesExplorer && (hits.packages?.length ?? 0) > 0 && (
+              <CommandGroup heading="Packages">
+                {hits.packages.map((p) => (
+                  <CommandItem key={p.id} value={`package ${p.name}`} onSelect={() => go(p.href)}>
+                    <span className="truncate font-mono text-xs">{p.name}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
             {(hits.groups.length > 0 || hits.importers.length > 0 || hits.lobs.length > 0 || hits.teams.length > 0) && (
               <CommandGroup heading="More">
                 {hits.groups.map((g) => (
@@ -137,7 +147,7 @@ function CommandMenu({ open, setOpen }: { open: boolean; setOpen: (v: boolean) =
         {!showResults && (
           <CommandGroup heading="Navigate">
             {NAV_SECTIONS.flatMap((s) => s.items)
-              .filter((i) => canAccess(user.role, i.minRole))
+              .filter((i) => navVisible(user.role, i))
               .map((i) => (
                 <CommandItem key={i.href} value={`go ${i.title}`} onSelect={() => { setOpen(false); navigate(i.href) }}>
                   <i.icon />

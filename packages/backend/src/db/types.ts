@@ -469,6 +469,7 @@ export interface BomEntryRow {
   componentInstanceId: string | null;
   parentBomEntryId: string | null;
   purl: string;
+  purlIdentity: string;
   name: string;
   version: string | null;
   ecosystem: string;

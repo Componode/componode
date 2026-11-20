@@ -10,8 +10,9 @@ import type {
   ListBomQuery,
   Paginated,
 } from "@componode/core";
-import { purlEcosystem } from "@componode/core";
+import { normalizePurlIdentity, purlEcosystem } from "@componode/core";
 import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
+import { toIsoTimestamp } from "../db/timestamps.js";
 import { getBomStaleThresholdDays } from "./settings-service.js";
 
 // Spec 073 / ADR-131 — the BOM write path. Entries are factual importer
@@ -125,6 +126,11 @@ export async function processBomEntries(
         componentInstanceId: opts.componentInstanceId,
         parentBomEntryId,
         purl: entry.purl,
+        // Spec 074: normalized version-free identity — grouping key for the
+        // /packages rollup, match key for consumers, Phase-2 join target.
+        // Insert-only: purl is an upsert key so identity cannot change on
+        // conflict. Verbatim fallback when the purl fails to parse.
+        purlIdentity: normalizePurlIdentity(entry.purl) ?? entry.purl,
         ...payload,
         // pg serializes JS arrays as Postgres array literals, not JSON —
         // stringify so jsonb stores a real array ('[]' → '{}' otherwise).
@@ -313,10 +319,7 @@ function toListItem(
     supplier: row.supplier,
     cdxType: row.cdxType as BomEntryListItem["cdxType"],
     source: row.srcId ? { id: row.srcId, name: row.srcName ?? "" } : null,
-    lastReportedAt:
-      (row.lastReportedAt as unknown) instanceof Date
-        ? (row.lastReportedAt as unknown as Date).toISOString()
-        : String(row.lastReportedAt),
+    lastReportedAt: toIsoTimestamp(row.lastReportedAt),
     parentId: row.parentBomEntryId,
     parentName: extras.parentName ?? null,
     hasChildren: extras.hasChildren,
@@ -558,10 +561,7 @@ export async function getBomSummary(
   }
   const lastReportedAt = rows.reduce<string | null>(
     (acc, r) => {
-      const t =
-        (r.lastReportedAt as unknown) instanceof Date
-          ? (r.lastReportedAt as unknown as Date).toISOString()
-          : String(r.lastReportedAt);
+      const t = toIsoTimestamp(r.lastReportedAt);
       return acc === null || t > acc ? t : acc;
     },
     null,
@@ -620,9 +620,6 @@ export async function getBomSummary(
     getBomStaleThresholdDays(),
   ]);
 
-  const iso = (v: unknown) =>
-    v instanceof Date ? v.toISOString() : String(v);
-
   return {
     total: rows.length,
     direct: rows.filter((r) => r.direct).length,
@@ -635,7 +632,7 @@ export async function getBomSummary(
       id: s.id,
       name: s.name,
       importerKind: s.importerKind,
-      lastReportedAt: iso(s.lastReportedAt),
+      lastReportedAt: toIsoTimestamp(s.lastReportedAt),
     })),
     instances: instances.map((i) => ({
       id: i.id,

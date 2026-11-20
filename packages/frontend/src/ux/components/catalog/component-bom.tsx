@@ -1,5 +1,5 @@
 import * as React from "react"
-import { CopyIcon, EllipsisIcon, PackageIcon, SettingsIcon } from "lucide-react"
+import { CopyIcon, EllipsisIcon, PackageIcon, PackageSearchIcon, SettingsIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useSession } from "@/api/hooks/auth"
 import {
@@ -28,6 +28,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/ux/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ux/components/ui/tooltip"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { errorMessage, isForbidden } from "@/ux/lib/api-state"
+import { flags } from "@/ux/lib/flags"
 import { BOM_EVIDENCE_META, BOM_SCOPE_META, type BomEvidenceSource, type BomScope } from "@/ux/lib/domain"
 import { formatDate, formatNumber } from "@/ux/lib/format"
 import { ux } from "@/ux/lib/paths"
@@ -132,6 +133,13 @@ function RowMenu({ row }: { row: BomEntryView }) {
         <DropdownMenuItem onClick={() => void navigator.clipboard?.writeText(row.purl)}>
           <CopyIcon data-icon="inline-start" /> Copy purl
         </DropdownMenuItem>
+        {flags.packagesExplorer && (
+          <DropdownMenuItem asChild>
+            <Link to={ux(`/packages?q=${encodeURIComponent(row.purl)}`)}>
+              <PackageSearchIcon data-icon="inline-start" /> See where it&apos;s used
+            </Link>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
