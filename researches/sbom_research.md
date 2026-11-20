@@ -21,6 +21,13 @@ is normative input to every spec, and four contract changes it requires are
 applied in place below and marked *(UX amendment)*: a paginated BOM read,
 `direct` and `lastReportedAt` on `bom_entries`, "Add to catalog" / "Link"
 instead of "promote" / "wire", and a Phase 1b where-used explorer.
+Revised 2026-11-20 with the grill outcome: all eight UX questions are
+resolved (see [Resolved UX Questions](#resolved-ux-questions-grill-2026-11-20))
+and five further contract decisions are applied in place and marked *(grill
+amendment)*: diff-based replace with `NULLS NOT DISTINCT` upsert keys, a
+field-presence completeness contract, the `importer-sbom-file` targeting
+mechanism, canonical purl identity and match rule, and the Phase 3
+provenance/suppression migration.
 
 **Conflicts with ratified ADRs:** None. The recommended approach formally
 amends ADR-057 and ADR-013 through the standard Amendment mechanism rather
@@ -213,13 +220,19 @@ CREATE TABLE bom_entries (
 );
 
 -- Top-level idempotent upsert key (parentBomEntryId IS NULL)
+-- (grill amendment) NULLS NOT DISTINCT is required: component-level
+-- entries carry a NULL componentInstanceId, and a plain unique index
+-- treats NULLs as distinct — component-scoped BOMs would re-insert
+-- every run instead of deduping.
 CREATE UNIQUE INDEX bom_entries_top_level_upsert_key
   ON bom_entries ("componentId", purl, scope, "componentInstanceId")
+  NULLS NOT DISTINCT
   WHERE "parentBomEntryId" IS NULL;
 
 -- Child-level idempotent upsert key
 CREATE UNIQUE INDEX bom_entries_child_upsert_key
   ON bom_entries ("componentId", purl, scope, "componentInstanceId", "parentBomEntryId")
+  NULLS NOT DISTINCT
   WHERE "parentBomEntryId" IS NOT NULL;
 
 CREATE INDEX bom_entries_component_idx    ON bom_entries ("componentId");
@@ -258,6 +271,25 @@ bom_entry [id=D]  purl=pkg:pypi/python@3.11.0  scope=RUNTIME  parent=NULL
 bom_entry [id=F]  purl=pkg:pypi/flask@2.3.2  scope=RUNTIME  parent=NULL
   bom_entry [id=G]  purl=pkg:pypi/werkzeug@2.3.6  scope=TRANSITIVE  parent=F
 ```
+
+*(grill amendment)* **Write semantics — replace, not accumulate.** On a
+`COMPLETED` run, the set of entries a Source reports for a
+`(componentId, componentInstanceId)` pair **replaces** its previous set,
+computed as a key-matched diff: upsert rows whose upsert key is present in
+the payload, delete only rows whose key is absent. Replace must never
+delete-all-then-recreate — `bom_component_suggestions.bomEntryId` is
+`ON DELETE CASCADE` and `resolvedComponentId` lives on the row, so
+recreate would silently wipe pending suggestions and curation state on
+every run.
+
+Completeness is per-asset, signaled by field presence: a yielded
+`DiscoveredAsset` with `bomEntries` **present** (including `[]`) means
+"collection finished — this is the truth"; `bomEntries` **absent** means
+"not attempted or collection failed" — the Source's set for that asset is
+left untouched and staleness accrues. An importer that cannot collect a
+component's inventory omits the field and reports the `bomInventory`
+capability degraded rather than yielding `[]`. `FAILED`, `CANCELLED` and
+`INTERRUPTED` runs never replace; there is no `PARTIAL` run status.
 
 ---
 
@@ -420,6 +452,17 @@ Reads a CycloneDX JSON or SPDX JSON file from a URL (`sbomUrl` config). Format
 auto-detected: `bomFormat === "CycloneDX"` → CycloneDX parser; `spdxVersion`
 present → SPDX parser.
 
+*(grill amendment)* **Component targeting (Q5).** The config carries
+`componentSlug`, validated at save (the component exists and is `ACTIVE`).
+At run dispatch the backend resolves the slug to the component's identity
+triple `(category, provider, externalId)` — the dedup key — and passes it
+into the importer's scope. The importer yields a `DiscoveredAsset` with
+that identity plus `bomEntries`, so normal dedup merges it onto the
+existing component and the sbom-file ImporterSource becomes an additional
+reporter on it. A slug that no longer resolves at dispatch (renamed or
+retired component) fails the run with a clear error — it never silently
+creates a new component. The form's helper text names this rule.
+
 #### Kubernetes — `includePodImageSbom: true`
 
 For each pod, extracts container image refs from `containers[].image`, calls
@@ -576,12 +619,24 @@ per ADR-013 Amendment 2.
 | `category` | From `cdxType` → `ComponentCategory` | Semantic type |
 | `provider` | From `ecosystem` → `ComponentProvider` | Registry source |
 | `resourceType` | purl type verbatim: `npm:package` | ADR-013 convention |
-| `externalId` | **Version-free purl**: `pkg:npm/lodash` | One Component per package |
+| `externalId` | **Normalized version-free purl**: `pkg:npm/lodash` | One Component per package |
 | `name` | Package name: `lodash` | |
+| `slug` | `pkg-{type}-{name}` slugified (`pkg-npm-lodash`, `pkg-npm-scope-name` for `@scope/name`), numeric suffix on collision | ADR-046 |
 
 One catalog Component per package (logical identity); version lives in
 `ComponentInstance.version` and `bom_entries.version`. Matches how `REPOSITORY`
 Components work.
+
+*(grill amendment)* "Version-free purl" means **normalized**: version,
+qualifiers and subpath stripped, purl-spec per-type casing rules applied —
+implemented with a standard purl library (e.g. `packageurl-js`), not
+hand-rolled per-type rules. The verbatim purl stays on each `bom_entry` for
+display and export. The Add-to-catalog "existing component" match is
+normalized-identity equality on `components.externalId` across **all**
+providers and categories — a manually created `OTHER` component whose
+`externalId` is the same normalized purl dedupes into the library flow
+(`components.externalId` has no DB uniqueness; the match is enforced in the
+service layer).
 
 ---
 
@@ -742,18 +797,22 @@ Accepted with the UX proposal; the spec MUST NOT reopen them without a reason.
 | D7 | **The BOM tab is read-only.** The only writes are two row-level catalog actions for Editors. | Mirrors the read-only Relationships tab (ADR-128). |
 | D8 | **Inventory only, never a security posture.** No risk/success/warning tones on package data; copy never says "safe", "secure" or "vulnerable". | Avoids implying a vulnerability scan that does not exist. |
 
-### Open UX Questions (for the specify / grill step)
+### Resolved UX Questions (grill, 2026-11-20)
 
-| # | Question | Recommended default |
+All eight resolved in the 2026-11-20 grill session. The resolutions below
+are normative for `speckit-specify`; the contract-level ones are also
+applied in place where the affected design appears.
+
+| # | Question | Resolution |
 |---|---|---|
-| Q1 | **Stale threshold**: when does "Last reported" turn to the warning treatment? | 7 days, workspace-level setting; revisit tying it to each importer's schedule (e.g. 2 × interval) once schedules are exposed per Source. |
-| Q2 | **Retirement semantics** (ADR-131): does a successful run replace its source's set for that component/instance, or only upsert? | Replace per `(componentId, componentInstanceId, sourceId)` on a *successful, complete* run; failed or partial runs never remove entries. UX needs one of the two to be explicit; both are compatible with UX-FRESH-*. |
-| Q3 | Does export honour the active filters? | No. Export always produces the **full** BOM for the selected instance and the menu says so. Filtered exports are a later enhancement. |
-| Q4 | What happens to the `TRANSITIVE` scope value once `direct` exists? | Keep it for CycloneDX/SPDX round-trip, but treat directness as the `direct` column: the UI Direct/Transitive filter reads `direct`; `TRANSITIVE` is rendered with its label and is not offered as a separate scope filter option when `direct` is populated. |
-| Q5 | How does `importer-sbom-file` match a document to a component? | Spec decides (by URL → component externalId, or an explicit target on the importer config). UX requirement: the form's helper text names the rule. |
-| Q6 | Licence filtering / licence page. | Out of scope for Phase 1; licences are displayed and searchable (`q`) only. |
-| Q7 | Product-level package roll-up (products already have Components and Dependencies tabs). | Evaluate after Phase 2 using existing product-component edges; no Phase 1–3 commitment. |
-| Q8 | Dependency suggestions: a separate queue page or a kind segment in `/suggestions`? | Segment in `/suggestions` (UX-SUG-01); revisit only if volume breaks performance targets. |
+| Q1 | **Stale threshold** | 7-day default held as a workspace-level `app_settings` key (`bom.staleThresholdDays`); revisit deriving it from each Source's schedule (e.g. 2 × interval) once schedules are exposed per Source. |
+| Q2 | **Retirement semantics** (ADR-131) | Replace per `(componentId, componentInstanceId, sourceId)` on `COMPLETED` runs — as a key-matched diff (upsert present keys, delete absent), never delete-all/recreate, which would CASCADE-delete `bom_component_suggestions` rows and `resolvedComponentId`. Upsert indexes use `NULLS NOT DISTINCT` so component-level (`componentInstanceId IS NULL`) sets dedupe on PG16. |
+| Q3 | Export honours filters? | No — always the **full** BOM for the selected instance; the menu says so. Filtered export is a later enhancement. |
+| Q4 | `TRANSITIVE` scope vs `direct` | `direct` is authoritative for directness (filter and badges); `TRANSITIVE` is kept for CycloneDX/SPDX round-trip, rendered with its label, not offered as a separate scope filter when `direct` is populated; `direct` wins when an importer reports a contradictory pair. |
+| Q5 | `importer-sbom-file` matching rule | Explicit `componentSlug` on the importer config — validated at save, resolved to `(category, provider, externalId)` at dispatch; an unresolvable slug fails the run. Helper text names the rule. |
+| Q6 | Licence filtering / licence page | Out of scope for Phase 1; licences are displayed and searchable (`q`) only. |
+| Q7 | Product-level package roll-up | Evaluate after Phase 2 on existing product–component edges; no Phase 1–3 commitment. |
+| Q8 | Dependency suggestions surface | Segment in `/suggestions` (UX-SUG-01); revisit only if volume breaks performance targets. |
 
 ### Design Principles (UX)
 
@@ -928,8 +987,12 @@ Route `/components/:slug?tab=bom`. Flag `componentBom` (OFF ⇒ tab not rendered
 
 ### UX-FRESH — Freshness and provenance `[P1]`
 
-ADR-131 is upsert-on-report with no retirement, so removed packages could read
-as current. The UI MUST make age visible.
+ADR-131 now **replaces** per `(componentId, componentInstanceId, sourceId)`
+on `COMPLETED` runs *(grill amendment)*, so packages a Source stops
+reporting disappear — but entries a Source stops *collecting* (capability
+off, collection failing, no runs) persist untouched per the field-presence
+contract. The UI MUST still make age visible: staleness is the honest
+signal that "present" may no longer mean "current".
 
 - **UX-FRESH-01 (MUST)** `[API]` Every entry exposes `lastReportedAt`; the
   summary exposes per-Source `lastReportedAt` (and per-instance when
@@ -1404,9 +1467,9 @@ Complements the per-phase checks in the Verification section below.
 |---|---|---|---|
 | **ADR-057 Amendment 1** | Amendment | 1 | Add `DiscoveredBomEntry` and `bomEntries?: DiscoveredBomEntry[]`. Explicitly state: `bomEntries` is factual inventory, not a graph edge. Prohibition on `relationships[]` for edge declarations is unchanged. |
 | **ADR-013 Amendment 2** | Amendment | 2 | Add 13 ecosystem `ComponentProvider` values. Add `cdxType → ComponentCategory` mapping. Update DB CHECK constraint. |
-| **New ADR-131** | Ratification | 1 | BomEntry entity: tree via `parentBomEntryId`; upsert-on-report; no orphan/retirement semantics; source-scoped; `resolvedComponentId` set by matching pass only. |
+| **New ADR-131** | Ratification | 1 | BomEntry entity: tree via `parentBomEntryId`; source-scoped **replace-on-report** — key-matched diff on `COMPLETED` runs, field-presence completeness, `NULLS NOT DISTINCT` upsert keys *(grill amendment)*; `resolvedComponentId` set by matching pass only. |
 | **New ADR-132** | Ratification | 2 | Catalog promotion: EDITOR-only; Library Component identity = version-free purl; `bom_component_suggestions` follows ADR-113; no auto-wiring ever. |
-| **New ADR-133** | Ratification | 3 | v2 importer contract: lifts `relationships[]` prohibition; same-run scope only; auto-reconciliation to junction tables; `ON CONFLICT DO NOTHING` for human edges. |
+| **New ADR-133** | Ratification | 3 | v2 importer contract: lifts `relationships[]` prohibition; same-run scope only; auto-reconciliation to junction tables; `ON CONFLICT DO NOTHING` for human edges; edge provenance column + suppression table via migration 035 *(grill amendment)*. |
 | **docs/ux.md amendment** *(UX amendment)* | Amendment | 1 | Register the Bill of materials tab, the Packages explorer route, the BOM / dependency gap flags, and the BOM vocabulary (Package, Add to catalog, Link, Where used) in `docs/ux.md` and `researches/ux-rewrite-gaps.md`. |
 | **Constitution Principle V** | Clarification | 1 | Add note: `bomEntries[]` is factual inventory, not a relationship declaration. The prohibition applies only to `relationships[]` edge declarations. |
 
@@ -1418,6 +1481,9 @@ Complements the per-phase checks in the Verification section below.
 032_bom_entries.ts                  Phase 1 — bom_entries table + indexes
 033_ecosystem_providers.ts          Phase 2 — provider enum + CHECK constraint
 034_bom_component_suggestions.ts    Phase 2 — suggestion queue
+035_bom_edge_provenance.ts          Phase 3 — provenance column + edge-suppression
+                                    table for component_depends_on_component
+                                    (UX-EDGE-01/02; grill amendment — was missing)
 ```
 
 ---
@@ -1472,6 +1538,7 @@ Complements the per-phase checks in the Verification section below.
 | `packages/core/src/contracts/discovered-asset.ts` | Add `DiscoveredAssetRelationship`, `relationships?` |
 | `packages/core/src/validation/` | Zod schema for `DiscoveredAssetRelationship` |
 | `packages/backend/src/services/import-run-service.ts` | Add processImporterEdges pass |
+| `packages/backend/src/db/migrations/035_bom_edge_provenance.ts` *(grill amendment)* | New: provenance column + edge-suppression table for `component_depends_on_component` (UX-EDGE-01/02) |
 | `packages/importer-github-dependencies/` | New importer (or capability on existing) |
 | `researches/adrs/ADR-133-v2-importer-relationship-contract.md` | New ADR |
 | `researches/architecture-decisions.md` | Register ADR-133 |
@@ -1539,9 +1606,9 @@ Run the spec-kit workflow starting with Phase 1:
 1. `speckit-specify` → `specs/NNN-bom-inventory/spec.md`  
    Draft ADR-057 Amendment 1 and new ADR-131 in the same spec run. Carry the
    `UX-BOM`, `UX-FRESH`, `UX-EXP` and `UX-IMP` requirements in as functional
-   requirements (MUST items are acceptance criteria), resolve the
-   [Open UX Questions](#open-ux-questions-for-the-specify--grill-step), and
-   schedule `UX-PKG` as the Phase 1b follow-up spec.
+   requirements (MUST items are acceptance criteria), carry in the
+   [Resolved UX Questions](#resolved-ux-questions-grill-2026-11-20)
+   resolutions, and schedule `UX-PKG` as the Phase 1b follow-up spec.
 2. `speckit-plan` → `plan.md` and `data-model.md`
 3. `speckit-tasks` → `tasks.md` broken into the Phase 1 touchpoints above
 4. Phase 2 (`NNN-bom-catalog-promotion`) and Phase 3 (`NNN-bom-importer-native`)
