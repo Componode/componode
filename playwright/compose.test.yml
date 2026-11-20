@@ -57,6 +57,9 @@ services:
       TRUSTED_PROXY_IP: "1"
       PUBLIC_URL: https://app.componode-pw.test
       URL_CHECK_SWEEP_INTERVAL_MS: "1000"
+      # The whole suite shares one unauthenticated-IP bucket (300/min default);
+      # the serial workload generates more traffic than that ceiling.
+      RATE_LIMIT_MAX: "5000"
       # Trust the workload CA for all app-originated TLS (mock providers,
       # Dex JWKS, URL Check targets) — no global verification bypass.
       NODE_EXTRA_CA_CERTS: /pw-private/ca.crt

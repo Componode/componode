@@ -2,9 +2,10 @@ import type { FastifyInstance } from "fastify";
 import rateLimit from "@fastify/rate-limit";
 
 export async function rateLimitPlugin(app: FastifyInstance): Promise<void> {
+  const envMax = Number(process.env.RATE_LIMIT_MAX);
   await app.register(rateLimit, {
     global: true,
-    max: 300,
+    max: Number.isInteger(envMax) && envMax > 0 ? envMax : 300,
     timeWindow: "1 minute",
     // Key by user ID if authenticated, otherwise by IP
     keyGenerator: (req) => {

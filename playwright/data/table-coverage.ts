@@ -9,6 +9,7 @@ export const TABLE_COVERAGE: Record<string, { source: CoverageSource; note: stri
   components: { source: 'bulk', note: '201 deterministic rows + importer output' },
   component_instances: { source: 'flow', note: 'bulk env rows + first-instance recovery + probes' },
   component_groups: { source: 'flow', note: 'API group lifecycle' },
+  component_group_members: { source: 'runtime', note: 'group membership API + auto-group assignment (spec 070)' },
   line_of_businesses: { source: 'flow', note: 'Admin API' },
   teams: { source: 'flow', note: 'Admin API' },
   product_composes: { source: 'flow', note: 'product hierarchy edges' },
@@ -41,6 +42,7 @@ export const TABLE_COVERAGE: Record<string, { source: CoverageSource; note: stri
   url_checks: { source: 'flow', note: 'composite + standalone checks' },
   url_check_observations: { source: 'runtime', note: 'real Hub/Agent probes' },
   app_settings: { source: 'flow', note: 'admin settings toggles' },
+  bom_entries: { source: 'runtime', note: 'github dep-graph + sbom-file runs + seeded stale/multi-source rows' },
   kysely_migration: { source: 'excluded', note: 'migration bookkeeping' },
   kysely_migration_lock: { source: 'excluded', note: 'migration bookkeeping' },
 };

@@ -44,6 +44,13 @@ describe("SessionProvider — expired-session redirect (F001, bugfix 036)", () =
     expect(screen.queryByText("SHELL CONTENT")).toBeNull();
   });
 
+  it("redirects to /login when the session query errors instead of mounting null-context children", () => {
+    useAuthSession.mockReturnValue({ data: undefined, isPending: false });
+    wrap();
+    expect(screen.getByText("LOGIN PAGE")).toBeTruthy();
+    expect(screen.queryByText("SHELL CONTENT")).toBeNull();
+  });
+
   it("renders a loading state while the session is pending", () => {
     useAuthSession.mockReturnValue({ data: undefined, isPending: true });
     wrap();
