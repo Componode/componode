@@ -1,5 +1,5 @@
 import type { Octokit } from "octokit";
-import { canonicalizeSourceIdentity, qualifyExternalId, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
+import { canonicalizeSourceIdentity, qualifyExternalId, type DiscoveredAsset, type DiscoveredBomEntry, type Importer, type ImporterContext } from "@componode/core";
 import { githubConfigSchema, type GithubConfig } from "./config.js";
 import { buildOctokit } from "./client.js";
 import { fetchOrganizationAsset } from "./github-org.js";
@@ -21,6 +21,7 @@ import {
   fetchRunnerAssets,
   fetchPackageAssets,
 } from "./github-extras.js";
+import { fetchRepoBom } from "./github-dependency-graph.js";
 import {
   capabilityMarker,
   capabilityStatusRank,
@@ -154,6 +155,7 @@ function buildDiscoveredAsset(
   repo: GithubRepo,
   instances: DiscoveredAsset["instances"],
   details: Record<string, unknown>,
+  bomEntries?: DiscoveredBomEntry[],
 ): DiscoveredAsset {
   return {
     category: "REPOSITORY",
@@ -164,6 +166,9 @@ function buildDiscoveredAsset(
     slug: generateComponentSlug(repo.name),
     details,
     instances,
+    // bomEntries is attached only when collection ran — presence semantics
+    // (present incl. [] replaces; absent preserves) live in ADR-131.
+    ...(bomEntries !== undefined ? { bomEntries } : {}),
   };
 }
 
@@ -416,6 +421,19 @@ export class GithubImporter implements Importer {
         }
       }
 
+      let bomEntries: DiscoveredBomEntry[] | undefined;
+      if (parsed.includeDependencyGraph) {
+        const bom = await fetchRepoBom(
+          octokit,
+          owner,
+          repoName,
+          repo.default_branch ?? "main",
+          context.signal,
+        );
+        repoCaps.bomInventory = bom.marker;
+        if (bom.entries) bomEntries = bom.entries;
+      }
+
       let languages: Record<string, number> | undefined;
       if (parsed.includeLanguageBreakdown) {
         const languagesResult = await fetchLanguageBreakdown(
@@ -458,7 +476,7 @@ export class GithubImporter implements Importer {
         languages,
         capabilities: repoCaps,
       });
-      yield qualifyGhes(buildDiscoveredAsset(repo, instances, details));
+      yield qualifyGhes(buildDiscoveredAsset(repo, instances, details, bomEntries));
 
       if (parsed.includeWorkflows) {
         for await (const asset of fetchWorkflowAssets(octokit, repo, context.signal)) {

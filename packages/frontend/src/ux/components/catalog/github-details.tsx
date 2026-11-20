@@ -206,6 +206,7 @@ const CAPABILITY_LABELS: Record<string, string> = {
   environments: "Environments",
   deployments: "Deployments",
   releases: "Latest release",
+  bomInventory: "Dependency inventory",
 }
 
 function degradedCapabilitiesOf(

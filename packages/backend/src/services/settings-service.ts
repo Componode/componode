@@ -80,6 +80,28 @@ export async function getSetting(key: keyof typeof DEFAULT_SETTINGS): Promise<un
   return settingsCache.get(key) ?? DEFAULT_SETTINGS[key];
 }
 
+// Spec 073 / research Q1 — workspace-level BOM freshness threshold held as the
+// app_settings key `bom.staleThresholdDays` (default 7). Internal tunable, not
+// part of the typed UpdateSettingsInput surface; env override for ops.
+const BOM_STALE_THRESHOLD_KEY = "bom.staleThresholdDays";
+const BOM_STALE_THRESHOLD_DEFAULT = 7;
+
+function coercePositiveDays(raw: unknown): number | undefined {
+  const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
+  return Number.isInteger(n) && n > 0 ? n : undefined;
+}
+
+export async function getBomStaleThresholdDays(): Promise<number> {
+  const env = coercePositiveDays(process.env.BOM_STALE_THRESHOLD_DAYS);
+  if (env !== undefined) return env;
+  const row = await db
+    .selectFrom("app_settings")
+    .select("value")
+    .where("key", "=", BOM_STALE_THRESHOLD_KEY)
+    .executeTakeFirst();
+  return coercePositiveDays(row?.value) ?? BOM_STALE_THRESHOLD_DEFAULT;
+}
+
 export async function updateSettings(input: UpdateSettingsInput, actor: Actor) {
   // Refuse the unsafe combination before persisting: public self-registration
   // must never provision new accounts as ADMIN (2026-09-10 assessment). The

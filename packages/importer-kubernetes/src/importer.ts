@@ -1,5 +1,6 @@
 import { canonicalizeSourceIdentity, qualifyExternalId, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
 import { kubernetesConfigSchema } from "./config.js";
+import { collectPodImageBoms, type PodImageBom } from "./k8s-pods.js";
 
 function slugify(name: string): string {
   return name
@@ -41,7 +42,7 @@ export class KubernetesImporter implements Importer {
 
   async *run(
     config: Record<string, unknown>,
-    _secrets: Record<string, string>,
+    secrets: Record<string, string>,
     context: ImporterContext,
   ): AsyncGenerator<DiscoveredAsset> {
     if (context.signal.aborted) {
@@ -60,6 +61,49 @@ export class KubernetesImporter implements Importer {
     }
     await context.reportSourceIdentity({ externalIdentity: identity });
 
+    // Spec 073 / FR-016 — pod image SBOMs. Collected once per run; each
+    // workload asset gets its pods' image packages (component scope).
+    // Degradation writes `bomInventory` onto the asset's capability map —
+    // the field stays absent, never empty (FR-004).
+    let podBoms: Map<string, PodImageBom> | null = null;
+    if (parsed.includePodImageSbom) {
+      if (!parsed.endpoint) {
+        podBoms = new Map(
+          parsed.resourceTypes.map((rt) => [
+            rt,
+            {
+              marker: {
+                status: "UNAVAILABLE" as const,
+                message: "includePodImageSbom requires an API endpoint (sourceKey mode has no cluster to query)",
+              },
+            },
+          ]),
+        );
+      } else {
+        context.reportPhase("Collecting pod image SBOMs");
+        try {
+          const collected = await collectPodImageBoms({
+            endpoint: parsed.endpoint,
+            namespace: parsed.namespace,
+            resourceTypes: parsed.resourceTypes,
+            token: secrets.token,
+            signal: context.signal,
+          });
+          podBoms = collected.perWorkload;
+        } catch (err) {
+          const status = (err as { status?: number }).status;
+          const marker = {
+            status:
+              status === 401 || status === 403
+                ? ("FORBIDDEN" as const)
+                : ("UNAVAILABLE" as const),
+            message: err instanceof Error ? err.message : String(err),
+          };
+          podBoms = new Map(parsed.resourceTypes.map((rt) => [rt, { marker }]));
+        }
+      }
+    }
+
     context.reportPhase("Listing resources");
     for (const resourceType of parsed.resourceTypes) {
       if (context.signal.aborted) {
@@ -68,6 +112,13 @@ export class KubernetesImporter implements Importer {
 
       context.reportPhase(`Processing ${resourceType}`);
       const asset = buildAsset(resourceType, parsed.namespace, parsed.endpoint, identity);
+      const bom = podBoms?.get(resourceType);
+      if (bom) {
+        if (bom.entries) asset.bomEntries = bom.entries;
+        (asset.details as Record<string, unknown>).capabilities = {
+          bomInventory: bom.marker,
+        };
+      }
       if (!validateDiscoveredAsset(asset)) {
         throw new Error(`Invalid discovered asset for resource type ${resourceType}`);
       }

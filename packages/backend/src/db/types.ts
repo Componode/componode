@@ -278,6 +278,11 @@ export interface ImportRunRow {
   assetsUpdated: number;
   instancesOrphaned: number;
   componentsRetired: number;
+  // Spec 073 package counters (migration 033, ADR-131 replace semantics).
+  packagesCreated: Generated<number>;
+  packagesUpdated: Generated<number>;
+  packagesUnchanged: Generated<number>;
+  packagesRemoved: Generated<number>;
   currentPhase: string | null;
   cancelRequestedAt: string | null;
   cancelReason: string | null;
@@ -454,6 +459,36 @@ export interface SourceUrlCheckMembershipRow {
   updatedAt: Generated<string>;
 }
 
+/** Spec 073 / ADR-131 — importer-reported package inventory (factual, never
+ *  user-edited). Self-parent FK preserves nested assemblies; NULL
+ *  componentInstanceId = component-scoped entry. `resolvedComponentId` is
+ *  Phase-2 surface — nothing writes it in Phase 1. */
+export interface BomEntryRow {
+  id: string;
+  componentId: string;
+  componentInstanceId: string | null;
+  parentBomEntryId: string | null;
+  purl: string;
+  name: string;
+  version: string | null;
+  ecosystem: string;
+  scope: string;
+  evidenceSource: string;
+  evidenceDetail: string | null;
+  supplier: string | null;
+  licenses: Generated<unknown>;
+  direct: Generated<boolean>;
+  lastReportedAt: Generated<string>;
+  cdxType: string | null;
+  cdxBomRef: string | null;
+  importRunId: string | null;
+  sourceId: string | null;
+  resolvedComponentId: string | null;
+  details: Record<string, unknown> | null;
+  createdAt: Generated<string>;
+  updatedAt: Generated<string>;
+}
+
 export interface KyselyMigrationRow {
   name: string;
   timestamp: number;
@@ -501,6 +536,7 @@ export interface DB {
   url_checks: UrlCheckRow;
   url_check_observations: UrlCheckObservationRow;
   source_url_check_memberships: SourceUrlCheckMembershipRow;
+  bom_entries: BomEntryRow;
   kysely_migration: KyselyMigrationRow;
   kysely_migration_lock: KyselyMigrationLockRow;
 }

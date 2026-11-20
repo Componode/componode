@@ -20,6 +20,11 @@ export interface ImportRun {
   assetsUpdated: number;
   instancesOrphaned: number;
   componentsRetired: number;
+  // Package counters (spec 073) — dedupe-key diffs per completed run.
+  packagesCreated: number;
+  packagesUpdated: number;
+  packagesUnchanged: number;
+  packagesRemoved: number;
   currentPhase?: string | null;
   cancelRequestedAt?: string | null;
   cancelReason?: ImportRunCancelReason | null;

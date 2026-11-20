@@ -28,6 +28,10 @@ export const dockerConfigSchema = z
       .boolean()
       .default(false)
       .describe("Import cached images as PACKAGE_REGISTRY components"),
+    includeSbom: z
+      .boolean()
+      .default(false)
+      .describe("Read each image's SBOM attestations/referrers from its OCI registry (CycloneDX or SPDX) into the bill of materials. Images without an attestation report no inventory"),
     // Workload-identity override label (default componode.component-id).
     componentIdLabel: z
       .string()

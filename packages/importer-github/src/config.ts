@@ -55,6 +55,10 @@ export const githubConfigSchema = z.object({
     .boolean()
     .default(false)
     .describe("Import per-language byte breakdown (one extra API call per repo)"),
+  includeDependencyGraph: z
+    .boolean()
+    .default(false)
+    .describe("Import each repository's package inventory into its bill of materials. Uses GitHub's dependency graph, so private repositories need the 'Dependency graph' permission on the token."),
 
   environmentMapping: z
     .record(z.string(), z.enum(ENVIRONMENTS))

@@ -23,6 +23,7 @@
     "@componode/importer-github": "workspace:*",
     "@componode/importer-kubernetes": "workspace:*",
     "@componode/importer-mcp-server": "workspace:*",
+    "@componode/importer-sbom-file": "workspace:*",
     "@componode/importer-web-url": "workspace:*",
     "https-proxy-agent": "^9.1.0",
     "pino": "^10.4.0",

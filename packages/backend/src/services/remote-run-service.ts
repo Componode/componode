@@ -33,6 +33,7 @@ import {
 } from "./import-run-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
 import { runAutoGroupPass } from "./source-group-service.js";
+import { deleteAbsentBomEntries, type BomScope } from "./bom-service.js";
 import { recordRunSourceIdentity } from "./importer-source-service.js";
 import { runActor } from "./import-run-service.js";
 
@@ -103,7 +104,13 @@ export interface RemoteRunStore {
   processAsset(
     job: RemoteJobContext,
     asset: DiscoveredAsset,
-  ): Promise<{ componentId: string; created: boolean; instancesOrphaned: number }>;
+  ): Promise<{
+    componentId: string;
+    created: boolean;
+    instancesOrphaned: number;
+    packages: { created: number; updated: number; unchanged: number };
+    bomScopes: BomScope[];
+  }>;
   /** Register-or-match the reported Source, bind the config, stamp
    *  `import_runs.sourceId`. Returns the source id. */
   recordSourceIdentity(
@@ -118,6 +125,9 @@ export interface RemoteRunStore {
   /** ADR-129: refresh source-scoped auto groups after a completed run —
    *  runs before suggestion staging so group coverage applies. */
   maintainAutoGroups(job: RemoteJobContext): Promise<void>;
+  /** ADR-131: source-scoped BOM diff-replace on the completed path only —
+   *  deletes this source's rows in reported scopes not stamped this run. */
+  pruneBomScopes(job: RemoteJobContext, scopes: BomScope[]): Promise<number>;
   touchCredentials(credentialIds: string[]): Promise<void>;
   /** Conditional PENDING→RUNNING transition; false = the run left PENDING
    *  underneath us (a cancel that raced dispatch). */
@@ -170,6 +180,10 @@ interface InFlight {
     updated: number;
     orphaned: number;
   };
+  // Spec 073: accumulated package counters + the (componentId, instanceId)
+  // scopes whose `bomEntries` field was present — pruned at completion.
+  packages: { created: number; updated: number; unchanged: number };
+  bomScopes: Map<string, BomScope>;
 }
 
 // Hub-side outcome vocabulary — broader than the wire `run.complete`
@@ -312,6 +326,8 @@ export class RemoteRunService implements RemoteRunHandler {
         currentPhase: null,
         yieldedComponentIds: new Set(),
         counters: { processed: 0, created: 0, updated: 0, orphaned: 0 },
+        packages: { created: 0, updated: 0, unchanged: 0 },
+        bomScopes: new Map(),
       };
       entry.ackTimer = setTimeout(() => void this.onAckTimeout(job.runId), this.ackTimeoutMs);
       entry.ackTimer.unref?.();
@@ -622,6 +638,12 @@ export class RemoteRunService implements RemoteRunHandler {
       entry.counters.created += result.created ? 1 : 0;
       entry.counters.updated += result.created ? 0 : 1;
       entry.counters.orphaned += result.instancesOrphaned;
+      entry.packages.created += result.packages.created;
+      entry.packages.updated += result.packages.updated;
+      entry.packages.unchanged += result.packages.unchanged;
+      for (const scope of result.bomScopes) {
+        entry.bomScopes.set(`${scope.componentId}|${scope.componentInstanceId ?? ""}`, scope);
+      }
       metrics.agentAssetsReceivedTotal.inc({
         agent: entry.job.agent.name,
         importer: entry.job.importerName,
@@ -689,6 +711,9 @@ export class RemoteRunService implements RemoteRunHandler {
       assetsCreated: entry.counters.created,
       assetsUpdated: entry.counters.updated,
       instancesOrphaned: entry.counters.orphaned,
+      packagesCreated: entry.packages.created,
+      packagesUpdated: entry.packages.updated,
+      packagesUnchanged: entry.packages.unchanged,
     };
     if (payload.result === "COMPLETED" && !entry.cancelRequested) {
       // An adopting importer that completes without reporting identity
@@ -722,11 +747,25 @@ export class RemoteRunService implements RemoteRunHandler {
         } catch (err) {
           this.log.warn({ runId, err }, "source auto-group pass failed after remote run");
         }
+        // ADR-131: diff-replace only the scopes this run reported — before
+        // the terminal write so failed/cancelled remote runs never delete.
+        let packagesRemoved = 0;
+        if (entry.bomScopes.size > 0) {
+          try {
+            packagesRemoved = await this.store.pruneBomScopes(
+              entry.job,
+              [...entry.bomScopes.values()],
+            );
+          } catch (err) {
+            this.log.warn({ runId, err }, "BOM prune failed after remote run");
+          }
+        }
         await this.finalize(entry, "completed", {
         ...base,
         status: "COMPLETED",
         currentPhase: "Completed",
           componentsRetired,
+          packagesRemoved,
         }, true);
         // Failure-isolated — a suggestion bug must never flip a completed run.
         try {
@@ -1110,6 +1149,11 @@ export function createDbRemoteRunStore(): RemoteRunStore {
         runId: job.runId,
         trigger: "agent-run",
       });
+    },
+    async pruneBomScopes(job, scopes) {
+      return db.transaction().execute((trx) =>
+        deleteAbsentBomEntries(trx, scopes, job.sourceId, job.runId),
+      );
     },
     async touchCredentials(credentialIds) {
       await db
