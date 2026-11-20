@@ -169,7 +169,7 @@
 - [x] T058 [P] `docs/importers/sbom-file.md` NEW setup guide (what it imports, external setup, every config field, componentSlug rule, common failures); update `docs/importers/github.md`, `docker.md`, `kubernetes.md` for the new toggles + `bomInventory` behaviour; docs-site sidebar updated if the new page isn't already listed
 - [x] T059 [P] Update `AGENTS.md` importer enumeration — the in-tree set is 10 packages with `importer-docker` and `importer-sbom-file` (line currently says 8 and omits docker)
 - [x] T060 `playwright/tests/` — BOM e2e spec(s): tab states + URL round-trip + tree + export menu + stale/empty states, importer-form toggles, run Packages tile, list BOM filter (per FR-030); run `pnpm e2e` green
-- [ ] T061 Full verification per quickstart.md + `pnpm lint && pnpm typecheck && pnpm test && pnpm build` + `pnpm audit --prod --audit-level=high`; fix AGENTS.md done-criteria deltas
+- [x] T061 Full verification per quickstart.md + `pnpm lint && pnpm typecheck && pnpm test && pnpm build` + `pnpm audit --prod --audit-level=high`; fix AGENTS.md done-criteria deltas
 
 ---
 
