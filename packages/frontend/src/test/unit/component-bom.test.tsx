@@ -124,6 +124,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   (flags as Record<string, boolean>).componentBom = true;
+  (flags as Record<string, boolean>).packagesExplorer = true;
 });
 
 describe("ComponentBomTab (spec 073)", () => {
@@ -220,6 +221,27 @@ describe("ComponentBomTab (spec 073)", () => {
     });
     wrap(<ComponentBomTab component={component} />);
     await screen.findByText("No bill of materials reported");
+  });
+
+  it("row menu links 'See where it's used' only when packagesExplorer is on", async () => {
+    wrap(<ComponentBomTab component={component} />);
+    await screen.findByText("lodash");
+    fireEvent.keyDown(screen.getByLabelText("Actions for lodash"), {
+      key: "ArrowDown",
+    });
+    const link = await screen.findByText("See where it's used");
+    expect(link.closest("a")?.getAttribute("href")).toContain(
+      `/packages?q=${encodeURIComponent("pkg:npm/lodash@4.17.21")}`,
+    );
+    cleanup();
+    (flags as Record<string, boolean>).packagesExplorer = false;
+    wrap(<ComponentBomTab component={component} />);
+    await screen.findByText("lodash");
+    fireEvent.keyDown(screen.getByLabelText("Actions for lodash"), {
+      key: "ArrowDown",
+    });
+    await screen.findByText("Copy purl");
+    expect(screen.queryByText("See where it's used")).toBeNull();
   });
 });
 

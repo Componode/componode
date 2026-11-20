@@ -110,6 +110,12 @@ export interface ListState<S extends string = string, F extends string = string>
   setFilter: (key: F, value: string) => void;
   /** Clear every managed param back to defaults (preserves unrelated params). */
   reset: () => void;
+  /**
+   * Mutate params outside the managed set (page-local state like `?version=`)
+   * through the same pending-write channel — same-tick writes compose with
+   * the managed setters instead of overwriting them from a stale snapshot.
+   */
+  mutateParams: (mutate: (next: URLSearchParams) => void) => void;
 }
 
 function parsePositiveInt(raw: string | null): number | null {
@@ -302,5 +308,6 @@ export function useListState<S extends string = string, F extends string = strin
     setSearch,
     setFilter,
     reset,
+    mutateParams: applyUpdates,
   };
 }

@@ -41,7 +41,7 @@ import {
 } from "@/ux/components/ui/sidebar"
 import { ROLE_META } from "@/ux/lib/domain"
 import { initials } from "@/ux/lib/format"
-import { canAccess, NAV_SECTIONS, type NavItem } from "@/ux/lib/nav"
+import { NAV_SECTIONS, navVisible, type NavItem } from "@/ux/lib/nav"
 import { useCommandMenu } from "./command-menu"
 import { ux } from "@/ux/lib/paths"
 
@@ -86,7 +86,7 @@ export function AppSidebar() {
 
       <SidebarContent>
         {NAV_SECTIONS.map((section) => {
-          const items = section.items.filter((i) => canAccess(user.role, i.minRole))
+          const items = section.items.filter((i) => navVisible(user.role, i))
           if (!items.length) return null
           return (
             <SidebarGroup key={section.label}>

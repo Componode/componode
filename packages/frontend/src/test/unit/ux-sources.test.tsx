@@ -74,6 +74,7 @@ const listState = (): ListState<ImporterSourcesSortKey, ImporterSourcesFilterKey
   setSearch: vi.fn(),
   setFilter: vi.fn(),
   reset: vi.fn(),
+  mutateParams: vi.fn(),
 });
 
 describe("SourcesView (spec 047)", () => {

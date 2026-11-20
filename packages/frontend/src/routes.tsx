@@ -21,6 +21,7 @@ import { UxComponentPromotePage } from "@/ux/app/components/$slug.promote";
 import { UxComponentHistoryPage } from "@/ux/app/components/$slug.history";
 import { UxComponentGroupsPage } from "@/ux/app/component-groups/index";
 import { UxComponentGroupDetailPage } from "@/ux/app/component-groups/$slug";
+import { UxPackagesPage } from "@/ux/app/packages/index";
 import { UxSuggestionsPage } from "@/ux/app/suggestions";
 import { UxActivityPage } from "@/ux/app/activity";
 import { UxUsersPage } from "@/ux/app/users";
@@ -93,6 +94,7 @@ export const routes: RouteObject[] = [
       { path: "component-groups", element: authed(<UxComponentGroupsPage />) },
       { path: "component-groups/:slug", element: authed(<UxComponentGroupDetailPage />) },
       { path: "suggestions", element: authed(<UxSuggestionsPage />) },
+      { path: "packages", element: authed(<UxPackagesPage />) },
       { path: "importers", element: authed(<UxImportersPage />) },
       { path: "importers/new", element: authed(<UxImporterNewPage />) },
       { path: "importers/new/docker", element: authed(<UxDockerSetupPage />, "ADMIN") },

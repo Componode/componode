@@ -8,7 +8,20 @@
  * the flag flips. (`passwordReset` is ON: the endpoint exists.)
  *
  * Rule: a flag may only be added alongside a detailed gap-registry entry.
+ *
+ * E2E escape hatch (FR-018 coverage): `localStorage["componode.flag.<name>"]
+ * = "true"|"false"` overrides a flag at module load, before the app mounts —
+ * Playwright sets it via `page.addInitScript`. Not a runtime toggle.
  */
+const flagOverride = (name: string): boolean | undefined => {
+  try {
+    const v = globalThis.localStorage?.getItem(`componode.flag.${name}`);
+    return v == null ? undefined : v === "true";
+  } catch {
+    return undefined;
+  }
+};
+
 export const flags = {
   /** Per-day importer run aggregates for the history chart (gap 1). */
   historyAggregates: true,
@@ -47,6 +60,12 @@ export const flags = {
   /** Bill of Materials tab + BOM list filter/run counters (gap G36, spec 073
    *  — ON with the Phase 1 contract: /components/:id/bom + summary + instance read). */
   componentBom: true,
+  /** Packages explorer + consumers read (gap G37, spec 074 — ON with the
+   *  Phase 1b contract: /packages + /packages/consumers). */
+  packagesExplorer: flagOverride("packagesExplorer") ?? true,
+  /** Phase-2 BOM catalog curation (Library promotion, "In catalog"
+   *  filtering, resolved-component links) — spec'd, not yet built. */
+  bomCuration: false,
 } as const;
 
 export type GapFlag = keyof typeof flags;

@@ -324,6 +324,23 @@ describe("useDebouncedParam (spec 069 / B.4)", () => {
     act(() => vi.advanceTimersByTime(350));
     expect(commit).toHaveBeenCalledWith("all"); // emptied input → sentinel
   });
+
+  it("does not re-commit stale text after an external reset (Clear filters)", () => {
+    vi.useFakeTimers();
+    const commit = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ v }) => useDebouncedParam(v, commit, "all"),
+      { initialProps: { v: "zzz" } },
+    );
+    expect(result.current[0]).toBe("zzz");
+    act(() => vi.advanceTimersByTime(350));
+    // External reset: Clear filters navigates to the bare list URL — the
+    // input re-syncs but the debounced value still holds "zzz" briefly.
+    rerender({ v: "all" });
+    expect(result.current[0]).toBe("");
+    act(() => vi.advanceTimersByTime(350));
+    expect(commit).not.toHaveBeenCalled();
+  });
 });
 
 describe("useDebouncedValue", () => {

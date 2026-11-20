@@ -288,7 +288,7 @@ export interface SearchHit {
   id: string;
   name: string;
   slug: string | null;
-  kind: "component" | "product" | "group" | "importer" | "lob" | "team";
+  kind: "component" | "product" | "group" | "importer" | "lob" | "team" | "package";
   href: string;
 }
 
@@ -299,6 +299,7 @@ export interface SearchResults {
   importers: SearchHit[];
   lobs: SearchHit[];
   teams: SearchHit[];
+  packages: SearchHit[];
 }
 
 /**

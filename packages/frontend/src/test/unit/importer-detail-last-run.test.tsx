@@ -92,6 +92,7 @@ const listState = (): ListState<ImporterRunsSortKey, ImporterRunsFilterKey> => (
   setSearch: () => {},
   setFilter: () => {},
   reset: () => {},
+  mutateParams: () => {},
 });
 
 afterEach(cleanup);
