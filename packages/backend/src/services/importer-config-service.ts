@@ -66,6 +66,26 @@ async function validateScopeForImporter(
       details: result.error.issues,
     });
   }
+
+  // Spec 073 (FR-017): sbom-file's componentSlug must resolve to an ACTIVE
+  // component with an externalId at save — the run resolves the same way
+  // at dispatch (slug can be renamed/retired between save and run).
+  if (importerName === "sbom-file") {
+    const slug = (result.data as Record<string, unknown> | undefined)?.componentSlug;
+    const target = typeof slug === "string" && slug
+      ? await db
+          .selectFrom("components")
+          .select(["id", "lifecycle", "externalId"])
+          .where("slug", "=", slug)
+          .executeTakeFirst()
+      : undefined;
+    if (!target || target.lifecycle === "RETIRED" || !target.externalId) {
+      throw Object.assign(
+        new Error(`componentSlug "${typeof slug === "string" && slug ? slug : "(missing)"}" does not resolve to an active component`),
+        { statusCode: 400, code: "VALIDATION_FAILED" },
+      );
+    }
+  }
 }
 
 function maskSecretRefs(

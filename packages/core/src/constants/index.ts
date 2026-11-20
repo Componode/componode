@@ -22,6 +22,19 @@ export type { ComponentLifecycle } from "./lifecycle.js";
 export { INSTANCE_STATUS, INSTANCE_STATUS_META } from "./instance-status.js";
 export type { InstanceStatus } from "./instance-status.js";
 
+export {
+  BOM_DEPENDENCY_SCOPES,
+  BOM_DEPENDENCY_SCOPE_META,
+  BOM_EVIDENCE_SOURCES,
+  BOM_EVIDENCE_SOURCE_META,
+  BOM_CDX_TYPES,
+} from "./bom-entry.js";
+export type {
+  BomDependencyScope,
+  BomEvidenceSource,
+  BomCdxType,
+} from "./bom-entry.js";
+
 export { PRODUCT_TYPES, PRODUCT_TYPE_META } from "./product-types.js";
 export type { ProductType } from "./product-types.js";
 

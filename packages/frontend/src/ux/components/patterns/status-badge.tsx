@@ -5,6 +5,10 @@ import {
   AGENT_STATUS_META,
   type AgentCredentialState,
   type AgentStatus,
+  BOM_EVIDENCE_META,
+  BOM_SCOPE_META,
+  type BomEvidenceSource,
+  type BomScope,
   CHECK_OUTCOME_META,
   CHECK_STATUS_META,
   CREDENTIAL_STATUS_META,
@@ -112,6 +116,20 @@ export const AgentCredentialBadge = ({ value }: { value: AgentCredentialState })
   <StatusBadge {...metaOr(AGENT_CREDENTIAL_META, value)} />
 )
 export const RoleBadge = ({ value }: { value: Role }) => <StatusBadge {...metaOr(ROLE_META, value)} />
+/** BOM dependency scope (spec 073, UX-BOM-05) — neutral/brand/info tones only. */
+export const BomScopeBadge = ({ value }: { value: BomScope }) => (
+  <StatusBadge {...metaOr(BOM_SCOPE_META, value)} />
+)
+/** BOM evidence source ("Found in", UX-BOM-06) — detail string rides in the tooltip. */
+export function BomEvidenceBadge({ value, detail }: { value: BomEvidenceSource; detail?: string | null }) {
+  const meta = metaOr(BOM_EVIDENCE_META, value)
+  return (
+    <StatusBadge
+      {...meta}
+      description={detail ? `${meta.description}: ${detail}` : meta.description}
+    />
+  )
+}
 export function ProductTypeBadge({ value }: { value: ProductType }) {
   const meta = metaOr(PRODUCT_TYPE_META, value)
   return (

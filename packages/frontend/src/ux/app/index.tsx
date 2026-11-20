@@ -10,6 +10,7 @@ import { CoverageCard } from "@/ux/components/dashboard/coverage-card";
 import { InstanceHealthCard } from "@/ux/components/dashboard/instance-health-card";
 import { RecentActivity } from "@/ux/components/dashboard/recent-activity";
 import { StatGrid } from "@/ux/components/dashboard/stat-grid";
+import { flags } from "@/ux/lib/flags";
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header";
 import { ErrorState } from "@/ux/components/patterns/states";
 import { Button } from "@/ux/components/ui/button";
@@ -91,7 +92,17 @@ export function UxIndexPage() {
             </div>
             <div className="flex flex-col gap-6">
               <InstanceHealthCard byStatus={summary.data.counts.instances.byStatus} />
-              <CoverageCard coverage={mapCoverage(summary.data.coverage)} />
+              <CoverageCard
+                coverage={mapCoverage(summary.data.coverage)}
+                componentsWithBom={
+                  flags.componentBom
+                    ? {
+                        withBom: summary.data.coverage.components.withBom,
+                        active: summary.data.coverage.components.active,
+                      }
+                    : undefined
+                }
+              />
             </div>
           </div>
         </>

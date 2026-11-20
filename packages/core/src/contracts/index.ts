@@ -12,6 +12,16 @@ export type { OidcConfig } from "./oidc-config.js";
 export type { AppSettings } from "./app-settings.js";
 export type { PasswordResetToken } from "./password-reset-token.js";
 export type { EntityChange, EdgeChange } from "./audit.js";
-export type { DiscoveredAsset, DiscoveredAssetEnvironment } from "./discovered-asset.js";
+export type {
+  DiscoveredAsset,
+  DiscoveredAssetInstance,
+  DiscoveredAssetEnvironment,
+  DiscoveredBomEntry,
+} from "./discovered-asset.js";
+export type {
+  BomEntry,
+  BomEntryListItem,
+  BomSummary,
+} from "./bom-entry.js";
 export type { SecretResolver, ImporterContext, Importer } from "./importer.js";
 export type { BootstrapReport, BootstrapSkippedItem } from "./bootstrap.js";

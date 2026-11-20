@@ -200,6 +200,70 @@ owner, dependencies, or description. A dashboard signal for the next
 curation action.
 _Avoid_: scorecard, maturity
 
+**Bill of materials (BOM)**:
+A Component's factual package inventory — the set of BOM entries
+importers have reported for that Component or one of its
+ComponentInstances. Written only by importers; read-only to humans.
+_Avoid_: SBOM when referring to the stored model (SBOM is the document
+format), dependency list
+
+**BOM entry**:
+One observed package, library, or assembly in a Component's BOM —
+written only by importers from detected evidence (lockfiles, manifests,
+SBOM documents, image layers). Carries a purl, version, scope, evidence
+and licences, and may nest under a parent entry for multi-layer
+assemblies. Rendered in the UI as a "Package" row.
+_Avoid_: dependency (that word belongs to edges), package as the entity
+name
+
+**purl** (Package URL):
+The canonical package identity string (`pkg:npm/lodash@4.17.21`) carried
+by every BOM entry — the interoperability key shared by CycloneDX, SPDX,
+and scanner tooling.
+_Avoid_: package identifier, coordinates
+
+**Version-free purl**:
+A normalized purl with version, qualifiers, and subpath stripped and
+purl-spec type casing applied — the identity key for a Library
+component's `externalId` and for `/packages` grouping. One catalog
+component per version-free purl.
+_Avoid_: package name alone as identity
+
+**Library component**:
+A first-class Component (category `LIBRARY`) created via *Add to
+catalog* from a version-free purl — one per package across all versions.
+Same lifecycle, source membership, and graph participation as any
+Component; hidden from the default Components list and excluded from
+coverage denominators.
+_Avoid_: package component, dependency record
+
+**Component dependency**:
+A component→component edge (`component_depends_on_component`) meaning
+"this component depends on that component" — created by dependency
+suggestions, the Link action, or Phase 3 importers. Distinct from
+`DEPENDS_ON_COMPONENT`, which is product→component.
+_Avoid_: component edge, library link
+
+**Dependency suggestion**:
+A staged, server-generated candidate that one component may depend on
+another, computed from BOM/purl matching, reviewed in the Suggestions
+queue's *Component dependencies* segment and decided by a human
+(ADR-113 pattern). Sibling of the *candidate edge*, which stays
+product-scoped; same terminal-state semantics.
+_Avoid_: auto-wire, recommendation
+
+**Evidence source** (BOM):
+How a BOM entry was detected — `LOCK_FILE`, `MANIFEST_FILE`,
+`SBOM_DOCUMENT`, `IMAGE_LAYER`, `REGISTRY_API`, or `VCS_ANALYSIS`.
+Rendered in the UI as "Found in".
+_Avoid_: origin
+
+**Direct / Transitive** (BOM):
+Whether a component's own manifest declares the package (direct) or it
+was pulled in by another package (transitive). Recorded on the BOM
+entry's `direct` flag, independent of its scope.
+_Avoid_: first-level, nested
+
 ## Decision rules
 
 **Product or Component?**
@@ -214,3 +278,10 @@ Vendor services no importer discovers (Stripe, SendGrid, a partner API) →
 `ComponentGroup` if the same service appears from several sources. Model it
 as a `PLATFORM` Digital Product only when the organization governs it as
 shared infrastructure — an owner, named consumers, a lifecycle.
+
+**BOM entry or Library component?**
+Observed by an importer as package inventory → **BOM entry** (factual,
+read-only, lives and dies with source reports). Elevated to a curated
+catalog entity the graph can depend on → **Library component**, created
+only through *Add to catalog*. The same package exists as both: the entry
+is the fact, the component is the curation.

@@ -35,6 +35,7 @@ export const COMPONENTS_FILTER_KEYS = [
   "category",
   "lifecycle",
   "wired",
+  "bom",
   "gone",
 ] as const;
 export type ComponentsFilterKey = (typeof COMPONENTS_FILTER_KEYS)[number];
@@ -49,6 +50,8 @@ export interface ComponentListFilters {
   group?: string;
   /** Spec 023: coverage filter — CSV of "wired"/"unwired". */
   wired?: string;
+  /** Spec 073: BOM coverage filter — CSV of "has"/"none". */
+  bom?: string;
   tag?: string;
   search?: string;
   includeRetired?: boolean;
@@ -76,6 +79,7 @@ export function componentsListParams(state: ListQueryState): ComponentListFilter
     category: facetParam(state, "category"),
     lifecycle: facetParam(state, "lifecycle"),
     wired: facetParam(state, "wired"),
+    bom: facetParam(state, "bom"),
     includeRetired: true,
     includeGone: f.gone === "show",
   };

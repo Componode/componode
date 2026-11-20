@@ -86,7 +86,7 @@ const state = (over: Partial<ListQueryState> = {}): ListQueryState => ({
 const EMPTY_PAGINATION = { page: 1, pageSize: 25, total: 0, pageCount: 0, hasNext: false };
 
 it("declares the expected URL filter keys per page", () => {
-  expect(COMPONENTS_FILTER_KEYS).toEqual(["provider", "category", "lifecycle", "wired", "gone"]);
+  expect(COMPONENTS_FILTER_KEYS).toEqual(["provider", "category", "lifecycle", "wired", "bom", "gone"]);
   expect(PRODUCTS_FILTER_KEYS).toEqual(["type", "criticality", "lifecycle", "missing"]);
   expect(COMPONENT_GROUPS_FILTER_KEYS).toEqual(["lifecycle"]);
   expect(AGENTS_FILTER_KEYS).toEqual(["status"]);

@@ -3,6 +3,7 @@ import { CircleAlertIcon, CircleCheckIcon, Loader2Icon, RadioTowerIcon, SearchIc
 import { Link } from "react-router-dom"
 import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import { toast } from "sonner"
+import { flags } from "@/ux/lib/flags"
 import { ConfirmDialog } from "@/ux/components/patterns/confirm-dialog"
 import { PageContainer, PageHeader } from "@/ux/components/patterns/page-header"
 import { DescriptionList, MonoValue, RelativeTime } from "@/ux/components/patterns/primitives"
@@ -227,6 +228,25 @@ export function RunDetail({ importer, run, errors, changes, errorsList, changesL
             <Counter label="Orphaned" value={run.instancesOrphaned} />
             <Counter label="Retired" value={run.componentsRetired} />
           </div>
+
+          {/* Spec 073 UX-IMP-04: package counters summarised, never itemised
+              — the Changes tab stays component-only. */}
+          {flags.componentBom ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Packages</CardTitle>
+                <CardDescription>Bill-of-materials entries this run reported.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <Counter label="Created" value={run.packagesCreated} />
+                  <Counter label="Unchanged" value={run.packagesUnchanged} />
+                  <Counter label="Updated" value={run.packagesUpdated} />
+                  <Counter label="Removed" value={run.packagesRemoved} />
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>

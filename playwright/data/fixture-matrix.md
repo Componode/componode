@@ -1,6 +1,6 @@
 # Synthetic Fixture and Table Matrix
 
-This matrix covers all 35 application-owned persistent tables. The two migration bookkeeping tables are excluded. Use the database only for deterministic bulk baseline data where direct seeding preserves constraints; use application flows for encrypted values and lifecycle-generated history.
+This matrix covers all 38 application-owned persistent tables. The two migration bookkeeping tables are excluded. Use the database only for deterministic bulk baseline data where direct seeding preserves constraints; use application flows for encrypted values and lifecycle-generated history.
 
 | Table | Fixture/lifecycle source | Coverage |
 | --- | --- | --- |
@@ -8,6 +8,7 @@ This matrix covers all 35 application-owned persistent tables. The two migration
 | `components` | Bulk deterministic rows plus real importer output | 201+ rows for page boundaries; edit and retire; no invented hard delete |
 | `component_instances` | Bulk environment rows plus first-instance recovery and probe flows | Environments, status, add/change; no general instance delete unless product UI supports it |
 | `component_groups` | UI/API | Create, edit, delete where allowed |
+| `component_group_members` | Group membership API plus source/app auto-group assignment | Add/remove members; auto-group membership lifecycle |
 | `line_of_businesses` | Admin UI/API | Create, edit, delete where allowed |
 | `teams` | Admin UI/API | Create, edit, delete where allowed |
 | `product_composes` | Product hierarchy UI/API | Add/remove edges, DAG and cycle rejection |
@@ -40,6 +41,7 @@ This matrix covers all 35 application-owned persistent tables. The two migration
 | `url_checks` | Composite create and regular editor | CRUD, enable/disable, four auth modes, target/window |
 | `url_check_observations` | Real Hub/Agent probes | Success, status failure, timeout/error, missed, observation reads |
 | `app_settings` | Admin settings flows | Registration switch, default role, session/security settings |
+| `bom_entries` | Real importer runs (GitHub dependency graph, SBOM file) plus deterministic seeded rows | Source-scoped diff-replace, freshness/stale, multi-source attribution, empty state |
 | `kysely_migration` | Migration runner only | Excluded from user fixture coverage |
 | `kysely_migration_lock` | Migration runner only | Excluded from user fixture coverage |
 

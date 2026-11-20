@@ -20,6 +20,10 @@ export const kubernetesConfigSchema = z
     .min(1)
     .optional()
     .describe("Fallback source identity when `endpoint` is absent — one of the two is required (ADR-120)"),
+    includePodImageSbom: z
+    .boolean()
+    .default(false)
+    .describe("Read the SBOM of each container image running in pods and attach it to the workload's bill of materials. Requires `endpoint` plus anonymous pull access to the images' registries"),
   })
   .refine(
     (c) => c.endpoint || c.sourceKey,

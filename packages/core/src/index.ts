@@ -14,6 +14,18 @@ export type { ComponentProvider } from "./constants/component-providers.js";
 export { ENVIRONMENTS, ENVIRONMENT_META } from "./constants/environments.js";
 export type { Environment } from "./constants/environments.js";
 export {
+  BOM_DEPENDENCY_SCOPES,
+  BOM_DEPENDENCY_SCOPE_META,
+  BOM_EVIDENCE_SOURCES,
+  BOM_EVIDENCE_SOURCE_META,
+  BOM_CDX_TYPES,
+} from "./constants/bom-entry.js";
+export type {
+  BomDependencyScope,
+  BomEvidenceSource,
+  BomCdxType,
+} from "./constants/bom-entry.js";
+export {
   COMPONENT_LIFECYCLE,
   COMPONENT_LIFECYCLE_META,
 } from "./constants/lifecycle.js";
@@ -140,7 +152,13 @@ export type {
   DiscoveredAsset,
   DiscoveredAssetInstance,
   DiscoveredAssetEnvironment,
+  DiscoveredBomEntry,
 } from "./contracts/discovered-asset.js";
+export type {
+  BomEntry,
+  BomEntryListItem,
+  BomSummary,
+} from "./contracts/bom-entry.js";
 export type {
   Importer,
   ImporterContext,
@@ -154,9 +172,43 @@ export {
   unqualifyExternalId,
 } from "./utils/source-identity.js";
 export {
+  parsePurl,
+  isValidPurl,
+  purlEcosystem,
+  normalizePurlIdentity,
+} from "./utils/purl.js";
+export {
+  parseSpdxDocument,
+  type SpdxDocument,
+  type BomParseResult,
+} from "./utils/spdx.js";
+export {
+  parseCycloneDxDocument,
+  type CycloneDxDocument,
+} from "./utils/cyclonedx.js";
+export {
+  fetchImageBom,
+  fetchReferrersBom,
+  makeRegistryClient,
+  parseRepoDigest,
+  stampImageLayerEvidence,
+  type BomCapabilityMarker,
+  type ImageBomResult,
+  type ParsedImageRef,
+  type RegistryClient,
+} from "./utils/oci-referrers.js";
+export {
   importerSourceListQuerySchema,
   type ImporterSourceListQuery,
 } from "./schemas/importer-source.js";
+export {
+  listBomQuerySchema,
+  bomSummaryQuerySchema,
+  bomExportQuerySchema,
+  type ListBomQuery,
+  type BomSummaryQuery,
+  type BomExportQuery,
+} from "./schemas/bom.js";
 
 // Standardized list contract (spec 068 / ADR-130): shared page/pageSize/
 // order/search params, per-endpoint sort whitelists, and the

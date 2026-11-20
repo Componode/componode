@@ -64,7 +64,7 @@ Constraints and the relevant ADRs.
 │   ├── backend/                   # Fastify API + Kysely services
 │   ├── frontend/                  # React/Vite dashboard
 │   ├── agent/                     # Import Agent runtime (ADR-116 — enrolls, outbound WSS stream)
-│   └── importer-*/                # 8 in-tree importers (alibaba-cloud, api-url, aws, azure, github, kubernetes, mcp-server, web-url)
+│   └── importer-*/                # 10 in-tree importers (alibaba-cloud, api-url, aws, azure, docker, github, kubernetes, mcp-server, sbom-file, web-url)
 ├── researches/                    # Research docs ({topic}_research.md), adrs/, architecture-decisions.md index
 ├── specs/{NNN-feature-name}/      # DYNAMIC — spec.md, plan.md, tasks.md, created per feature/bugfix
 ├── docs/                          # Source documentation (see Key References)
@@ -157,9 +157,9 @@ constitution.
 ### Package dependencies
 
 - `packages/core` is a leaf with zero `@componode/*` deps.
-- `packages/backend` depends on `core` + all 8 importer packages (manifest
+- `packages/backend` depends on `core` + all 10 importer packages (manifest
   import only).
-- `packages/agent` depends on `core` + all 8 importer packages (manifest
+- `packages/agent` depends on `core` + all 10 importer packages (manifest
   import only) — the lockstep handshake requires the same importer set
   (ADR-116 amendment to ADR-065).
 - `packages/frontend` depends on `core` for types and calls the backend over

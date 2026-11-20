@@ -71,6 +71,7 @@ export const IMPORTER_PACKAGES = [
   "@componode/importer-mcp-server",
   "@componode/importer-alibaba-cloud",
   "@componode/importer-docker",
+  "@componode/importer-sbom-file",
 ];
 
 export function createImporterRegistry(

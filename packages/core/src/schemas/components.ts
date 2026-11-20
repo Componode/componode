@@ -40,6 +40,12 @@ export const listComponentsQuerySchema = listParamsBaseSchema
       .transform(splitCsvParam)
       .pipe(z.array(z.enum(["wired", "unwired"])))
       .optional(),
+    // Spec 073 FR-026: BOM coverage filter — CSV of "has"/"none".
+    bom: z
+      .union([z.string(), z.array(z.string())])
+      .transform(splitCsvParam)
+      .pipe(z.array(z.enum(["has", "none"])))
+      .optional(),
     tag: tagSchema.optional(),
     sort: z
       .enum([

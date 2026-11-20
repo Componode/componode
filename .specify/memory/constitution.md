@@ -103,6 +103,12 @@ human-confirmed).
   Product
   workflow (ADR-017) as a human-guided action.
 
+> **Clarification (ADR-131, spec 073)**: package inventory (`bomEntries`)
+> is *factual* data — what a component contains — so it is importer-domain
+> like components and instances. A BOM row is never a graph edge and never
+> implies one; catalog curation of package identity stays in the meaning
+> layer (Phase 2).
+
 ### VI. Test-First (NON-NEGOTIABLE)
 
 Tests are written before implementation. The cycle is: write a failing test →

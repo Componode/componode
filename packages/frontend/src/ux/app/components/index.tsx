@@ -27,6 +27,8 @@ const COMPONENTS_FILTERS: { [K in ComponentsFilterKey]: ListFilterConfig } = {
   category: { default: "all", values: ["all", ...Object.keys(CATEGORY_LABELS)] },
   lifecycle: { default: "all", values: ["all", ...Object.keys(LIFECYCLE_META)] },
   wired: { default: "all", values: ["all", "wired", "unwired"] },
+  // Spec 073 FR-026: Has BOM / No BOM — flag-gated via the filter def.
+  bom: { default: "all", values: ["all", "has", "none"] },
   // Spec 068 gone-instances fix: domain is hide|show only — no "all".
   gone: { default: "hide", values: ["hide", "show"] },
 };

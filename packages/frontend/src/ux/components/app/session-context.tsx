@@ -40,9 +40,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         </div>
       )
     }
-    // Redirect only on a resolved-null session (AUTH_NO_SESSION → null by
-    // design); a query error renders the provider and lets AuthGuard decide.
-    if (data === null) return <Navigate to="/login" replace />
+    // Resolved without a user — AUTH_NO_SESSION (null) or a query error
+    // (undefined): match AuthGuard's `!user` → /login instead of mounting
+    // children under a null context (every useSession consumer would throw).
+    return <Navigate to="/login" replace />
   }
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }

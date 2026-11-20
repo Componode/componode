@@ -27,6 +27,7 @@ function makeJob(runId: string, agentId: string): RemoteJobContext {
     missingSecretKeys: [],
     targetRefKey: null,
     missingTarget: false,
+    targetResolutionError: null,
     reportsSourceIdentity: false,
     sourceId: null,
     sourceIdentity: null,

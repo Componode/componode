@@ -24,6 +24,7 @@ source system.
 | [GitHub](./github) | Import GitHub organizations, repositories, environments, billing usage, workflows, runners, and packages as components and instances. | `token` | hub or Import Agent |
 | [Kubernetes](./kubernetes) | Import Kubernetes workloads and namespaces as components and instances. | none required | hub or Import Agent |
 | [MCP Server](./mcp-server) | Import MCP server tools and resources as components and instances. | none required | hub or Import Agent |
+| [SBOM File](./sbom-file) | Ingest a CycloneDX JSON or SPDX JSON document from a URL onto an existing catalog component's bill of materials. | none required | hub or Import Agent |
 | [Web URL](./web-url) | Import a collection of web endpoints as component profiles with managed URL checks. | none required | hub or Import Agent |
 <!-- /GENERATED:importers-table -->
 

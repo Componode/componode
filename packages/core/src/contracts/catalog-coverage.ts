@@ -12,6 +12,8 @@ export interface CatalogCoverage {
     wired: number;
     /** `null` when `active` is 0 — renders as "—", never `0%`. */
     wiredPct: number | null;
+    /** Spec 073: population members with ≥1 BOM entry (any scope). */
+    withBom: number;
   };
   products: {
     /** Products where lifecycle != 'RETIRED'. */

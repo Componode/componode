@@ -166,7 +166,7 @@ test.describe('docker importer infra inventory (spec 065)', () => {
     await page.goto(`/components/${dataItem.slug}`);
     await expect(page.getByRole('heading', { name: 'Volume', exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('5.0 MiB')).toBeVisible();
-    await expect(page.getByText('pw-app')).toBeVisible();
+    await expect(page.getByRole('code').filter({ hasText: 'pw-app' })).toBeVisible();
     await expect(page.getByText(/\/var\/lib\/docker\/volumes/)).toHaveCount(0);
   });
 });

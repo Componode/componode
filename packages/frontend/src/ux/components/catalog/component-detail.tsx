@@ -27,15 +27,19 @@ import {
 } from "@/ux/components/catalog/docker-details"
 import { GithubDetailsSection } from "@/ux/components/catalog/github-details"
 import { ComponentRelationshipsPanel } from "@/ux/components/catalog/component-relationships"
+import { ComponentBomTab } from "@/ux/components/catalog/component-bom"
+import { useBomSummary } from "@/api/hooks/bom"
 import { UrlChecksCard } from "@/ux/components/catalog/url-checks-card"
 import type { Component } from "@/ux/lib/view-types"
 import { ux } from "@/ux/lib/paths"
 import { cn } from "@/ux/lib/utils"
 
-const TABS = ["overview", "relationships"] as const
+const TABS = ["overview", "relationships", "bom"] as const
 
 export function ComponentDetail({ component: c }: { component: Component }) {
   const [tab, setTab] = useValidatedTab(TABS)
+  const bomSummary = useBomSummary(flags.componentBom ? c.id : null)
+  const bomCount = bomSummary.data?.total
   const [expanded, setExpanded] = React.useState<ReadonlySet<string>>(new Set());
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -93,6 +97,16 @@ export function ComponentDetail({ component: c }: { component: Component }) {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           {flags.componentRelationships && (
             <TabsTrigger value="relationships">Relationships</TabsTrigger>
+          )}
+          {flags.componentBom && (
+            <TabsTrigger value="bom">
+              Packages
+              {bomCount !== undefined ? (
+                <Badge variant="secondary" className="ml-1.5 text-[10px]">
+                  {bomCount}
+                </Badge>
+              ) : null}
+            </TabsTrigger>
           )}
         </TabsList>
 
@@ -229,6 +243,12 @@ export function ComponentDetail({ component: c }: { component: Component }) {
         {flags.componentRelationships && (
           <TabsContent value="relationships">
             <ComponentRelationshipsPanel componentId={c.id} />
+          </TabsContent>
+        )}
+
+        {flags.componentBom && (
+          <TabsContent value="bom">
+            <ComponentBomTab component={c} />
           </TabsContent>
         )}
       </Tabs>

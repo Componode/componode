@@ -79,6 +79,7 @@ endpoint, the smallest authenticated request available.
 | `includeBranchInstances` | bool | no | `true` | Emit one instance per repository branch (environment from mapping, OTHER fallback) |
 | `includeReleaseInventory` | bool | no | `true` | Import releases and tags inventory into component details |
 | `includeLanguageBreakdown` | bool | no | `false` | Import per-language byte breakdown (one extra API call per repo) |
+| `includeDependencyGraph` | bool | no | `false` | Import each repository's package inventory into its bill of materials. Uses GitHub's dependency graph, so private repositories need the 'Dependency graph' permission on the token. |
 | `environmentMapping` | record | no | — | Map GitHub environment and branch names to DEV/TEST/STAGING/DEMO/PRODUCTION/OTHER (unmapped names report OTHER) |
 <!-- /GENERATED:contract -->
 
@@ -111,6 +112,17 @@ endpoint, the smallest authenticated request available.
   signal distinguishing "no drafts" from "drafts hidden").
 - **`includeLanguageBreakdown`** (default off) adds one
   `GET /repos/{o}/{r}/languages` call per repository.
+- **`includeDependencyGraph`** (default off) imports each repository's
+  package inventory into its **bill of materials** — packages are fetched
+  from GitHub's dependency-graph SBOM export (`GET
+  /repos/{o}/{r}/dependency-graph/sbom`, SPDX 2.3); private repositories
+  need the **Dependency graph: read** permission and the dependency graph
+  enabled on the repo. When the graph is unavailable the importer falls
+  back to supported zero-dependency lockfiles on the default branch
+  (`package-lock.json`, `go.sum`, `Gemfile.lock` — evidence
+  `LOCK_FILE`); other ecosystems resolve through the graph only. A repo
+  where neither source works reports a degraded
+  `capabilities.bomInventory` marker — the run still succeeds.
 - Sections the token can't reach degrade to `capabilities.*` markers —
   per-repository under `details.capabilities` on each repo component and
   aggregated (worst-status-wins) on the organization component — the run
@@ -130,6 +142,7 @@ endpoint, the smallest authenticated request available.
 | Run fails during "Authenticating" | Token invalid/revoked, or not authorized for a SAML org |
 | `capabilities.billing` = `FORBIDDEN` | Token lacks `admin:org` — expected for read-only setups |
 | Empty repo list | Wrong `org` name, or token can't see private repos (needs `repo`) |
+| `capabilities.bomInventory` = `FORBIDDEN`/`UNAVAILABLE` | Dependency graph disabled or token lacks `Dependency graph: read`, and no supported lockfile on the default branch |
 | `baseUrl` rejected | Must be HTTPS and not a private/loopback address |
 
 ## Source identity

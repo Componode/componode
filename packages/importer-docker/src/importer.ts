@@ -28,6 +28,7 @@ import {
   type SwarmService,
 } from "./swarm.js";
 import { type WorkloadIdentity } from "./identity.js";
+import { fetchImageBom, parseRepoDigest } from "./docker-sbom.js";
 import { mapEngineAsset, type EngineInfo, type EngineVersion } from "./engine.js";
 import {
   mapNetwork,
@@ -200,10 +201,49 @@ export class DockerImporter implements Importer {
       groups.set(mapped.identity.externalId, group);
     }
 
+    // Spec 073: per-digest SBOM cache — several workloads can run the same
+    // image; each registry is asked once.
+    const bomByDigest = new Map<
+      string,
+      Awaited<ReturnType<typeof fetchImageBom>>
+    >();
+    const bomForRef = async (imageRef: string) => {
+      let digestRef: string | null = null;
+      try {
+        const insp = (await docker.getImage(imageRef).inspect()) as {
+          RepoDigests?: string[] | null;
+        };
+        digestRef = insp?.RepoDigests?.find((d) => parseRepoDigest(d)) ?? null;
+      } catch {
+        digestRef = null;
+      }
+      if (!digestRef) {
+        return {
+          marker: {
+            status: "UNAVAILABLE" as const,
+            message: "image has no registry digest — built locally or not pulled from a registry",
+          },
+        };
+      }
+      const cached = bomByDigest.get(digestRef);
+      if (cached) return cached;
+      const result = await fetchImageBom(digestRef, { imageRef });
+      bomByDigest.set(digestRef, result);
+      return result;
+    };
+
     context.reportPhase("Emitting assets");
     for (const group of groups.values()) {
       if (context.signal.aborted) return;
       const asset = buildAsset(group.identity, group.instances, group.imageRef);
+      if (parsed.includeSbom && group.imageRef) {
+        const bom = await bomForRef(group.imageRef);
+        if (bom.entries) asset.bomEntries = bom.entries;
+        (asset.details as Record<string, unknown>).capabilities = {
+          ...((asset.details as Record<string, unknown>).capabilities as object ?? {}),
+          bomInventory: bom.marker,
+        };
+      }
       if (!validateDiscoveredAsset(asset)) {
         throw new Error(`Invalid discovered asset for workload ${group.identity.externalId}`);
       }
@@ -277,6 +317,22 @@ export class DockerImporter implements Importer {
           },
           instances: [],
         };
+        // Digest-form refs (repo@sha256:…) resolve SBOM attestations
+        // directly — tag-form refs resolve through the workload path.
+        if (parsed.includeSbom) {
+          const refPart = externalId.slice("docker-image:".length);
+          if (parseRepoDigest(refPart)) {
+            const bom =
+              bomByDigest.get(refPart) ??
+              (await fetchImageBom(refPart, { imageRef: name }));
+            bomByDigest.set(refPart, bom);
+            if (bom.entries) asset.bomEntries = bom.entries;
+            (asset.details as Record<string, unknown>).capabilities = {
+              ...((asset.details as Record<string, unknown>).capabilities as object ?? {}),
+              bomInventory: bom.marker,
+            };
+          }
+        }
         if (!validateDiscoveredAsset(asset)) {
           throw new Error(`Invalid discovered asset for image ${externalId}`);
         }

@@ -274,6 +274,42 @@ const server = startDataServer({
       });
     }
 
+    // Spec 073 e2e fixture — a static CycloneDX document for the sbom-file
+    // importer. One nested component so tree view has a child row.
+    if (path === '/sbom/cyclonedx.json') {
+      return json(res, 200, {
+        bomFormat: 'CycloneDX',
+        specVersion: '1.5',
+        serialNumber: 'urn:uuid:00000000-0000-7000-8000-aa11bb22cc33',
+        version: 1,
+        metadata: { component: { type: 'application', name: 'pw-bom-app', version: '1.0.0' } },
+        components: [
+          {
+            type: 'library',
+            'bom-ref': 'pkg:npm/express@4.18.2',
+            purl: 'pkg:npm/express@4.18.2',
+            name: 'express',
+            version: '4.18.2',
+            scope: 'required',
+            licenses: [{ license: { id: 'MIT' } }],
+            components: [
+              {
+                type: 'library',
+                'bom-ref': 'pkg:npm/accepts@1.3.8',
+                purl: 'pkg:npm/accepts@1.3.8',
+                name: 'accepts',
+                version: '1.3.8',
+                scope: 'required',
+              },
+            ],
+          },
+          { type: 'library', purl: 'pkg:npm/lodash@4.17.21', name: 'lodash', version: '4.17.21', scope: 'required', licenses: [{ license: { id: 'MIT' } }] },
+          { type: 'library', purl: 'pkg:npm/jest@29.7.0', name: 'jest', version: '29.7.0', scope: 'excluded' },
+          { type: 'library', purl: 'pkg:golang/golang.org/x/sys@0.15.0', name: 'golang.org/x/sys', version: '0.15.0', scope: 'required' },
+        ],
+      });
+    }
+
     const orgMatch = path.match(/^\/orgs\/([^/]+)$/);
     if (orgMatch) {
       if (s === 'server-error') return json(res, 500, { message: 'mock 5xx' });

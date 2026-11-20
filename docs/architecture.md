@@ -47,6 +47,7 @@ flowchart LR
         K8s["Kubernetes"]
         Web["Web URL / API URL /<br/>MCP Server endpoints"]
         Dkr["Docker Engine<br/>(hub or agent target)"]
+        Sbom["SBOM File<br/>(CycloneDX/SPDX over HTTPS)"]
     end
 
     subgraph Remote["Remote network (private VPC / on-prem / egress-only)"]
@@ -207,6 +208,8 @@ flowchart TD
         I6["api-url"]
         I7["mcp-server"]
         I8["alibaba-cloud"]
+        I9["docker"]
+        I10["sbom-file"]
     end
     IMP --> Importers --> EXT["External APIs<br/>(SSRF guard urlSafetyError on URL importers)"]
 
@@ -317,7 +320,7 @@ plus the master key together form the backup unit.
 ## Persistence model
 
 <!-- GENERATED:persistence-tables -->
-PostgreSQL holds **39 tables** (see `DB` in `packages/backend/src/db/types.ts`):
+PostgreSQL holds **40 tables** (see `DB` in `packages/backend/src/db/types.ts`):
 
 | Table | Row interface |
 |---|---|
@@ -358,6 +361,7 @@ PostgreSQL holds **39 tables** (see `DB` in `packages/backend/src/db/types.ts`):
 | `url_checks` | `UrlCheckRow` |
 | `url_check_observations` | `UrlCheckObservationRow` |
 | `source_url_check_memberships` | `SourceUrlCheckMembershipRow` |
+| `bom_entries` | `BomEntryRow` |
 | `kysely_migration` | `KyselyMigrationRow` |
 | `kysely_migration_lock` | `KyselyMigrationLockRow` |
 <!-- /GENERATED:persistence-tables -->
@@ -430,9 +434,9 @@ flowchart TD
 
         AG["@componode/agent<br/>Import Agent runtime<br/>(imports importer manifests only)"]
 
-        subgraph IMPS["importer-* (8 packages)"]
+        subgraph IMPS["importer-* (10 packages)"]
             direction LR
-            IG["github"] --- IA["aws"] --- IZ["azure"] --- IK["kubernetes"] --- IW["web-url"] --- IP["api-url"] --- IM["mcp-server"] --- IB["alibaba-cloud"]
+            IG["github"] --- IA["aws"] --- IZ["azure"] --- IK["kubernetes"] --- IW["web-url"] --- IP["api-url"] --- IM["mcp-server"] --- IB["alibaba-cloud"] --- ID["docker"] --- IS["sbom-file"]
         end
     end
 

@@ -6,6 +6,8 @@ import { requireRole } from "../plugins/rbac.js";
 import { toActor } from "../services/actor.js";
 import { updateComponentInstanceEnvironment } from "../services/component-instance-service.js";
 import { sendServiceError, validationFailed } from "./route-helpers.js";
+import { getBomForInstance } from "../services/bom-service.js";
+import { listBomQuerySchema } from "@componode/core";
 
 const instanceIdParam = z.object({ id: z.string().uuid() });
 
@@ -38,4 +40,20 @@ export async function componentInstanceRoutes(app: FastifyInstance): Promise<voi
       }
     },
   );
+
+  // Spec 073 / ADR-131: instance-scoped BOM — exactly this instance's
+  // entries (contracts/bom-api.md).
+  app.get("/component-instances/:id/bom", {
+    preHandler: [app.verifySession],
+  }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
+    const params = instanceIdParam.safeParse(req.params);
+    if (!params.success) return validationFailed(reply, params.error.issues);
+    const query = listBomQuerySchema.safeParse(req.query);
+    if (!query.success) return validationFailed(reply, query.error.issues);
+    const result = await getBomForInstance(params.data.id, query.data);
+    if (!result) {
+      return reply.status(404).send({ code: "NOT_FOUND", message: "Instance not found" });
+    }
+    return reply.status(200).send(result);
+  });
 }

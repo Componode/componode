@@ -78,6 +78,16 @@ setups are covered in [deployment.md](../deployment.md) (Hub) and
   user, entrypoint, working directory, volumes, and architecture/OS.
   A failed inspect omits that image's enrichment only; the run is
   unaffected.
+- Optionally (off by default): each workload/image's **bill of
+  materials** with `includeSbom`. The importer resolves the image's
+  registry digest, then reads CycloneDX or SPDX attestations through the
+  OCI **referrers API** (in-toto-wrapped SBOMs are unwrapped); when the
+  registry has no referrers endpoint it falls back to a local `syft`
+  scan when the binary is on PATH. Workloads get their running image's
+  BOM; `includeImages` images get theirs too. An image with no
+  attestation simply reports no inventory — evidence records
+  `IMAGE_LAYER`/`SBOM_DOCUMENT` with the resolved digest so a moved tag
+  never rewrites history.
 - Always on: infrastructure inventory — one **NETWORK** Component per
   Docker network and one **STORAGE** Component per Docker volume,
   metadata only (`instances: []`). See
@@ -259,6 +269,7 @@ never a full inventory.
 | `environmentLabel` | string | no | — | Docker label key read for environment mapping (container labels, then Compose service labels) |
 | `environmentMap` | record | no | — | Map of label value to environment; unmapped values fall back to OTHER |
 | `includeImages` | bool | no | `false` | Import cached images as PACKAGE_REGISTRY components |
+| `includeSbom` | bool | no | `false` | Read each image's SBOM attestations/referrers from its OCI registry (CycloneDX or SPDX) into the bill of materials. Images without an attestation report no inventory |
 | `componentIdLabel` | string | no | `componode.component-id` | Workload-identity override label |
 | `sourceKey` | string | no | — | Fallback source identity when the engine reports no /info.ID |
 | `autoGroup` | bool | no | — | Automatically maintain a ComponentGroup for this source's exclusively reported components (default true) |
@@ -312,6 +323,7 @@ groups together with the source group.
 | `SECRET_RESOLUTION_FAILED` | A profile's `*Key` names a secret key the linked credential doesn't provide on the agent (a missing key inside the run is a run `FAILED` with the key name in the error) |
 | `AGENT_UNAVAILABLE` / `AGENT_LOST` | Agent offline, over capacity, or disconnected mid-run (remote runs are never resumed) |
 | Run fails at "Identifying source" | `/info.ID` unavailable and no `sourceKey` configured |
+| BOM empty with `includeSbom` on | Registry serves no OCI referrers/attestations for the image (and no `syft` fallback on PATH), or the image reference can't resolve a digest — the workload still imports; check `capabilities.bomInventory` |
 | Run `FAILED` mid-run | An enumeration call failed — the catalog keeps the prior import; nothing is retired on a partial run |
 
 ## Identity and reconciliation

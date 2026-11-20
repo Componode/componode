@@ -256,6 +256,10 @@ Notes:
 | GET | `/api/v1/components/platform-candidates` | List platform candidates (ADR-017 detection) | Authenticated |
 | GET | `/api/v1/components/:id/dependents` | List products that directly depend on a component | Authenticated |
 | GET | `/api/v1/components/:id/relationships` | Read a component's one-hop typed relationships (spec 060) | Authenticated |
+| GET | `/api/v1/components/:id/bom` | List a component's bill of materials (spec 073) | Authenticated |
+| GET | `/api/v1/components/:id/bom/summary` | Bill-of-materials summary strip (spec 073) | Authenticated |
+| GET | `/api/v1/components/:id/bom/export` | Download the BOM as a file (spec 073) | Authenticated |
+| GET | `/api/v1/component-instances/:id/bom` | List one instance's bill of materials (spec 073) | Authenticated |
 | POST | `/api/v1/components/:id/promote-to-platform` | Promote a component into a PLATFORM product (ADR-017) | `product:create` |
 <!-- /GENERATED:table:Components -->
 

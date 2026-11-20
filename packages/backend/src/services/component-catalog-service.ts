@@ -142,6 +142,25 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
     }
   }
 
+  // Spec 073 FR-026: BOM coverage — EXISTS over bom_entries (any row for
+  // the component, both scopes). "has" and "none" together mean "all".
+  const bomValues = parsed.bom;
+  if (bomValues?.length) {
+    const wantsHas = bomValues.includes("has");
+    const wantsNone = bomValues.includes("none");
+    if (wantsHas !== wantsNone) {
+      query = query.where((eb) => {
+        const hasBom = eb.exists(
+          eb
+            .selectFrom("bom_entries")
+            .select("bom_entries.id")
+            .whereRef("bom_entries.componentId", "=", "components.id"),
+        );
+        return wantsHas ? hasBom : eb.not(hasBom);
+      });
+    }
+  }
+
   if (parsed.tag) {
     query = query.where(
       sql<SqlBool>`components.tags @> ARRAY[${parsed.tag}]::text[]`,

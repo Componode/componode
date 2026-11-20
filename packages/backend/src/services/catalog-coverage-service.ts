@@ -209,7 +209,7 @@ export function productCompleteness(
 
 /** FR-001/FR-002: dashboard catalog-coverage metrics (FR-003 zero-denominator). */
 export async function getCatalogCoverage(): Promise<CatalogCoverage> {
-  const [populationRows, wiredIds, surfaces, productRows] = await Promise.all([
+  const [populationRows, wiredIds, surfaces, productRows, bomRows] = await Promise.all([
     db
       .selectFrom("components")
       .select("components.id")
@@ -221,6 +221,22 @@ export async function getCatalogCoverage(): Promise<CatalogCoverage> {
       .selectFrom("digital_products")
       .select(["id", "lobOwnerId", "teamOwnerId", "description"])
       .where("lifecycle", "!=", "RETIRED")
+      .execute(),
+    // Spec 073: population components carrying ≥1 BOM row.
+    db
+      .selectFrom("components")
+      .select("components.id")
+      .where((eb) =>
+        eb.and([
+          coveragePopulationPredicate(eb),
+          eb.exists(
+            eb
+              .selectFrom("bom_entries")
+              .select("bom_entries.id")
+              .whereRef("bom_entries.componentId", "=", "components.id"),
+          ),
+        ]),
+      )
       .execute(),
   ]);
 
@@ -240,7 +256,7 @@ export async function getCatalogCoverage(): Promise<CatalogCoverage> {
   }
 
   return {
-    components: { active, wired, wiredPct },
+    components: { active, wired, wiredPct, withBom: bomRows.length },
     products: {
       total: productRows.length,
       missingOwner,

@@ -20,6 +20,10 @@ export type AgentCredentialState = "PENDING_ENROLLMENT" | "ACTIVE" | "REVOKED"
 export type DisconnectReason = "client_close" | "heartbeat_timeout" | "revoked" | "shutdown" | "superseded" | "replaced"
 export type CredentialKind = "STORED" | "AGENT_MANAGED"
 export type UrlCheckVantage = "HUB" | "AGENT"
+/** BOM dependency scopes (spec 073) — mirrors @componode/core BOM_DEPENDENCY_SCOPES. */
+export type BomScope = "RUNTIME" | "DEV" | "BUILD" | "TEST" | "SYSTEM" | "OPTIONAL" | "BUNDLED" | "TRANSITIVE"
+/** BOM evidence sources — mirrors @componode/core BOM_EVIDENCE_SOURCES. */
+export type BomEvidenceSource = "LOCK_FILE" | "MANIFEST_FILE" | "SBOM_DOCUMENT" | "IMAGE_LAYER" | "REGISTRY_API" | "VCS_ANALYSIS"
 /** Derived client-side: enabled + latest observation outcome (spec 051). */
 export type UrlCheckStatus = "UP" | "DOWN" | "NO_DATA" | "DISABLED" | "AUTO_DISABLED"
 export type UrlCheckOutcome = "SUCCESS" | "FAILURE" | "MISSED"
@@ -162,6 +166,31 @@ export const CHECK_ERROR_TYPE_LABELS: Record<string, string> = {
   AGENT_OFFLINE: "Agent offline",
   ABORTED: "Aborted",
   OTHER: "Other error",
+}
+
+/**
+ * BOM dependency-scope badges (spec 073, UX-BOM-05). Tones are restricted to
+ * neutral/brand/info — scope is descriptive metadata, never a severity.
+ */
+export const BOM_SCOPE_META: Record<BomScope, Meta> = {
+  RUNTIME: { label: "Runtime", description: "Required for the component to run", tone: "brand" },
+  DEV: { label: "Dev", description: "Development tooling, not shipped", tone: "neutral" },
+  BUILD: { label: "Build", description: "Needed only to build the component", tone: "neutral" },
+  TEST: { label: "Test", description: "Used by the test suite only", tone: "neutral" },
+  SYSTEM: { label: "System", description: "Operating-system or platform package", tone: "info" },
+  OPTIONAL: { label: "Optional", description: "Optional feature dependency", tone: "neutral" },
+  BUNDLED: { label: "Bundled", description: "Vendored or shipped inside the artifact", tone: "info" },
+  TRANSITIVE: { label: "Transitive", description: "Pulled in by another package, not declared", tone: "neutral" },
+}
+
+/** BOM evidence sources (UX-BOM-06) — where the importer observed the entry. */
+export const BOM_EVIDENCE_META: Record<BomEvidenceSource, Meta> = {
+  LOCK_FILE: { label: "Lockfile", description: "Resolved from a dependency lockfile", tone: "neutral" },
+  MANIFEST_FILE: { label: "Manifest", description: "Declared in a package manifest", tone: "neutral" },
+  SBOM_DOCUMENT: { label: "SBOM file", description: "Imported from an SBOM document", tone: "neutral" },
+  IMAGE_LAYER: { label: "Image layer", description: "Reported by a container image's SBOM", tone: "neutral" },
+  REGISTRY_API: { label: "Registry", description: "Reported by a registry or provider API", tone: "neutral" },
+  VCS_ANALYSIS: { label: "Repository analysis", description: "Derived from the source repository", tone: "neutral" },
 }
 
 export const CHECK_AUTH_MODE_META: Record<UrlCheckAuthMode, { label: string; description: string }> = {

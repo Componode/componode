@@ -17,6 +17,9 @@ export interface SeedResult {
   dockerTargetCredentialId: string;
   probeComponentId: string;
   probeInstanceId: string;
+  bomSlug: string;
+  bomStaleSlug: string;
+  sbomConfigId: string;
 }
 
 export async function seedAppFlows(apiBase: string, pgUrl: string, env: Record<string, string>, ids: { githubBase: string; alibabaEndpoint: string; webFixture: string; apiFixture: string; dockerHost: string; dockerCa: string; dockerCert: string; dockerKey: string }): Promise<SeedResult> {
@@ -126,6 +129,21 @@ export async function seedAppFlows(apiBase: string, pgUrl: string, env: Record<s
     scope: collectionScope('PW API Fixture', ids.apiFixture), enabled: true,
   }), 'api-url config');
 
+  // Spec 073 — a catalog component the sbom-file importer targets (the
+  // CycloneDX fixture is served by the github mock), plus a second
+  // component whose stale multi-source rows are seeded via pg below. The
+  // target needs an externalId (save validation requires it — importer
+  // components always carry one); the manual create leaves it NULL, so it
+  // is backfilled in the pg block before the config is created.
+  const bomComp = await ok(await api.post('/api/v1/components', {
+    name: 'PW BOM Target', slug: `pw-bom-${env.PWP_RUN_ID}`,
+    category: 'LIBRARY', provider: 'OTHER', resourceType: 'pw-bom-target',
+  }), 'bom component');
+  const bomStaleComp = await ok(await api.post('/api/v1/components', {
+    name: 'PW BOM Stale', slug: `pw-bom-stale-${env.PWP_RUN_ID}`,
+    category: 'LIBRARY', provider: 'OTHER', resourceType: 'pw-bom-stale',
+  }), 'stale bom component');
+
   // OIDC configuration pointing at Dex.
   await ok(await api.put('/api/v1/settings/oidc', {
     enabled: true, issuer: 'https://dex.componode-pw.test',
@@ -177,7 +195,58 @@ export async function seedAppFlows(apiBase: string, pgUrl: string, env: Record<s
     idOf(urlCheckCred), { tokenKey: 'bearerToken' });
   await seedCheck('pw-custom', 'http://auth.target.test:9080/custom', 'CUSTOM_HEADERS',
     idOf(urlCheckCred), { headers: [{ name: 'X-PW-Check', key: 'headerValue' }] });
+
+  // Spec 073 — stale multi-source BOM rows. Staleness can't be produced
+  // through the API (it derives from lastReportedAt age), so these rows
+  // are seeded directly: two sources × old timestamps drive the stale
+  // warning and the multi-source "Last reported" popover.
+  const srcIds: string[] = [];
+  for (const [identity, label] of [
+    ['pw:bom-stale-a', 'PW Stale Source A'],
+    ['pw:bom-stale-b', 'PW Stale Source B'],
+  ] as const) {
+    const sid = genId();
+    srcIds.push(sid);
+    await pgClient.query(
+      `INSERT INTO importer_sources (id, "importerName", "externalIdentity", label, status)
+       VALUES ($1,$2,$3,$4,'ACTIVE')`,
+      [sid, 'sbom-file', identity, label],
+    );
+  }
+  const bomRow = (
+    compId: string, srcId: string, purl: string, name: string,
+    version: string, scope: string, direct: boolean,
+  ) =>
+    pgClient.query(
+      `INSERT INTO bom_entries
+         (id, "componentId", purl, name, version, ecosystem, scope,
+          "evidenceSource", "evidenceDetail", licenses, direct,
+          "lastReportedAt", "sourceId")
+       VALUES ($1,$2,$3,$4,$5,'npm',$6,'SBOM_DOCUMENT','pw-seed','[]'::jsonb,$7,
+               now() - make_interval(days => 10), $8)`,
+      [genId(), compId, purl, name, version, scope, direct, srcId],
+    );
+  const staleId = idOf(bomStaleComp);
+  await bomRow(staleId, srcIds[0]!, 'pkg:npm/pw-stale-lib@1.0.0', 'pw-stale-lib', '1.0.0', 'RUNTIME', true);
+  await bomRow(staleId, srcIds[0]!, 'pkg:npm/pw-stale-dev@2.0.0', 'pw-stale-dev', '2.0.0', 'DEV', false);
+  await bomRow(staleId, srcIds[1]!, 'pkg:npm/pw-stale-trans@0.1.0', 'pw-stale-trans', '0.1.0', 'TRANSITIVE', false);
+
+  // sbom-file targeting requires an externalId on the component — the
+  // manual create leaves it NULL, so backfill it (as an importer would)
+  // before the config's save-time slug validation runs.
+  await pgClient.query(
+    `UPDATE components SET "externalId" = 'pw:bom-target' WHERE id = $1`,
+    [idOf(bomComp)],
+  );
   await pgClient.end();
+  const bomCfg = await ok(await api.post('/api/v1/importer-configs', {
+    importerName: 'sbom-file', label: `pw-sbom-${env.PWP_RUN_ID}`,
+    scope: {
+      sbomUrl: 'https://mock-github:9443/sbom/cyclonedx.json',
+      componentSlug: `pw-bom-${env.PWP_RUN_ID}`,
+    },
+    enabled: true,
+  }), 'sbom-file config');
 
   // Import Agent + enrollment token (token written by caller into .env-private).
   const agent = await ok(await api.post('/api/v1/agents', { name: `pw-agent-${env.PWP_RUN_ID}` }), 'create agent');
@@ -193,5 +262,8 @@ export async function seedAppFlows(apiBase: string, pgUrl: string, env: Record<s
     oidcCredentialId: idOf(oidcCred), urlCheckCredentialId: idOf(urlCheckCred),
     dockerTargetCredentialId: idOf(dockerCred),
     probeComponentId: idOf(comp), probeInstanceId: instanceId,
+    bomSlug: `pw-bom-${env.PWP_RUN_ID}`,
+    bomStaleSlug: `pw-bom-stale-${env.PWP_RUN_ID}`,
+    sbomConfigId: idOf(bomCfg),
   };
 }

@@ -42,6 +42,11 @@ import {
   syncManagedCheck,
 } from "./url-check-service.js";
 import { resolveHubTargetProfile } from "./docker-target-service.js";
+import {
+  deleteAbsentBomEntries,
+  processBomEntries,
+  type BomScope,
+} from "./bom-service.js";
 import { paginateQuery, sortTarget, type OrderTarget } from "../utils/pagination.js";
 
 type ImportRunSortKey = NonNullable<ListImporterRunsQuery["sort"]>;
@@ -87,6 +92,49 @@ export function setRemoteRunDispatcher(d: RemoteRunDispatcher | null): void {
 
 // Shared run internals — reused by remote-run-service so remote runs get
 // identical upsert, reconciliation, and bookkeeping behavior (ADR-116).
+
+/**
+ * Spec 073 (FR-017): importer-sbom-file's `componentSlug` resolves at
+ * dispatch to the component's dedup triple (`resolvedComponent`), which the
+ * importer stamps verbatim — the run fails TARGET_RESOLUTION_FAILED before
+ * the importer starts when the slug is missing, points at a RETIRED
+ * component, or lands on a component with no externalId (manual components
+ * can't be dedup-targeted). Remote runs resolve at job load instead so the
+ * triple travels inside the job payload.
+ */
+export async function resolveSbomFileScope(
+  importerName: string,
+  scope: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if (importerName !== "sbom-file") return scope;
+  const slug = typeof scope.componentSlug === "string" ? scope.componentSlug.trim() : "";
+  const component = slug
+    ? await db
+        .selectFrom("components")
+        .select(["category", "provider", "externalId", "name", "slug", "lifecycle"])
+        .where("slug", "=", slug)
+        .executeTakeFirst()
+    : undefined;
+  if (!component || component.lifecycle === "RETIRED" || !component.externalId) {
+    throw Object.assign(
+      new Error(
+        `sbom-file: componentSlug "${slug || "(missing)"}" does not resolve to an active component`,
+      ),
+      { code: "TARGET_RESOLUTION_FAILED" },
+    );
+  }
+  return {
+    ...scope,
+    resolvedComponent: {
+      category: component.category,
+      provider: component.provider,
+      externalId: component.externalId,
+      name: component.name,
+      slug: component.slug,
+    },
+  };
+}
+
 export function runActor(importerName: string): Actor {
   return { id: null, name: `importer:${importerName}` };
 }
@@ -253,7 +301,13 @@ export async function processAsset(
   triggeredBy: string | null,
   source: RunSource = { sourceId: null, sourceIdentity: null, configId: null },
   managedChecks: Map<string, ManagedCheckEntry> | null = null,
-): Promise<{ componentId: string; created: boolean; instancesOrphaned: number }> {
+): Promise<{
+  componentId: string;
+  created: boolean;
+  instancesOrphaned: number;
+  packages: { created: number; updated: number; unchanged: number };
+  bomScopes: BomScope[];
+}> {
   const { sourceId, sourceIdentity } = source;
   const now = new Date().toISOString();
   const actor = runActor(importerName);
@@ -670,6 +724,42 @@ export async function processAsset(
     }
   }
 
+  // BOM ingest (spec 073 / ADR-057 A1 + ADR-131). Presence drives the
+  // write: `bomEntries` present — including `[]` — means collection
+  // finished and the reported scope replaces on run completion; absent
+  // means not attempted and the scope is not recorded, preserving the
+  // Source's prior set. Upserts ride the per-asset transaction so a
+  // mid-run failure can never stage a half-written tree.
+  const packages = { created: 0, updated: 0, unchanged: 0 };
+  const bomScopes: BomScope[] = [];
+  if (asset.bomEntries !== undefined) {
+    const res = await processBomEntries(trx, {
+      componentId,
+      componentInstanceId: null,
+      sourceId,
+      runId,
+      entries: asset.bomEntries,
+    });
+    packages.created += res.created;
+    packages.updated += res.updated;
+    packages.unchanged += res.unchanged;
+    bomScopes.push({ componentId, componentInstanceId: null });
+  }
+  for (const [instanceId, yielded] of yieldedInstanceAssets) {
+    if (yielded.bomEntries === undefined) continue;
+    const res = await processBomEntries(trx, {
+      componentId,
+      componentInstanceId: instanceId,
+      sourceId,
+      runId,
+      entries: yielded.bomEntries,
+    });
+    packages.created += res.created;
+    packages.updated += res.updated;
+    packages.unchanged += res.unchanged;
+    bomScopes.push({ componentId, componentInstanceId: instanceId });
+  }
+
   // Phase 1 reconciliation.
   let instancesOrphaned: number;
   if (sourceId) {
@@ -721,7 +811,7 @@ export async function processAsset(
     instancesOrphaned = Number(orphanResult.numUpdatedRows ?? 0);
   }
 
-  return { componentId, created, instancesOrphaned };
+  return { componentId, created, instancesOrphaned, packages, bomScopes };
 }
 
 /** Upsert the durable Source→Component membership for an adopting run.
@@ -1133,6 +1223,13 @@ async function worker(runId: string): Promise<void> {
       },
     };
 
+    // Spec 073: sbom-file's componentSlug resolves to the component's
+    // dedup triple at dispatch — failure aborts before the importer runs.
+    const runScope = await resolveSbomFileScope(
+      config.importerName,
+      config.scope as Record<string, unknown>,
+    );
+
     // Spec 058: managed check definitions live in the validated config
     // scope — extracted once and synchronized inside each per-asset
     // transaction. Non-collection scopes yield null (other importers).
@@ -1143,8 +1240,12 @@ async function worker(runId: string): Promise<void> {
     let assetsUpdated = 0;
     let instancesOrphaned = 0;
     let componentsRetired = 0;
+    // Spec 073 package counters + the scopes whose `bomEntries` field was
+    // present this run — only those scopes diff-replace at completion.
+    const packages = { created: 0, updated: 0, unchanged: 0, removed: 0 };
+    const bomScopes = new Map<string, BomScope>();
 
-    for await (const asset of importer.run(config.scope as Record<string, unknown>, secrets, context)) {
+    for await (const asset of importer.run(runScope, secrets, context)) {
       if (controller.signal.aborted) {
         throw Object.assign(new Error("AbortError"), { name: "AbortError" });
       }
@@ -1179,6 +1280,12 @@ async function worker(runId: string): Promise<void> {
       assetsCreated += result.created ? 1 : 0;
       assetsUpdated += result.created ? 0 : 1;
       instancesOrphaned += result.instancesOrphaned;
+      packages.created += result.packages.created;
+      packages.updated += result.packages.updated;
+      packages.unchanged += result.packages.unchanged;
+      for (const scope of result.bomScopes) {
+        bomScopes.set(`${scope.componentId}|${scope.componentInstanceId ?? ""}`, scope);
+      }
 
       metrics.importRunAssetsYieldedTotal.inc({ importer: importerName });
 
@@ -1232,6 +1339,16 @@ async function worker(runId: string): Promise<void> {
       trigger: "hub-run",
     });
 
+    // ADR-131: source-scoped diff-replace runs only here — on the completed
+    // path, before the terminal write — so FAILED/CANCELLED/INTERRUPTED runs
+    // never delete. Only scopes whose `bomEntries` field was present this
+    // run participate; unreported scopes preserve the Source's prior set.
+    if (bomScopes.size > 0) {
+      packages.removed = await db.transaction().execute((trx) =>
+        deleteAbsentBomEntries(trx, [...bomScopes.values()], reportedSourceId, runId),
+      );
+    }
+
     terminalStatus = "COMPLETED";
     await updateRun(runId, {
       status: terminalStatus,
@@ -1242,6 +1359,10 @@ async function worker(runId: string): Promise<void> {
       assetsUpdated,
       instancesOrphaned,
       componentsRetired,
+      packagesCreated: packages.created,
+      packagesUpdated: packages.updated,
+      packagesUnchanged: packages.unchanged,
+      packagesRemoved: packages.removed,
     });
 
     // ADR-113: stage edge suggestions for the components this run touched.
