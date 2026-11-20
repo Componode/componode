@@ -93,13 +93,14 @@ function PackageCell({ row, ctx }: { row: BomEntryView; ctx?: TreeGridRowCtx }) 
         {ctx ? <TreeDisclosure ctx={ctx} /> : null}
         <span
           className="truncate font-medium"
-          title={
+          title={[
+            row.source ? `Reported by ${row.source.name}` : null,
             row.instanceCount > 0 && row.instanceTotal > 0
               ? `In ${row.instanceCount} of ${row.instanceTotal} instances`
-              : row.source
-                ? `Reported by ${row.source.name}`
-                : undefined
-          }
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || undefined}
         >
           {row.name}
         </span>

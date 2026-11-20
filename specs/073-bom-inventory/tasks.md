@@ -136,8 +136,8 @@
 
 **Independent Test**: spec US5 scenarios 1–3
 
-- [ ] T048 [P] [US5] `packages/frontend/src/test/unit/bom-freshness.test.tsx` — stale threshold styling (warning tone + tooltip past `staleThresholdDays`), multi-source popover contents, row-hover Source name, `lastReportedAt` bump rendering
-- [ ] T049 [US5] `component-bom.tsx` — stale *Last reported* (warning tone, "No import run has reported this inventory since {date}."), multi-source popover listing each Source + time, per-row source attribution on hover (UX-FRESH-01…05)
+- [x] T048 [P] [US5] `packages/frontend/src/test/unit/bom-freshness.test.tsx` — stale threshold styling (warning tone + tooltip past `staleThresholdDays`), multi-source popover contents, row-hover Source name, `lastReportedAt` bump rendering
+- [x] T049 [US5] `component-bom.tsx` — stale *Last reported* (warning tone, "No import run has reported this inventory since {date}."), multi-source popover listing each Source + time, per-row source attribution on hover (UX-FRESH-01…05)
 
 **Checkpoint**: freshness honest per state matrix — US5 complete
 
