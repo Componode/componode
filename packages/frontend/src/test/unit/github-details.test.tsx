@@ -18,6 +18,9 @@ vi.mock("@/ux/components/catalog/url-checks-card", () => ({
   UrlChecksCard: () => null,
   OutcomeDots: () => null,
 }));
+vi.mock("@/api/hooks/bom", () => ({
+  useBomSummary: () => ({ data: undefined }),
+}));
 
 const wrap = (el: React.ReactElement) =>
   render(

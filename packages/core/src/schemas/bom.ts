@@ -9,8 +9,6 @@ import {
   BOM_EVIDENCE_SOURCES,
 } from "../constants/bom-entry.js";
 
-const stringOrStringArray = z.union([z.string(), z.array(z.string())]).optional();
-
 /**
  * Spec 073 / ADR-131: query params for `GET /components/:id/bom` (and the
  * instance-scoped variant with `instanceId` bound). Standardized list
@@ -24,7 +22,11 @@ export const listBomQuerySchema = listParamsBaseSchema
       .transform(splitCsvParam)
       .pipe(z.array(z.enum(BOM_DEPENDENCY_SCOPES)))
       .optional(),
-    ecosystem: stringOrStringArray,
+    ecosystem: z
+      .union([z.string(), z.array(z.string())])
+      .transform(splitCsvParam)
+      .pipe(z.array(z.string()))
+      .optional(),
     found: z
       .union([z.string(), z.array(z.string())])
       .transform(splitCsvParam)

@@ -44,6 +44,9 @@ export const flags = {
   importerProfileBuilder: true,
   /** Read-only typed Component relationships read + tab (gap G35, spec 060). */
   componentRelationships: true,
+  /** Bill of Materials tab + BOM list filter/run counters (gap G36, spec 073
+   *  — ON with the Phase 1 contract: /components/:id/bom + summary + instance read). */
+  componentBom: true,
 } as const;
 
 export type GapFlag = keyof typeof flags;

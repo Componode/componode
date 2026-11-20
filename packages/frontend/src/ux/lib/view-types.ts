@@ -7,6 +7,8 @@
 import type {
   AgentCredentialState,
   AgentStatus,
+  BomEvidenceSource,
+  BomScope,
   Criticality,
   CredentialStatus,
   DisconnectReason,
@@ -466,6 +468,60 @@ export interface ImporterSource {
   lastSeenInRunId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// --- Bill of Materials (spec 073) ------------------------------------------
+
+/** One row in the component BOM tab — mirrors `BomEntryListItem` in core. */
+export interface BomEntryView {
+  id: string;
+  purl: string;
+  name: string;
+  version: string | null;
+  ecosystem: string;
+  scope: BomScope;
+  direct: boolean;
+  evidenceSource: BomEvidenceSource;
+  evidenceDetail: string | null;
+  licenses: string[];
+  supplier: string | null;
+  cdxType: string | null;
+  source: { id: string; name: string } | null;
+  lastReportedAt: string;
+  parentId: string | null;
+  parentName: string | null;
+  hasChildren: boolean;
+  childCount: number;
+  /** Instances carrying this package (merged view); 0 on scoped reads. */
+  instanceCount: number;
+  /** Component's total BOM-bearing instances. */
+  instanceTotal: number;
+  resolvedComponent: { id: string; slug: string; name: string } | null;
+  pendingSuggestionId: string | null;
+}
+
+/** `GET /components/:id/bom/summary` — backs the summary strip, instance
+ *  picker, tree toggle and stale state (mirrors `BomSummary`). */
+export interface BomSummaryView {
+  total: number;
+  direct: number;
+  ecosystems: string[];
+  licenseCount: number;
+  hasNesting: boolean;
+  lastReportedAt: string | null;
+  staleThresholdDays: number;
+  sources: {
+    id: string;
+    name: string;
+    importerKind: string | null;
+    lastReportedAt: string;
+  }[];
+  instances: {
+    id: string;
+    name: string;
+    environment: Environment;
+    entryCount: number;
+  }[];
 }
 
 // --- URL Check monitoring (spec 051) ---------------------------------------

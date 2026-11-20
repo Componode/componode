@@ -46,6 +46,8 @@ export interface BomEntryListItem {
   source: { id: string; name: string } | null;
   lastReportedAt: string;
   parentId: string | null;
+  /** Display name of the parent entry ("in {parent}" line, UX-BOM-04). */
+  parentName: string | null;
   hasChildren: boolean;
   childCount: number;
   instanceCount: number;

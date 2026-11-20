@@ -2,10 +2,16 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { uuidv7 } from "uuidv7";
 import { startTestDb, type TestDb } from "../helpers/testcontainers.js";
 import type { DiscoveredBomEntry } from "@componode/core";
-import {
-  processBomEntries,
-  deleteAbsentBomEntries,
+import type {
+  processBomEntries as processBomEntriesT,
+  deleteAbsentBomEntries as deleteAbsentBomEntriesT,
 } from "../../src/services/bom-service.js";
+
+// bom-service statically imports the app db connection — env must point at
+// the container before the module evaluates, so the service is imported
+// dynamically per-suite (same convention as the route-level tests).
+let processBomEntries: typeof processBomEntriesT;
+let deleteAbsentBomEntries: typeof deleteAbsentBomEntriesT;
 
 const now = () => new Date().toISOString();
 
@@ -31,6 +37,10 @@ describe("bom-service", () => {
 
   beforeEach(async () => {
     testDb = await startTestDb();
+    process.env.DATABASE_URL = testDb.container.getConnectionUri();
+    ({ processBomEntries, deleteAbsentBomEntries } = await import(
+      "../../src/services/bom-service.js"
+    ));
     componentId = uuidv7();
     instanceId = uuidv7();
     sourceId = uuidv7();
