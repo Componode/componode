@@ -92,6 +92,21 @@ export function ComponentsTable({
               { value: "unwired", label: "Unwired" },
             ],
           },
+          // Spec 073 FR-026: BOM filter beside Coverage — flag-gated.
+          ...(flags.componentBom
+            ? [
+                {
+                  id: "bom" as const,
+                  label: "BOM",
+                  value: list.filters.bom,
+                  onChange: (v: string) => list.setFilter("bom", v),
+                  options: [
+                    { value: "has", label: "Has BOM" },
+                    { value: "none", label: "No BOM" },
+                  ],
+                },
+              ]
+            : []),
           {
             // Spec 068 gone-instances fix: real options only — emptyValue
             // "hide" means no phantom "All" and Clear restores "hide".

@@ -149,11 +149,11 @@
 
 **Independent Test**: spec US6 scenarios 1–4
 
-- [ ] T050 [P] [US6] `packages/backend/test/bom-list-filter.test.ts` — `listComponents` BOM filter (Has BOM / No BOM EXISTS-subquery) + dashboard `componentsWithBom` count
-- [ ] T051 [US6] `packages/backend/src/services/component-catalog-service.ts` — `hasBom` filter param + dashboard-service `componentsWithBom` line (flag-gated surfacing)
-- [ ] T052 [US6] `packages/frontend/src/ux/components/catalog/components-table.tsx` — BOM filter beside Coverage; dashboard coverage card "Components with a BOM" line (both under `componentBom`)
-- [ ] T053 [US6] `packages/frontend/src/ux/components/importers/run-detail.tsx` — Packages tile (created/unchanged/updated/removed) from run contract fields; Changes tab untouched
-- [ ] T054 [US6] Verify schema-driven forms render `includeDependencyGraph`/`includeSbom`/`includePodImageSbom`/sbom-file fields with the UX-IMP-02 helper texts (no bespoke code); `bomInventory` non-OK renders via the CapabilityNotice pattern
+- [x] T050 [P] [US6] `packages/backend/test/bom-list-filter.test.ts` — `listComponents` BOM filter (Has BOM / No BOM EXISTS-subquery) + dashboard `componentsWithBom` count
+- [x] T051 [US6] `packages/backend/src/services/component-catalog-service.ts` — `hasBom` filter param + dashboard-service `componentsWithBom` line (flag-gated surfacing)
+- [x] T052 [US6] `packages/frontend/src/ux/components/catalog/components-table.tsx` — BOM filter beside Coverage; dashboard coverage card "Components with a BOM" line (both under `componentBom`)
+- [x] T053 [US6] `packages/frontend/src/ux/components/importers/run-detail.tsx` — Packages tile (created/unchanged/updated/removed) from run contract fields; Changes tab untouched
+- [x] T054 [US6] Verify schema-driven forms render `includeDependencyGraph`/`includeSbom`/`includePodImageSbom`/sbom-file fields with the UX-IMP-02 helper texts (no bespoke code); `bomInventory` non-OK renders via the CapabilityNotice pattern
 
 **Checkpoint**: BOM presence discoverable outside the tab — US6 complete
 

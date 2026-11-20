@@ -133,6 +133,10 @@ export interface ImportRun {
   assetsUpdated: number;
   instancesOrphaned: number;
   componentsRetired: number;
+  packagesCreated: number;
+  packagesUnchanged: number;
+  packagesUpdated: number;
+  packagesRemoved: number;
   currentPhase: string | null;
   cancelRequestedAt: string | null;
   cancelReason?: "USER_REQUESTED" | "TARGET_DISABLED" | null;

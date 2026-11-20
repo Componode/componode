@@ -16,7 +16,14 @@ export interface CoverageFacets {
 }
 
 /** Spec 023: show each facet separately. Never merge into a single "quality score". */
-export function CoverageCard({ coverage }: { coverage: CoverageFacets }) {
+export function CoverageCard({
+  coverage,
+  componentsWithBom,
+}: {
+  coverage: CoverageFacets
+  /** Spec 073 FR-026: BOM coverage line — passed only under `componentBom`. */
+  componentsWithBom?: { withBom: number; active: number }
+}) {
   return (
     <Card>
       <CardHeader>
@@ -36,6 +43,14 @@ export function CoverageCard({ coverage }: { coverage: CoverageFacets }) {
             </div>
           )
         })}
+        {componentsWithBom ? (
+          <p className="border-t pt-3 text-sm text-muted-foreground">
+            <Link to={ux("/components?bom=has")} className="font-medium text-primary hover:underline">
+              {componentsWithBom.withBom}
+            </Link>{" "}
+            of {componentsWithBom.active} components have a bill of materials
+          </p>
+        ) : null}
       </CardContent>
       <CardFooter>
         <Link to={ux("/products?missing=incomplete")} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
