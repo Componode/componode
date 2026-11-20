@@ -104,6 +104,7 @@ sidebar collapses to icons; the state persists per tab (`sessionStorage`).
 | `/products`, `/products/new`, `/products/import`, `/products/:slug` (+`/edit`,`/history`) | Product tree, authoring, detail                                                                    | editor for writes                   |
 | `/components`, `/components/:slug` (+`/promote`,`/history`)                               | Catalog, promotion, detail (includes Relationships tab)                                            | editor for writes                   |
 | `/component-groups`, `…/:slug`                                                            | Groups                                                                                             | —                                   |
+| `/packages`                                                                               | Packages explorer — where-used rollup over the BOM                                                 | —                                   |
 | `/suggestions`                                                                            | Edge-suggestion queue                                                                              | —                                   |
 | `/importers`, `…/new`, `…/:id` (+`/edit`,`/runs/:runId`)                                  | Import operations                                                                                  | —                                   |
 | `/agents`, `/agents/:id`                                                                  | Import Agent fleet                                                                                 | ADMIN                               |
@@ -241,6 +242,8 @@ detailed entry in **`researches/ux-rewrite-gaps.md`**:
 | Flag            | Surface                                                          | Fallback | Gap |
 | --------------- | ---------------------------------------------------------------- | -------- | --- |
 | `componentBom`  | Packages tab, Components-list BOM filter, coverage-card BOM line, run Packages tile | Hidden   | G36 |
+| `packagesExplorer` | `/packages` page, sidebar item, Ctrl+K Packages group, BOM row-menu deep link | Hidden | G37 |
+| `bomCuration`   | In-catalog filter + Phase-2 curation surfaces | Hidden | Phase 2 |
 
 ## 8. Scope boundaries
 

@@ -390,6 +390,22 @@ them into specs when scheduled. G29/G31/G32 shipped as spec
   fallback is hidden — no disabled stubs. Phase-2 curation (Add to
   catalog, resolved-component linking) stays deferred to its own spec.
 
+## G37 — Packages explorer (where-used) — RESOLVED by spec 074
+
+- The catalog needed a workspace-level **Packages** list answering "which
+  components contain package X": one row per normalized, version-free
+  purl (`purlIdentity` column, migration 034) with ecosystem, top-5
+  versions by component count, component count, and catalog state; an
+  expandable per-(component, version, scope) consumers panel; server-side
+  search on name/purl; Ecosystem/Scope/In-catalog filters; the standard
+  sort whitelist; a BOM-row "See where it's used" action; and a Ctrl+K
+  Packages result group (`{name} · {ecosystem} · {n} components`). The
+  `packagesExplorer` flag ships ON with the Phase-1b contract
+  (`GET /packages`, `GET /packages/consumers`); its fallback is hidden —
+  zero explorer surface (route redirects, nav entries omitted). Phase-2 curation fields (`catalogComponent`,
+  `pendingSuggestionCount`, the `catalog` filter) ship inert until the
+  catalog-promotion spec lands.
+
 ## G40 — Vulnerability/risk advisories — DEFERRED (no flag, never rendered)
 
 - ASPM-style vulnerability scanning, advisory columns, and risk badges

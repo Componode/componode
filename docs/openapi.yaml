@@ -43,6 +43,7 @@ tags:
   - name: Health
   - name: Products
   - name: Components
+  - name: Packages
   - name: ComponentGroups
   - name: Importers
   - name: Credentials
@@ -1857,6 +1858,133 @@ paths:
         "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /packages:
+    get:
+      tags: [Packages]
+      summary: Workspace package rollup — one row per version-free purl (spec 074)
+      description: >-
+        Groups `bom_entries` by the stored normalized `purlIdentity`
+        (version-free, per-type normalized) across ACTIVE components only.
+        Search is a substring match on entry name, verbatim purl, and the
+        normalized identity; `ecosystem`/`scope` filter at entry level before
+        grouping. `catalog` is accepted for Phase-2 compatibility and ignored
+        in Phase 1b (`catalogComponent` is always null,
+        `pendingSuggestionCount` always 0). Default sort `components` desc,
+        tie-break `name` asc. Side-effect-free; readable by every role.
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: Substring match on name, purl, and purlIdentity
+        - name: sort
+          in: query
+          schema: { type: string, enum: [name, components, versions, ecosystem], default: components }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - name: scope
+          in: query
+          schema: { type: string, description: "CSV of scopes (RUNTIME, DEV, BUILD, TEST, SYSTEM, OPTIONAL, BUNDLED, TRANSITIVE)" }
+        - name: ecosystem
+          in: query
+          schema: { type: string, description: "CSV of ecosystems (purl types)" }
+        - name: catalog
+          in: query
+          schema: { type: string, enum: [linked, suggested, none], description: "Accepted, ignored in Phase 1b" }
+      responses:
+        "200":
+          description: Standardized list envelope (ADR-130) of package rollup rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination, facets]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/PackageListItem" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+                  facets:
+                    type: object
+                    required: [ecosystems]
+                    properties:
+                      ecosystems:
+                        type: array
+                        items: { type: string }
+                        description: Distinct ecosystems across ACTIVE-component inventory — the filter domain, independent of the applied filters.
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /packages/consumers:
+    get:
+      tags: [Packages]
+      summary: Components consuming one package (spec 074)
+      description: >-
+        One row per (component, version, scope) reporting the package —
+        the where-used read behind the `/packages` row expansion. `purl` is
+        normalized to its version-free identity before matching, so a
+        versioned or qualified purl resolves to the same consumer set.
+        `direct` is OR-ed across the group (a component declaring the
+        package directly anywhere shows direct). Unknown purls return an
+        empty page, not 404. ACTIVE components only.
+      parameters:
+        - in: query
+          name: purl
+          required: true
+          schema: { type: string, maxLength: 500 }
+          description: Package URL — normalized before matching
+        - in: query
+          name: version
+          schema: { type: string, maxLength: 200 }
+          description: Restrict to consumers reporting this version
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [name, version, scope, lastReportedAt], default: name }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: asc }
+      responses:
+        "200":
+          description: Standardized list envelope (ADR-130) of consumer rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/PackageConsumerListItem" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /components/{id}/promote-to-platform:
     post:
       tags: [Components]
@@ -6532,6 +6660,63 @@ components:
               environment: { type: string }
               entryCount: { type: integer }
       required: [total, direct, ecosystems, licenseCount, hasNesting, lastReportedAt, staleThresholdDays, sources, instances]
+    PackageVersionCount:
+      type: object
+      description: One version of a package with its ACTIVE-component count (spec 074)
+      properties:
+        version: { type: string }
+        componentCount: { type: integer, minimum: 0 }
+      required: [version, componentCount]
+    PackageCatalogRef:
+      type: object
+      nullable: true
+      description: "Phase-2 curation link — always null in Phase 1b"
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+    PackageListItem:
+      type: object
+      description: >-
+        One row in the /packages rollup — a normalized, version-free purl
+        with its usage counts (spec 074, ADR-131). `versions` carries the
+        top 5 versions by component count; `versionCount` is the full
+        distinct count (null versions excluded from both).
+      properties:
+        purl: { type: string, description: Normalized version-free purl identity }
+        name: { type: string, description: Most recently reported entry name }
+        ecosystem: { type: string, description: "PURL type (npm, maven, deb, …)" }
+        versionCount: { type: integer, minimum: 0 }
+        versions:
+          type: array
+          items: { $ref: "#/components/schemas/PackageVersionCount" }
+          description: Top 5 versions by component count
+        componentCount: { type: integer, minimum: 0 }
+        catalogComponent: { $ref: "#/components/schemas/PackageCatalogRef" }
+        pendingSuggestionCount: { type: integer, minimum: 0, description: "Phase-2 surface — always 0 in Phase 1b" }
+      required: [purl, name, ecosystem, versionCount, versions, componentCount, catalogComponent, pendingSuggestionCount]
+    PackageConsumerListItem:
+      type: object
+      description: >-
+        One (component, version, scope) row consuming a package (spec 074).
+        `direct` is OR-ed across the component's reports; `lastReportedAt`
+        is the newest report timestamp in the group.
+      properties:
+        component:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            slug: { type: string }
+            name: { type: string }
+            category: { type: string }
+          required: [id, slug, name, category]
+        version: { type: string, nullable: true }
+        scope:
+          type: string
+          enum: [RUNTIME, DEV, BUILD, TEST, SYSTEM, OPTIONAL, BUNDLED, TRANSITIVE]
+        direct: { type: boolean }
+        lastReportedAt: { type: string, format: date-time }
+      required: [component, version, scope, direct, lastReportedAt]
   securitySchemes:
     sessionCookie:
       type: apiKey

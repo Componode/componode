@@ -117,6 +117,16 @@ Products can depend on a group instead of a single component.
 
 ![Component groups: human-declared equivalences across imported assets](./assets/component-groups.png)
 
+**Packages** (`/packages`) — the workspace where-used read over the bill
+of materials. One row per package (normalized, version-free purl) with its
+ecosystem, top-five versions, and component count; expand a row for the
+paginated list of components reporting it (component, version, scope,
+direct/transitive, last reported), or click a version chip to filter by
+that version. Search covers package names and purls (`/packages?q=`),
+and the component detail's Packages tab offers "See where it's used" on
+each row to deep-link here. Inventory only — Componode does not scan
+packages for vulnerabilities.
+
 **Suggestions** (`/suggestions`) — the staged edge queue. The server
 proposes `DEPENDS_ON` candidates from import data; a human accepts or
 dismisses each one. Nothing is ever auto-wired — decided pairs are

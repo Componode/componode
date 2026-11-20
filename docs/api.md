@@ -277,6 +277,21 @@ HUMAN group memberships (auto-managed group ids are rejected with
 `409 GROUP_AUTO_MANAGED`), alongside `teamOwnerId`, `links`, `tags`, and
 `sunsetAt` (all nullable/optional).
 
+## Packages
+
+<!-- GENERATED:table:Packages -->
+| Method | Path | Description | Access |
+|---|---|---|---|
+| GET | `/api/v1/packages` | Workspace package rollup — one row per version-free purl (spec 074) | Authenticated |
+| GET | `/api/v1/packages/consumers` | Components consuming one package (spec 074) | Authenticated |
+<!-- /GENERATED:table:Packages -->
+
+The packages explorer where-used read (spec 074): `GET /packages` returns
+one row per normalized, version-free purl grouped across ACTIVE components;
+`GET /packages/consumers?purl=` pages the components reporting it (one row
+per component+version+scope). `catalog` is accepted for Phase-2
+compatibility and ignored in Phase 1b.
+
 ## Component groups
 
 <!-- GENERATED:table:ComponentGroups -->
