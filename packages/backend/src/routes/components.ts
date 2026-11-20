@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
-import { listComponentsQuerySchema, updateComponentSchema, createComponentSchema, createInstanceBlockSchema, componentRelationshipsQuerySchema, listBomQuerySchema, bomSummaryQuerySchema } from "@componode/core";
+import { listComponentsQuerySchema, updateComponentSchema, createComponentSchema, createInstanceBlockSchema, componentRelationshipsQuerySchema, listBomQuerySchema, bomSummaryQuerySchema, bomExportQuerySchema } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
 import { listComponents, getComponentById } from "../services/component-catalog-service.js";
@@ -15,6 +15,7 @@ import {
 } from "../services/platform-promotion-service.js";
 import { sendServiceError, validationFailed } from "./route-helpers.js";
 import { getBomForComponent, getBomSummary } from "../services/bom-service.js";
+import { exportBom } from "../services/bom-export.js";
 
 const componentIdParam = z.object({ id: z.string().uuid() });
 
@@ -77,6 +78,30 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
     return reply
       .status(200)
       .send(await getBomSummary(params.data.id, query.data.instanceId));
+  });
+
+  // Spec 073 US4 — streamed export, always the full BOM for the selected
+  // component/instance (list filters never apply, Q3). Registered with
+  // the static `bom`/`summary`/`export` segments ahead of `/components/:id`.
+  app.get("/components/:id/bom/export", {
+    preHandler: [app.verifySession],
+  }, async (req: FastifyRequest, reply: FastifyReply) => {
+    const params = componentIdParam.safeParse(req.params);
+    if (!params.success) return validationFailed(reply, params.error.issues);
+    const query = bomExportQuerySchema.safeParse(req.query);
+    if (!query.success) return validationFailed(reply, query.error.issues);
+    const result = await exportBom(
+      params.data.id,
+      query.data.format,
+      query.data.instanceId,
+    );
+    if (!result) {
+      return reply.status(404).send({ code: "NOT_FOUND", message: "Component or instance not found" });
+    }
+    return reply
+      .header("Content-Disposition", `attachment; filename="${result.filename}"`)
+      .type(result.contentType)
+      .send(result.stream);
   });
 
   app.get("/components/:id/bom", {

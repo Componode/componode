@@ -117,14 +117,14 @@
 
 ### Tests for User Story 4 ⚠️ write FIRST
 
-- [ ] T043 [P] [US4] `packages/backend/test/bom-export.test.ts` — `format=cyclonedx` output validates against vendored CycloneDX 1.5 schema via ajv; `format=spdx` validates against SPDX 2.3 schema incl. `CONTAINS` relationships; lossy scope mapping per research tables; `Content-Disposition` filenames (incl. `-{instance}` infix); Viewer role allowed; filters never applied
-- [ ] T044 [P] [US4] `packages/backend/test/bom-roundtrip.test.ts` — ingest SPDX doc → export CycloneDX → re-ingest → zero duplicates (SC-003)
+- [x] T043 [P] [US4] `packages/backend/test/bom-export.test.ts` — `format=cyclonedx` output validates against vendored CycloneDX 1.5 schema via ajv; `format=spdx` validates against SPDX 2.3 schema incl. `CONTAINS` relationships; lossy scope mapping per research tables; `Content-Disposition` filenames (incl. `-{instance}` infix); Viewer role allowed; filters never applied
+- [x] T044 [P] [US4] `packages/backend/test/bom-roundtrip.test.ts` — ingest SPDX doc → export CycloneDX → re-ingest → zero duplicates (SC-003)
 
 ### Implementation for User Story 4
 
-- [ ] T045 [US4] `packages/backend/src/services/bom-service.ts` — `buildCycloneDx()` / `buildSpdx()` / `buildComponodeJson()` serializers per research reverse-mapping tables; nesting → `components[]` / `CONTAINS`
-- [ ] T046 [US4] `GET /components/:id/bom/export` in `routes/components.ts` — `format`+`instanceId` params; streamed `reply.send(Readable)` over an async serializer generator; `Content-Disposition` + `Content-Type` per contracts/bom-api.md
-- [ ] T047 [US4] `packages/frontend/src/ux/components/catalog/bom-export-menu.tsx` — 3 items with audience descriptions, lossy notice + "always full BOM" lines above items, live-region start/finish announcements, toast+retry on failure; wire into `component-bom.tsx` export slot
+- [x] T045 [US4] `packages/backend/src/services/bom-service.ts` — `buildCycloneDx()` / `buildSpdx()` / `buildComponodeJson()` serializers per research reverse-mapping tables; nesting → `components[]` / `CONTAINS`
+- [x] T046 [US4] `GET /components/:id/bom/export` in `routes/components.ts` — `format`+`instanceId` params; streamed `reply.send(Readable)` over an async serializer generator; `Content-Disposition` + `Content-Type` per contracts/bom-api.md
+- [x] T047 [US4] `packages/frontend/src/ux/components/catalog/bom-export-menu.tsx` — 3 items with audience descriptions, lossy notice + "always full BOM" lines above items, live-region start/finish announcements, toast+retry on failure; wire into `component-bom.tsx` export slot
 
 **Checkpoint**: schema-valid exports download for all roles — US4 complete
 

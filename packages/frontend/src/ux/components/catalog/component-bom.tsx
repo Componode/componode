@@ -9,6 +9,7 @@ import {
   type BomListParams,
 } from "@/api/hooks/bom"
 import { toBomEntryView, toBomSummaryView } from "@/api/mappers/bom"
+import { BomExportMenu } from "./bom-export-menu"
 import { facetParam } from "@/api/list-query"
 import { useListState } from "@/ux/hooks/use-list-state"
 import { ListToolbar, type FilterDef } from "@/ux/components/patterns/list-toolbar"
@@ -306,7 +307,7 @@ export function ComponentBomTab({ component }: { component: Component }) {
           <ToggleGroupItem value="tree" aria-label="Tree view">Tree</ToggleGroupItem>
         </ToggleGroup>
       ) : null}
-      {/* Export menu slot — lands with US4 (streamed export endpoint). */}
+      <BomExportMenu componentId={component.id} instanceId={instanceId} />
     </>
   )
 

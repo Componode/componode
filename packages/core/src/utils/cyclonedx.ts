@@ -3,7 +3,7 @@ import type {
   BomCdxType,
   DiscoveredBomEntry,
 } from "../index.js";
-import { BOM_CDX_TYPES } from "../index.js";
+import { BOM_CDX_TYPES, BOM_DEPENDENCY_SCOPES } from "../index.js";
 import type { BomParseResult } from "./spdx.js";
 
 // CycloneDX 1.5/1.6 JSON → DiscoveredBomEntry[] (researches/sbom_research.md
@@ -29,6 +29,7 @@ interface CdxComponent {
   licenses?: CdxLicense[];
   purl?: string;
   cpe?: string;
+  properties?: { name?: string; value?: string }[];
   components?: CdxComponent[];
 }
 
@@ -139,20 +140,36 @@ export function parseCycloneDxDocument(doc: CycloneDxDocument): BomParseResult {
     if (component.cpe) details.cpe = component.cpe;
 
     const ref = component["bom-ref"];
+    // Componode exports keep the lossy scope mapping but restore fidelity
+    // through namespaced properties — a re-ingested export lands on the
+    // same dedupe key instead of duplicating (spec 073 SC-003).
+    const props = new Map(
+      (component.properties ?? [])
+        .filter((p) => typeof p?.name === "string")
+        .map((p) => [p.name!, p.value ?? ""]),
+    );
+    const propScope = props.get("componode:scope");
+    const propDirect = props.get("componode:direct");
     const entry: DiscoveredBomEntry = {
       purl: component.purl,
       name: component.name ?? component.purl,
       evidenceSource: "SBOM_DOCUMENT", // caller overrides per collection path
       evidenceDetail,
       version: component.version ?? null,
-      scope: CDX_SCOPE_MAP[component.scope ?? "required"] ?? "RUNTIME",
-      direct: hasDepGraph
-        ? directRefs.has(ref ?? "")
-          ? true
-          : childRefs.has(ref ?? "")
-            ? false
-            : undefined
-        : undefined,
+      scope:
+        propScope && (BOM_DEPENDENCY_SCOPES as readonly string[]).includes(propScope)
+          ? (propScope as BomDependencyScope)
+          : (CDX_SCOPE_MAP[component.scope ?? "required"] ?? "RUNTIME"),
+      direct:
+        propDirect !== undefined
+          ? propDirect === "true"
+          : hasDepGraph
+            ? directRefs.has(ref ?? "")
+              ? true
+              : childRefs.has(ref ?? "")
+                ? false
+                : undefined
+            : undefined,
       supplier:
         component.supplier?.name ??
         component.author ??

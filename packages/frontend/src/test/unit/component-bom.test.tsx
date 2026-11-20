@@ -123,7 +123,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  flags.componentBom = true;
+  (flags as Record<string, boolean>).componentBom = true;
 });
 
 describe("ComponentBomTab (spec 073)", () => {
@@ -228,7 +228,7 @@ describe("ComponentDetail BOM tab (spec 073)", () => {
     wrap(<ComponentDetail component={component} />);
     expect(await screen.findByRole("tab", { name: /Packages/i })).toBeTruthy();
     cleanup();
-    flags.componentBom = false;
+    (flags as Record<string, boolean>).componentBom = false;
     wrap(<ComponentDetail component={component} />);
     await screen.findByRole("tab", { name: /Overview/i });
     expect(screen.queryByRole("tab", { name: /Packages/i })).toBeNull();
