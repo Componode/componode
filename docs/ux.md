@@ -145,7 +145,9 @@ Every tabbed detail page keeps the active tab in `?tab=` (replace, not
 push) via the **`useValidatedTab` hook** — unknown or retired values fall
 back to the first tab so deep links never render an empty panel. Product
 detail's canonical tabs are `overview`, `map`, `components`, `dependencies`,
-and `activity`; `?tab=map` is a first-class deep link (spec 062). Never
+and `activity`; `?tab=map` is a first-class deep link (spec 062). Component
+detail's canonical tabs are `overview`, `relationships`, and `bom`;
+`?tab=bom` deep-links the bill of materials (spec 073). Never
 hand-roll `searchParams.get("tab")`.
 
 ### State matrix
@@ -208,6 +210,13 @@ shipped routes.
 - Domain terms verbatim (Component, ComponentInstance, DigitalProduct,
   ComponentGroup, Importer); edge names as phrases ("X consumes Y"),
   never bare enums.
+- BOM vocabulary (spec 073): **Package** is a BOM row (one purl +
+  version + scope); **Bill of materials** names the tab and export;
+  **Found in** is the evidence column (lockfile, manifest, SBOM document,
+  image layer, registry API, source control). *Add to catalog* and *Link*
+  actions are reserved for Phase-2 curation — never rendered in Phase 1,
+  and no advisory/vulnerability wording of any kind appears on this
+  surface (deferred, gap G40).
 
 ## 6. Auth surfaces
 
@@ -228,6 +237,10 @@ detailed entry in **`researches/ux-rewrite-gaps.md`**:
   control, or a notice naming the gap — never a fake interaction.
 - When the backend capability lands, the flag flips and the gap entry is
   marked resolved; gap specs are the next roadmap items after v1.1.0.
+
+| Flag            | Surface                                                          | Fallback | Gap |
+| --------------- | ---------------------------------------------------------------- | -------- | --- |
+| `componentBom`  | Packages tab, Components-list BOM filter, coverage-card BOM line, run Packages tile | Hidden   | G36 |
 
 ## 8. Scope boundaries
 

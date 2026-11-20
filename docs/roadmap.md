@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–071, bugfix 066)
+## Shipped (features 001–073, bugfix 066)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -443,6 +443,19 @@ file tracks shipped and upcoming work — update it when a spec completes.
   protection governance surfaces on instance `rawConfig`, per-repo and
   org-aggregated capability markers report degraded families, and the
   component page renders a bounded GitHub details section.
+- `073-bom-inventory` — bill-of-materials inventory (Phase 1): a new
+  factual `bom_entries` table records importer-reported packages per
+  component or instance (ADR-131), reconciled source-scoped with
+  freshness/staleness semantics; the GitHub dependency graph, Docker
+  image SBOM attestations, Kubernetes pod-image SBOMs, and the new
+  SBOM File importer (CycloneDX/SPDX JSON over HTTPS onto a targeted
+  component) populate it behind opt-in toggles; read APIs, a component
+  Packages tab with flat/tree views, source attribution, a components-
+  list BOM filter, a dashboard coverage line, run-package counters, and
+  Componode JSON / CycloneDX 1.5 / SPDX 2.3 exports ship behind the
+  `componentBom` flag — catalog promotion stays deferred to Phase 2
+  (ADR-057 Amendment 1 keeps `bomEntries` out of the `relationships[]`
+  prohibition).
 
 ## Next — post-v1.1
 

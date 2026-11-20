@@ -43,6 +43,7 @@ export default withMermaid(
           { text: "Azure (scaffold)", link: "/importers/azure" },
           { text: "Kubernetes (scaffold)", link: "/importers/kubernetes" },
           { text: "MCP Server (scaffold)", link: "/importers/mcp-server" },
+          { text: "SBOM File", link: "/importers/sbom-file" },
         ],
       },
       {

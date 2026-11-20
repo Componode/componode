@@ -1658,6 +1658,205 @@ paths:
         "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /components/{id}/bom:
+    get:
+      tags: [Components]
+      summary: List a component's bill of materials (spec 073)
+      description: >-
+        Server-paginated package inventory (ADR-131). No `instanceId` merges
+        all scopes; `instanceId` binds one instance's set. `view=tree` returns
+        top-level rows with child metadata; `parentId` pages direct children
+        (fixed page size 50). `catalog` is accepted for Phase-2 compatibility
+        and ignored in Phase 1. Side-effect-free.
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: Substring match on name and purl
+        - name: sort
+          in: query
+          schema: { type: string, enum: [name, version, scope, ecosystem, lastReportedAt], default: name }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: asc }
+        - name: scope
+          in: query
+          schema: { type: string, description: "CSV of scopes (RUNTIME, DEV, BUILD, TEST, SYSTEM, OPTIONAL, BUNDLED, TRANSITIVE)" }
+        - name: ecosystem
+          in: query
+          schema: { type: string, description: "CSV of ecosystems (purl types)" }
+        - name: found
+          in: query
+          schema: { type: string, description: "CSV of evidence sources (LOCK_FILE, MANIFEST_FILE, SBOM_DOCUMENT, IMAGE_LAYER, REGISTRY_API, VCS_ANALYSIS)" }
+        - name: direct
+          in: query
+          schema: { type: boolean }
+        - name: catalog
+          in: query
+          schema: { type: string, enum: [linked, suggested, none], description: "Accepted, ignored in Phase 1" }
+        - name: instanceId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: view
+          in: query
+          schema: { type: string, enum: [flat, tree], default: flat }
+        - name: parentId
+          in: query
+          schema: { type: string, format: uuid, description: "Direct children of this entry (view=tree)" }
+      responses:
+        "200":
+          description: >-
+            Standardized list envelope (ADR-130): `data` holds the page of
+            BOM entries; `pagination` reports
+            `{page,pageSize,total,pageCount,hasNext}`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/BomEntryListItem" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /components/{id}/bom/summary:
+    get:
+      tags: [Components]
+      summary: Bill-of-materials summary strip (spec 073)
+      description: >-
+        Totals, distinct ecosystems/licences, staleness, per-Source and
+        per-instance aggregates backing the BOM tab strip and pickers.
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - name: instanceId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: BOM summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BomSummary" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /components/{id}/bom/export:
+    get:
+      tags: [Components]
+      summary: Download the BOM as a file (spec 073)
+      description: >-
+        Streamed export, always the **full** BOM for the selected component
+        or instance — list filters never apply. `Content-Disposition`
+        filenames: `{slug}-bom.json`, `{slug}-bom.cdx.json`,
+        `{slug}-bom.spdx.json` (instance adds `-{instance}`). CycloneDX and
+        SPDX collapse Build/Dev/Test scopes per the spec's lossy mapping;
+        namespaced `componode:scope`/`componode:direct` properties restore
+        fidelity on re-ingest.
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - name: format
+          in: query
+          schema: { type: string, enum: [json, cyclonedx, spdx], default: json }
+        - name: instanceId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: BOM document download
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+              description: "attachment; filename=\"{slug}-bom.{ext}\""
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /component-instances/{id}/bom:
+    get:
+      tags: [Components]
+      summary: List one instance's bill of materials (spec 073)
+      description: >-
+        Same contract as `/components/{id}/bom` with `instanceId` bound by
+        the path — component-scoped and other-instance rows are excluded.
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [name, version, scope, ecosystem, lastReportedAt], default: name }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: asc }
+        - name: scope
+          in: query
+          schema: { type: string, description: "CSV of scopes" }
+        - name: ecosystem
+          in: query
+          schema: { type: string, description: "CSV of ecosystems" }
+        - name: found
+          in: query
+          schema: { type: string, description: "CSV of evidence sources" }
+        - name: direct
+          in: query
+          schema: { type: boolean }
+        - name: view
+          in: query
+          schema: { type: string, enum: [flat, tree], default: flat }
+        - name: parentId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Page of BOM entries for the instance
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/BomEntryListItem" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /components/{id}/promote-to-platform:
     post:
       tags: [Components]
@@ -6258,6 +6457,81 @@ components:
           description: >-
             Associated Line of Business; must reference an existing
             LOB. Null clears the association.
+    BomEntryListItem:
+      type: object
+      description: >-
+        One importer-reported package row (spec 073, ADR-131). Factual
+        inventory — never user-edited, never a graph edge.
+      properties:
+        id: { type: string, format: uuid }
+        purl: { type: string, description: Package URL (packageurl spec) }
+        name: { type: string }
+        version: { type: string, nullable: true }
+        ecosystem: { type: string, description: "PURL type (npm, maven, deb, …)" }
+        scope:
+          type: string
+          enum: [RUNTIME, DEV, BUILD, TEST, SYSTEM, OPTIONAL, BUNDLED, TRANSITIVE]
+        direct: { type: boolean, description: "Declared-direct dependency (authoritative; TRANSITIVE scope is kept for export fidelity)" }
+        evidenceSource:
+          type: string
+          enum: [LOCK_FILE, MANIFEST_FILE, SBOM_DOCUMENT, IMAGE_LAYER, REGISTRY_API, VCS_ANALYSIS]
+        evidenceDetail: { type: string, nullable: true, description: "Where the evidence was found (lockfile path, layer digest, …)" }
+        licenses: { type: array, items: { type: string }, description: SPDX licence expressions }
+        supplier: { type: string, nullable: true }
+        cdxType: { type: string, nullable: true, description: CycloneDX component type when reported }
+        source:
+          type: object
+          nullable: true
+          description: Reporting ImporterSource
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+        lastReportedAt: { type: string, format: date-time }
+        parentId: { type: string, format: uuid, nullable: true }
+        parentName: { type: string, nullable: true }
+        hasChildren: { type: boolean }
+        childCount: { type: integer }
+        instanceCount: { type: integer, description: Instances carrying this entry (component-merged view) }
+        instanceTotal: { type: integer, description: BOM-bearing instance count }
+        resolvedComponent:
+          type: object
+          nullable: true
+          description: "Phase-2 curation link — always null in Phase 1"
+          properties:
+            id: { type: string, format: uuid }
+            slug: { type: string }
+            name: { type: string }
+        pendingSuggestionId: { type: string, format: uuid, nullable: true, description: "Phase-2 surface — always null in Phase 1" }
+      required: [id, purl, name, ecosystem, scope, direct, evidenceSource, licenses, lastReportedAt, hasChildren, childCount, instanceCount, instanceTotal]
+    BomSummary:
+      type: object
+      properties:
+        total: { type: integer }
+        direct: { type: integer }
+        ecosystems: { type: array, items: { type: string } }
+        licenseCount: { type: integer }
+        hasNesting: { type: boolean }
+        lastReportedAt: { type: string, format: date-time, nullable: true }
+        staleThresholdDays: { type: integer, description: "Workspace stale threshold (default 7)" }
+        sources:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              importerKind: { type: string, nullable: true }
+              lastReportedAt: { type: string, format: date-time }
+        instances:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              environment: { type: string }
+              entryCount: { type: integer }
+      required: [total, direct, ecosystems, licenseCount, hasNesting, lastReportedAt, staleThresholdDays, sources, instances]
   securitySchemes:
     sessionCookie:
       type: apiKey

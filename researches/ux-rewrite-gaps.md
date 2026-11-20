@@ -377,6 +377,27 @@ them into specs when scheduled. G29/G31/G32 shipped as spec
   Overview/Relationships tab pair; the Overview Instances table and
   read-only URL Check summary are unchanged.
 
+## G36 — Bill of materials surface — RESOLVED by spec 073
+
+- Component detail needed a read-only **Packages** tab listing the
+  packages each component contains (purl, version, scope, licences,
+  evidence, per-instance split, nested tree) plus the Components-list
+  BOM filter, the dashboard *Components with a BOM* line, the run-detail
+  Packages tile, and the CycloneDX/SPDX/Componode-JSON export menu —
+  none of which any surface exposed (ADR-131). The `componentBom` flag
+  ships ON with the complete Phase-1 contract (`GET /components/:id/bom`,
+  `/bom/summary`, `/bom/export`, `/component-instances/:id/bom`); its
+  fallback is hidden — no disabled stubs. Phase-2 curation (Add to
+  catalog, resolved-component linking) stays deferred to its own spec.
+
+## G40 — Vulnerability/risk advisories — DEFERRED (no flag, never rendered)
+
+- ASPM-style vulnerability scanning, advisory columns, and risk badges
+  are deferred to a later programme phase. No flag: the surface is never
+  rendered — BOM rows show only factual fields, package rows never use
+  warning/destructive tones, and copy contains no security-scan wording
+  (spec 073 FR-025).
+
 ## Conditional gaps — VERIFIED during implementation
 
 - **Product bulk-import** — RESOLVED: `POST /products/bootstrap`
