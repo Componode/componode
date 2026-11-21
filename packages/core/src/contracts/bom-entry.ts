@@ -54,6 +54,8 @@ export interface BomEntryListItem {
   instanceTotal: number;
   resolvedComponent: { id: string; slug: string; name: string } | null;
   pendingSuggestionId: string | null;
+  /** Candidate component the pending suggestion targets (queue deep-link). */
+  pendingSuggestionChildId: string | null;
 }
 
 // GET /components/:id/bom/summary — single call backing the summary strip,

@@ -69,7 +69,10 @@ New to the model? Start with [Digital Products in depth](./digital-products).
 **Components** (`/components`) — imported assets: repositories, workloads,
 databases, endpoints. Each has a controlled `category` + `provider` and a
 free-form `resourceType` (e.g. `ec2:instance`). Retired components are
-hidden by default; use the filters to include them.
+hidden by default; use the filters to include them. `LIBRARY` components —
+packages promoted from the bill of materials — are also hidden by default;
+**Show libraries** reveals them and the Provider filter groups platform
+providers separately from package registries.
 
 ![The components list with category, provider, resource type, health, and instance counts](./assets/components.png)
 
@@ -124,13 +127,20 @@ paginated list of components reporting it (component, version, scope,
 direct/transitive, last reported), or click a version chip to filter by
 that version. Search covers package names and purls (`/packages?q=`),
 and the component detail's Packages tab offers "See where it's used" on
-each row to deep-link here. Inventory only — Componode does not scan
-packages for vulnerabilities.
+each row to deep-link here. The **In catalog** column and filter show
+whether a package already maps to a catalog component; **Add to catalog**
+promotes a package to a `LIBRARY` component (one per version-free purl
+identity) — or **Link** resolves it onto an existing component — either
+wiring every consumer's dependency edge or staging suggestions for review.
+Inventory only — Componode does not scan packages for vulnerabilities.
 
 **Suggestions** (`/suggestions`) — the staged edge queue. The server
 proposes `DEPENDS_ON` candidates from import data; a human accepts or
 dismisses each one. Nothing is ever auto-wired — decided pairs are
-terminal.
+terminal. The **Dependencies** segment lists component→library candidates
+staged from BOM package matches, grouped per library — exact package
+matches can be bulk-accepted; name and slug matches are reviewed one by
+one.
 
 ![The Suggestions queue — pending staged edges awaiting a human decision](./assets/suggestions.png)
 

@@ -13,7 +13,9 @@ export function UxComponentDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   // Route params are slugs (prototype convention); the API addresses
   // components by id — resolve slug→id through the list endpoint.
-  const lookup = useComponents({ search: slug, includeRetired: true, includeGone: true, pageSize: 100 });
+  // `libraries` keeps direct links to Library components working while
+  // the default /components population hides them (spec 075 UX-LIB-01).
+  const lookup = useComponents({ search: slug, includeRetired: true, includeGone: true, libraries: true, pageSize: 100 });
   const componentId = lookup.data?.data.find((c) => c.slug === slug)?.id ?? null;
   const detail = useComponentDetail(componentId);
 

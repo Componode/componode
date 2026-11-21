@@ -84,6 +84,14 @@ export interface ComponentRelationships {
     };
     /** Nested operational occurrences; GONE excluded unless requested. */
     instances: ComponentInstance[];
+    /**
+     * Spec 075 / UX-LIB-05 — LIBRARY-category neighbours are counted, not
+     * listed, so the read stays bounded when a consumer has hundreds of
+     * library dependencies. `dependsOn` = libraries the focused component
+     * depends on; `dependedOnBy` = libraries that depend on it. The
+     * corresponding lane arrays exclude LIBRARY nodes.
+     */
+    libraryCounts: { dependsOn: number; dependedOnBy: number };
   };
   /** Groups that could not be read — never silently omitted. */
   unavailableKinds: ComponentRelationKind[];

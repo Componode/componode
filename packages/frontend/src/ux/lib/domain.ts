@@ -3,6 +3,11 @@
  * @componode/core and only keep the `tone` mapping below in the frontend.
  */
 
+import {
+  COMPONENT_PROVIDER_GROUPS,
+  COMPONENT_PROVIDER_GROUP_META,
+} from "@componode/core"
+
 export type Tone = "neutral" | "success" | "warning" | "destructive" | "info" | "brand"
 
 export type Role = "ADMIN" | "EDITOR" | "VIEWER"
@@ -42,6 +47,21 @@ export type Provider =
   | "API_URL"
   | "MCP_SERVER"
   | "OTHER"
+  // Package-registry providers (spec 075 / ADR-013 Amendment 2) — carried
+  // by Library components promoted from BOM entries.
+  | "NPM"
+  | "PYPI"
+  | "MAVEN"
+  | "NUGET"
+  | "GOLANG"
+  | "CARGO"
+  | "RUBYGEMS"
+  | "PACKAGIST"
+  | "GHCR"
+  | "ECR"
+  | "DEBIAN"
+  | "RPM"
+  | "ALPINE"
 
 interface Meta {
   label: string
@@ -226,7 +246,37 @@ export const PROVIDER_META: Record<Provider, { label: string; short: string }> =
   API_URL: { label: "API URL", short: "API" },
   MCP_SERVER: { label: "MCP server", short: "MCP" },
   OTHER: { label: "Other", short: "OTH" },
+  // Package-registry providers (spec 075) — labels mirror
+  // COMPONENT_PROVIDER_META in @componode/core.
+  NPM: { label: "npm", short: "NPM" },
+  PYPI: { label: "PyPI", short: "PyPI" },
+  MAVEN: { label: "Maven", short: "MVN" },
+  NUGET: { label: "NuGet", short: "NUG" },
+  GOLANG: { label: "Go modules", short: "GO" },
+  CARGO: { label: "Cargo", short: "CRG" },
+  RUBYGEMS: { label: "RubyGems", short: "GEM" },
+  PACKAGIST: { label: "Packagist", short: "PKG" },
+  GHCR: { label: "GitHub Container Registry", short: "GHCR" },
+  ECR: { label: "Amazon ECR", short: "ECR" },
+  DEBIAN: { label: "Debian apt", short: "DEB" },
+  RPM: { label: "RPM", short: "RPM" },
+  ALPINE: { label: "Alpine apk", short: "APK" },
 }
+
+/**
+ * Spec 075 / UX-LIB-03 — Provider filter option groups: *Platforms* (the
+ * importer/endpoint providers) then *Package registries*, ordered per
+ * `COMPONENT_PROVIDER_GROUPS`. Rendered as optgroups by FilterDef.
+ */
+export const PROVIDER_FILTER_GROUPS = (
+  Object.keys(COMPONENT_PROVIDER_GROUPS) as (keyof typeof COMPONENT_PROVIDER_GROUPS)[]
+).map((key) => ({
+  label: COMPONENT_PROVIDER_GROUP_META[key].label,
+  options: COMPONENT_PROVIDER_GROUPS[key].map((value) => ({
+    value,
+    label: PROVIDER_META[value as Provider]?.label ?? value,
+  })),
+}))
 
 export const CATEGORY_LABELS: Record<string, string> = {
   ACCOUNT: "Account",

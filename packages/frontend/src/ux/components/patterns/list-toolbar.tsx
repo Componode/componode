@@ -3,7 +3,7 @@ import { SearchIcon, XIcon } from "lucide-react"
 import type * as React from "react"
 import { Button } from "@/ux/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/ux/components/ui/input-group"
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/ux/components/ui/select"
 
 export interface FilterDef {
   id: string
@@ -11,6 +11,12 @@ export interface FilterDef {
   value: string
   onChange: (value: string) => void
   options: { value: string; label: string }[]
+  /**
+   * Optional grouped rendering (spec 075 provider optgroups): when set,
+   * `options` are rendered inside labelled `SelectGroup`s in the order
+   * given. `options` stays the flat union — `groups` is presentational.
+   */
+  groups?: { label: string; options: { value: string; label: string }[] }[]
   /**
    * "Unset" sentinel — the value `dirty` compares against and `Clear`
    * restores via `onChange`. Defaults to `"all"`, which also renders the
@@ -84,11 +90,22 @@ export function ListToolbar({ query, onQueryChange, placeholder = "Search…", f
               <SelectContent>
                 <SelectGroup>
                   {showAll && <SelectItem value="all">All</SelectItem>}
-                  {f.options.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
+                  {f.groups
+                    ? f.groups.map((g) => (
+                        <SelectGroup key={g.label}>
+                          <SelectLabel>{g.label}</SelectLabel>
+                          {g.options.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))
+                    : f.options.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
                 </SelectGroup>
               </SelectContent>
             </Select>

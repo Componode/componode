@@ -406,6 +406,25 @@ them into specs when scheduled. G29/G31/G32 shipped as spec
   `pendingSuggestionCount`, the `catalog` filter) ship inert until the
   catalog-promotion spec lands.
 
+## G38 — BOM catalog curation — RESOLVED by spec 075
+
+- Package inventory needed to become curated catalog data: BOM-tab and
+  `/packages` row-menu **Add to catalog** / **Link to existing component**
+  dialogs (preview-first, atomic link-all or stage-suggestions outcomes);
+  a **dependency segment** on `/suggestions` (`?kind=dependency`) with
+  per-library grouped pending rows, guarded bulk accept/dismiss, and a
+  shared History view; **In catalog** columns + `catalog` filters on the
+  BOM tab and `/packages` (Linked / Suggested / —); and library
+  legibility surfaces — `LIBRARY` hidden from `/components` behind a
+  "Show libraries (N)" toggle (`?libraries=1`), a grouped
+  Platforms/Package-registries Provider filter, Library detail (identity
+  block + Used by + Versions in use, no Instances card), and a bounded
+  "N libraries" summary node on Relationships (`libraryCounts`). The
+  `bomCuration` flag ships ON with the Phase-2 contract (curation
+  endpoints + `bom_component_suggestions` queue); its fallback is
+  hidden — menu items, the dependency segment, and the In-catalog
+  column/filter are absent, not disabled.
+
 ## G40 — Vulnerability/risk advisories — DEFERRED (no flag, never rendered)
 
 - ASPM-style vulnerability scanning, advisory columns, and risk badges

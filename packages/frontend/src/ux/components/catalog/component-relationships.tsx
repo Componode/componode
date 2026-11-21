@@ -19,6 +19,7 @@ import type {
   RelatedComponentNode,
 } from "@/ux/lib/view-types"
 import { ux } from "@/ux/lib/paths"
+import { flags } from "@/ux/lib/flags"
 import { cn } from "@/ux/lib/utils"
 
 /**
@@ -308,10 +309,48 @@ export function ComponentRelationships({
     )
   }
 
+  // Spec 075 / UX-LIB-05 — LIBRARY neighbours are counted, never listed:
+  // one bounded summary node per direction keeps a 200-library consumer
+  // legible. dependsOn → the component's own BOM tab; dependedOnBy → the
+  // library's Used-by surface on its detail overview.
+  // G38/UX-LIB-06: library counts are a bomCuration surface — flag-off hides
+  // the summary nodes entirely.
+  const libraryCount = (key: LaneKey) =>
+    !flags.bomCuration
+      ? 0
+      : key === "dependsOn"
+        ? view.libraryCounts.dependsOn
+        : key === "dependedOnBy"
+          ? view.libraryCounts.dependedOnBy
+          : 0
+
+  const librarySummary = (key: LaneKey) => {
+    const count = libraryCount(key)
+    if (count === 0) return null
+    const href =
+      key === "dependsOn"
+        ? ux(`/components/${component.slug}?tab=bom`)
+        : ux(`/components/${component.slug}`)
+    return (
+      <Link
+        to={href}
+        data-testid={`libraries-summary-${key}`}
+        className="flex items-center justify-between gap-2 rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-safe:transition-colors"
+      >
+        <span>
+          {count} {count === 1 ? "library" : "libraries"}
+        </span>
+        <span className="text-xs">
+          {key === "dependsOn" ? "See bill of materials" : "See used by"}
+        </span>
+      </Link>
+    )
+  }
+
   // Lanes render only for relation families that have data — except families
   // the backend could not load, whose header stays so the alert has context.
   const laneVisible = (key: LaneKey) =>
-    lanes[key].length > 0 || view.unavailableKinds.includes(key)
+    lanes[key].length > 0 || view.unavailableKinds.includes(key) || libraryCount(key) > 0
 
   const laneColumn = (key: LaneKey) => {
     const meta = LANE_META[key]
@@ -341,12 +380,16 @@ export function ComponentRelationships({
             )}
           </div>
         )}
+        {librarySummary(key)}
       </div>
     )
   }
 
   const empty =
-    totalNodes === 0 && view.instances.length === 0
+    totalNodes === 0 &&
+    view.instances.length === 0 &&
+    view.libraryCounts.dependsOn === 0 &&
+    view.libraryCounts.dependedOnBy === 0
 
   const incomingLanes: LaneKey[] = ["dependedOnBy", "sourcedBy", "exposedBy", "productDependents"]
   const outgoingLanes: LaneKey[] = ["dependsOn", "sourcesFrom", "exposes"]

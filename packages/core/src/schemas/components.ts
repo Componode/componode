@@ -60,6 +60,8 @@ export const listComponentsQuerySchema = listParamsBaseSchema
       .default("name"),
     includeRetired: z.preprocess(toBooleanParam, z.boolean().default(false)),
     includeGone: z.preprocess(toBooleanParam, z.boolean().default(false)),
+    // Spec 075 / UX-LIB-01: LIBRARY components hide behind `libraries=1`.
+    libraries: z.preprocess(toBooleanParam, z.boolean().default(false)),
   })
   .strict();
 

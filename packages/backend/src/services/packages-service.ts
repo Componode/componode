@@ -1,10 +1,12 @@
-import { sql } from "kysely";
+import { sql, type SqlBool } from "kysely";
 import { db } from "../db/connection.js";
 import {
   normalizePurlIdentity,
   type ListPackageConsumersQuery,
   type ListPackagesQuery,
+  type ListPackageVersionsQuery,
   type PackageConsumerListItem,
+  type PackageVersionListItem,
   type PackagesResponse,
   type Paginated,
 } from "@componode/core";
@@ -34,8 +36,8 @@ const CONSUMER_SORT: Record<string, OrderTarget> = {
  * `GET /packages` — one row per version-free purl. Filters/search apply at
  * entry level before grouping (a package qualifies when any entry matches).
  * `versions[]` is a second grouped pass over just the page's identities,
- * top 5 by component count (D3). `catalog` parses but stays inert until
- * Phase 2 (D6); the catalog fields ship as null/0 placeholders.
+ * top 5 by component count (D3). `catalog` and the catalog fields are
+ * live (Phase 2, spec 075).
  */
 export async function listPackages(
   query: ListPackagesQuery,
@@ -65,6 +67,9 @@ export async function listPackages(
       "bom_entries.ecosystem as ecosystem",
       eb.fn.count("bom_entries.version").distinct().as("versionCount"),
       eb.fn.count("bom_entries.componentId").distinct().as("componentCount"),
+      sql<string>`(array_agg(bom_entries."resolvedComponentId" ORDER BY bom_entries."resolvedComponentId" NULLS LAST, bom_entries."lastReportedAt" DESC))[1]`.as(
+        "resolvedComponentId",
+      ),
     ]);
 
   if (query.ecosystem?.length) {
@@ -73,9 +78,101 @@ export async function listPackages(
   if (query.scope?.length) {
     inner = inner.where("bom_entries.scope", "in", query.scope);
   }
-  // query.catalog: accepted-and-ignored until Phase 2 (D6).
 
-  const grouped = db.selectFrom(inner.as("g")).selectAll();
+  // Spec 075: catalog fields are live — `catalogComponent` is the resolved
+  // component (`resolvedComponentId`, written by the match pass or an
+  // Add/Link decision), falling back to a non-retired component whose
+  // externalId equals the package's normalized identity verbatim (the form
+  // curated components store). `pendingSuggestionCount` tallies that
+  // component's PENDING dependency suggestions. `catalog` filter: linked →
+  // has component; suggested → pending > 0; none → neither.
+  // Retired-endpoint rows are hidden everywhere the queue reads (T076) —
+  // the chip/count must match what's actually decidable.
+  const pendingCounts = db
+    .selectFrom("bom_component_suggestions as s")
+    .innerJoin("components as sp", (join) =>
+      join.onRef("sp.id", "=", "s.parentComponentId"),
+    )
+    .innerJoin("components as sc", (join) =>
+      join.onRef("sc.id", "=", "s.childComponentId"),
+    )
+    .select((eb) => [
+      "s.childComponentId",
+      eb.fn.countAll().as("n"),
+    ])
+    .where("s.status", "=", "PENDING")
+    .where("sp.lifecycle", "!=", "RETIRED")
+    .where("sc.lifecycle", "!=", "RETIRED")
+    .groupBy("s.childComponentId")
+    .as("pc");
+
+  // One verbatim-matching component per identity — externalId has no DB
+  // uniqueness, so duplicate identities would fan a package row out.
+  const verbatimCandidates = db
+    .selectFrom(
+      db
+        .selectFrom("components")
+        .select(["id", "slug", "name", "externalId"])
+        .where("externalId", "is not", null)
+        .where("lifecycle", "!=", "RETIRED")
+        .as("cv"),
+    )
+    .select(["cv.id", "cv.slug", "cv.name", "cv.externalId"])
+    .distinctOn("cv.externalId")
+    .orderBy("cv.externalId")
+    .orderBy("cv.id")
+    .as("catv");
+
+  let grouped = db
+    .selectFrom(inner.as("g"))
+    .leftJoin("components as catr", (join) =>
+      join
+        .onRef("catr.id", "=", "g.resolvedComponentId")
+        .on("catr.lifecycle", "!=", "RETIRED"),
+    )
+    .leftJoin(verbatimCandidates, (join) =>
+      join.onRef("catv.externalId", "=", "g.purl"),
+    )
+    .leftJoin(pendingCounts, (join) =>
+      join.on(
+        sql<SqlBool>`"pc"."childComponentId" = coalesce("catr"."id", "catv"."id")`,
+      ),
+    )
+    .select((eb) => [
+      "g.purl",
+      "g.name",
+      "g.ecosystem",
+      "g.versionCount",
+      "g.componentCount",
+      sql<string>`coalesce("catr"."id", "catv"."id")`.as(
+        "catalogComponentId",
+      ),
+      sql<string>`coalesce("catr"."slug", "catv"."slug")`.as(
+        "catalogComponentSlug",
+      ),
+      sql<string>`coalesce("catr"."name", "catv"."name")`.as(
+        "catalogComponentName",
+      ),
+      eb.fn.coalesce("pc.n", eb.lit(0)).as("pendingSuggestionCount"),
+    ]);
+
+  // `catalog` is a multi-value OR applied at the package-group level.
+  if (query.catalog?.length) {
+    const linked = sql<SqlBool>`coalesce("catr"."id", "catv"."id") is not null`;
+    const unlinked = sql<SqlBool>`coalesce("catr"."id", "catv"."id") is null`;
+    grouped = grouped.where((eb) =>
+      eb.or(
+        query.catalog!.map((state) => {
+          if (state === "linked") return linked;
+          if (state === "suggested") return eb("pc.n", ">", 0);
+          return eb.and([
+            unlinked,
+            eb.or([eb("pc.n", "is", null), eb("pc.n", "=", 0)]),
+          ]);
+        }),
+      ),
+    );
+  }
   // Facets are the filter domain — the whole ACTIVE inventory, not the
   // filtered page, so an ecosystem stays selectable when it has no rows.
   const ecosystemFacet = db
@@ -116,6 +213,10 @@ export async function listPackages(
     ecosystem: string;
     versionCount: string | number;
     componentCount: string | number;
+    catalogComponentId: string | null;
+    catalogComponentSlug: string | null;
+    catalogComponentName: string | null;
+    pendingSuggestionCount: string | number;
   };
   const rows = page.data as GroupRow[];
   if (!rows.length) return { data: [], pagination: page.pagination, facets };
@@ -162,8 +263,60 @@ export async function listPackages(
         .sort((a, b) => b.componentCount - a.componentCount || a.version.localeCompare(b.version))
         .slice(0, 5),
       componentCount: Number(r.componentCount),
-      catalogComponent: null,
-      pendingSuggestionCount: 0,
+      catalogComponent: r.catalogComponentId
+        ? {
+            id: r.catalogComponentId,
+            slug: r.catalogComponentSlug!,
+            name: r.catalogComponentName!,
+          }
+        : null,
+      pendingSuggestionCount: Number(r.pendingSuggestionCount),
+    })),
+  };
+}
+
+/**
+ * `GET /packages/versions` — every version reported for one identity
+ * with its distinct ACTIVE-consumer count (spec 075; Library detail
+ * "versions in use" list). `purl` normalizes before matching
+ * `purlIdentity`.
+ */
+export async function listPackageVersions(
+  query: ListPackageVersionsQuery,
+): Promise<Paginated<PackageVersionListItem>> {
+  const identity = normalizePurlIdentity(query.purl) ?? query.purl;
+
+  const grouped = db
+    .selectFrom("bom_entries")
+    .innerJoin("components", (join) =>
+      join
+        .onRef("components.id", "=", "bom_entries.componentId")
+        .on("components.lifecycle", "=", "ACTIVE"),
+    )
+    .where("bom_entries.purlIdentity", "=", identity)
+    .where("bom_entries.version", "is not", null)
+    .groupBy("bom_entries.version")
+    .select((eb) => [
+      "bom_entries.version",
+      eb.fn.count("bom_entries.componentId").distinct().as("componentCount"),
+    ]);
+
+  const page = await paginateQuery(
+    grouped,
+    { page: query.page, pageSize: query.pageSize },
+    {
+      // Contract: componentCount desc, then version asc.
+      orderBy: (qb) =>
+        qb.orderBy("componentCount", "desc").orderBy("version", "asc"),
+    },
+  );
+
+  type Row = { version: string; componentCount: string | number };
+  return {
+    pagination: page.pagination,
+    data: (page.data as Row[]).map((r) => ({
+      version: r.version,
+      componentCount: Number(r.componentCount),
     })),
   };
 }

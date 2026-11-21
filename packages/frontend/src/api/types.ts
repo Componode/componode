@@ -311,7 +311,14 @@ export interface SearchResults {
 export type { PaginationMeta, Paginated } from "@componode/core";
 import type { Paginated } from "@componode/core";
 
-export type ComponentListResponse = Paginated<Component>;
+/**
+ * Spec 075 / UX-LIB-01: `librariesHidden` counts the ACTIVE LIBRARY rows
+ * excluded by the default population (the "Show libraries (N)" toggle
+ * sends `libraries=1` to include them).
+ */
+export type ComponentListResponse = Paginated<Component> & {
+  librariesHidden?: number;
+};
 
 // --- Product hierarchy (spec 005) ---------------------------------------
 
@@ -527,6 +534,13 @@ export interface ComponentRelationshipsResponse {
       viaGroups: GroupMediatedDependent[];
     };
     instances: ComponentInstance[];
+    /**
+     * Spec 075 / UX-LIB-05 — LIBRARY neighbours are counted, never
+     * listed, so the read stays bounded. `dependsOn` = libraries the
+     * focused component depends on; `dependedOnBy` = libraries that
+     * depend on it. Optional until every read path populates it.
+     */
+    libraryCounts?: { dependsOn: number; dependedOnBy: number };
   };
   /** Relation groups that could not be read — never silently omitted. */
   unavailableKinds: string[];
@@ -543,6 +557,23 @@ export type {
   SuggestionQueueItem,
   SuggestionListResult,
   SuggestionRescanReport,
+} from "@componode/core";
+
+// BOM catalog curation + dependency suggestions (spec 075 / ADR-132) —
+// contracts live in core; re-export so the API layer stays the single
+// import site.
+export type {
+  AddToCatalogPreview,
+  CurationResult,
+  PackageVersionListItem,
+  DependencySuggestion,
+  DependencySuggestionQueueItem,
+  DependencySuggestionListResult,
+  DependencySuggestionGroup,
+  DependencySuggestionGroupListResult,
+  DependencyBulkResult,
+  BomSuggestionReason,
+  BomSuggestionStatus,
 } from "@componode/core";
 
 // Import Agents (spec 025 / ADR-116) — contracts live in core.

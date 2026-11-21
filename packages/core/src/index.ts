@@ -9,8 +9,28 @@ export type { ComponentCategory } from "./constants/component-categories.js";
 export {
   COMPONENT_PROVIDERS,
   COMPONENT_PROVIDER_META,
+  COMPONENT_PROVIDER_GROUPS,
+  COMPONENT_PROVIDER_GROUP_META,
 } from "./constants/component-providers.js";
-export type { ComponentProvider } from "./constants/component-providers.js";
+export type {
+  ComponentProvider,
+  ComponentProviderGroup,
+} from "./constants/component-providers.js";
+export {
+  BOM_SUGGESTION_REASONS,
+  BOM_SUGGESTION_STATUSES,
+  BOM_SUGGESTION_REASON_META,
+} from "./constants/bom-component-suggestion.js";
+export type {
+  BomSuggestionReason,
+  BomSuggestionStatus,
+} from "./constants/bom-component-suggestion.js";
+export {
+  mapEcosystemToProvider,
+  mapCdxTypeToCategory,
+  mappingNote,
+  packageSlugToken,
+} from "./constants/package-mapping.js";
 export { ENVIRONMENTS, ENVIRONMENT_META } from "./constants/environments.js";
 export type { Environment } from "./constants/environments.js";
 export {
@@ -165,6 +185,19 @@ export type {
   PackagesFacets,
   PackagesResponse,
 } from "./contracts/packages.js";
+export type {
+  DependencySuggestion,
+  DependencySuggestionQueueItem,
+  DependencySuggestionListResult,
+  DependencySuggestionGroup,
+  DependencySuggestionGroupListResult,
+  DependencyBulkResult,
+} from "./contracts/bom-component-suggestion.js";
+export type {
+  AddToCatalogPreview,
+  CurationResult,
+  PackageVersionListItem,
+} from "./contracts/bom-curation.js";
 export type {
   Importer,
   ImporterContext,
@@ -417,6 +450,26 @@ export type {
 } from "./contracts/bootstrap.js";
 export { listSuggestionsQuerySchema } from "./schemas/suggestions.js";
 export type { ListSuggestionsQuery } from "./schemas/suggestions.js";
+export {
+  dependencyGroupsQuerySchema,
+  dependencyBulkBodySchema,
+} from "./schemas/suggestions.js";
+export type {
+  DependencyGroupsQuery,
+  DependencyBulkBody,
+} from "./schemas/suggestions.js";
+export {
+  addToCatalogPreviewQuerySchema,
+  addToCatalogBodySchema,
+  linkPackageBodySchema,
+  listPackageVersionsQuerySchema,
+} from "./schemas/bom-curation.js";
+export type {
+  AddToCatalogPreviewQuery,
+  AddToCatalogBody,
+  LinkPackageBody,
+  ListPackageVersionsQuery,
+} from "./schemas/bom-curation.js";
 export {
   createOrgEntitySchema,
   updateOrgEntitySchema,

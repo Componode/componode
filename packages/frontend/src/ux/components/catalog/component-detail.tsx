@@ -26,6 +26,7 @@ import {
   VolumeDetailsSection,
 } from "@/ux/components/catalog/docker-details"
 import { GithubDetailsSection } from "@/ux/components/catalog/github-details"
+import { LibraryPackageCard } from "@/ux/components/catalog/package-details"
 import { ComponentRelationshipsPanel } from "@/ux/components/catalog/component-relationships"
 import { ComponentBomTab } from "@/ux/components/catalog/component-bom"
 import { useBomSummary } from "@/api/hooks/bom"
@@ -112,6 +113,11 @@ export function ComponentDetail({ component: c }: { component: Component }) {
 
         <TabsContent value="overview">
       <div className="grid gap-6 lg:grid-cols-3">
+        {/* Spec 075 / UX-LIB-04 — a promoted package has no instances; the
+            Library section replaces the Instances card entirely. */}
+        {c.category === "LIBRARY" && flags.bomCuration ? (
+          <LibraryPackageCard component={c} />
+        ) : (
         <Card className="lg:col-span-2 overflow-hidden pb-0">
           <CardHeader>
             <CardTitle>Instances</CardTitle>
@@ -190,6 +196,7 @@ export function ComponentDetail({ component: c }: { component: Component }) {
             </TableBody>
           </Table>
         </Card>
+        )}
         <Card>
           <CardHeader>
             <CardTitle>Details</CardTitle>

@@ -33,6 +33,7 @@ import {
   updateRun,
 } from "./import-run-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
+import { runBomMatchPass } from "./bom-match-service.js";
 import { runAutoGroupPass } from "./source-group-service.js";
 import { deleteAbsentBomEntries, type BomScope } from "./bom-service.js";
 import { recordRunSourceIdentity } from "./importer-source-service.js";
@@ -126,6 +127,9 @@ export interface RemoteRunStore {
     yieldedComponentIds: Set<string>,
   ): Promise<{ componentsRetired: number; instancesOrphaned: number }>;
   stageSuggestions(componentIds: string[], runId: string): Promise<void>;
+  /** ADR-132: BOM catalog matching — resolves entries + stages dependency
+   *  suggestions on the completed path only (spec 075). */
+  stageBomMatches(componentIds: string[], runId: string): Promise<void>;
   /** ADR-129: refresh source-scoped auto groups after a completed run —
    *  runs before suggestion staging so group coverage applies. */
   maintainAutoGroups(job: RemoteJobContext): Promise<void>;
@@ -784,6 +788,11 @@ export class RemoteRunService implements RemoteRunHandler {
         } catch (err) {
           this.log.warn({ runId, err }, "edge suggestion pass failed after remote run");
         }
+        try {
+          await this.store.stageBomMatches([...entry.yieldedComponentIds], runId);
+        } catch (err) {
+          this.log.warn({ runId, err }, "BOM match pass failed after remote run");
+        }
         return true;
       }
     }
@@ -1166,6 +1175,12 @@ export function createDbRemoteRunStore(): RemoteRunStore {
       const report = await runSuggestionPass({ componentIds }, { runId });
       if (report) {
         appLogger.info({ runId, ...report }, "edge suggestions staged after remote run");
+      }
+    },
+    async stageBomMatches(componentIds, runId) {
+      const report = await runBomMatchPass({ componentIds }, { runId });
+      if (report) {
+        appLogger.info({ runId, ...report }, "BOM matches staged after remote run");
       }
     },
     async maintainAutoGroups(job) {

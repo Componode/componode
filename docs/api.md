@@ -284,6 +284,10 @@ HUMAN group memberships (auto-managed group ids are rejected with
 |---|---|---|---|
 | GET | `/api/v1/packages` | Workspace package rollup — one row per version-free purl (spec 074) | Authenticated |
 | GET | `/api/v1/packages/consumers` | Components consuming one package (spec 074) | Authenticated |
+| GET | `/api/v1/packages/versions` | Every reported version for one package identity (spec 075) | Authenticated |
+| GET | `/api/v1/packages/add-to-catalog/preview` | Derived preview for the Add-to-catalog / Link dialog (spec 075) | Authenticated |
+| POST | `/api/v1/packages/add-to-catalog` | Create a Library component from a package identity (spec 075) | `component:edge:add` |
+| POST | `/api/v1/packages/link` | Resolve a package identity onto an existing component (spec 075) | `component:edge:add` |
 <!-- /GENERATED:table:Packages -->
 
 The packages explorer where-used read (spec 074): `GET /packages` returns
@@ -446,10 +450,14 @@ and decided pairs never resurface.
 <!-- GENERATED:table:Suggestions -->
 | Method | Path | Description | Access |
 |---|---|---|---|
-| GET | `/api/v1/suggestions` | List staged edge suggestions (paginated, spec 068) | Authenticated |
+| GET | `/api/v1/suggestions` | List staged suggestions (paginated — edge or dependency queue) | Authenticated |
 | POST | `/api/v1/suggestions/:id/accept` | Accept a suggestion — wires the real DEPENDS_ON edge | `product:edge:add` |
 | POST | `/api/v1/suggestions/:id/dismiss` | Dismiss a suggestion permanently | `product:edge:add` |
 | POST | `/api/v1/suggestions/rescan` | Run a whole-catalog generation pass | `product:edge:add` |
+| GET | `/api/v1/suggestions/dependencies/groups` | Pending dependency suggestions grouped per library (spec 075) | Authenticated |
+| POST | `/api/v1/suggestions/dependencies/:id/accept` | Accept a dependency suggestion — wires the real edge | `component:edge:add` |
+| POST | `/api/v1/suggestions/dependencies/:id/dismiss` | Dismiss a dependency suggestion permanently | `component:edge:add` |
+| POST | `/api/v1/suggestions/dependencies/bulk` | Decide every pending suggestion for one library (spec 075) | `component:edge:add` |
 <!-- /GENERATED:table:Suggestions -->
 
 ## Agents

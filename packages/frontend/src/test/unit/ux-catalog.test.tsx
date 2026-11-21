@@ -49,6 +49,9 @@ vi.mock("@/api/hooks/suggestions", async (importOriginal) => ({
   useAcceptSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useDismissSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }));
+vi.mock("@/api/hooks/bom-curation", () => ({
+  useDependencySuggestions: vi.fn(() => ({ data: undefined, isPending: false, error: null })),
+}));
 vi.mock("@/ux/components/products/product-map", () => ({ ProductMap: () => null }));
 
 import { useProduct, useProducts } from "@/api/hooks/products";

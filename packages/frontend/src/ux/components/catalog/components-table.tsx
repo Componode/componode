@@ -12,10 +12,12 @@ import { EmptyState } from "@/ux/components/patterns/states"
 import { HealthBadge, LifecycleBadge } from "@/ux/components/patterns/status-badge"
 import { TitleWithSummary } from "@/ux/components/patterns/title-with-summary"
 import { Card } from "@/ux/components/ui/card"
+import { Label } from "@/ux/components/ui/label"
+import { Switch } from "@/ux/components/ui/switch"
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/ux/components/ui/table"
 import type { ListState } from "@/ux/hooks/use-list-state"
 import { useListSearch } from "@/ux/hooks/use-list-search"
-import { CATEGORY_LABELS, LIFECYCLE_META, PROVIDER_META, type InstanceStatus } from "@/ux/lib/domain"
+import { CATEGORY_LABELS, LIFECYCLE_META, PROVIDER_FILTER_GROUPS, PROVIDER_META, type InstanceStatus } from "@/ux/lib/domain"
 import type { Component } from "@/ux/lib/view-types"
 
 const PRIORITY: InstanceStatus[] = ["ERROR", "GONE", "STOPPED", "RUNNING"]
@@ -37,10 +39,13 @@ export function ComponentsTable({
   data,
   list,
   pagination,
+  librariesHidden,
 }: {
   data: Component[];
   list: ListState<ComponentsSortKey, ComponentsFilterKey>;
   pagination?: PaginationMeta;
+  /** Spec 075 / UX-LIB-01 — count driving the "Show libraries (N)" toggle. */
+  librariesHidden?: number;
 }) {
   const [query, setQuery] = useListSearch(list)
   const total = pagination?.total ?? data.length
@@ -67,6 +72,8 @@ export function ComponentsTable({
             value: list.filters.provider,
             onChange: (v) => list.setFilter("provider", v),
             options: toOptions(PROVIDER_META),
+            // Spec 075 / UX-LIB-03: Platforms / Package registries optgroups.
+            groups: PROVIDER_FILTER_GROUPS,
           },
           {
             id: "category",
@@ -121,6 +128,22 @@ export function ComponentsTable({
             ],
           },
         ]}
+        end={
+          flags.bomCuration ? (
+            <span className="flex items-center gap-2">
+              <Switch
+                id="show-libraries"
+                size="sm"
+                checked={list.filters.libraries === "1"}
+                onCheckedChange={(v) => list.setFilter("libraries", v ? "1" : "0")}
+                aria-label="Show libraries"
+              />
+              <Label htmlFor="show-libraries" className="text-sm text-muted-foreground">
+                Show libraries ({librariesHidden ?? 0})
+              </Label>
+            </span>
+          ) : undefined
+        }
       />
       <Card className="overflow-hidden py-0">
         {data.length === 0 ? (

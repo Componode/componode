@@ -37,6 +37,7 @@ export const COMPONENTS_FILTER_KEYS = [
   "wired",
   "bom",
   "gone",
+  "libraries",
 ] as const;
 export type ComponentsFilterKey = (typeof COMPONENTS_FILTER_KEYS)[number];
 
@@ -54,6 +55,8 @@ export interface ComponentListFilters {
   bom?: string;
   tag?: string;
   search?: string;
+  /** Spec 075 / UX-LIB-01: `libraries=1` includes LIBRARY rows (default hides them). */
+  libraries?: boolean;
   includeRetired?: boolean;
   includeGone?: boolean;
   sort?: ComponentsSortKey;
@@ -63,7 +66,8 @@ export interface ComponentListFilters {
 /**
  * Adapts resolved `useListState` output to `/components` API params
  * (spec 068). URL filter sentinels map to API values: `gone=hide|show` →
- * `includeGone=false|true`; `"all"`-sentinel filters are omitted. The page
+ * `includeGone=false|true`, `libraries=1` → `libraries=true` (spec 075);
+ * `"all"`-sentinel filters are omitted. The page
  * always sends `includeRetired=true` so RETIRED rows stay reachable via
  * the lifecycle filter/badge (unchanged pre-068 behavior).
  */
@@ -80,6 +84,7 @@ export function componentsListParams(state: ListQueryState): ComponentListFilter
     lifecycle: facetParam(state, "lifecycle"),
     wired: facetParam(state, "wired"),
     bom: facetParam(state, "bom"),
+    libraries: f.libraries === "1" ? true : undefined,
     includeRetired: true,
     includeGone: f.gone === "show",
   };

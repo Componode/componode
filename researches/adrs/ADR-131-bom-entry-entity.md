@@ -42,7 +42,10 @@ invalidate Phase-1 rows.
    `direct` beats the `scope !== "TRANSITIVE"` default.
 7. **`resolvedComponentId` is Phase-2 surface only** — nothing writes it
    in Phase 1; it reserves the future catalog-curation link so a migration
-   is not needed later.
+   is not needed later. *(Superseded by spec 075 / ADR-132: the column is
+   now written by the Phase-2 matching pass — exact-identity matches
+   only — and by the `/packages/add-to-catalog` / `/packages/link`
+   curation endpoints.)*
 8. **Run counters** — `import_runs` gains
    `packagesCreated/Updated/Unchanged/Removed`, dedupe-key diffs written
    at run completion on both in-process and remote paths.
@@ -75,3 +78,16 @@ indexes it. The where-used reads (`GET /packages`,
 `GET /packages/consumers`, the search Packages group) group on
 `purlIdentity` and join **ACTIVE components only** — retired components
 keep their rows but don't inflate "where is it used".
+
+---
+
+### Amendment 3 — `resolvedComponentId` is live (spec 075)
+
+Phase 2 (ADR-132) gives the reserved column its writers: the
+run-completion matching pass sets it on **exact-identity matches only**
+(`purlIdentity` = component `externalId`, normalized — fuzzy name/slug
+matches stage suggestions instead, never resolve), and the
+`/packages/add-to-catalog` / `/packages/link` curation endpoints set it on
+every entry of the identity — Link re-points deliberately when a different
+component is chosen. BOM rows stay factual: the link is a pointer to
+curated catalog data, never a graph edge on the row itself.
