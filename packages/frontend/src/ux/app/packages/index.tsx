@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import { ChevronDownIcon, ChevronRightIcon, PackageSearchIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon, EllipsisIcon, PackagePlusIcon, PackageSearchIcon } from "lucide-react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import {
   PACKAGES_FILTER_KEYS,
@@ -17,6 +17,12 @@ import { EmptyState, ErrorState } from "@/ux/components/patterns/states";
 import { MonoValue } from "@/ux/components/patterns/primitives";
 import { Badge } from "@/ux/components/ui/badge";
 import { Button } from "@/ux/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/ux/components/ui/dropdown-menu";
 import { Skeleton } from "@/ux/components/ui/skeleton";
 import {
   Table,
@@ -36,6 +42,7 @@ import { errorMessage } from "@/ux/lib/api-state";
 import { flags } from "@/ux/lib/flags";
 import { ux } from "@/ux/lib/paths";
 import { PackageConsumersPanel } from "@/ux/components/catalog/package-consumers";
+import { BomAddToCatalogDialog } from "@/ux/components/catalog/bom-add-to-catalog-dialog";
 import { BOM_SCOPE_META } from "@/ux/lib/domain";
 
 /** Spec 074 — sort options for the where-used rollup. */
@@ -54,7 +61,7 @@ const PACKAGE_FILTERS: { [K in PackagesFilterKey]: ListFilterConfig } = {
     default: "all",
     values: ["all", ...Object.keys(BOM_SCOPE_META)],
   },
-  // Accepted for URL round-trip; stays inert until Phase 2 (D6).
+  // Live under bomCuration (Phase 2); parsed for URL round-trip regardless.
   catalog: { default: "all", values: ["all", "linked", "suggested", "none"] },
 };
 
@@ -77,6 +84,9 @@ export function UxPackagesPage() {
   const versionFilter = searchParams.get("version") ?? undefined;
   const [expanded, setExpanded] = useState<string | null>(null);
   const session = useSession();
+  // Spec 075: the row menu's curation target — null closes the dialog.
+  const [curationPurl, setCurationPurl] = useState<string | null>(null);
+  const canCurate = canAccess(session.data?.role ?? "VIEWER", "EDITOR");
 
   const rows = (data?.data ?? []).map(toPackageView);
   const pagination = data?.pagination;
@@ -127,7 +137,7 @@ export function UxPackagesPage() {
       ],
     },
     // In-catalog filter control only under bomCuration (Phase 2) — the
-    // URL param stays accepted-and-ignored in Phase 1b (D6).
+    // URL param still parses for round-trip when the flag is off.
     ...(flags.bomCuration
       ? [
           {
@@ -233,6 +243,7 @@ export function UxPackagesPage() {
                 <TableHead>Versions</TableHead>
                 <TableHead className="text-right">Components</TableHead>
                 {flags.bomCuration && <TableHead>In catalog</TableHead>}
+                <TableHead className="w-10"><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -304,7 +315,18 @@ export function UxPackagesPage() {
                       </TableCell>
                       {flags.bomCuration && (
                       <TableCell>
-                        {row.catalogComponent ? (
+                        {/* UX-BOM-08 parity — a pending suggestion outranks
+                            the catalog-component link; `child=` deep-links
+                            to the candidate's queue group (T106). */}
+                        {row.pendingSuggestionCount > 0 && row.catalogComponent ? (
+                          <Link
+                            to={ux(`/suggestions?kind=dependency&child=${row.catalogComponent.id}`)}
+                            className="text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {row.pendingSuggestionCount} suggested
+                          </Link>
+                        ) : row.catalogComponent ? (
                           <Link
                             to={ux(`/components/${row.catalogComponent.slug}`)}
                             className="hover:underline"
@@ -317,10 +339,43 @@ export function UxPackagesPage() {
                         )}
                       </TableCell>
                       )}
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label={`Actions for ${row.name}`}
+                            >
+                              <EllipsisIcon aria-hidden="true" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {/* Matched rows open the same action — the
+                                dialog switches to Link mode on the
+                                preview's existingComponent (US2). */}
+                            {flags.bomCuration && canCurate && (
+                              <DropdownMenuItem onClick={() => setCurationPurl(row.purl)}>
+                                <PackagePlusIcon data-icon="inline-start" />{" "}
+                                {row.catalogComponent == null
+                                  ? "Add to catalog"
+                                  : "Link to existing component"}
+                              </DropdownMenuItem>
+                            )}
+                            {flags.bomCuration && row.pendingSuggestionCount > 0 && (
+                              <DropdownMenuItem asChild>
+                                <Link to={ux("/suggestions?kind=dependency")}>
+                                  <PackageSearchIcon data-icon="inline-start" /> Review suggestions
+                                </Link>
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
                     </TableRow>
                     {open && (
                       <TableRow data-testid={`consumers-${row.purl}`}>
-                        <TableCell colSpan={flags.bomCuration ? 6 : 5} className="bg-muted/40 p-0">
+                        <TableCell colSpan={flags.bomCuration ? 7 : 6} className="bg-muted/40 p-0">
                           <PackageConsumersPanel
                             purl={row.purl}
                             version={versionFilter}
@@ -346,6 +401,13 @@ export function UxPackagesPage() {
           )}
         </div>
       )}
+      <BomAddToCatalogDialog
+        purl={curationPurl}
+        open={curationPurl !== null}
+        onOpenChange={(open) => {
+          if (!open) setCurationPurl(null);
+        }}
+      />
     </PageContainer>
   );
 }

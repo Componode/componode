@@ -63,9 +63,9 @@ export const flags = {
   /** Packages explorer + consumers read (gap G37, spec 074 — ON with the
    *  Phase 1b contract: /packages + /packages/consumers). */
   packagesExplorer: flagOverride("packagesExplorer") ?? true,
-  /** Phase-2 BOM catalog curation (Library promotion, "In catalog"
-   *  filtering, resolved-component links) — spec'd, not yet built. */
-  bomCuration: false,
+  /** Phase-2 BOM catalog curation (gap G38, spec 075 — ON with curation
+   *  endpoints + dependency queue + library legibility surfaces). */
+  bomCuration: flagOverride("bomCuration") ?? true,
 } as const;
 
 export type GapFlag = keyof typeof flags;

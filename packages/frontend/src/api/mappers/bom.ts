@@ -31,6 +31,7 @@ export function toBomEntryView(row: BomEntryListItem): BomEntryView {
     instanceTotal: row.instanceTotal,
     resolvedComponent: row.resolvedComponent,
     pendingSuggestionId: row.pendingSuggestionId,
+    pendingSuggestionChildId: row.pendingSuggestionChildId,
   };
 }
 

@@ -225,6 +225,11 @@ export async function deleteAbsentBomEntries(
 type BomReadRow = Selectable<BomEntryRow> & {
   srcId: string | null;
   srcName: string | null;
+  rcId: string | null;
+  rcSlug: string | null;
+  rcName: string | null;
+  pendingSuggId: string | null;
+  pendingChildId: string | null;
 };
 
 // Sort whitelist mirrors listBomQuerySchema's enum (ADR-130). Targets are
@@ -242,9 +247,51 @@ const BOM_SORT: Record<string, OrderTarget> = {
  * Filtered row set shared by all read shapes: search across name/purl/
  * licences, CSV OR filters, `direct`, plus the view selectors
  * (`instanceId` scoped view, `parentId` children, `view=tree` top-level).
- * `catalog` is accepted by the schema and ignored — Phase 2 (contracts).
+ * Spec 075: `catalog` is live — `linked` → resolvedComponentId set,
+ * `suggested` → a PENDING suggestion exists (and not linked — UI
+ * precedence), `none` → neither.
  */
 function filteredBomRows(componentId: string, query: ListBomQuery) {
+  // Pending suggestions classify at (component, purlIdentity) scope — every
+  // version/source row of the same identity carries the same pending state
+  // (contract: the suggestion exists "for the entry's identity").
+  const pendingIds = db
+    .selectFrom("bom_component_suggestions as s")
+    // LEFT — a suggestion outlives its representative entry (bomEntryId is
+    // SET NULL on BOM pruning); fall back to the child's stored identity,
+    // which Libraries keep verbatim-normalized (T085).
+    .leftJoin("bom_entries as rep", "rep.id", "s.bomEntryId")
+    .innerJoin("components as sp", (join) =>
+      join.onRef("sp.id", "=", "s.parentComponentId"),
+    )
+    .innerJoin("components as sc", (join) =>
+      join.onRef("sc.id", "=", "s.childComponentId"),
+    )
+    .select([
+      "s.parentComponentId as componentId",
+      sql<string>`coalesce("rep"."purlIdentity", "sc"."externalId")`.as(
+        "purlIdentity",
+      ),
+      // uuid has no min() — cast keeps a deterministic pick parameterized.
+      // Both fields come from the SAME row (smallest id) so the ?child=
+      // deep link always names the group the reported suggestion is in.
+      sql<string>`min(s.id::text)`.as("pendingSuggId"),
+      sql<
+        string
+      >`(array_agg("s"."childComponentId"::text ORDER BY s.id::text))[1]`.as(
+        "pendingChildId",
+      ),
+    ])
+    .where("s.status", "=", "PENDING")
+    // Retired-endpoint rows are hidden everywhere the queue reads (T076).
+    .where("sp.lifecycle", "!=", "RETIRED")
+    .where("sc.lifecycle", "!=", "RETIRED")
+    .groupBy([
+      "s.parentComponentId",
+      sql`coalesce("rep"."purlIdentity", "sc"."externalId")`,
+    ])
+    .as("ps");
+
   let q = db
     .selectFrom("bom_entries")
     .leftJoin(
@@ -252,12 +299,23 @@ function filteredBomRows(componentId: string, query: ListBomQuery) {
       "importer_sources.id",
       "bom_entries.sourceId",
     )
+    .leftJoin("components as rc", "rc.id", "bom_entries.resolvedComponentId")
+    .leftJoin(pendingIds, (join) =>
+      join
+        .onRef("ps.componentId", "=", "bom_entries.componentId")
+        .onRef("ps.purlIdentity", "=", "bom_entries.purlIdentity"),
+    )
     .selectAll("bom_entries")
     .select((eb) => [
       "importer_sources.id as srcId",
       eb.fn
         .coalesce("importer_sources.label", "importer_sources.externalIdentity")
         .as("srcName"),
+      "rc.id as rcId",
+      "rc.slug as rcSlug",
+      "rc.name as rcName",
+      "ps.pendingSuggId",
+      "ps.pendingChildId",
     ])
     .where("bom_entries.componentId", "=", componentId);
 
@@ -291,6 +349,19 @@ function filteredBomRows(componentId: string, query: ListBomQuery) {
     q = q.where("bom_entries.parentBomEntryId", "=", query.parentId);
   } else if (query.view === "tree") {
     q = q.where("bom_entries.parentBomEntryId", "is", null);
+  }
+  // UX-BOM-08: a pending suggestion outranks the resolved link — the
+  // filter mirrors the cell ("Suggested" > "Linked").
+  if (query.catalog === "linked") {
+    q = q
+      .where("bom_entries.resolvedComponentId", "is not", null)
+      .where("ps.pendingSuggId", "is", null);
+  } else if (query.catalog === "suggested") {
+    q = q.where("ps.pendingSuggId", "is not", null);
+  } else if (query.catalog === "none") {
+    q = q
+      .where("bom_entries.resolvedComponentId", "is", null)
+      .where("ps.pendingSuggId", "is", null);
   }
   return q;
 }
@@ -326,8 +397,11 @@ function toListItem(
     childCount: extras.childCount,
     instanceCount: extras.instanceCount,
     instanceTotal: extras.instanceTotal,
-    resolvedComponent: null,
-    pendingSuggestionId: null,
+    resolvedComponent: row.rcId
+      ? { id: row.rcId, slug: row.rcSlug!, name: row.rcName! }
+      : null,
+    pendingSuggestionId: row.pendingSuggId,
+    pendingSuggestionChildId: row.pendingChildId ?? null,
   };
 }
 

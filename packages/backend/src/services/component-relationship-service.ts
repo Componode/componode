@@ -63,6 +63,10 @@ export async function getComponentRelationships(
       .innerJoin("components", "components.id", "component_depends_on_component.childId")
       .select(RELATED_COMPONENT_SELECT)
       .where("component_depends_on_component.parentId", "=", componentId)
+      // Spec 075: library neighbours collapse into libraryCounts — the
+      // lane stays bounded (ADR-128) instead of rendering hundreds of
+      // package rows.
+      .where("components.category", "!=", "LIBRARY")
       .orderBy("components.name")
       .$castTo<RelatedComponent>()
       .execute(),
@@ -75,6 +79,7 @@ export async function getComponentRelationships(
       .innerJoin("components", "components.id", "component_depends_on_component.parentId")
       .select(RELATED_COMPONENT_SELECT)
       .where("component_depends_on_component.childId", "=", componentId)
+      .where("components.category", "!=", "LIBRARY")
       .orderBy("components.name")
       .$castTo<RelatedComponent>()
       .execute(),
@@ -227,6 +232,44 @@ export async function getComponentRelationships(
       .execute(),
   );
 
+  // Spec 075: count the LIBRARY neighbours excluded from the lanes above
+  // so the UI can render a bounded "Libraries (N)" summary node.
+  const libraryCounts = (async () => {
+    try {
+      const [out, inb] = await Promise.all([
+      db
+        .selectFrom("component_depends_on_component")
+        .innerJoin(
+          "components",
+          "components.id",
+          "component_depends_on_component.childId",
+        )
+        .select((eb) => eb.fn.countAll().as("n"))
+        .where("component_depends_on_component.parentId", "=", componentId)
+        .where("components.category", "=", "LIBRARY")
+        .executeTakeFirstOrThrow(),
+      db
+        .selectFrom("component_depends_on_component")
+        .innerJoin(
+          "components",
+          "components.id",
+          "component_depends_on_component.parentId",
+        )
+        .select((eb) => eb.fn.countAll().as("n"))
+        .where("component_depends_on_component.childId", "=", componentId)
+        .where("components.category", "=", "LIBRARY")
+        .executeTakeFirstOrThrow(),
+      ]);
+      return { dependsOn: Number(out.n), dependedOnBy: Number(inb.n) };
+    } catch (err) {
+      appLogger.warn(
+        { err, family: "libraryCounts" },
+        "relation family read degraded",
+      );
+      return { dependsOn: 0, dependedOnBy: 0 };
+    }
+  })();
+
   const [
     dependsOnRows,
     dependedOnByRows,
@@ -236,8 +279,8 @@ export async function getComponentRelationships(
     exposedByRows,
     dependents,
     instanceRows,
+    libraryCountRows,
   ] = await Promise.all([
-
     dependsOn,
     dependedOnBy,
     sourcesFrom,
@@ -246,6 +289,7 @@ export async function getComponentRelationships(
     exposedBy,
     productDependents,
     instances,
+    libraryCounts,
   ]);
   const { direct, viaGroups } = dependents;
 
@@ -270,6 +314,7 @@ export async function getComponentRelationships(
       exposedBy: exposedByRows,
       productDependents: { direct, viaGroups },
       instances: instanceRows.map(toApiComponentInstance),
+      libraryCounts: libraryCountRows ?? { dependsOn: 0, dependedOnBy: 0 },
     },
     unavailableKinds,
   };

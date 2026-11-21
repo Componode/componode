@@ -95,6 +95,7 @@ const fullView: ComponentRelationshipsView = {
       rawConfig: null,
     },
   ],
+  libraryCounts: { dependsOn: 0, dependedOnBy: 0 },
   unavailableKinds: [],
 };
 
@@ -108,6 +109,7 @@ const emptyView: ComponentRelationshipsView = {
   exposedBy: [],
   productDependents: { direct: [], viaGroups: [] },
   instances: [],
+  libraryCounts: { dependsOn: 0, dependedOnBy: 0 },
   unavailableKinds: [],
 };
 

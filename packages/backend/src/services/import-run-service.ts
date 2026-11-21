@@ -30,6 +30,7 @@ import { sql, type Kysely, type Selectable } from "kysely";
 import type { DB, ImportRunRow } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
+import { runBomMatchPass } from "./bom-match-service.js";
 import { runAutoGroupPass } from "./source-group-service.js";
 import {
   hasEffectiveActiveComponentMembership,
@@ -1375,6 +1376,19 @@ async function worker(runId: string): Promise<void> {
       appLogger.info(
         { runId, ...suggestionReport },
         "edge suggestions staged after import run",
+      );
+    }
+
+    // ADR-132: resolve BOM entries to catalog components and stage
+    // dependency suggestions. Failure-isolated like the edge pass.
+    const bomMatchReport = await runBomMatchPass(
+      { componentIds: [...yieldedComponentIds] },
+      { runId },
+    );
+    if (bomMatchReport) {
+      appLogger.info(
+        { runId, ...bomMatchReport },
+        "BOM matches staged after import run",
       );
     }
   } catch (err) {

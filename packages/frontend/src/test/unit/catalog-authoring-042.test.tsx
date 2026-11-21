@@ -52,6 +52,9 @@ vi.mock("@/api/hooks/suggestions", async (importOriginal) => ({
   useDismissSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useRescanSuggestions: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }));
+vi.mock("@/api/hooks/bom-curation", () => ({
+  useDependencySuggestions: vi.fn(() => ({ data: undefined, isPending: false, error: null })),
+}));
 
 const wrap = (el: React.ReactElement) =>
   render(

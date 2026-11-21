@@ -1,7 +1,8 @@
 import * as React from "react"
-import { CopyIcon, EllipsisIcon, PackageIcon, PackageSearchIcon, SettingsIcon } from "lucide-react"
+import { CopyIcon, EllipsisIcon, LibraryIcon, PackageIcon, PackagePlusIcon, PackageSearchIcon, SettingsIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useSession } from "@/api/hooks/auth"
+import { canAccess } from "@/ux/lib/nav"
 import {
   fetchBomChildren,
   useBomList,
@@ -10,6 +11,7 @@ import {
 } from "@/api/hooks/bom"
 import { toBomEntryView, toBomSummaryView } from "@/api/mappers/bom"
 import { BomExportMenu } from "./bom-export-menu"
+import { BomAddToCatalogDialog } from "./bom-add-to-catalog-dialog"
 import { facetParam } from "@/api/list-query"
 import { useListState } from "@/ux/hooks/use-list-state"
 import { ListToolbar, type FilterDef } from "@/ux/components/patterns/list-toolbar"
@@ -122,30 +124,64 @@ function PackageCell({ row, ctx }: { row: BomEntryView; ctx?: TreeGridRowCtx }) 
 }
 
 function RowMenu({ row }: { row: BomEntryView }) {
+  const { data: user } = useSession()
+  const [curationOpen, setCurationOpen] = React.useState(false)
+  // Spec 075 / UX-ADD: curation is an Editor write offered only while the
+  // entry has no resolved component and no pending suggestion.
+  const canCurate =
+    flags.bomCuration &&
+    canAccess(user?.role ?? "VIEWER", "EDITOR") &&
+    row.resolvedComponent == null &&
+    row.pendingSuggestionId == null
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-xs" aria-label={`Actions for ${row.name}`}>
-          <EllipsisIcon aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => void navigator.clipboard?.writeText(row.purl)}>
-          <CopyIcon data-icon="inline-start" /> Copy purl
-        </DropdownMenuItem>
-        {flags.packagesExplorer && (
-          <DropdownMenuItem asChild>
-            <Link to={ux(`/packages?q=${encodeURIComponent(row.purl)}`)}>
-              <PackageSearchIcon data-icon="inline-start" /> See where it&apos;s used
-            </Link>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon-xs" aria-label={`Actions for ${row.name}`}>
+            <EllipsisIcon aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => void navigator.clipboard?.writeText(row.purl)}>
+            <CopyIcon data-icon="inline-start" /> Copy purl
           </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {flags.packagesExplorer && (
+            <DropdownMenuItem asChild>
+              <Link to={ux(`/packages?q=${encodeURIComponent(row.purl)}`)}>
+                <PackageSearchIcon data-icon="inline-start" /> See where it&apos;s used
+              </Link>
+            </DropdownMenuItem>
+          )}
+          {canCurate && (
+            <DropdownMenuItem onClick={() => setCurationOpen(true)}>
+              <PackagePlusIcon data-icon="inline-start" /> Add to catalog
+            </DropdownMenuItem>
+          )}
+          {flags.bomCuration && row.resolvedComponent != null && (
+            <DropdownMenuItem asChild>
+              <Link to={ux(`/components/${row.resolvedComponent.slug}`)}>
+                <LibraryIcon data-icon="inline-start" /> View library component
+              </Link>
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {/* The preview decides Add vs Link mode — the menu label stays
+          "Add to catalog"; the dialog titles itself per existingComponent.
+          (T073: justified — the row's only catalog signal is
+          resolvedComponent, which already gates this item off; Link mode
+          comes from the preview's identity match, which the row doesn't
+          carry.) */}
+      <BomAddToCatalogDialog
+        purl={row.purl}
+        open={curationOpen}
+        onOpenChange={setCurationOpen}
+      />
+    </>
   )
 }
 
-const COLS = 6
+const COLS = flags.bomCuration ? 7 : 6
 
 function BomTableHead() {
   return (
@@ -156,10 +192,43 @@ function BomTableHead() {
         <TableHead>Scope</TableHead>
         <TableHead>Licenses</TableHead>
         <TableHead>Found in</TableHead>
+        {flags.bomCuration && <TableHead>In catalog</TableHead>}
         <TableHead className="w-10 pr-4"><span className="sr-only">Actions</span></TableHead>
       </TableRow>
     </TableHeader>
   )
+}
+
+/**
+ * UX-BOM-08 — catalog-state cell. A pending suggestion outranks the
+ * resolved-component link ("Suggested" > "Linked"): the human decision
+ * is still open.
+ */
+function InCatalogCell({ row }: { row: BomEntryView }) {
+  if (row.pendingSuggestionId != null) {
+    const child = row.pendingSuggestionChildId
+      ? `&child=${row.pendingSuggestionChildId}`
+      : ""
+    return (
+      <Link
+        to={ux(`/suggestions?kind=dependency${child}`)}
+        className="text-primary hover:underline"
+      >
+        Suggested
+      </Link>
+    )
+  }
+  if (row.resolvedComponent != null) {
+    return (
+      <Link
+        to={ux(`/components/${row.resolvedComponent.slug}`)}
+        className="text-primary hover:underline"
+      >
+        Linked
+      </Link>
+    )
+  }
+  return <span className="text-muted-foreground">—</span>
 }
 
 function bomCells(row: BomEntryView, ctx?: TreeGridRowCtx) {
@@ -170,6 +239,7 @@ function bomCells(row: BomEntryView, ctx?: TreeGridRowCtx) {
       <TableCell><BomScopeBadge value={row.scope} /></TableCell>
       <TableCell><LicenseCell licenses={row.licenses} /></TableCell>
       <TableCell><BomEvidenceBadge value={row.evidenceSource} detail={row.evidenceDetail} /></TableCell>
+      {flags.bomCuration && <TableCell><InCatalogCell row={row} /></TableCell>}
       <TableCell className="pr-4 text-right"><RowMenu row={row} /></TableCell>
     </>
   )
@@ -187,8 +257,7 @@ export function ComponentBomTab({ component }: { component: Component }) {
       depth: { default: "all", values: ["all", "direct", "transitive"] },
       instance: { default: "all" },
       view: { default: "flat", values: ["flat", "tree"] },
-      // Accepted for URL round-trip; the filter UI lands with catalog
-      // curation (Phase 2) — the API ignores it in Phase 1.
+      // Live with catalog curation (spec 075): linked | suggested | none.
       catalog: { default: "all", values: ["all", "linked", "suggested", "none"] },
     },
   })
@@ -221,6 +290,7 @@ export function ComponentBomTab({ component }: { component: Component }) {
         : list.filters.depth === "transitive"
           ? false
           : undefined,
+    catalog: facetParam(list, "catalog"),
     instanceId,
     view: effectiveTree ? "tree" : "flat",
   }
@@ -267,6 +337,24 @@ export function ComponentBomTab({ component }: { component: Component }) {
         { value: "transitive", label: "Transitive" },
       ],
     },
+    // Spec 075: the catalog filter control ships with Phase 2 — the URL
+    // key was already in the schema.
+    ...(flags.bomCuration
+      ? [
+          {
+            id: "catalog" as const,
+            label: "In catalog",
+            value: list.filters.catalog,
+            onChange: (v: string) => list.setFilter("catalog", v),
+            options: [
+              { value: "all", label: "All" },
+              { value: "linked", label: "Linked" },
+              { value: "suggested", label: "Suggested" },
+              { value: "none", label: "Not in catalog" },
+            ],
+          },
+        ]
+      : []),
   ]
 
   const loadChildren = React.useCallback(

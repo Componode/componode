@@ -49,6 +49,9 @@ export function coveragePopulationPredicate(
 ): ExpressionWrapper<DB, "components", SqlBool> {
   return eb.and([
     eb("components.lifecycle", "=", "ACTIVE"),
+    // Spec 075 / UX-LIB-02: Libraries are inventory, not coverage
+    // population — excluded from denominators and the Coverage filter.
+    eb("components.category", "!=", "LIBRARY"),
     hasNonGoneInstanceOrNone(eb),
   ]);
 }

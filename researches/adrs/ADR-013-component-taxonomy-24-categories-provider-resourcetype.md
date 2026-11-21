@@ -46,3 +46,26 @@ category — provider-level billing/administrative containers that own assets
 (GitHub organization, AWS account, Azure subscription). Emitted by importers as
 a component with `instances: []`; organizational sub-resources (teams, members)
 are details on the component, not pseudo-components.
+
+---
+
+### Amendment 2 — package-registry providers + `cdxType`→category mapping (spec 075)
+
+BOM catalog promotion (ADR-132) creates Library components from package
+identities, so the provider enum gains the 13 ecosystem values the mapping
+needs — `NPM`, `PYPI`, `MAVEN`, `NUGET`, `GOLANG`, `CARGO`, `RUBYGEMS`,
+`PACKAGIST`, `GHCR`, `ECR`, `DEBIAN`, `RPM`, `ALPINE` — grouped separately
+from the original platform providers via `COMPONENT_PROVIDER_GROUPS`
+(*Platforms* = 11, *Package registries* = 13). `ecosystem` → provider:
+`npm`→`NPM`, `pypi`→`PYPI`, `maven`→`MAVEN`, `nuget`→`NUGET`,
+`golang`→`GOLANG`, `cargo`→`CARGO`, `gem`→`RUBYGEMS`, `composer`→`PACKAGIST`,
+`deb`→`DEBIAN`, `rpm`→`RPM`, `apk`→`ALPINE`, `docker`/`oci`→`DOCKER`|`GHCR`|`ECR`
+resolved from the purl's registry hostname, anything else→`OTHER`.
+`cdxType` → category: `library`/`framework`/`machine-learning-model`→`LIBRARY`;
+`container`→`CONTAINER`; `device`/`firmware`/`operating-system`/`platform`/
+`application`→`COMPUTE`; `service`→`API`; `file`/`data`→`STORAGE`;
+unmapped→`LIBRARY` (packages default). Migration 036 rebuilds
+`components_provider_check` over all 24 values (the
+`015_alibaba_cloud_provider.ts` drop/add pattern). Lossy inference is never
+silent — the curation preview surfaces a `mappedFrom` note for every
+non-`library`/`framework` derivation.

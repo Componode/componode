@@ -1230,17 +1230,26 @@ paths:
             non-RETIRED product via a direct or group-expanded DEPENDS_ON
             edge; `unwired` = its complement. Selecting both returns the
             full population. Values outside the set return `400`.
+        - in: query
+          name: libraries
+          schema: { type: boolean, default: false }
+          description: >-
+            Include `LIBRARY`-category components (spec 075, UX-LIB-01).
+            Absent/false excludes them from the default population; an
+            explicit `category=LIBRARY` filter also includes them.
       responses:
         "200":
           description: >-
             Standardized list envelope (spec 068 / ADR-130): `data` holds the
             page of components; `pagination` reports
-            `{page,pageSize,total,pageCount,hasNext}`.
+            `{page,pageSize,total,pageCount,hasNext}`; `librariesHidden`
+            reports the ACTIVE `LIBRARY` count excluded by the default
+            population (0 when libraries are included).
           content:
             application/json:
               schema:
                 type: object
-                required: [data, pagination]
+                required: [data, pagination, librariesHidden]
                 properties:
                   data:
                     type: array
@@ -1254,6 +1263,9 @@ paths:
                       total: { type: integer, minimum: 0 }
                       pageCount: { type: integer, minimum: 0 }
                       hasNext: { type: boolean }
+                  librariesHidden:
+                    type: integer
+                    minimum: 0
         "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
@@ -1601,8 +1613,10 @@ paths:
         direct edge), and nested ComponentInstances. Bounded single read;
         relation groups that fail to read are reported in
         `unavailableKinds` instead of being silently dropped.
-        Component-to-Component tables have no writer yet — empty lanes are
-        expected. Side-effect-free.
+        `LIBRARY`-category neighbours are counted, not listed (spec 075,
+        UX-LIB-05): `libraryCounts` carries the bounded totals and the
+        `dependsOn`/`dependedOnBy` lane arrays exclude them.
+        Side-effect-free.
       parameters:
         - { $ref: "#/components/parameters/Id" }
         - name: includeGone
@@ -1651,6 +1665,16 @@ paths:
                       instances:
                         type: array
                         items: { $ref: "#/components/schemas/ComponentInstance" }
+                      libraryCounts:
+                        type: object
+                        description: >-
+                          Spec 075 / UX-LIB-05 — LIBRARY-category
+                          `DEPENDS_ON` neighbours counted, not listed:
+                          `dependsOn` = libraries this component depends
+                          on; `dependedOnBy` = libraries depending on it.
+                        properties:
+                          dependsOn: { type: integer, minimum: 0 }
+                          dependedOnBy: { type: integer, minimum: 0 }
                   unavailableKinds:
                     type: array
                     items:
@@ -1667,8 +1691,13 @@ paths:
         Server-paginated package inventory (ADR-131). No `instanceId` merges
         all scopes; `instanceId` binds one instance's set. `view=tree` returns
         top-level rows with child metadata; `parentId` pages direct children
-        (fixed page size 50). `catalog` is accepted for Phase-2 compatibility
-        and ignored in Phase 1. Side-effect-free.
+        (fixed page size 50). Rows carry `resolvedComponent` (the catalog
+        component covering the entry's identity) and `pendingSuggestionId`
+        (its PENDING dependency suggestion) — populated by the Phase-2
+        curation pass (spec 075, ADR-132). `catalog` is live:
+        `linked` → `resolvedComponent` set; `suggested` → a PENDING
+        suggestion exists for the entry's identity (takes UI precedence
+        over linked); `none` → neither. Side-effect-free.
       parameters:
         - { $ref: "#/components/parameters/Id" }
         - in: query
@@ -1701,7 +1730,7 @@ paths:
           schema: { type: boolean }
         - name: catalog
           in: query
-          schema: { type: string, enum: [linked, suggested, none], description: "Accepted, ignored in Phase 1" }
+          schema: { type: string, enum: [linked, suggested, none], description: "Catalog-state filter (spec 075): linked = resolvedComponent set; suggested = PENDING suggestion exists; none = neither" }
         - name: instanceId
           in: query
           schema: { type: string, format: uuid }
@@ -1828,6 +1857,9 @@ paths:
         - name: direct
           in: query
           schema: { type: boolean }
+        - name: catalog
+          in: query
+          schema: { type: string, enum: [linked, suggested, none], description: "Catalog-state filter (spec 075): linked = resolvedComponent set; suggested = PENDING suggestion exists; none = neither" }
         - name: view
           in: query
           schema: { type: string, enum: [flat, tree], default: flat }
@@ -1867,9 +1899,12 @@ paths:
         (version-free, per-type normalized) across ACTIVE components only.
         Search is a substring match on entry name, verbatim purl, and the
         normalized identity; `ecosystem`/`scope` filter at entry level before
-        grouping. `catalog` is accepted for Phase-2 compatibility and ignored
-        in Phase 1b (`catalogComponent` is always null,
-        `pendingSuggestionCount` always 0). Default sort `components` desc,
+        grouping. `catalogComponent`/`pendingSuggestionCount` are live
+        Phase-2 fields (spec 075, ADR-132): the resolved catalog component
+        (`resolvedComponentId`, else a verbatim `externalId` = identity
+        match), and its PENDING dependency suggestion count. `catalog` filters at group level: `linked` →
+        `catalogComponent` present; `suggested` → `pendingSuggestionCount`
+        > 0; `none` → neither. Default sort `components` desc,
         tie-break `name` asc. Side-effect-free; readable by every role.
       parameters:
         - in: query
@@ -1896,7 +1931,7 @@ paths:
           schema: { type: string, description: "CSV of ecosystems (purl types)" }
         - name: catalog
           in: query
-          schema: { type: string, enum: [linked, suggested, none], description: "Accepted, ignored in Phase 1b" }
+          schema: { type: string, description: "CSV of catalog states (linked, suggested, none), OR'd at the group level (spec 075): linked = catalogComponent present; suggested = pending suggestions; none = neither" }
       responses:
         "200":
           description: Standardized list envelope (ADR-130) of package rollup rows
@@ -1985,6 +2020,158 @@ paths:
                       hasNext: { type: boolean }
         "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /packages/versions:
+    get:
+      tags: [Packages]
+      summary: Every reported version for one package identity (spec 075)
+      description: >-
+        All versions of one normalized identity (`purl` is normalized like
+        the consumers read) with their ACTIVE-component counts, sorted
+        `componentCount` desc then `version` asc. Backs the Library
+        detail's "Versions in use" block — the `/packages` row truncates
+        to the top 5. Returns the full set when it fits in one page.
+        Side-effect-free; readable by every role.
+      parameters:
+        - in: query
+          name: purl
+          required: true
+          schema: { type: string, maxLength: 500 }
+          description: Package URL — normalized before matching
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      responses:
+        "200":
+          description: Standardized list envelope (ADR-130) of version rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/PackageVersionCount" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /packages/add-to-catalog/preview:
+    get:
+      tags: [Packages]
+      summary: Derived preview for the Add-to-catalog / Link dialog (spec 075)
+      description: >-
+        Everything the curation dialog renders verbatim (ADR-132): the
+        derived Library identity (`purl` normalized to its version-free
+        form — unparseable values fall back to the verbatim string),
+        mapped category/provider, distinct ACTIVE consumers, every
+        reported version, a `mappedFrom` note on lossy inference, and
+        `existingComponent` when any component's `externalId` already
+        normalizes to the identity (Link mode — never create a
+        duplicate). `404` when no `bom_entries` row carries the identity.
+        Side-effect-free; readable by every role.
+      parameters:
+        - in: query
+          name: purl
+          required: true
+          schema: { type: string, maxLength: 500 }
+          description: Verbatim or normalized purl
+      responses:
+        "200":
+          description: Add-to-catalog preview payload
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AddToCatalogPreview" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /packages/add-to-catalog:
+    post:
+      tags: [Packages]
+      summary: Create a Library component from a package identity (spec 075)
+      x-permission: "component:edge:add"
+      description: >-
+        Requires `component:edge:add` (Editor+) — human curation only, no
+        auto-wiring (ADR-132). Atomically creates one Library component
+        (`externalId` = normalized version-free purl, slug
+        `pkg-{type}-{name}` with a numeric suffix on collision), sets
+        `resolvedComponentId` on every `bom_entries` row of the identity,
+        then either wires a `component_depends_on_component` edge per
+        distinct ACTIVE consumer (`linkConsumers: true`, `ON CONFLICT DO
+        NOTHING`, covering PENDING suggestions → `ACCEPTED`, already-wired
+        pairs → `SUPERSEDED`) or stages `PURL_EXACT` suggestions
+        (`linkConsumers: false`). `404` when the identity has no entries;
+        `409` when a component already covers the identity — the response
+        `details.existingComponent` tells the client to call
+        `/packages/link` instead.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [purl, linkConsumers]
+              properties:
+                purl: { type: string, minLength: 1, maxLength: 500 }
+                linkConsumers: { type: boolean }
+      responses:
+        "200":
+          description: Curation result — created component plus link/stage counters
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CurationResult" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /packages/link:
+    post:
+      tags: [Packages]
+      summary: Resolve a package identity onto an existing component (spec 075)
+      x-permission: "component:edge:add"
+      description: >-
+        Requires `component:edge:add` (Editor+). Same consumer semantics
+        as `/packages/add-to-catalog` minus the component insert:
+        `resolvedComponentId` is re-pointed to `componentId` on every
+        `bom_entries` row of the identity, then edges are wired or
+        suggestions staged per `linkConsumers`. `404` for an unknown
+        `componentId` or an identity with no entries; `409` when the
+        target component is `RETIRED`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [purl, componentId, linkConsumers]
+              properties:
+                purl: { type: string, minLength: 1, maxLength: 500 }
+                componentId: { type: string, format: uuid }
+                linkConsumers: { type: boolean }
+      responses:
+        "200":
+          description: Curation result — linked component plus link/stage counters
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CurationResult" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /components/{id}/promote-to-platform:
     post:
       tags: [Components]
@@ -4336,16 +4523,40 @@ paths:
   /suggestions:
     get:
       tags: [Suggestions]
-      summary: List staged edge suggestions (paginated, spec 068)
+      summary: List staged suggestions (paginated — edge or dependency queue)
       description: |
         The human-review queue of server-generated DEPENDS_ON candidates.
-        Any authenticated role may read. `PENDING` rows are sorted by score
-        descending and exclude rows whose product or component is `RETIRED`;
-        `DISMISSED` returns the permanent decision history ordered by
-        `decidedAt` descending. `DECIDED` (spec 042, gap G32) spans every
-        terminal status — `ACCEPTED`, `DISMISSED`, and `SUPERSEDED` — ordered
-        by `decidedAt` descending, for the decided-history view.
+        Any authenticated role may read. `kind` selects the queue: `edge`
+        (default) is the unchanged product-edge queue the nav badge reads;
+        `dependency` (spec 075, ADR-132) lists component→library
+        `DEPENDS_ON` candidates staged from BOM identities. `PENDING` rows
+        are sorted by score descending and exclude rows whose endpoints
+        are `RETIRED` (product/component on the edge queue, either
+        component on the dependency queue); `DISMISSED` returns the
+        permanent decision history ordered by `decidedAt` descending.
+        `DECIDED` (spec 042, gap G32) spans every terminal status —
+        `ACCEPTED`, `DISMISSED`, and `SUPERSEDED` — ordered by
+        `decidedAt` descending, for the decided-history view.
       parameters:
+        - in: query
+          name: kind
+          schema:
+            {
+              type: string,
+              enum: [edge, dependency],
+              default: edge,
+            }
+          description: >-
+            Queue selector (spec 075): `edge` returns
+            `SuggestionListResult` rows; `dependency` returns
+            `DependencySuggestionListResult` rows.
+        - in: query
+          name: childComponentId
+          schema: { type: string, format: uuid }
+          description: >-
+            Optional filter applying to `kind=dependency` only: scope rows
+            to one library (child component) so per-group expansion fetches
+            stay bounded.
         - in: query
           name: page
           schema: { type: integer, minimum: 1, default: 1 }
@@ -4378,16 +4589,21 @@ paths:
             key per `status` view (spec 068): on decided views
             `score`/`decidedAt` order by `decidedAt` (SUPERSEDED tombstones
             carry NULL score), while `decidedAt` maps to `createdAt` on the
-            pending queue.
+            pending queue. The dependency queue applies the same mapping.
       responses:
         "200":
           description: >-
             Standardized list envelope (spec 068 / ADR-130): `data` holds
             the queue page; `pagination` reports
-            `{page,pageSize,total,pageCount,hasNext}`.
+            `{page,pageSize,total,pageCount,hasNext}`. `kind=edge` (default)
+            returns `SuggestionListResult`; `kind=dependency` returns
+            `DependencySuggestionListResult`.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/SuggestionListResult" }
+              schema:
+                oneOf:
+                  - { $ref: "#/components/schemas/SuggestionListResult" }
+                  - { $ref: "#/components/schemas/DependencySuggestionListResult" }
         "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
   /suggestions/{id}/accept:
@@ -4458,6 +4674,145 @@ paths:
               schema: { $ref: "#/components/schemas/SuggestionRescanReport" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /suggestions/dependencies/groups:
+    get:
+      tags: [Suggestions]
+      summary: Pending dependency suggestions grouped per library (spec 075)
+      description: >-
+        One row per `childComponentId` over PENDING
+        `bom_component_suggestions` — the dependency segment's default
+        view (ADR-132). `versions` counts distinct versions on the
+        underlying BOM entries, `reasons` the distinct pending reasons,
+        `topScore` the highest pending score, and `bulkAcceptable` whether
+        every pending row is `PURL_EXACT` (what the server enforces on
+        bulk accept; **Dismiss all** stays available on every group).
+        Rows with a `RETIRED` endpoint are excluded. Side-effect-free;
+        readable by every role.
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - in: query
+          name: sort
+          schema:
+            {
+              type: string,
+              enum: [score, components, name],
+              default: score,
+            }
+          description: >-
+            `score` = strongest group score; `components` = pending count;
+            `name` = library name.
+        - in: query
+          name: childComponentId
+          schema: { type: string, format: uuid }
+          description: >-
+            Filter to the single group for this candidate component — the
+            BOM row "Suggested" deep-link target.
+      responses:
+        "200":
+          description: >-
+            Standardized list envelope (ADR-130) of per-library
+            suggestion groups.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DependencySuggestionGroupListResult"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /suggestions/dependencies/{id}/accept:
+    post:
+      tags: [Suggestions]
+      summary: Accept a dependency suggestion — wires the real edge
+      x-permission: "component:edge:add"
+      description: |
+        Requires `component:edge:add` (Editor+) — accepting IS an edge
+        write: the `component_depends_on_component` edge is inserted
+        (`ON CONFLICT DO NOTHING`) and audited in the same transaction,
+        and the suggestion is marked `ACCEPTED` — or `SUPERSEDED` when
+        the pair was already wired (ADR-113 parity). `404` when the
+        suggestion is gone, `409` when it is already decided.
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+      responses:
+        "200":
+          description: The accepted suggestion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestion: { $ref: "#/components/schemas/DependencySuggestion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /suggestions/dependencies/{id}/dismiss:
+    post:
+      tags: [Suggestions]
+      summary: Dismiss a dependency suggestion permanently
+      x-permission: "component:edge:add"
+      description: |
+        Requires `component:edge:add` (Editor+). Marks the row `DISMISSED`
+        with `decidedAt`/`decidedBy` — there is no un-dismiss transition
+        and the pair is never suggested again (ADR-113 parity).
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+      responses:
+        "200":
+          description: The dismissed suggestion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestion: { $ref: "#/components/schemas/DependencySuggestion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /suggestions/dependencies/bulk:
+    post:
+      tags: [Suggestions]
+      summary: Decide every pending suggestion for one library (spec 075)
+      x-permission: "component:edge:add"
+      description: >-
+        Requires `component:edge:add` (Editor+). `action: "accept"`
+        resolves `409 CONFLICT` when any pending row in the group is not
+        `PURL_EXACT` — review name/slug matches one by one; otherwise
+        every pending row reaches a terminal state (`ACCEPTED`, or
+        `SUPERSEDED` where the edge already existed) with edges inserted
+        `ON CONFLICT DO NOTHING`. `action: "dismiss"` takes any reason.
+        Per-pair failures don't roll back successful siblings — `failed`
+        counts them and `failedIds` lists the retry subset.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [childComponentId, action]
+              properties:
+                childComponentId: { type: string, format: uuid }
+                action: { type: string, enum: [accept, dismiss] }
+      responses:
+        "200":
+          description: Bulk decision report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DependencyBulkResult" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   # ------------------------------------------------- Metrics (outside v1)
   /agents:
@@ -5472,6 +5827,196 @@ components:
         componentsScanned: { type: integer }
         staged: { type: integer }
         superseded: { type: integer }
+    BomSuggestionReason:
+      type: string
+      enum: [PURL_EXACT, PURL_NAME_MATCH, CATALOG_SLUG_MATCH]
+    DependencySuggestion:
+      type: object
+      description: >-
+        Staged component→library DEPENDS_ON candidate
+        (`bom_component_suggestions`, spec 075 / ADR-132). Lifecycle
+        mirrors `edge_suggestions` (ADR-113): only `PENDING` is
+        actionable; `SUPERSEDED` tombstones carry NULL reason/score.
+      properties:
+        id: { type: string, format: uuid }
+        parentComponentId:
+          { type: string, format: uuid, description: Consuming component (edge source) }
+        childComponentId:
+          { type: string, format: uuid, description: Library/candidate component (edge target) }
+        bomEntryId:
+          { type: string, format: uuid, nullable: true, description: The BOM entry that produced the candidate; NULL after BOM pruning (decided pairs stay terminal) }
+        reason:
+          allOf:
+            - { $ref: "#/components/schemas/BomSuggestionReason" }
+          nullable: true
+          description: NULL on SUPERSEDED tombstones
+        score:
+          type: number
+          nullable: true
+          description: Decimal score (stored centi-score ÷ 100); NULL on tombstones
+        status: { $ref: "#/components/schemas/EdgeSuggestionStatus" }
+        createdAt: { type: string, format: date-time }
+        decidedAt: { type: string, format: date-time, nullable: true }
+        decidedBy: { type: string, format: uuid, nullable: true }
+    DependencySuggestionQueueItem:
+      allOf:
+        - { $ref: "#/components/schemas/DependencySuggestion" }
+        - type: object
+          properties:
+            parentComponent:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                slug: { type: string }
+                name: { type: string }
+                category: { type: string }
+            childComponent:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                slug: { type: string }
+                name: { type: string }
+                category: { type: string }
+            decidedByName: { type: string, nullable: true }
+    DependencySuggestionListResult:
+      description: >-
+        Standardized list envelope (ADR-130): the `kind=dependency` queue
+        page of `/suggestions`.
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/DependencySuggestionQueueItem" }
+        pagination:
+          type: object
+          required: [page, pageSize, total, pageCount, hasNext]
+          properties:
+            page: { type: integer, minimum: 1 }
+            pageSize: { type: integer, minimum: 1, maximum: 100 }
+            total: { type: integer, minimum: 0 }
+            pageCount: { type: integer, minimum: 0 }
+            hasNext: { type: boolean }
+    DependencySuggestionGroup:
+      type: object
+      description: >-
+        Pending dependency suggestions grouped per library — the
+        dependency segment's default view (spec 075).
+      properties:
+        childComponent:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            slug: { type: string }
+            name: { type: string }
+            category: { type: string }
+        purl:
+          type: string
+          nullable: true
+          description: The library's normalized version-free purl (`externalId`)
+        pendingCount: { type: integer, minimum: 0 }
+        versions:
+          { type: integer, minimum: 0, description: Distinct versions on the underlying entries }
+        reasons:
+          type: array
+          items: { $ref: "#/components/schemas/BomSuggestionReason" }
+        topScore:
+          type: number
+          nullable: true
+          description: Highest pending score in the group
+        bulkAcceptable:
+          type: boolean
+          description: Every pending row is `PURL_EXACT` — server-enforced bulk-accept gate
+      required: [childComponent, pendingCount, versions, reasons, topScore, bulkAcceptable]
+    DependencySuggestionGroupListResult:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/DependencySuggestionGroup" }
+        pagination:
+          type: object
+          required: [page, pageSize, total, pageCount, hasNext]
+          properties:
+            page: { type: integer, minimum: 1 }
+            pageSize: { type: integer, minimum: 1, maximum: 100 }
+            total: { type: integer, minimum: 0 }
+            pageCount: { type: integer, minimum: 0 }
+            hasNext: { type: boolean }
+    DependencyBulkResult:
+      type: object
+      properties:
+        decided: { type: integer, minimum: 0, description: Rows that reached a terminal state }
+        failed: { type: integer, minimum: 0, description: Pairs whose edge write failed (siblings unaffected) }
+        edges: { type: integer, minimum: 0, description: Dependency edges created }
+        failedIds:
+          type: array
+          items: { type: string, format: uuid }
+          description: Suggestion ids whose edge write failed — retry subset
+      required: [decided, failed, edges, failedIds]
+    AddToCatalogPreview:
+      type: object
+      description: >-
+        `GET /packages/add-to-catalog/preview` response (spec 075 /
+        ADR-132) — the curation dialog renders this verbatim.
+      properties:
+        name: { type: string }
+        identity:
+          { type: string, description: Normalized version-free purl — the component's externalId }
+        category: { type: string }
+        provider: { type: string }
+        providerGroup: { type: string, enum: [platforms, package-registries] }
+        resourceType:
+          { type: string, description: "purl type verbatim (`npm:package`)" }
+        consumerCount:
+          { type: integer, minimum: 0, description: Distinct ACTIVE components reporting the identity }
+        versions:
+          type: array
+          items: { $ref: "#/components/schemas/PackageVersionCount" }
+        mappedFrom:
+          type: object
+          nullable: true
+          description: >-
+            Non-null on lossy inference — renders the "Mapped from" note
+            (non-library/framework cdxType, unmapped ecosystem → `OTHER`,
+            registry-derived provider ambiguity).
+          properties:
+            cdxType: { type: string, nullable: true }
+            ecosystem: { type: string }
+        existingComponent:
+          type: object
+          nullable: true
+          description: >-
+            Non-null switches the dialog to Link mode — a component whose
+            `externalId` already normalizes to the identity; never create
+            a duplicate.
+          properties:
+            id: { type: string, format: uuid }
+            slug: { type: string }
+            name: { type: string }
+            category: { type: string }
+            provider: { type: string }
+      required: [name, identity, category, provider, providerGroup, resourceType, consumerCount, versions, mappedFrom, existingComponent]
+    CurationResult:
+      type: object
+      description: >-
+        `POST /packages/add-to-catalog` and `/packages/link` response
+        (spec 075) — created/linked component plus outcome counters.
+      properties:
+        component:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            slug: { type: string }
+            name: { type: string }
+            category: { type: string }
+            provider: { type: string }
+            externalId: { type: string, nullable: true }
+        linked: { type: integer, minimum: 0, description: Dependency edges created this call }
+        alreadyLinked: { type: integer, minimum: 0, description: Pre-existing edges preserved }
+        suggestionsStaged: { type: integer, minimum: 0, description: Suggestions staged (linkConsumers=false path) }
+      required: [component, linked, alreadyLinked, suggestionsStaged]
     BootstrapReport:
       type: object
       required: [created, updated, edgesAdded, skipped]
@@ -6624,13 +7169,14 @@ components:
         resolvedComponent:
           type: object
           nullable: true
-          description: "Phase-2 curation link — always null in Phase 1"
+          description: "Catalog component covering the entry's identity (spec 075: written by the matching pass and curation endpoints)"
           properties:
             id: { type: string, format: uuid }
             slug: { type: string }
             name: { type: string }
-        pendingSuggestionId: { type: string, format: uuid, nullable: true, description: "Phase-2 surface — always null in Phase 1" }
-      required: [id, purl, name, ecosystem, scope, direct, evidenceSource, licenses, lastReportedAt, hasChildren, childCount, instanceCount, instanceTotal]
+        pendingSuggestionId: { type: string, format: uuid, nullable: true, description: "The entry's PENDING dependency suggestion, if any (spec 075)" }
+        pendingSuggestionChildId: { type: string, format: uuid, nullable: true, description: "Candidate component that suggestion targets — the `childComponentId` queue deep-link (spec 075)" }
+      required: [id, purl, name, ecosystem, scope, direct, evidenceSource, licenses, lastReportedAt, hasChildren, childCount, instanceCount, instanceTotal, pendingSuggestionId, pendingSuggestionChildId]
     BomSummary:
       type: object
       properties:
@@ -6670,7 +7216,7 @@ components:
     PackageCatalogRef:
       type: object
       nullable: true
-      description: "Phase-2 curation link — always null in Phase 1b"
+      description: "Component the row's BOM entries resolved to, else a verbatim `externalId` = purl-identity match (spec 075)"
       properties:
         id: { type: string, format: uuid }
         slug: { type: string }
@@ -6693,7 +7239,7 @@ components:
           description: Top 5 versions by component count
         componentCount: { type: integer, minimum: 0 }
         catalogComponent: { $ref: "#/components/schemas/PackageCatalogRef" }
-        pendingSuggestionCount: { type: integer, minimum: 0, description: "Phase-2 surface — always 0 in Phase 1b" }
+        pendingSuggestionCount: { type: integer, minimum: 0, description: "Distinct PENDING dependency suggestions targeting the catalog component (spec 075); 0 when none" }
       required: [purl, name, ecosystem, versionCount, versions, componentCount, catalogComponent, pendingSuggestionCount]
     PackageConsumerListItem:
       type: object
