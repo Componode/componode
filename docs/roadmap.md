@@ -501,6 +501,19 @@ file tracks shipped and upcoming work — update it when a spec completes.
   repo→package and package→package edges, importer-native `LIBRARY`
   assets); wired for both hub and remote-agent runs —
   `bomImporterEdges` flag ON (gap G39 resolved).
+- `077-sbom-declared-edges` — `importer-sbom-file` as the second
+  declared-edge carrier: a configured `componentSlug` target plus an
+  `sbomUrl` document (CycloneDX or SPDX) declares subject→package and
+  package→package edges via the same `relationships[]` contract;
+  `importDeclaredEdges` opt-in, `IMPORTER` provenance, suppression, and
+  source-scoped retirement inherited unchanged.
+- `078-docker-declared-edges` — `importer-docker` as the third
+  declared-edge carrier: image-SBOM dependency graphs (OCI referrers +
+  Syft fallback, CycloneDX and SPDX) declare subject→package edges on
+  every SBOM-bearing asset — workloads and, with `includeImages`, the
+  `docker-image:{digest}` component — plus package→package edges on
+  importer-native `LIBRARY` assets; `importDeclaredEdges` requires
+  `includeSbom`; zero backend/frontend changes.
 
 ## Next — post-v1.1
 
@@ -523,11 +536,8 @@ surfaces (073), the packages explorer where-used read (074), and Phase-2
 BOM catalog promotion — matching pass, Add-to-catalog/Link curation, the
 dependency suggestion segment, and library legibility (075), and Phase-3
 importer-native declared edges — opt-in `relationships[]`, IMPORTER
-provenance, suppression, and GitHub as first carrier (076),
-`importer-sbom-file` as second declared-edge carrier (077), and
-`importer-docker` as third — image-SBOM dependency graphs declare
-subject→package and package→package edges on every SBOM-bearing asset,
-gated on `includeSbom` (078).
+provenance, suppression, and GitHub as first carrier (076), plus the
+SBOM-file (077) and Docker (078) declared-edge carriers.
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new
