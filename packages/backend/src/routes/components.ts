@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
-import { listComponentsQuerySchema, updateComponentSchema, createComponentSchema, createInstanceBlockSchema, componentRelationshipsQuerySchema, listBomQuerySchema, bomSummaryQuerySchema, bomExportQuerySchema } from "@componode/core";
+import { listComponentsQuerySchema, updateComponentSchema, createComponentSchema, createInstanceBlockSchema, componentRelationshipsQuerySchema, listBomQuerySchema, bomSummaryQuerySchema, bomExportQuerySchema, EDGE_KINDS } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
 import { listComponents, getComponentById } from "../services/component-catalog-service.js";
@@ -16,8 +16,18 @@ import {
 import { sendServiceError, validationFailed } from "./route-helpers.js";
 import { getBomForComponent, getBomSummary } from "../services/bom-service.js";
 import { exportBom } from "../services/bom-export.js";
+import { suppressComponentEdge } from "../services/component-edge-store.js";
 
 const componentIdParam = z.object({ id: z.string().uuid() });
+
+// Spec 076 / UX-EDGE-02 — Hide edge request body (strict, ADR-095).
+const suppressEdgeSchema = z
+  .object({
+    edgeKind: z.enum(EDGE_KINDS),
+    fromComponentId: z.string().uuid(),
+    toComponentId: z.string().uuid(),
+  })
+  .strict();
 
 export async function componentRoutes(app: FastifyInstance): Promise<void> {
   // Static route — find-my-way resolves it ahead of /components/:id.
@@ -227,5 +237,23 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
 
     const result = await listComponents(parsed.data);
     return reply.status(200).send(result);
+  });
+
+  // Spec 076 / UX-EDGE-02: Hide an importer-added edge — records a durable
+  // pair suppression and removes the junction row. EDITOR-gated; curated
+  // edges are refused (409).
+  app.post("/component-edge-suppressions", {
+    preHandler: [app.verifySession, requireRole("component:edge:remove")],
+  }, async (req: AuthenticatedRequest, reply: FastifyReply) => {
+    const parsed = suppressEdgeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return validationFailed(reply, parsed.error.issues);
+    }
+    try {
+      const result = await suppressComponentEdge(parsed.data, toActor(req));
+      return reply.status(200).send(result);
+    } catch (err) {
+      return sendServiceError(reply, err);
+    }
   });
 }

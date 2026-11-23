@@ -81,6 +81,8 @@ export interface ImporterManifest {
   secrets?: Array<{ key: string; label: string; required: boolean }>;
   requiresAgent?: boolean;
   targetRefKey?: string;
+  /** Spec 076 / ADR-133 — scope key that opts the importer into declared edges. */
+  declaredEdgesConfigKey?: string;
 }
 
 export interface ImporterConfig {
@@ -505,6 +507,11 @@ export interface RelatedComponentRef {
   provider: string;
   resourceType: string;
   lifecycle: string;
+  // Spec 076 / ADR-133 — edge provenance on the six component-edge lanes.
+  edgeProvenance?: "CURATED" | "IMPORTER";
+  edgeImporterSourceId?: string | null;
+  edgeImporterConfigId?: string | null;
+  edgeImportRunId?: string | null;
 }
 
 export interface ComponentProductDependent {

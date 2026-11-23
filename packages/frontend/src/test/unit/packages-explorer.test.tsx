@@ -145,6 +145,36 @@ describe("UxPackagesPage (spec 074)", () => {
     expect(decodeURIComponent(link.getAttribute("href")!)).toContain("q=pkg:npm/lodash");
   });
 
+  it("consumers panel links an importer edge to its Source and run (spec 076)", async () => {
+    mockApi.mockImplementation((url: unknown) => {
+      const u = String(url);
+      if (u.includes("consumers")) {
+        return Promise.resolve(
+          consumersPage([
+            consumer({
+              edge: {
+                provenance: "IMPORTER",
+                importerSourceId: "src-1",
+                importerConfigId: "cfg-1",
+                importRunId: "run-1",
+              },
+            }),
+          ]),
+        );
+      }
+      if (u.includes("/packages")) return Promise.resolve(page());
+      return Promise.resolve(null);
+    });
+    wrap(<UxPackagesPage />);
+    const r = await screen.findByTestId("package-row-pkg:npm/lodash");
+    fireEvent.click(r);
+    await screen.findByText("Added by importer");
+    const source = screen.getByRole("link", { name: "Source" });
+    expect(source.getAttribute("href")).toContain("/sources/src-1");
+    const run = screen.getByRole("link", { name: "Import run" });
+    expect(run.getAttribute("href")).toContain("/importers/cfg-1/runs/run-1");
+  });
+
   it("version chip sets ?version= and forwards it to the consumers call", async () => {
     wrap(<UxPackagesPage />);
     await screen.findByText("lodash");

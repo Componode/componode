@@ -245,6 +245,7 @@ detailed entry in **`researches/ux-rewrite-gaps.md`**:
 | `componentBom`  | Packages tab, Components-list BOM filter, coverage-card BOM line, run Packages tile | Hidden   | G36 |
 | `packagesExplorer` | `/packages` page, sidebar item, Ctrl+K Packages group, BOM row-menu deep link | Hidden | G37 |
 | `bomCuration`   | Add/Link curation dialogs, `/suggestions` dependency segment, In-catalog column + `catalog` filters, library detail + Show-libraries toggle + `libraryCounts` summary | Hidden   | G38 |
+| `bomImporterEdges` | Edge provenance markers/badges on Relationships, Source + Import-run links, Used-by edge badge, Hide edge action | Hidden   | G39 |
 
 ## 8. Scope boundaries
 

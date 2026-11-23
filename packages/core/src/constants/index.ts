@@ -78,6 +78,19 @@ export type {
 export { PASSWORD_MIN_LENGTH } from "./passwords.js";
 
 export {
+  DISCOVERED_RELATIONSHIP_TYPES,
+  EDGE_PROVENANCES,
+  EDGE_KINDS,
+  EDGE_JUNCTION,
+} from "./importer-edge.js";
+export type {
+  DiscoveredRelationshipType,
+  EdgeProvenance,
+  EdgeKind,
+  EdgeJunctionRef,
+} from "./importer-edge.js";
+
+export {
   AGENT_STATUSES,
   AGENT_STATUS_META,
   AGENT_DISCONNECT_REASONS,

@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/ux/components/ui/switch"
 import { Textarea } from "@/ux/components/ui/textarea"
 import { ux } from "@/ux/lib/paths"
+import { flags } from "@/ux/lib/flags"
 import { useAllImporterSources } from "@/api/hooks/importer-sources"
 import {
   CollectionScopeBuilder,
@@ -153,9 +154,13 @@ export function ImporterForm({ config, manifests, credentials, agents, dockerTar
   // agent-bound keep free-text because the Hub can't enumerate agent-local
   // registries (spec 049).
   const hubTargetPicker = Boolean(targetRefKey) && !boundToAgent
-  const renderedScopeFields = hubTargetPicker
-    ? scopeFields.filter((f) => f.key !== targetRefKey)
-    : scopeFields
+  const renderedScopeFields = scopeFields.filter(
+    (f) =>
+      (!hubTargetPicker || f.key !== targetRefKey) &&
+      // Spec 076 / FR-011 — the declared-edge opt-in is a bomImporterEdges
+      // surface: flag-off hides the switch entirely, never disables it.
+      (flags.bomImporterEdges || f.key !== manifest?.declaredEdgesConfigKey),
+  )
   const advancedKeys = new Set(ADVANCED_SCOPE_KEYS[importerName] ?? [])
   const primaryScopeFields = renderedScopeFields.filter((f) => !advancedKeys.has(f.key))
   const advancedScopeFields = renderedScopeFields.filter((f) => advancedKeys.has(f.key))

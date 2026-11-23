@@ -247,6 +247,7 @@ Notes:
 <!-- GENERATED:table:Components -->
 | Method | Path | Description | Access |
 |---|---|---|---|
+| POST | `/api/v1/component-edge-suppressions` | Hide an importer-added component edge (spec 076) | `component:edge:remove` |
 | GET | `/api/v1/components` | List components (paginated, filterable) | Authenticated |
 | POST | `/api/v1/components` | Create a component manually (spec 042, gap G29) | `component:create` |
 | GET | `/api/v1/components/:id` | Get a component by ID | Authenticated |

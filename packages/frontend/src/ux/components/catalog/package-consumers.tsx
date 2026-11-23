@@ -20,6 +20,7 @@ import {
 } from "@/ux/components/ui/table";
 import { errorMessage } from "@/ux/lib/api-state";
 import { CATEGORY_LABELS } from "@/ux/lib/domain";
+import { flags } from "@/ux/lib/flags";
 import { ux } from "@/ux/lib/paths";
 
 /**
@@ -131,9 +132,46 @@ export function PackageConsumersPanel({
               </TableCell>
               <TableCell><BomScopeBadge value={c.scope} /></TableCell>
               <TableCell>
-                <Badge variant={c.direct ? "default" : "outline"}>
-                  {c.direct ? "Direct" : "Transitive"}
-                </Badge>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge variant={c.direct ? "default" : "outline"}>
+                    {c.direct ? "Direct" : "Transitive"}
+                  </Badge>
+                  {/* Spec 076 / UX-EDGE-01 — provenance badge on the
+                      consumer→library edge when one exists, with the
+                      same Source/run links the relationships panel shows
+                      (SC-001). */}
+                  {flags.bomImporterEdges && c.edge && (
+                    <Badge
+                      variant={c.edge.provenance === "IMPORTER" ? "default" : "outline"}
+                      data-testid={`consumer-edge-${c.component.id}`}
+                    >
+                      {c.edge.provenance === "IMPORTER" ? "Added by importer" : "Curated"}
+                    </Badge>
+                  )}
+                  {flags.bomImporterEdges &&
+                    c.edge?.provenance === "IMPORTER" &&
+                    c.edge.importerSourceId && (
+                      <Link
+                        to={ux(`/sources/${c.edge.importerSourceId}`)}
+                        className="text-xs font-medium text-primary hover:underline"
+                      >
+                        Source
+                      </Link>
+                    )}
+                  {flags.bomImporterEdges &&
+                    c.edge?.provenance === "IMPORTER" &&
+                    c.edge.importerConfigId &&
+                    c.edge.importRunId && (
+                      <Link
+                        to={ux(
+                          `/importers/${c.edge.importerConfigId}/runs/${c.edge.importRunId}`,
+                        )}
+                        className="text-xs font-medium text-primary hover:underline"
+                      >
+                        Import run
+                      </Link>
+                    )}
+                </div>
               </TableCell>
               <TableCell className="tabular text-muted-foreground">
                 <RelativeTime iso={c.lastReportedAt} />

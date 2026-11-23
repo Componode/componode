@@ -372,6 +372,38 @@ const server = startDataServer({
       const r: Repo = repo ?? { id: 999, name: repoName, ...EMPTY_REPO_DEFAULTS };
 
       if (sub === '') return json(res, 200, repoJson(r));
+      if (sub === '/dependency-graph/sbom') {
+        // Spec 076 e2e fixture — SPDX 2.3 dependency-graph export for
+        // svc-alpha only; every other repo 404s so it reports the
+        // degraded bomInventory capability like the real API.
+        if (s === 'capability-failure') return json(res, 403, { message: 'Forbidden' });
+        if (repoName !== 'svc-alpha') return json(res, 404, { message: 'Dependency graph is not enabled' });
+        const pkg = (id: string, name: string, version: string, purl: string) => ({
+          SPDXID: id, name, versionInfo: version,
+          externalRefs: [{ referenceCategory: 'PACKAGE-MANAGER', referenceType: 'purl', referenceLocator: purl }],
+        });
+        return json(res, 200, {
+          sbom: {
+            spdxVersion: 'SPDX-2.3',
+            SPDXID: 'SPDXRef-DOCUMENT',
+            name: `${ORG}/svc-alpha`,
+            documentDescribes: ['SPDXRef-repo'],
+            packages: [
+              pkg('SPDXRef-repo', `${ORG}/svc-alpha`, '1.0.0', `pkg:github/${ORG}/svc-alpha@1.0.0`),
+              pkg('SPDXRef-lib', 'pw-edge-lib', '1.0.0', 'pkg:npm/pw-edge-lib@1.0.0'),
+              pkg('SPDXRef-lib2', 'pw-edge-lib2', '1.0.0', 'pkg:npm/pw-edge-lib2@1.0.0'),
+              pkg('SPDXRef-dep', 'pw-edge-dep', '2.0.0', 'pkg:npm/pw-edge-dep@2.0.0'),
+            ],
+            relationships: [
+              { spdxElementId: 'SPDXRef-repo', relatedSpdxElement: 'SPDXRef-lib', relationshipType: 'DEPENDS_ON' },
+              // A second repo→library edge gives each Playwright project its
+              // own hideable pair — suppressions are durable across projects.
+              { spdxElementId: 'SPDXRef-repo', relatedSpdxElement: 'SPDXRef-lib2', relationshipType: 'DEPENDS_ON' },
+              { spdxElementId: 'SPDXRef-lib', relatedSpdxElement: 'SPDXRef-dep', relationshipType: 'DEPENDS_ON' },
+            ],
+          },
+        });
+      }
       if (sub === '/environments') {
         if (s === 'capability-failure') return json(res, 403, { message: 'Forbidden' });
         return json(res, 200, {

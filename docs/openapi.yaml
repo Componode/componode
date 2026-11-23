@@ -1138,6 +1138,55 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
 
   # -------------------------------------------------------------- Components
+  /component-edge-suppressions:
+    post:
+      tags: [Components]
+      summary: Hide an importer-added component edge (spec 076)
+      x-permission: "component:edge:remove"
+      description: >-
+        Durable, pair-keyed suppression (ADR-133): records the
+        (edgeKind, from, to) pair in `component_edge_suppressions` and
+        deletes the matching junction row. Future import runs never
+        recreate the pair — the edge pass subtracts suppressed pairs
+        before writing and before diff-retiring. Idempotent — a second
+        POST on an already-suppressed pair returns `200`. `409` when the
+        pair's surviving row is CURATED (hide is for importer-added
+        edges; remove curated edges through the normal edge-delete
+        routes).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [edgeKind, fromComponentId, toComponentId]
+              additionalProperties: false
+              properties:
+                edgeKind:
+                  type: string
+                  enum: [DEPENDS_ON, SOURCES_FROM, EXPOSES]
+                fromComponentId: { type: string, format: uuid }
+                toComponentId: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Pair suppressed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suppressed: { type: boolean }
+                  edgeRemoved: { type: boolean }
+                required: [suppressed, edgeRemoved]
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Pair is a curated edge (`CONFLICT`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
   /components:
     get:
       tags: [Components]
@@ -5630,6 +5679,19 @@ components:
         provider: { type: string }
         resourceType: { type: string }
         lifecycle: { $ref: "#/components/schemas/Lifecycle" }
+        edgeProvenance:
+          type: string
+          enum: [CURATED, IMPORTER]
+          description: >-
+            Spec 076 / ADR-133 — who wrote the edge to this neighbour.
+            Populated on the six component-edge lanes only.
+        edgeImporterSourceId: { type: string, format: uuid, nullable: true }
+        edgeImporterConfigId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Bound config of the reporting Source — deep-link target.
+        edgeImportRunId: { type: string, format: uuid, nullable: true }
     ProductDependentRef:
       type: object
       description: >-
@@ -7262,6 +7324,21 @@ components:
           enum: [RUNTIME, DEV, BUILD, TEST, SYSTEM, OPTIONAL, BUNDLED, TRANSITIVE]
         direct: { type: boolean }
         lastReportedAt: { type: string, format: date-time }
+        edge:
+          type: object
+          nullable: true
+          description: >-
+            Spec 076 / ADR-133 — provenance of the consumer→library
+            `DEPENDS_ON` edge when one exists; `null` when the component
+            reports the package in its BOM but no catalog edge links the
+            pair.
+          properties:
+            provenance:
+              type: string
+              enum: [CURATED, IMPORTER]
+            importerSourceId: { type: string, format: uuid, nullable: true }
+            importerConfigId: { type: string, format: uuid, nullable: true }
+            importRunId: { type: string, format: uuid, nullable: true }
       required: [component, version, scope, direct, lastReportedAt]
   securitySchemes:
     sessionCookie:

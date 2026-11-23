@@ -334,12 +334,40 @@ export async function listPackageConsumers(
 ): Promise<Paginated<PackageConsumerListItem>> {
   const identity = normalizePurlIdentity(query.purl) ?? query.purl;
 
+  // Spec 076 / ADR-133 — the library component for this purl identity (if
+  // promoted/imported) lets each consumer row carry the provenance of its
+  // `component_depends_on_component` edge into the library.
+  const library = await db
+    .selectFrom("components")
+    .select("id")
+    .where("category", "=", "LIBRARY")
+    .where("externalId", "=", identity)
+    .executeTakeFirst();
+
   let inner = db
     .selectFrom("bom_entries")
     .innerJoin("components", (join) =>
       join
         .onRef("components.id", "=", "bom_entries.componentId")
         .on("components.lifecycle", "=", "ACTIVE"),
+    )
+    .leftJoin("component_depends_on_component", (join) =>
+      join
+        .onRef(
+          "component_depends_on_component.parentId",
+          "=",
+          "components.id",
+        )
+        .on(
+          "component_depends_on_component.childId",
+          "=",
+          library?.id ?? null,
+        ),
+    )
+    .leftJoin(
+      "importer_sources",
+      "importer_sources.id",
+      "component_depends_on_component.importerSourceId",
     )
     .where("bom_entries.purlIdentity", "=", identity)
     .groupBy([
@@ -349,6 +377,10 @@ export async function listPackageConsumers(
       "components.category",
       "bom_entries.version",
       "bom_entries.scope",
+      "component_depends_on_component.provenance",
+      "component_depends_on_component.importerSourceId",
+      "component_depends_on_component.importRunId",
+      "importer_sources.boundConfigId",
     ])
     .select((eb) => [
       "components.id as componentId",
@@ -359,6 +391,10 @@ export async function listPackageConsumers(
       "bom_entries.scope as scope",
       sql<boolean>`bool_or("bom_entries"."direct")`.as("direct"),
       eb.fn.max("bom_entries.lastReportedAt").as("lastReportedAt"),
+      "component_depends_on_component.provenance as edgeProvenance",
+      "component_depends_on_component.importerSourceId as edgeImporterSourceId",
+      "component_depends_on_component.importRunId as edgeImportRunId",
+      "importer_sources.boundConfigId as edgeImporterConfigId",
     ]);
 
   if (query.version) {
@@ -386,6 +422,10 @@ export async function listPackageConsumers(
     scope: PackageConsumerListItem["scope"];
     direct: boolean;
     lastReportedAt: unknown;
+    edgeProvenance: string | null;
+    edgeImporterSourceId: string | null;
+    edgeImportRunId: string | null;
+    edgeImporterConfigId: string | null;
   };
 
   return {
@@ -401,6 +441,14 @@ export async function listPackageConsumers(
       scope: r.scope,
       direct: r.direct,
       lastReportedAt: toIsoTimestamp(r.lastReportedAt),
+      edge: r.edgeProvenance
+        ? {
+            provenance: r.edgeProvenance as "CURATED" | "IMPORTER",
+            importerSourceId: r.edgeImporterSourceId,
+            importerConfigId: r.edgeImporterConfigId,
+            importRunId: r.edgeImportRunId,
+          }
+        : null,
     })),
   };
 }

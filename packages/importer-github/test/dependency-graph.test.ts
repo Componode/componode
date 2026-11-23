@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { GithubImporter } from "../src/importer.js";
+import { githubConfigSchema } from "../src/config.js";
 import {
   NOOP_LOGGER,
   validateDiscoveredAssetDetailed,
@@ -278,5 +279,131 @@ describe("github dependency-graph BOM", () => {
     >;
     // No bomInventory marker at all when the feature is off.
     expect(caps.bomInventory).toBeUndefined();
+  });
+});
+
+// Spec 076 / ADR-133 — declared-edge import (importDeclaredEdges).
+describe("github declared edges", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("config: importDeclaredEdges defaults false and requires includeDependencyGraph", () => {
+    const off = githubConfigSchema.parse({ org: "o" });
+    expect(off.importDeclaredEdges).toBe(false);
+    expect(() =>
+      githubConfigSchema.parse({ org: "o", importDeclaredEdges: true }),
+    ).toThrow();
+    const on = githubConfigSchema.parse({
+      org: "o",
+      importDeclaredEdges: true,
+      includeDependencyGraph: true,
+    });
+    expect(on.importDeclaredEdges).toBe(true);
+  });
+
+  it("yields LIBRARY assets + relationships when opted in", async () => {
+    mockFetch([
+      ...BASE_ROUTES,
+      { path: "/repos/testorg/repo/dependency-graph/sbom", body: spdxDoc() },
+    ]);
+
+    const assets = await collectAssets({
+      ...MINIMAL_CONFIG,
+      includeDependencyGraph: true,
+      importDeclaredEdges: true,
+    });
+
+    const repo = assets.find((a) => a.name === "testorg/repo")!;
+    // SUBJECT→pkg edges attach to the repo asset: lodash + react are
+    // direct deps of the subject; loose-envify is not.
+    const targets = (repo.relationships ?? []).map((r) => r.targetExternalId).sort();
+    expect(targets).toEqual(["pkg:npm/lodash", "pkg:npm/react"]);
+    for (const r of repo.relationships ?? []) expect(r.type).toBe("DEPENDS_ON");
+
+    const libs = assets.filter((a) => a.category === "LIBRARY");
+    expect(libs.map((l) => l.externalId).sort()).toEqual([
+      "pkg:npm/lodash",
+      "pkg:npm/loose-envify",
+      "pkg:npm/react",
+    ]);
+
+    const loose = libs.find((l) => l.externalId === "pkg:npm/loose-envify")!;
+    expect(loose.provider).toBe("NPM");
+    expect(loose.resourceType).toBe("npm");
+    expect(loose.name).toBe("loose-envify");
+    expect(loose.slug).toMatch(/^pkg-npm-loose-envify/);
+    // `loose DEPENDENCY_OF react` → react depends on loose-envify; the edge
+    // declares on the react library asset.
+    const react = libs.find((l) => l.externalId === "pkg:npm/react")!;
+    expect(react.relationships).toEqual([
+      { type: "DEPENDS_ON", targetExternalId: "pkg:npm/loose-envify" },
+    ]);
+    expect(loose.relationships).toBeUndefined();
+    expect(libs.find((l) => l.externalId === "pkg:npm/lodash")!.relationships).toBeUndefined();
+
+    // Every yielded asset — repo and libraries — satisfies the contract.
+    for (const asset of assets) {
+      expect(validateDiscoveredAssetDetailed(asset).valid).toBe(true);
+    }
+  });
+
+  it("yields neither LIBRARY assets nor relationships when opted out", async () => {
+    mockFetch([
+      ...BASE_ROUTES,
+      { path: "/repos/testorg/repo/dependency-graph/sbom", body: spdxDoc() },
+    ]);
+
+    const assets = await collectAssets({
+      ...MINIMAL_CONFIG,
+      includeDependencyGraph: true,
+    });
+    const repo = assets.find((a) => a.name === "testorg/repo")!;
+    expect(assets.filter((a) => a.category === "LIBRARY")).toHaveLength(0);
+    expect(repo.relationships).toBeUndefined();
+    expect(repo.bomEntries).toBeDefined();
+  });
+
+  it("emits no relationships on the lockfile-fallback path", async () => {
+    const lockfile = {
+      packages: {
+        "": { name: "repo", version: "1.0.0" },
+        "node_modules/lodash": { version: "4.17.21" },
+      },
+    };
+    mockFetch([
+      ...BASE_ROUTES,
+      {
+        path: "/repos/testorg/repo/dependency-graph/sbom",
+        status: 403,
+        body: { message: "Dependency graph is disabled" },
+      },
+      {
+        path: "/repos/testorg/repo/contents",
+        body: [{ type: "file", name: "package-lock.json", path: "package-lock.json" }],
+      },
+      {
+        path: "/repos/testorg/repo/contents/package-lock.json",
+        body: {
+          type: "file",
+          encoding: "base64",
+          content: Buffer.from(JSON.stringify(lockfile)).toString("base64"),
+        },
+      },
+    ]);
+
+    const assets = await collectAssets({
+      ...MINIMAL_CONFIG,
+      includeDependencyGraph: true,
+      importDeclaredEdges: true,
+    });
+    const repo = assets.find((a) => a.name === "testorg/repo")!;
+    expect(repo.relationships).toBeUndefined();
+    // Lockfiles carry no graph — no library assets either.
+    expect(assets.filter((a) => a.category === "LIBRARY")).toHaveLength(0);
+    expect(repo.bomEntries).toBeDefined();
   });
 });

@@ -2,6 +2,7 @@ import type {
   BomDependencyScope,
   DiscoveredBomEntry,
 } from "../index.js";
+import { normalizePurlIdentity } from "./purl.js";
 
 // SPDX 2.3 JSON → DiscoveredBomEntry[] (researches/sbom_research.md mapping
 // tables). Shared by importer-sbom-file, importer-github (dependency-graph
@@ -75,6 +76,40 @@ export interface BomParseResult {
   /** Packages dropped because they carry no resolvable purl — bom_entries
    *  keys on purl, so un-purl'd elements cannot be stored (ADR-131). */
   skipped: number;
+  /** ADR-133 — dependency edges projected to version-free purl identities,
+   *  declaring→target direction (the target is the dependency). The
+   *  document-described element appears as the `SUBJECT` sentinel — the
+   *  caller substitutes its own externalId when attaching
+   *  `relationships[]`. */
+  edges: SpdxEdge[];
+}
+
+/** Sentinel for the document-described element in `BomParseResult.edges`. */
+export const SPDX_EDGE_SUBJECT = "SUBJECT";
+
+export interface SpdxEdge {
+  from: string;
+  to: string;
+}
+
+/**
+ * Shared endpoint-resolve → self-skip → dedupe for BOM edge projections
+ * (SPDX + CycloneDX). `pairs` are `[resolvedFrom, resolvedTo]` — undefined
+ * endpoints and self-edges drop silently.
+ */
+export function dedupeEdges(
+  pairs: Iterable<[from: string | undefined, to: string | undefined]>,
+): SpdxEdge[] {
+  const edges: SpdxEdge[] = [];
+  const seen = new Set<string>();
+  for (const [from, to] of pairs) {
+    if (!from || !to || from === to) continue;
+    const key = `${from} ${to}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    edges.push({ from, to });
+  }
+  return edges;
 }
 
 /**
@@ -118,6 +153,10 @@ export function parseSpdxDocument(doc: SpdxDocument): BomParseResult {
   const directToSubject = new Set<string>();
   const depOfPackage = new Set<string>(); // mentioned in any dep relationship
   const parentOf = new Map<string, string>(); // child SPDXID → parent SPDXID
+  // ADR-133 — dependency edges in SPDXID space, declaring→target
+  // (`A *_DEPENDENCY_OF B` → B depends on A → [B, A]; `A DEPENDS_ON B`
+  // → [A, B]). Projected to purl identities below.
+  const rawEdges: Array<[string, string]> = [];
 
   for (const rel of relationships) {
     const type = rel.relationshipType ?? "";
@@ -134,6 +173,15 @@ export function parseSpdxDocument(doc: SpdxDocument): BomParseResult {
       continue;
     }
     if (!(type in SPDX_SCOPE_MAP)) continue;
+
+    // declaring→target (target is the dependency): `A DEPENDS_ON B` and
+    // `A {DYNAMIC,STATIC}_LINK B` run from→to; every `*_OF` form runs
+    // reversed (`A DEPENDENCY_OF B` → B depends on A).
+    rawEdges.push(
+      type === "DEPENDS_ON" || type === "DYNAMIC_LINK" || type === "STATIC_LINK"
+        ? [from, to]
+        : [to, from],
+    );
 
     // "from is TYPE_OF to" → `from` is a dependency of `to`.
     depOfPackage.add(from);
@@ -190,6 +238,7 @@ export function parseSpdxDocument(doc: SpdxDocument): BomParseResult {
 
   // Two passes: build every entry by SPDXID, then attach children.
   const entryById = new Map<string, DiscoveredBomEntry>();
+  const identityOf = new Map<string, string>(); // SPDXID → purl identity
   const topLevel: DiscoveredBomEntry[] = [];
   let skipped = 0;
 
@@ -202,6 +251,8 @@ export function parseSpdxDocument(doc: SpdxDocument): BomParseResult {
     }
     entryById.set(pkg.SPDXID!, entry);
     topLevel.push(entry);
+    const identity = normalizePurlIdentity(entry.purl);
+    if (identity) identityOf.set(pkg.SPDXID!, identity);
   }
 
   for (const [childId, parentId] of parentOf) {
@@ -213,5 +264,18 @@ export function parseSpdxDocument(doc: SpdxDocument): BomParseResult {
     if (idx >= 0) topLevel.splice(idx, 1);
   }
 
-  return { entries: topLevel, skipped };
+  // ADR-133 — project SPDXID-space edges onto purl identities; subject
+  // element ids become the SUBJECT sentinel for the caller to substitute.
+  const identityOfSpdx = (id: string): string | undefined =>
+    subjectIds.has(id) ? SPDX_EDGE_SUBJECT : identityOf.get(id);
+  const edges = dedupeEdges(
+    [...rawEdges].map(
+      ([declaringId, targetId]): [string | undefined, string | undefined] => [
+        identityOfSpdx(declaringId),
+        identityOfSpdx(targetId),
+      ],
+    ),
+  );
+
+  return { entries: topLevel, skipped, edges };
 }

@@ -30,6 +30,11 @@ import { sql, type Kysely, type Selectable } from "kysely";
 import type { DB, ImportRunRow } from "../db/types.js";
 import { writeEntityChange, type Actor } from "./audit-service.js";
 import { runSuggestionPass } from "./edge-suggestion-service.js";
+import {
+  collectDeclaredEdges,
+  runImporterEdgePass,
+  type DeclaredEdge,
+} from "./importer-edge-pass.js";
 import { runBomMatchPass } from "./bom-match-service.js";
 import { runAutoGroupPass } from "./source-group-service.js";
 import {
@@ -1246,6 +1251,18 @@ async function worker(runId: string): Promise<void> {
     const packages = { created: 0, updated: 0, unchanged: 0, removed: 0 };
     const bomScopes = new Map<string, BomScope>();
 
+    // ADR-133 (spec 076): declared edges are collected only when the
+    // manifest names a config-scope key and this config set it true —
+    // server-side opt-in. The externalId→componentId map scopes target
+    // resolution to this run's yield.
+    const edgesConfigKey = manifest.declaredEdgesConfigKey;
+    const declaredEdgesEnabled =
+      edgesConfigKey !== undefined &&
+      (config.scope as Record<string, unknown> | null)?.[edgesConfigKey] ===
+        true;
+    const declaredEdges: DeclaredEdge[] = [];
+    const externalIdToComponentId = new Map<string, string>();
+
     for await (const asset of importer.run(runScope, secrets, context)) {
       if (controller.signal.aborted) {
         throw Object.assign(new Error("AbortError"), { name: "AbortError" });
@@ -1277,6 +1294,12 @@ async function worker(runId: string): Promise<void> {
       );
 
       yieldedComponentIds.add(result.componentId);
+      externalIdToComponentId.set(asset.externalId, result.componentId);
+      if (declaredEdgesEnabled) {
+        declaredEdges.push(
+          ...collectDeclaredEdges(asset, result.componentId),
+        );
+      }
       assetsProcessed++;
       assetsCreated += result.created ? 1 : 0;
       assetsUpdated += result.created ? 0 : 1;
@@ -1390,6 +1413,25 @@ async function worker(runId: string): Promise<void> {
         { runId, ...bomMatchReport },
         "BOM matches staged after import run",
       );
+    }
+
+    // ADR-133: apply importer-declared edges — same-run resolution,
+    // suppression veto, source-scoped retire. Runs on every opted-in
+    // completed run: an empty declared set still retires. Failure-isolated.
+    if (declaredEdgesEnabled) {
+      const edgeReport = await runImporterEdgePass({
+        edges: declaredEdges,
+        externalIdToComponentId,
+        sourceId: reportedSourceId,
+        runId,
+        actor: runActor(importerName!),
+      });
+      if (edgeReport) {
+        appLogger.info(
+          { runId, ...edgeReport },
+          "importer-declared edges applied after import run",
+        );
+      }
     }
   } catch (err) {
     if (isAbortError(err)) {

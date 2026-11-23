@@ -285,3 +285,25 @@ read-only, lives and dies with source reports). Elevated to a curated
 catalog entity the graph can depend on → **Library component**, created
 only through *Add to catalog*. The same package exists as both: the entry
 is the fact, the component is the curation.
+
+**Edge provenance** (`CURATED` | `IMPORTER`):
+Recorded on each component-edge junction row — whether a human wired the
+edge or an opted-in import run declared it. Rendered in the UI as
+"Curated" / "Added by importer"; an `IMPORTER` edge carries the Source
+and import run that wrote it (ADR-133).
+_Avoid_: origin, source (Source already means ImporterSource), system edge
+
+**Importer-declared edge**:
+A `DEPENDS_ON`/`SOURCES_FROM`/`EXPOSES` component edge materialized by a
+completed run of a config opted in via `declaredEdgesConfigKey`. Declared
+through `DiscoveredAsset.relationships[]`, resolved same-run only,
+retired source-scoped when later runs stop declaring it.
+_Avoid_: suggested edge (that is `edge_suggestions`/`bom_component_suggestions`),
+auto edge
+
+**Edge suppression** (Hide edge):
+The durable, pair-keyed veto in `component_edge_suppressions` — an
+Editor-only action on importer-added edges that deletes the junction row
+and prevents future runs from recreating the pair. UI copy: "This edge
+won't be recreated by future imports."
+_Avoid_: delete edge, disable edge, ignore edge

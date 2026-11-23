@@ -64,3 +64,30 @@ optional `bomEntries?: DiscoveredBomEntry[]` field:
 the factual layer Principle V assigns to importers. No row ever creates
 or implies a `DEPENDS_ON`/`SOURCES_FROM` edge — catalog curation of
 package identity is a Phase-2 concern (`resolvedComponentId`, ADR-131).
+
+## Amendment 2 — `relationships[]` v2 contract (spec 076, ADR-133)
+
+**Context**: Phase 3 of the SBOM programme lands importer-declared
+component edges. The v1 removal (above) was a deferral, not a rejection —
+the reserved surface returns under explicit opt-in gating.
+
+**Decision**: `DiscoveredAsset` gains the optional
+`relationships?: DiscoveredAssetRelationship[]` field where
+`DiscoveredAssetRelationship = { type, targetExternalId }` and
+`type ∈ { DEPENDS_ON, SOURCES_FROM, EXPOSES }`:
+
+- Emitted only when the importer manifest declares
+  `declaredEdgesConfigKey` **and** that config key is `true` for the run —
+  off-by-default per config.
+- `targetExternalId` resolves only against assets yielded by the same
+  run; unresolvable targets, self-edges, and duplicates drop silently.
+- Product-edge kinds (`COMPOSES`, `CONSUMES_FROM`, `OWNS`, `BELONGS_TO`)
+  are never permitted here — Principle V stands.
+- Materialization, provenance (`IMPORTER` + Source/run), source-scoped
+  retirement, and suppression are defined by
+  [ADR-133](./ADR-133-importer-declared-component-edges.md), not the
+  importer itself — importers declare, the core owns the write path.
+
+**Rationale**: keeps the "importers declare, core materializes" boundary —
+an importer cannot conjure edges the run didn't declare, and the write
+semantics live in exactly one place (`runImporterEdgePass`).

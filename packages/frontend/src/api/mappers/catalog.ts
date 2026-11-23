@@ -192,6 +192,15 @@ export function mapRelatedComponent(ref: RelatedComponentRef): RelatedComponentN
     provider: narrow<Provider>(ref.provider, PROVIDERS, "OTHER"),
     resourceType: ref.resourceType,
     lifecycle: narrow<Lifecycle>(ref.lifecycle, LIFECYCLES, "ACTIVE"),
+    // Spec 076 / ADR-133 — edge provenance (six edge-lane rows only).
+    ...(ref.edgeProvenance !== undefined
+      ? {
+          edgeProvenance: ref.edgeProvenance,
+          edgeImporterSourceId: ref.edgeImporterSourceId ?? null,
+          edgeImporterConfigId: ref.edgeImporterConfigId ?? null,
+          edgeImportRunId: ref.edgeImportRunId ?? null,
+        }
+      : {}),
   };
 }
 

@@ -53,6 +53,8 @@ const PERMISSIONS: Record<string, Role> = {
   // Phase-2 BOM curation writes (spec 075): add-to-catalog, link, and
   // dependency-suggestion decisions.
   "component:edge:add": "EDITOR",
+  // Phase-3 (spec 076): hide an importer-added component edge.
+  "component:edge:remove": "EDITOR",
   "lob:create": "EDITOR",
   "lob:update": "EDITOR",
   "lob:delete": "EDITOR",

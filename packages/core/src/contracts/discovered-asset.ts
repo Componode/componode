@@ -4,13 +4,15 @@ import type {
   BomCdxType,
   ComponentCategory,
   ComponentProvider,
+  DiscoveredRelationshipType,
   Environment,
   InstanceStatus,
 } from "../constants/index.js";
 
 // ADR-057 Amendment 1 — package/software/firmware inventory. Factual
 // observational data (like `details`/`rawConfig`), NOT a graph-edge
-// declaration. The `relationships[]` prohibition is unchanged.
+// declaration (graph edges are declared via `relationships[]` under
+// ADR-133, behind per-config opt-in).
 export interface DiscoveredBomEntry {
   purl: string; // required: canonical Package URL
   name: string; // required: human-readable name
@@ -25,6 +27,17 @@ export interface DiscoveredBomEntry {
   cdxBomRef?: string | null; // CycloneDX bomRef
   children?: DiscoveredBomEntry[]; // CycloneDX components[] / SPDX CONTAINS
   details?: Record<string, unknown> | null; // CPE, checksums, etc.
+}
+
+// ADR-133 — importer-declared component edges (v2 contract, spec 076).
+// Opted-in importers may assert component-level edges within a run;
+// `targetExternalId` resolves only against assets yielded in the SAME
+// run (cross-run targets are silently dropped). Unlike `bomEntries`
+// this IS a graph-edge declaration — permitted only because ADR-133
+// lifted the v1 prohibition behind opt-in + provenance + suppression.
+export interface DiscoveredAssetRelationship {
+  type: DiscoveredRelationshipType;
+  targetExternalId: string;
 }
 
 export interface DiscoveredAssetInstance {
@@ -64,9 +77,12 @@ export interface DiscoveredAsset {
   // replaces the Source's prior set on completed runs; absence means "not
   // attempted or collection failed" and preserves it (ADR-131).
   bomEntries?: DiscoveredBomEntry[];
-  // NOTE: relationships[] is NOT part of the v1 contract (ADR-057, Constitution Principle V).
-  // Importer-declared product edges are a v2 feature. Component-to-component edges
-  // (DEPENDS_ON, SOURCES_FROM, EXPOSES) are reserved for v2 per ADR-019 and ADR-057.
+  // ADR-133 — component-level edge declarations (DEPENDS_ON, SOURCES_FROM,
+  // EXPOSES). Processed only when the run's config opts in via the
+  // manifest-declared key; targets resolve within this run's yielded
+  // assets only. Product edges (COMPOSES, CONSUMES_FROM) remain
+  // human-curated and are NOT declarable here (ADR-019/ADR-109).
+  relationships?: DiscoveredAssetRelationship[];
 }
 
 // Backward-compatible alias for consumers still referencing the old name

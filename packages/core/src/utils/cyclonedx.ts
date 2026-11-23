@@ -5,6 +5,8 @@ import type {
 } from "../index.js";
 import { BOM_CDX_TYPES, BOM_DEPENDENCY_SCOPES } from "../index.js";
 import type { BomParseResult } from "./spdx.js";
+import { SPDX_EDGE_SUBJECT, dedupeEdges } from "./spdx.js";
+import { normalizePurlIdentity } from "./purl.js";
 
 // CycloneDX 1.5/1.6 JSON → DiscoveredBomEntry[] (researches/sbom_research.md
 // mapping tables). Shared by importer-sbom-file and OCI-referrer CycloneDX
@@ -107,10 +109,11 @@ export function parseCycloneDxDocument(doc: CycloneDxDocument): BomParseResult {
   const hasDepGraph = deps.size > 0;
   const directRefs = new Set<string>();
   const childRefs = new Set<string>();
+  // The subject is metadata.component's bom-ref when present, else the
+  // single dependency entry nothing else depends on (document root).
+  // Hoisted: the edge projection below also maps it to SUBJECT.
+  let rootRef = subjectRef;
   if (hasDepGraph) {
-    // The subject is metadata.component's bom-ref when present, else the
-    // single dependency entry nothing else depends on (document root).
-    let rootRef = subjectRef;
     if (!rootRef) {
       const dependedOn = new Set<string>();
       for (const children of deps.values()) {
@@ -194,5 +197,32 @@ export function parseCycloneDxDocument(doc: CycloneDxDocument): BomParseResult {
   const entries = (doc.components ?? [])
     .map(toEntry)
     .filter((e): e is DiscoveredBomEntry => e !== null);
-  return { entries, skipped };
+
+  // ADR-133 — project dependencies[] (ref → dependsOn refs, declaring→
+  // target) onto version-free purl identities; the subject ref becomes the
+  // SUBJECT sentinel for the caller to substitute.
+  const identityOf = new Map<string, string>();
+  const collectIdentities = (components?: CdxComponent[]): void => {
+    for (const c of components ?? []) {
+      const ref = c["bom-ref"];
+      if (ref && c.purl) {
+        const identity = normalizePurlIdentity(c.purl);
+        if (identity) identityOf.set(ref, identity);
+      }
+      collectIdentities(c.components);
+    }
+  };
+  collectIdentities(doc.components);
+
+  const refEnd = (ref: string): string | undefined =>
+    ref === rootRef ? SPDX_EDGE_SUBJECT : identityOf.get(ref);
+  const pairs: [string | undefined, string | undefined][] = [];
+  for (const [ref, children] of deps) {
+    for (const child of children) {
+      pairs.push([refEnd(ref), refEnd(child)]);
+    }
+  }
+  const edges = dedupeEdges(pairs);
+
+  return { entries, skipped, edges };
 }

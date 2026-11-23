@@ -80,6 +80,7 @@ endpoint, the smallest authenticated request available.
 | `includeReleaseInventory` | bool | no | `true` | Import releases and tags inventory into component details |
 | `includeLanguageBreakdown` | bool | no | `false` | Import per-language byte breakdown (one extra API call per repo) |
 | `includeDependencyGraph` | bool | no | `false` | Import each repository's package inventory into its bill of materials. Uses GitHub's dependency graph, so private repositories need the 'Dependency graph' permission on the token. |
+| `importDeclaredEdges` | bool | no | `false` | Import declared dependencies as catalog edges. Imported dependencies are added to the catalog without review. You can hide any edge later. |
 | `environmentMapping` | record | no | — | Map GitHub environment and branch names to DEV/TEST/STAGING/DEMO/PRODUCTION/OTHER (unmapped names report OTHER) |
 <!-- /GENERATED:contract -->
 
@@ -123,6 +124,20 @@ endpoint, the smallest authenticated request available.
   `LOCK_FILE`); other ecosystems resolve through the graph only. A repo
   where neither source works reports a degraded
   `capabilities.bomInventory` marker — the run still succeeds.
+- **`importDeclaredEdges`** (default off) turns the same dependency-graph
+  data into catalog edges (spec 076, ADR-133). It requires
+  `includeDependencyGraph` (the form rejects the combination otherwise)
+  and only applies to graph-sourced inventory — the lockfile fallback
+  declares no edges. Opted-in completed runs emit each repository's
+  dependencies as `LIBRARY` components plus `DEPENDS_ON` edges stamped
+  **Added by importer** with the Source and run that wrote them; package
+  → package edges wire the SPDX graph between libraries. Declarations
+  resolve only against assets the same run yielded, so edges appear
+  without manual review — **this is the one place an importer writes
+  catalog edges**. A later run that stops declaring an edge retires it
+  (source-scoped); an Editor can **Hide edge** on any importer-added edge
+  so future runs never recreate it. Edges you wire yourself stay
+  "Curated" and are never touched by the pass.
 - Sections the token can't reach degrade to `capabilities.*` markers —
   per-repository under `details.capabilities` on each repo component and
   aggregated (worst-status-wins) on the organization component — the run

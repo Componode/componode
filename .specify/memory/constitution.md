@@ -90,17 +90,18 @@ products, composition, consumption, ownership, platform promotion) — what it
 `DiscoveredAsset.relationships[]` is not part of the v1 contract. Any spec
 that has importers declaring `COMPOSES`/`CONSUMES_FROM`/`OWNS` edges, or that
 removes human curation from the product hierarchy, violates this principle.
-Importer-declared candidate edges are a v2 feature (staged as candidates,
-human-confirmed).
+Importer-declared *component* edges (`DEPENDS_ON`/`SOURCES_FROM`/`EXPOSES`)
+are permitted under the v2 `relationships[]` contract — opt-in per importer
+config, same-run resolution, `IMPORTER` provenance, source-scoped
+retirement, and durable human suppression (ADR-133, spec 076).
+Importer-declared *product* edges remain forbidden.
 
 - **Forbids**: Importers yielding `COMPOSES`/`CONSUMES_FROM`/`OWNS`/
   `BELONGS_TO` edges, specs that auto-derive product hierarchy from importer
   data, removing the human authoring step from the hierarchy UI.
 - **Permits**: Importers yielding `DEPENDS_ON`/`SOURCES_FROM`/`EXPOSES`
-  component-to-component edges (reserved for v2 per ADR-019 and ADR-057, but the
-  principle doesn't forbid the *concept* — it forbids importer-declared
-  *product* edges in v1), humans authoring all product-level edges, the Platform
-  Product
+  component-to-component edges under the ADR-133 opt-in contract (v2, spec
+  076), humans authoring all product-level edges, the Platform Product
   workflow (ADR-017) as a human-guided action.
 
 > **Clarification (ADR-131, spec 073)**: package inventory (`bomEntries`)
