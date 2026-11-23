@@ -189,6 +189,24 @@ services:
       timeout: 5s
       retries: 12
 
+  mock-kubernetes:
+    build:
+      context: .
+      dockerfile: Dockerfile.mocks
+    command: ["node", "--import", "tsx", "mocks/kubernetes/server.ts"]
+    environment:
+      MOCK_PORT: "6443"
+      MOCK_CONTROL_PORT: "9444"
+    networks:
+      pwnet:
+        aliases:
+          - mock-kubernetes
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:9444/__control/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
   mock-url-importers:
     build:
       context: .
@@ -252,6 +270,8 @@ services:
       mock-alibaba:
         condition: service_healthy
       mock-docker-engine:
+        condition: service_healthy
+      mock-kubernetes:
         condition: service_healthy
       mock-url-importers:
         condition: service_healthy

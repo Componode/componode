@@ -140,6 +140,10 @@ describe("kubernetes includePodImageSbom", () => {
     expect(workload.bomEntries![0].evidenceDetail).toBe(
       `k8s:pod-spec:image:nginx@sha256:${DIGEST}`,
     );
+    // Spec 079 — without the opt-in, a bom-carrying workload emits no
+    // `relationships` field and no LIBRARY assets (opt-out parity, FR-006).
+    expect("relationships" in workload).toBe(false);
+    expect(assets.every((a) => a.category !== "LIBRARY")).toBe(true);
     expect(validateDiscoveredAsset(workload)).toBe(true);
     const caps = (workload.details as Record<string, unknown>).capabilities as Record<
       string,

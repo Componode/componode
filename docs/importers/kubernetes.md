@@ -28,7 +28,23 @@ description: "Scaffold importer for Kubernetes: what it will discover and how to
   attestation report no inventory; a pod the referrers lookup can't
   resolve degrades `capabilities.bomInventory` rather than failing the
   run. `sourceKey`-only configs can't use the toggle — there is no
-  cluster to query — and save validation rejects the combination.
+  cluster to query — so every workload's `capabilities.bomInventory`
+  reports `UNAVAILABLE` and no BOM entries attach.
+- Optionally (off by default, requires `includePodImageSbom`): the SBOM's
+  declared **dependency graph** as catalog edges with
+  `importDeclaredEdges`. Each workload component carrying a pod-image BOM
+  gains `DEPENDS_ON` edges to the document's packages, which import as
+  `LIBRARY` components; package-to-package dependencies land as
+  `LIBRARY`-to-`LIBRARY` edges. Dependencies the document points back at
+  the image itself never materialize — this importer emits no image
+  component, so the target stays unresolved. Imported dependencies are
+  added to the catalog without review — you can hide any edge later via
+  **Hide edge** on the Relationships tab, and a hidden edge is never
+  recreated. Edges retire automatically when a later run's SBOM no longer
+  declares them — retirement is source-scoped, so once any BOM-bearing
+  asset in a run declares its graph, every imported edge absent from that
+  run's full declaration set retires. A run where no asset declares a
+  graph retires nothing.
 
 ## Prerequisites in the cluster
 
@@ -59,6 +75,7 @@ None.
 | `endpoint` | URL | no | — | Recorded on the asset's details/url; reserved for the API server address |
 | `sourceKey` | string | no | — | Fallback source identity when `endpoint` is absent — one of the two is required (ADR-120) |
 | `includePodImageSbom` | bool | no | `false` | Read the SBOM of each container image running in pods and attach it to the workload's bill of materials. Requires `endpoint` plus anonymous pull access to the images' registries |
+| `importDeclaredEdges` | bool | no | `false` | Import declared dependencies as catalog edges. Imported dependencies are added to the catalog without review. You can hide any edge later. |
 <!-- /GENERATED:contract -->
 
 

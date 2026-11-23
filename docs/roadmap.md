@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–076, bugfix 066)
+## Shipped (features 001–079, bugfix 066)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -514,6 +514,14 @@ file tracks shipped and upcoming work — update it when a spec completes.
   `docker-image:{digest}` component — plus package→package edges on
   importer-native `LIBRARY` assets; `importDeclaredEdges` requires
   `includeSbom`; zero backend/frontend changes.
+- `079-kubernetes-declared-edges` — `importer-kubernetes` as the fourth
+  declared-edge carrier: pod-image SBOM dependency graphs (OCI
+  referrers, CycloneDX and SPDX) declare subject→package edges on each
+  SBOM-bearing workload component plus package→package edges on
+  importer-native `LIBRARY` assets; `importDeclaredEdges` requires
+  `includePodImageSbom`; package→subject edges resolve to
+  `docker-image:{digestRef}` and drop unresolved since the importer
+  emits no image component; zero backend/frontend changes.
 
 ## Next — post-v1.1
 
@@ -537,7 +545,8 @@ BOM catalog promotion — matching pass, Add-to-catalog/Link curation, the
 dependency suggestion segment, and library legibility (075), and Phase-3
 importer-native declared edges — opt-in `relationships[]`, IMPORTER
 provenance, suppression, and GitHub as first carrier (076), plus the
-SBOM-file (077) and Docker (078) declared-edge carriers.
+SBOM-file (077), Docker (078), and Kubernetes (079) declared-edge
+carriers.
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new

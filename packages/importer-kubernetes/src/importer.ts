@@ -1,4 +1,4 @@
-import { canonicalizeSourceIdentity, qualifyExternalId, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
+import { buildLibraryAsset, canonicalizeSourceIdentity, dependsOnRels, indexBomEntries, qualifyExternalId, SPDX_EDGE_SUBJECT, validateDiscoveredAsset, type DiscoveredAsset, type DiscoveredBomEntry, type Importer, type ImporterContext, type SpdxEdge } from "@componode/core";
 import { kubernetesConfigSchema } from "./config.js";
 import { collectPodImageBoms, type PodImageBom } from "./k8s-pods.js";
 
@@ -38,7 +38,7 @@ function buildAsset(resourceType: string, namespace: string, endpoint: string | 
 
 export class KubernetesImporter implements Importer {
   readonly name = "kubernetes";
-  readonly version = "1.0.0";
+  readonly version = "1.1.0";
 
   async *run(
     config: Record<string, unknown>,
@@ -104,6 +104,13 @@ export class KubernetesImporter implements Importer {
       }
     }
 
+    // Spec 079 / ADR-133 — declared-edge carrier 4. Run-level library
+    // maps fed during the workload loop and drained after it so each
+    // once-per-identity LIBRARY yield carries the run-wide edge union
+    // (docker T013 shape).
+    const libraryEntries = new Map<string, DiscoveredBomEntry>();
+    const libraryEdges = new Map<string, SpdxEdge>();
+
     context.reportPhase("Listing resources");
     for (const resourceType of parsed.resourceTypes) {
       if (context.signal.aborted) {
@@ -114,7 +121,29 @@ export class KubernetesImporter implements Importer {
       const asset = buildAsset(resourceType, parsed.namespace, parsed.endpoint, identity);
       const bom = podBoms?.get(resourceType);
       if (bom) {
-        if (bom.entries) asset.bomEntries = bom.entries;
+        if (bom.entries) {
+          asset.bomEntries = bom.entries;
+          if (parsed.importDeclaredEdges) {
+            // `relationships` present (possibly []) exactly when bomEntries
+            // is — field presence is the edge pass's authority signal.
+            // Source-position SUBJECT → this workload; target-side SUBJECT
+            // already resolved to docker-image:{digestRef} at collection.
+            asset.relationships = dependsOnRels(
+              (bom.edges ?? []).map((e) => ({
+                from: e.from === SPDX_EDGE_SUBJECT ? asset.externalId : e.from,
+                to: e.to,
+              })),
+              asset.externalId,
+            );
+            for (const [purlIdentity, entry] of indexBomEntries(bom.entries)) {
+              if (!libraryEntries.has(purlIdentity)) libraryEntries.set(purlIdentity, entry);
+            }
+            for (const e of bom.edges ?? []) {
+              const key = `${e.from} ${e.to}`;
+              if (!libraryEdges.has(key)) libraryEdges.set(key, e);
+            }
+          }
+        }
         (asset.details as Record<string, unknown>).capabilities = {
           bomInventory: bom.marker,
         };
@@ -123,6 +152,24 @@ export class KubernetesImporter implements Importer {
         throw new Error(`Invalid discovered asset for resource type ${resourceType}`);
       }
       yield asset;
+    }
+
+    // Libraries drain here — after every bom-bearing carrier — so each
+    // per-identity yield carries the run-wide edge union.
+    if (parsed.importDeclaredEdges) {
+      const allEdges = [...libraryEdges.values()];
+      for (const [purlIdentity, entry] of libraryEntries) {
+        if (context.signal.aborted) return;
+        const lib = buildLibraryAsset(
+          purlIdentity,
+          entry,
+          dependsOnRels(allEdges, purlIdentity),
+        );
+        if (!validateDiscoveredAsset(lib)) {
+          throw new Error(`Invalid library asset for ${identity}`);
+        }
+        yield lib;
+      }
     }
 
     context.reportPhase("Completed");
