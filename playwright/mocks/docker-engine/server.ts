@@ -2,9 +2,16 @@ import { startDataServer, startControlServer, makeScenarioStore, RequestLog, jso
 
 // Fake Docker Engine API over mTLS — only the read-only endpoints the
 // importer calls. Accepts both versioned (/v1.41/x) and unversioned paths.
-// Scenarios: baseline | swarm | old-api | empty | malformed | error.
+// Scenarios: baseline | swarm | old-api | empty | malformed | error |
+// sbom | sbom-reduced.
+// `sbom` adds OCI-registry behaviour: the nginx image gains a RepoDigest
+// pointing at the companion registry listener (MOCK_REGISTRY_PORT, plain
+// TLS — the referrers client presents no client cert) which serves a
+// CycloneDX attestation with a dependencies[] graph (spec 078).
+// `sbom-reduced` serves the same document minus the express → accepts
+// dependency, so a second run retires exactly that one edge (T015).
 
-const SCENARIOS = ['baseline', 'swarm', 'old-api', 'empty', 'malformed', 'error'] as const;
+const SCENARIOS = ['baseline', 'swarm', 'old-api', 'empty', 'malformed', 'error', 'sbom', 'sbom-reduced'] as const;
 type Scenario = (typeof SCENARIOS)[number];
 const store = makeScenarioStore([...SCENARIOS], 'baseline');
 const log = new RequestLog();
@@ -248,6 +255,62 @@ const DF_VOLUMES = [
   { ...VOLUMES[1], UsageData: { Size: -1, RefCount: -1 } },
 ];
 
+// --- spec 078 — OCI registry fixture (sbom scenario) ----------------------
+// The importer's referrers path resolves `https://{registry}/v2/...` from
+// the image's RepoDigests, so the digest below points at this mock's own
+// second listener (plain TLS — the fetch carries no client cert, unlike
+// the engine's mTLS endpoint). Registry = `mock-docker-engine:<port>`,
+// which `parseRepoDigest` classifies by the `:` in the first segment.
+const REGISTRY_PORT = env('MOCK_REGISTRY_PORT', '5000');
+const REGISTRY_REPO = 'pw-web';
+const SBOM_DIGEST = `sha256:${'a'.repeat(64)}`;
+const SBOM_MANIFEST_DIGEST = `sha256:${'b'.repeat(64)}`;
+const SBOM_BLOB_DIGEST = `sha256:${'c'.repeat(64)}`;
+const SBOM_IMAGE_REF = `mock-docker-engine:${REGISTRY_PORT}/${REGISTRY_REPO}@${SBOM_DIGEST}`;
+
+// subject root → pw-app, express, pw-hide-desktop, pw-hide-narrow;
+// express → accepts (library→library); pw-lib → root (package→subject,
+// resolves to docker-image:{digest} on the image carrier).
+const SBOM_CDX_DOC = {
+  bomFormat: 'CycloneDX',
+  specVersion: '1.5',
+  metadata: {
+    component: { type: 'container', name: 'pw-web', 'bom-ref': 'root' },
+    tools: [{ name: 'pw-mock', version: '1.0.0' }],
+  },
+  components: [
+    ['pw-app', '1.0.0'], ['express', '4.21.0'], ['accepts', '1.3.8'],
+    ['pw-hide-desktop', '1.0.0'], ['pw-hide-narrow', '1.0.0'], ['pw-lib', '2.0.0'],
+  ].map(([name, version]) => ({
+    type: 'library',
+    'bom-ref': `pkg:npm/${name}@${version}`,
+    purl: `pkg:npm/${name}@${version}`,
+    name,
+    version,
+  })),
+  dependencies: [
+    {
+      ref: 'root',
+      dependsOn: [
+        'pkg:npm/pw-app@1.0.0', 'pkg:npm/express@4.21.0',
+        'pkg:npm/pw-hide-desktop@1.0.0', 'pkg:npm/pw-hide-narrow@1.0.0',
+      ],
+    },
+    { ref: 'pkg:npm/express@4.21.0', dependsOn: ['pkg:npm/accepts@1.3.8'] },
+    { ref: 'pkg:npm/pw-lib@2.0.0', dependsOn: ['root'] },
+  ],
+};
+
+// `sbom-reduced` — identical inventory and subject edges; only the
+// express → accepts dependency is gone, so a re-run retires exactly
+// that pair while every other edge persists (T015 / SC-002).
+const SBOM_CDX_DOC_REDUCED = {
+  ...SBOM_CDX_DOC,
+  dependencies: SBOM_CDX_DOC.dependencies.filter(
+    (d) => d.ref !== 'pkg:npm/express@4.21.0',
+  ),
+};
+
 const server = startDataServer({
   port: Number(env('MOCK_PORT', '2376')),
   tls: {
@@ -295,13 +358,27 @@ const server = startDataServer({
         Name: c.Names[0],
       });
     }
-    if (p === '/images/json') return json(res, 200, s === 'empty' ? [] : IMAGES);
+    if (p === '/images/json') {
+      if (s === 'empty') return json(res, 200, []);
+      // sbom: the nginx image carries the registry RepoDigest so the
+      // emitted docker-image asset can resolve its SBOM (spec 078).
+      if (s === 'sbom' || s === 'sbom-reduced') return json(res, 200, [{ ...IMAGES[0]!, RepoDigests: [SBOM_IMAGE_REF] }, IMAGES[1]]);
+      return json(res, 200, IMAGES);
+    }
     const imgInspect = p.match(/^\/images\/([^/]+)\/json$/);
     if (imgInspect) {
       const id = decodeURIComponent(imgInspect[1]!);
-      const idx = IMAGES.findIndex((i) => i.Id === id || i.Id.startsWith(id));
+      // Match by Id prefix (engine convention) or RepoTag — the importer
+      // resolves workload SBOMs via getImage(<Config.Image>) by tag.
+      const idx = IMAGES.findIndex(
+        (i) => i.Id === id || i.Id.startsWith(id) || (i.RepoTags ?? []).includes(id),
+      );
       if (idx < 0) return json(res, 404, { message: 'No such image' });
-      return json(res, 200, { Id: IMAGES[idx]!.Id, ...(IMAGE_INSPECTS[idx] as object) });
+      return json(res, 200, {
+        Id: IMAGES[idx]!.Id,
+        ...(IMAGE_INSPECTS[idx] as object),
+        ...((s === 'sbom' || s === 'sbom-reduced') && idx === 0 ? { RepoDigests: [SBOM_IMAGE_REF] } : {}),
+      });
     }
     if (p === '/services') return json(res, 200, s === 'swarm' ? SERVICES : []);
     if (p === '/nodes') return json(res, 200, s === 'swarm' ? NODES : []);
@@ -321,6 +398,50 @@ const server = startDataServer({
   },
 });
 
+// Spec 078 — OCI registry companion on a second listener. Plain TLS on the
+// same engine cert (no client-cert requirement — the importer's referrers
+// fetch presents none). Serves the referrers index → attestation manifest →
+// CycloneDX blob chain for SBOM_IMAGE_REF's repo; only in `sbom` scenario.
+const registry = startDataServer({
+  port: Number(REGISTRY_PORT),
+  tls: {
+    certPath: env('MOCK_TLS_CERT', 'docker-engine.crt'),
+    keyPath: env('MOCK_TLS_KEY', 'docker-engine.key'),
+    requireClientCert: false,
+  },
+  handler: (req, _body, res) => {
+    const p = (req.url ?? '/').split('?')[0]!;
+    log.add({ method: req.method ?? 'GET', path: p, scenario: store.current });
+    const sc = store.current;
+    if (sc !== 'sbom' && sc !== 'sbom-reduced') return json(res, 404, { message: 'mock-registry: no routes outside sbom scenarios' });
+    const m = p.match(/^\/v2\/(.+)\/(referrers|manifests|blobs)\/([^/]+)$/);
+    if (!m) return json(res, 404, { message: `mock-registry: no route ${p}` });
+    const [, repo, kind, digest] = m;
+    if (repo !== REGISTRY_REPO) return json(res, 404, { message: 'no such repository' });
+    if (kind === 'referrers' && digest === SBOM_DIGEST) {
+      return json(res, 200, {
+        schemaVersion: 2,
+        manifests: [{
+          mediaType: 'application/vnd.oci.image.manifest.v1+json',
+          digest: SBOM_MANIFEST_DIGEST,
+          size: 200,
+          artifactType: 'application/vnd.cyclonedx+json',
+        }],
+      });
+    }
+    if (kind === 'manifests' && digest === SBOM_MANIFEST_DIGEST) {
+      return json(res, 200, {
+        schemaVersion: 2,
+        layers: [{ digest: SBOM_BLOB_DIGEST, size: 500 }],
+      });
+    }
+    if (kind === 'blobs' && digest === SBOM_BLOB_DIGEST) {
+      return json(res, 200, sc === 'sbom-reduced' ? SBOM_CDX_DOC_REDUCED : SBOM_CDX_DOC);
+    }
+    return json(res, 404, { message: 'mock-registry: not found' });
+  },
+});
+
 const control = startControlServer(Number(env('MOCK_CONTROL_PORT', '9444')), {
   getScenario: () => store.current,
   setScenario: (name) => {
@@ -332,5 +453,5 @@ const control = startControlServer(Number(env('MOCK_CONTROL_PORT', '9444')), {
   log,
 });
 
-console.log(`docker-engine mock mtls :${env('MOCK_PORT', '2376')} control :${env('MOCK_CONTROL_PORT', '9444')}`);
-void server; void control;
+console.log(`docker-engine mock mtls :${env('MOCK_PORT', '2376')} registry :${REGISTRY_PORT} control :${env('MOCK_CONTROL_PORT', '9444')}`);
+void server; void registry; void control;

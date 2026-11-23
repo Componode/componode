@@ -88,6 +88,21 @@ setups are covered in [deployment.md](../deployment.md) (Hub) and
   attestation simply reports no inventory — evidence records
   `IMAGE_LAYER`/`SBOM_DOCUMENT` with the resolved digest so a moved tag
   never rewrites history.
+- Optionally (off by default, requires `includeSbom`): the SBOM's
+  declared **dependency graph** as catalog edges with
+  `importDeclaredEdges`. Every asset carrying an image's BOM — the
+  workload components running it and, with `includeImages` on, the
+  `docker-image:*` component — gains `DEPENDS_ON` edges to the document's
+  packages, which import as `LIBRARY` components; package-to-package
+  dependencies land as `LIBRARY`-to-`LIBRARY` edges. Imported
+  dependencies are added to the catalog without review — you can hide any
+  edge later via **Hide edge** on the Relationships tab, and a hidden edge
+  is never recreated. Edges retire automatically when a later run's SBOM
+  no longer declares them — retirement is source-scoped, so once any
+  SBOM-bearing asset in a run declares its graph, every imported edge
+  absent from that run's full declaration set retires (including edges
+  previously imported for an image whose SBOM is now missing or
+  unreadable). A run where no asset declares a graph retires nothing.
 - Always on: infrastructure inventory — one **NETWORK** Component per
   Docker network and one **STORAGE** Component per Docker volume,
   metadata only (`instances: []`). See
@@ -270,6 +285,7 @@ never a full inventory.
 | `environmentMap` | record | no | — | Map of label value to environment; unmapped values fall back to OTHER |
 | `includeImages` | bool | no | `false` | Import cached images as PACKAGE_REGISTRY components |
 | `includeSbom` | bool | no | `false` | Read each image's SBOM attestations/referrers from its OCI registry (CycloneDX or SPDX) into the bill of materials. Images without an attestation report no inventory |
+| `importDeclaredEdges` | bool | no | `false` | Import declared dependencies as catalog edges. Imported dependencies are added to the catalog without review. You can hide any edge later. |
 | `componentIdLabel` | string | no | `componode.component-id` | Workload-identity override label |
 | `sourceKey` | string | no | — | Fallback source identity when the engine reports no /info.ID |
 | `autoGroup` | bool | no | — | Automatically maintain a ComponentGroup for this source's exclusively reported components (default true) |

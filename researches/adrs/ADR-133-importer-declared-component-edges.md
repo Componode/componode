@@ -80,7 +80,11 @@ per-importer rollout must be opt-in rather than a contract-wide change.
    (`importDeclaredEdges`, requires `includeDependencyGraph`). Second
    carrier: `importer-sbom-file` (spec 077 — `importDeclaredEdges`, no
    precondition; substitutes `SUBJECT` in both edge endpoint positions
-   with the configured component's externalId).
+   with the configured component's externalId). Third carrier:
+   `importer-docker` (spec 078 — `importDeclaredEdges`, requires
+   `includeSbom`; `SUBJECT` expands to *every* asset carrying the image's
+   BOM — workload components and the `docker-image:*` component — and a
+   package → `SUBJECT` edge targets `docker-image:{digestRef}`).
 8. **Reads carry provenance; suppression is RBAC'd.** The six
    component-edge lanes of `GET /components/{id}/relationships` return
    `edgeProvenance`/`edgeImporterSourceId`/`edgeImporterConfigId`/
