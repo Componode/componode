@@ -4,6 +4,10 @@ import {
   probeEndpoint,
   urlSafetyError,
   validateDiscoveredAsset,
+  SPDX_EDGE_SUBJECT,
+  buildLibraryAsset,
+  indexBomEntries,
+  dependsOnRels,
   type DiscoveredAsset,
   type DiscoveredBomEntry,
   type Importer,
@@ -74,7 +78,7 @@ function detectFormat(doc: Record<string, unknown>): Format | null {
 
 export class SbomFileImporter implements Importer {
   readonly name = "sbom-file";
-  readonly version = "1.0.0";
+  readonly version = "1.1.0";
 
   async *run(
     config: Record<string, unknown>,
@@ -160,6 +164,18 @@ export class SbomFileImporter implements Importer {
         ? parseCycloneDxDocument(doc as Parameters<typeof parseCycloneDxDocument>[0])
         : parseSpdxDocument(doc as Parameters<typeof parseSpdxDocument>[0]);
 
+    // ADR-133 / spec 077 — when declared edges are opted in, SUBJECT
+    // resolves to the configured component in both endpoint positions:
+    // subject-declared edges attach to this asset, library-declared edges
+    // attach to each LIBRARY asset yielded below.
+    const edges = parsed.importDeclaredEdges
+      ? result.edges.map((e) => ({
+          from: e.from === SPDX_EDGE_SUBJECT ? resolved.externalId : e.from,
+          to: e.to === SPDX_EDGE_SUBJECT ? resolved.externalId : e.to,
+        }))
+      : [];
+    const componentRelationships = dependsOnRels(edges, resolved.externalId);
+
     const asset: DiscoveredAsset = {
       ...base,
       // Present (including empty) — collection finished, replace the
@@ -177,9 +193,28 @@ export class SbomFileImporter implements Importer {
         },
         bomDocument: { format, packagesSkipped: result.skipped },
       },
+      // Under opt-in the subject ALWAYS carries the field — `[]` is the
+      // authoritative-empty marker that lets the edge pass retire; a
+      // degraded yield omits it entirely so the run stays non-authoritative
+      // (ADR-057-style presence semantics, spec 077 FR-007).
+      ...(parsed.importDeclaredEdges
+        ? { relationships: componentRelationships }
+        : {}),
     };
     validateDiscoveredAsset(asset);
-    context.reportPhase("Completed");
     yield asset;
+
+    // LIBRARY assets only under opt-in — they are the same-run resolution
+    // targets for declared edges (and merge with curated libraries on the
+    // standard dedup triple). A document with no dependency graph still
+    // yields them; their relationships just stay absent.
+    if (parsed.importDeclaredEdges) {
+      for (const [identity, entry] of indexBomEntries(result.entries)) {
+        const lib = buildLibraryAsset(identity, entry, dependsOnRels(edges, identity));
+        validateDiscoveredAsset(lib);
+        yield lib;
+      }
+    }
+    context.reportPhase("Completed");
   }
 }

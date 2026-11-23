@@ -2,9 +2,11 @@ import type { Octokit } from "octokit";
 import {
   canonicalizeSourceIdentity,
   qualifyExternalId,
-  mapEcosystemToProvider,
-  normalizePurlIdentity,
   SPDX_EDGE_SUBJECT,
+  generateComponentSlug,
+  buildLibraryAsset,
+  indexBomEntries,
+  dependsOnRels,
   type DiscoveredAsset,
   type DiscoveredAssetRelationship,
   type DiscoveredBomEntry,
@@ -62,13 +64,6 @@ interface GithubRepo extends RepoLike {
   open_issues_count?: number | null;
   parent?: { full_name?: string | null; html_url?: string | null } | null;
   source?: { full_name?: string | null; html_url?: string | null } | null;
-}
-
-function generateComponentSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 async function* listOrgRepos(
@@ -182,59 +177,18 @@ function buildDiscoveredAsset(
     // bomEntries is attached only when collection ran — presence semantics
     // (present incl. [] replaces; absent preserves) live in ADR-131.
     ...(bomEntries !== undefined ? { bomEntries } : {}),
-    ...(relationships !== undefined && relationships.length > 0
-      ? { relationships }
-      : {}),
+    // `relationships` presence (including []) marks the run
+    // edge-authoritative — absent when the collection carried no graph
+    // (repoRelationships stays undefined), so that run is
+    // non-authoritative and preserves prior edges (spec 077 FR-007).
+    ...(relationships !== undefined ? { relationships } : {}),
   };
 }
 
-// ADR-133 / spec 076 — a SPDX package surfaced as a first-class LIBRARY
-// component. `externalId` is the normalized version-free purl identity so
-// the (LIBRARY, provider, externalId) dedup triple merges with Phase-2
-// curated libraries; never GHES-qualified — purls are endpoint-global.
-function purlType(purl: string): string {
-  const body = purl.replace(/^pkg:/, "").split("@")[0]!;
-  return body.split("/")[0] || "generic";
-}
-
-function buildLibraryAsset(
-  identity: string,
-  entry: DiscoveredBomEntry,
-  relationships: DiscoveredAssetRelationship[],
-): DiscoveredAsset {
-  const type = purlType(entry.purl);
-  return {
-    category: "LIBRARY",
-    provider: mapEcosystemToProvider(type, entry.purl),
-    resourceType: type,
-    name: entry.name,
-    externalId: identity,
-    slug: `pkg-${generateComponentSlug(type)}-${generateComponentSlug(entry.name)}`,
-    instances: [],
-    details: {
-      purl: entry.purl,
-      ...(entry.version ? { version: entry.version } : {}),
-    },
-    ...(relationships.length > 0 ? { relationships } : {}),
-  };
-}
-
-/** Flatten the entry tree and index each package by its normalized
- *  version-free purl identity (dedup target of the edge endpoints). */
-function indexBomEntries(
-  entries: DiscoveredBomEntry[],
-): Map<string, DiscoveredBomEntry> {
-  const out = new Map<string, DiscoveredBomEntry>();
-  const walk = (list: DiscoveredBomEntry[]) => {
-    for (const e of list) {
-      const identity = normalizePurlIdentity(e.purl);
-      if (identity && !out.has(identity)) out.set(identity, e);
-      if (e.children) walk(e.children);
-    }
-  };
-  walk(entries);
-  return out;
-}
+// ADR-133 / spec 076 — LIBRARY-asset shaping (purlType, buildLibraryAsset,
+// indexBomEntries) lives in core/utils/bom-library.ts, shared with the
+// sbom-file carrier (spec 077); never GHES-qualified — purls are
+// endpoint-global.
 
 const GITHUB_API_BASE = "https://api.github.com";
 
@@ -547,8 +501,8 @@ export class GithubImporter implements Importer {
       // (subject = the repository) attach to the repo asset; library↔
       // library edges attach to each declaring LIBRARY asset below.
       const repoRelationships = bomEdges
-        ?.filter((e) => e.from === SPDX_EDGE_SUBJECT)
-        .map((e) => ({ type: "DEPENDS_ON" as const, targetExternalId: e.to }));
+        ? dependsOnRels(bomEdges, SPDX_EDGE_SUBJECT)
+        : undefined;
       yield qualifyGhes(buildDiscoveredAsset(repo, instances, details, bomEntries, repoRelationships));
 
       // LIBRARY assets only when the SPDX graph produced edges data —
@@ -556,10 +510,7 @@ export class GithubImporter implements Importer {
       if (parsed.importDeclaredEdges && bomEdges !== undefined && bomEntries) {
         const byIdentity = indexBomEntries(bomEntries);
         for (const [identity, entry] of byIdentity) {
-          const relationships = (bomEdges ?? [])
-            .filter((e) => e.from === identity)
-            .map((e) => ({ type: "DEPENDS_ON" as const, targetExternalId: e.to }));
-          yield buildLibraryAsset(identity, entry, relationships);
+          yield buildLibraryAsset(identity, entry, dependsOnRels(bomEdges, identity));
         }
       }
 

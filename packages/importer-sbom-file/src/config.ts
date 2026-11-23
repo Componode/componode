@@ -32,6 +32,12 @@ export const sbomFileConfigSchema = z.object({
     .string()
     .min(1)
     .describe("Slug of the catalog component this SBOM describes. The document is attached to that component — if it no longer exists at run time the import fails; it never creates a component."),
+  // Spec 077 / ADR-133 — opt-in declared-edge carrier 2. The document's own
+  // dependency graph is the edge source, so no precondition field (D4).
+  importDeclaredEdges: z
+    .boolean()
+    .default(false)
+    .describe("Import declared dependencies as catalog edges. Imported dependencies are added to the catalog without review. You can hide any edge later."),
   // Backend-populated at dispatch; absent in stored configs.
   resolvedComponent: resolvedComponentSchema.optional(),
 });

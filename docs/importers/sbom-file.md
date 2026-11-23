@@ -13,10 +13,11 @@ native importer.
 
 ## What it creates
 
-- **Nothing new** — the importer never creates components or instances.
-  The document's packages land as BOM entries on the component named by
-  `componentSlug` (or replace that component's previous entries from this
-  source).
+- By default **nothing new** — the importer never creates components or
+  instances. The document's packages land as BOM entries on the component
+  named by `componentSlug` (or replace that component's previous entries
+  from this source). With `importDeclaredEdges` enabled it additionally
+  creates `LIBRARY` components and dependency edges — see below.
 - Each package becomes a factual BOM entry — purl, name, version,
   ecosystem, scope/directness, licenses, and evidence `SBOM_DOCUMENT`.
   CycloneDX `components` nesting and SPDX `CONTAINS` relationships are
@@ -54,6 +55,7 @@ None — the document is fetched unauthenticated.
 |---|---|---|---|---|
 | `sbomUrl` | URL | yes | — | HTTPS URL of a CycloneDX JSON or SPDX JSON document to ingest |
 | `componentSlug` | string | yes | — | Slug of the catalog component this SBOM describes. The document is attached to that component — if it no longer exists at run time the import fails; it never creates a component. |
+| `importDeclaredEdges` | bool | no | `false` | Import declared dependencies as catalog edges. Imported dependencies are added to the catalog without review. You can hide any edge later. |
 | `resolvedComponent` | object | no | — | — |
 <!-- /GENERATED:contract -->
 
@@ -64,6 +66,28 @@ dispatch**, not at save time: saving a config validates the slug exists,
 and each run re-resolves it. If the component is deleted or renamed after
 the config was saved, the run fails with a targeting error — the importer
 never guesses an identity and never creates the component.
+
+### `importDeclaredEdges` — import the document's dependency graph as edges
+
+**Default off.** When enabled, a completed run turns the document's own
+dependency graph (CycloneDX `dependencies[]`, SPDX `DEPENDS_ON`/`*_OF`
+relationships) into catalog truth (spec 077, ADR-133):
+
+- The described component gains `DEPENDS_ON` edges to `LIBRARY`
+  components for each dependency the document relates to its subject —
+  including edges pointing *at* the subject.
+- Every purl-identified package is yielded as a `LIBRARY` component
+  (deduplicated on the normalized version-free purl, so they merge with
+  libraries you curated or other importers produced) and package →
+  package edges wire the document's graph between them.
+- Every edge is stamped **Added by importer** with the Source and run —
+  visible on the component's Relationships tab — and is written **without
+  manual review**. An Editor can **Hide edge** on any importer-added edge
+  so future runs never recreate it; edges you wire yourself stay
+  "Curated" and are never touched.
+- A later run whose document stops declaring an edge retires it
+  (source-scoped). A document with no dependency graph still creates the
+  `LIBRARY` components, just zero edges.
 
 ## Troubleshooting
 
@@ -84,8 +108,11 @@ the component's existing BOM entries from this source — the importer
 yields the component with a degraded `bomInventory` capability marker
 (`UNAVAILABLE`, `FORBIDDEN`, or `ERROR`) and no `bomEntries`, so the last
 successfully imported inventory persists and goes stale on the normal
-freshness clock. A successful run with an empty package list legitimately
-replaces the source's prior set with zero entries (ADR-057 Amendment 1).
+freshness clock. The same degraded yield carries no `relationships`
+field, so previously imported dependency edges from this source are
+likewise preserved rather than retired. A successful run with an empty
+package list legitimately replaces the source's prior set with zero
+entries (ADR-057 Amendment 1).
 
 ## Source identity
 
