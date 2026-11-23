@@ -9,6 +9,7 @@ const TARGETS: Record<string, string> = {
   'mock-github': 'http://mock-github:9444',
   'mock-alibaba': 'http://mock-alibaba:9444',
   'mock-docker-engine': 'http://mock-docker-engine:9444',
+  'mock-kubernetes': 'http://mock-kubernetes:9444',
   'mock-url-importers': 'http://mock-url-importers:9444',
   'mock-url-check-target': 'http://mock-url-check-target:9444',
 };

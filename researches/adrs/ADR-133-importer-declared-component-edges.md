@@ -84,7 +84,13 @@ per-importer rollout must be opt-in rather than a contract-wide change.
    `importer-docker` (spec 078 — `importDeclaredEdges`, requires
    `includeSbom`; `SUBJECT` expands to *every* asset carrying the image's
    BOM — workload components and the `docker-image:*` component — and a
-   package → `SUBJECT` edge targets `docker-image:{digestRef}`).
+   package → `SUBJECT` edge targets `docker-image:{digestRef}`). Fourth
+   carrier: `importer-kubernetes` (spec 079 — `importDeclaredEdges`,
+   requires `includePodImageSbom`; pod-image SBOM graphs attach
+   `SUBJECT` → package edges to the workload assets; the importer emits
+   no image component, so package → `SUBJECT` edges resolve to
+   `docker-image:{digestRef}` only to be dropped by same-run target
+   resolution).
 8. **Reads carry provenance; suppression is RBAC'd.** The six
    component-edge lanes of `GET /components/{id}/relationships` return
    `edgeProvenance`/`edgeImporterSourceId`/`edgeImporterConfigId`/

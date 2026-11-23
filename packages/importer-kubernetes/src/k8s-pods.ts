@@ -1,8 +1,10 @@
 import {
   fetchImageBom,
   parseRepoDigest,
+  SPDX_EDGE_SUBJECT,
   type BomCapabilityMarker,
   type DiscoveredBomEntry,
+  type SpdxEdge,
 } from "@componode/core";
 
 // Spec 073 / FR-016 — pod image SBOMs on workload assets. The placeholder
@@ -70,6 +72,13 @@ function pullableDigest(imageID: string | undefined): string | null {
 
 export interface PodImageBom {
   entries?: DiscoveredBomEntry[];
+  // Spec 079 / ADR-133 — union across the workload's resolved images of
+  // each document's dependency graph. `from === SPDX_EDGE_SUBJECT` stays
+  // the sentinel (the carrier substitutes its own externalId at emission);
+  // `to === SPDX_EDGE_SUBJECT` is already resolved to
+  // `docker-image:{digestRef}` — the only place the digest is in scope.
+  // Present ⇔ `entries` is present.
+  edges?: SpdxEdge[];
   marker: BomCapabilityMarker;
 }
 
@@ -180,6 +189,7 @@ export async function collectPodImageBoms(opts: {
 
   for (const [workloadKey, images] of imagesByWorkload) {
     const entries: DiscoveredBomEntry[] = [];
+    const edges = new Map<string, SpdxEdge>();
     let marker: BomCapabilityMarker = { status: "OK" };
     let resolved = 0;
     for (const [image, digestRef] of images) {
@@ -205,6 +215,17 @@ export async function collectPodImageBoms(opts: {
             evidenceDetail: `k8s:pod-spec:image:${image}`,
           });
         }
+        // Spec 079 — keep the document's graph: target-side SUBJECT
+        // resolves to this image's canonical identity now (digestRef dies
+        // with this loop); source-side SUBJECT stays for the carrier.
+        for (const edge of result.edges ?? []) {
+          const to =
+            edge.to === SPDX_EDGE_SUBJECT
+              ? `docker-image:${digestRef}`
+              : edge.to;
+          const key = `${edge.from} ${to}`;
+          if (!edges.has(key)) edges.set(key, { from: edge.from, to });
+        }
       } else {
         marker = worstMarker(marker, result.marker);
       }
@@ -215,7 +236,11 @@ export async function collectPodImageBoms(opts: {
     const finalMarker: BomCapabilityMarker =
       resolved > 0 ? { status: "OK" } : marker;
     if (entries.length) {
-      perWorkload.set(workloadKey, { entries, marker: finalMarker });
+      perWorkload.set(workloadKey, {
+        entries,
+        edges: [...edges.values()],
+        marker: finalMarker,
+      });
     } else {
       perWorkload.set(workloadKey, { marker: finalMarker });
     }
