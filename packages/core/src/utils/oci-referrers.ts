@@ -1,6 +1,10 @@
 import type { DiscoveredBomEntry } from "../contracts/discovered-asset.js";
 import { parseCycloneDxDocument } from "./cyclonedx.js";
-import { parseSpdxDocument } from "./spdx.js";
+import {
+  parseSpdxDocument,
+  type BomParseResult,
+  type SpdxEdge,
+} from "./spdx.js";
 
 // OCI Referrers SBOM resolution (spec 073 / ADR-131). Shared by
 // importer-docker (image attestations) and importer-kubernetes (pod image
@@ -15,6 +19,10 @@ export interface BomCapabilityMarker {
 
 export interface ImageBomResult {
   entries?: DiscoveredBomEntry[];
+  /** ADR-133 / spec 078 — the document's dependency graph, projected to
+   *  version-free purl identities with the SUBJECT sentinel intact for
+   *  the carrier to substitute. Present iff `entries` is present. */
+  edges?: SpdxEdge[];
   marker: BomCapabilityMarker;
 }
 
@@ -141,17 +149,16 @@ function detectSbomDoc(
   return null;
 }
 
-function parseDoc(doc: Record<string, unknown>): DiscoveredBomEntry[] {
+function parseDoc(doc: Record<string, unknown>): BomParseResult {
   if (doc.bomFormat === "CycloneDX") {
     return parseCycloneDxDocument(
       doc as Parameters<typeof parseCycloneDxDocument>[0],
-    ).entries;
+    );
   }
   if (doc.spdxVersion) {
-    return parseSpdxDocument(doc as Parameters<typeof parseSpdxDocument>[0])
-      .entries;
+    return parseSpdxDocument(doc as Parameters<typeof parseSpdxDocument>[0]);
   }
-  return [];
+  return { entries: [], skipped: 0, edges: [] };
 }
 
 /** Stamps evidence on a parsed entry tree — IMAGE_LAYER + caller's detail. */
@@ -173,7 +180,7 @@ export function stampImageLayerEvidence(
  */
 export async function fetchReferrersBom(
   ref: ParsedImageRef,
-): Promise<DiscoveredBomEntry[] | null> {
+): Promise<{ entries: DiscoveredBomEntry[]; edges: SpdxEdge[] } | null> {
   const client = makeRegistryClient(ref.registry);
   const base = `https://${ref.registry}/v2/${ref.repository}`;
   const index = (await client.getJson(
@@ -202,8 +209,12 @@ export async function fetchReferrersBom(
       )) as Record<string, unknown>;
       const doc = detectSbomDoc(blob);
       if (doc) {
-        const entries = parseDoc(doc);
-        if (entries.length) return entries;
+        const parsed = parseDoc(doc);
+        // Spec 078 — `edges` rides with `entries`: both are absent
+        // together so field presence keeps its authority meaning.
+        if (parsed.entries.length) {
+          return { entries: parsed.entries, edges: parsed.edges };
+        }
       }
     }
   }
@@ -229,10 +240,10 @@ export async function fetchImageBom(
   }
   const evidenceDetail = `referrers:${ref.repository}@${ref.digest}`;
   try {
-    const entries = await fetchReferrersBom(ref);
-    if (entries) {
-      stampImageLayerEvidence(entries, evidenceDetail);
-      return { entries, marker: { status: "OK" } };
+    const bom = await fetchReferrersBom(ref);
+    if (bom) {
+      stampImageLayerEvidence(bom.entries, evidenceDetail);
+      return { entries: bom.entries, edges: bom.edges, marker: { status: "OK" } };
     }
     return {
       marker: {

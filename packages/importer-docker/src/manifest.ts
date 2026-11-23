@@ -9,9 +9,11 @@ export const manifest = {
   label: "Docker",
   description:
     "Import Docker Engine workloads from the Hub or an Import Agent.",
-  version: "1.0.0",
+  version: "1.1.0",
   implPath: "@componode/importer-docker/importer",
   reportsSourceIdentity: true,
+  // ADR-133: scope key opting a config into declared-edge import (spec 078).
+  declaredEdgesConfigKey: "importDeclaredEdges",
   targetRefKey: "targetId",
   autoGroups: "source",
   autoAppGroups: true,

@@ -51,7 +51,9 @@ test.describe('importer run journeys', () => {
     const api = await apiLogin(request, BASE, 'EDITOR');
     const configs = await api('GET', '/api/v1/importer-configs');
     const list = configs.body.items ?? configs.body.configs ?? configs.body.data ?? configs.body;
-    const cfg = list.find((c: any) => (c.importerName ?? c.importer) === 'docker');
+    const cfg = list.find(
+    (c: any) => (c.importerName ?? c.importer) === 'docker' && c.scope?.targetId === 'pw-engine',
+  );
     const { status } = await triggerAndWait(api, cfg.id);
     expect(status).toBe('COMPLETED');
   });

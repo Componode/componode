@@ -7,6 +7,7 @@ import {
   stampImageLayerEvidence,
   type DiscoveredBomEntry,
   type ImageBomResult,
+  type SpdxEdge,
 } from "@componode/core";
 
 const execFileAsync = promisify(execFile);
@@ -23,7 +24,7 @@ export type { BomCapabilityMarker, ImageBomResult } from "@componode/core";
 
 async function fetchSyftBom(
   repoDigest: string,
-): Promise<DiscoveredBomEntry[] | null> {
+): Promise<{ entries: DiscoveredBomEntry[]; edges: SpdxEdge[] } | null> {
   const ref = parseRepoDigest(repoDigest);
   if (!ref) return null;
   const { stdout } = await execFileAsync(
@@ -33,12 +34,14 @@ async function fetchSyftBom(
   );
   const doc = JSON.parse(stdout) as Record<string, unknown>;
   if (doc.bomFormat !== "CycloneDX") return null;
+  // Spec 078 — keep the full parse result: `.edges` rides with `entries`
+  // so the declared-edge carrier can consume the graph syft emits.
   const parsed = parseCycloneDxDocument(
     doc as Parameters<typeof parseCycloneDxDocument>[0],
-  ).entries;
-  if (!parsed.length) return null;
-  stampImageLayerEvidence(parsed, `syft:${repoDigest}`);
-  return parsed;
+  );
+  if (!parsed.entries.length) return null;
+  stampImageLayerEvidence(parsed.entries, `syft:${repoDigest}`);
+  return { entries: parsed.entries, edges: parsed.edges };
 }
 
 /**
@@ -48,14 +51,18 @@ async function fetchSyftBom(
  */
 export async function fetchImageBom(
   repoDigest: string,
-  opts: { imageRef?: string; syft?: boolean } = {},
 ): Promise<ImageBomResult> {
   const result = await fetchReferrersImageBom(repoDigest);
   if (result.entries) return result;
-  if (opts.syft === false) return result;
   try {
     const fallback = await fetchSyftBom(repoDigest);
-    if (fallback) return { entries: fallback, marker: { status: "OK" } };
+    if (fallback) {
+      return {
+        entries: fallback.entries,
+        edges: fallback.edges,
+        marker: { status: "OK" },
+      };
+    }
   } catch {
     // Syft missing or failed — the referrers marker already names the cause.
   }

@@ -3,7 +3,9 @@ import { z } from "zod";
 
 export const DEFAULT_COMPONENT_ID_LABEL = "componode.component-id";
 
-export const dockerConfigSchema = z
+// Unrefined base — `testSecrets` parses `.partial()` configs, which Zod
+// refuses on object schemas carrying refinements (github precedent).
+export const dockerConfigBase = z
   .object({
     // Names an allowlisted profile in the agent's docker-targets.json
     // (manifest.targetRefKey = "targetId", ADR-116 A5/A6).
@@ -32,6 +34,13 @@ export const dockerConfigSchema = z
       .boolean()
       .default(false)
       .describe("Read each image's SBOM attestations/referrers from its OCI registry (CycloneDX or SPDX) into the bill of materials. Images without an attestation report no inventory"),
+    // Spec 078 / ADR-133 — opt-in declared-edge carrier 3. The SBOM fetch
+    // is the only edge source, so the switch requires includeSbom
+    // (dependent-toggle, carrier-1 shape — no new precondition field).
+    importDeclaredEdges: z
+      .boolean()
+      .default(false)
+      .describe("Import declared dependencies as catalog edges. Imported dependencies are added to the catalog without review. You can hide any edge later."),
     // Workload-identity override label (default componode.component-id).
     componentIdLabel: z
       .string()
@@ -57,5 +66,13 @@ export const dockerConfigSchema = z
       ),
   })
   .strict();
+
+export const dockerConfigSchema = dockerConfigBase.refine(
+  (c) => !c.importDeclaredEdges || c.includeSbom,
+  {
+    message: "Declared-edge import requires the SBOM inventory",
+    path: ["importDeclaredEdges"],
+  },
+);
 
 export type DockerConfig = z.infer<typeof dockerConfigSchema>;

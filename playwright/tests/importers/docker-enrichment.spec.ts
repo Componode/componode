@@ -28,7 +28,9 @@ async function triggerAndWait(api: any, configId: string): Promise<string> {
 async function dockerConfigId(api: any): Promise<string> {
   const configs = await api('GET', '/api/v1/importer-configs');
   const list = configs.body.items ?? configs.body.configs ?? configs.body.data ?? configs.body;
-  const cfg = list.find((c: any) => (c.importerName ?? c.importer) === 'docker');
+  const cfg = list.find(
+    (c: any) => (c.importerName ?? c.importer) === 'docker' && c.scope?.targetId === 'pw-engine',
+  );
   if (!cfg) throw new Error('no docker importer config seeded');
   return cfg.id;
 }

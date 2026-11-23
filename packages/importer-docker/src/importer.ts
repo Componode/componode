@@ -1,15 +1,22 @@
 import Docker from "dockerode";
 import {
+  buildLibraryAsset,
   canonicalizeSourceIdentity,
+  dependsOnRels,
+  indexBomEntries,
+  SPDX_EDGE_SUBJECT,
   validateDiscoveredAsset,
   type CredentialTestResult,
   type DiscoveredAsset,
   type DiscoveredAssetInstance,
+  type ImageBomResult,
+  type DiscoveredBomEntry,
   type Importer,
   type ImporterContext,
+  type SpdxEdge,
 } from "@componode/core";
 import { maskSecretValues } from "@componode/core/secrets";
-import { dockerConfigSchema } from "./config.js";
+import { dockerConfigBase, dockerConfigSchema } from "./config.js";
 import { validateTargetProfile } from "./target-profile.js";
 import { buildDockerOptions } from "./transport.js";
 import {
@@ -61,7 +68,7 @@ async function mapWithConcurrency<T, R>(
 
 export class DockerImporter implements Importer {
   readonly name = "docker";
-  readonly version = "1.0.0";
+  readonly version = "1.1.0";
 
   async *run(
     config: Record<string, unknown>,
@@ -219,35 +226,90 @@ export class DockerImporter implements Importer {
       }
       if (!digestRef) {
         return {
-          marker: {
-            status: "UNAVAILABLE" as const,
-            message: "image has no registry digest — built locally or not pulled from a registry",
-          },
+          bom: {
+            marker: {
+              status: "UNAVAILABLE" as const,
+              message: "image has no registry digest — built locally or not pulled from a registry",
+            },
+          } satisfies ImageBomResult,
+          digestRef: null,
         };
       }
       const cached = bomByDigest.get(digestRef);
-      if (cached) return cached;
-      const result = await fetchImageBom(digestRef, { imageRef });
+      if (cached) return { bom: cached, digestRef };
+      const result = await fetchImageBom(digestRef);
       bomByDigest.set(digestRef, result);
-      return result;
+      return { bom: result, digestRef };
+    };
+
+    // Spec 078 / ADR-133 — declared-edge carrier 3. A document's SUBJECT
+    // in target position resolves to the canonical `docker-image:{digest}`
+    // identity — it materializes only when the image asset is in the same
+    // run. In source position each SBOM-bearing carrier (workloads + the
+    // docker-image component) substitutes its own externalId.
+    const resolveSubjectTargets = (bom: ImageBomResult, digestRef: string) =>
+      (bom.edges ?? []).map((e) => ({
+        from: e.from,
+        to: e.to === SPDX_EDGE_SUBJECT ? `docker-image:${digestRef}` : e.to,
+      }));
+    const declaredEdgesFor = (
+      bom: ImageBomResult,
+      carrierExternalId: string,
+      digestRef: string,
+    ) =>
+      dependsOnRels(
+        resolveSubjectTargets(bom, digestRef).map((e) => ({
+          from: e.from === SPDX_EDGE_SUBJECT ? carrierExternalId : e.from,
+          to: e.to,
+        })),
+        carrierExternalId,
+      );
+    // One LIBRARY asset per purl identity per run, drained after every
+    // bom-bearing carrier has emitted so the single yield carries the
+    // run-wide union of package→package edges — an edge declared in any
+    // image's SBOM lands on the shared package's asset (code-review T013).
+    const libraryEntries = new Map<string, DiscoveredBomEntry>();
+    const libraryEdges = new Map<string, SpdxEdge>();
+    const collectLibraryBom = (bom: ImageBomResult, digestRef: string) => {
+      if (!parsed.importDeclaredEdges || !bom.entries) return;
+      for (const [identity, entry] of indexBomEntries(bom.entries)) {
+        if (!libraryEntries.has(identity)) libraryEntries.set(identity, entry);
+      }
+      for (const e of resolveSubjectTargets(bom, digestRef)) {
+        if (!libraryEdges.has(`${e.from} ${e.to}`)) {
+          libraryEdges.set(`${e.from} ${e.to}`, e);
+        }
+      }
     };
 
     context.reportPhase("Emitting assets");
     for (const group of groups.values()) {
       if (context.signal.aborted) return;
       const asset = buildAsset(group.identity, group.instances, group.imageRef);
+      let groupBom: ImageBomResult | undefined;
+      let groupDigest: string | null = null;
       if (parsed.includeSbom && group.imageRef) {
-        const bom = await bomForRef(group.imageRef);
-        if (bom.entries) asset.bomEntries = bom.entries;
+        ({ bom: groupBom, digestRef: groupDigest } = await bomForRef(
+          group.imageRef,
+        ));
+        if (groupBom.entries) {
+          asset.bomEntries = groupBom.entries;
+          // `relationships` present (possibly []) exactly when bomEntries
+          // is — field-presence is the edge pass's authority signal.
+          if (parsed.importDeclaredEdges && groupDigest) {
+            asset.relationships = declaredEdgesFor(groupBom, asset.externalId, groupDigest);
+          }
+        }
         (asset.details as Record<string, unknown>).capabilities = {
           ...((asset.details as Record<string, unknown>).capabilities as object ?? {}),
-          bomInventory: bom.marker,
+          bomInventory: groupBom.marker,
         };
       }
       if (!validateDiscoveredAsset(asset)) {
         throw new Error(`Invalid discovered asset for workload ${group.identity.externalId}`);
       }
       yield asset;
+      if (groupBom && groupDigest) collectLibraryBom(groupBom, groupDigest);
     }
 
     if (parsed.includeImages) {
@@ -319,14 +381,23 @@ export class DockerImporter implements Importer {
         };
         // Digest-form refs (repo@sha256:…) resolve SBOM attestations
         // directly — tag-form refs resolve through the workload path.
+        let imageBom: ImageBomResult | undefined;
+        let imageDigest: string | null = null;
         if (parsed.includeSbom) {
           const refPart = externalId.slice("docker-image:".length);
           if (parseRepoDigest(refPart)) {
             const bom =
               bomByDigest.get(refPart) ??
-              (await fetchImageBom(refPart, { imageRef: name }));
+              (await fetchImageBom(refPart));
             bomByDigest.set(refPart, bom);
-            if (bom.entries) asset.bomEntries = bom.entries;
+            imageBom = bom;
+            imageDigest = refPart;
+            if (bom.entries) {
+              asset.bomEntries = bom.entries;
+              if (parsed.importDeclaredEdges) {
+                asset.relationships = declaredEdgesFor(bom, externalId, refPart);
+              }
+            }
             (asset.details as Record<string, unknown>).capabilities = {
               ...((asset.details as Record<string, unknown>).capabilities as object ?? {}),
               bomInventory: bom.marker,
@@ -337,7 +408,23 @@ export class DockerImporter implements Importer {
           throw new Error(`Invalid discovered asset for image ${externalId}`);
         }
         yield asset;
+        if (imageBom && imageDigest) collectLibraryBom(imageBom, imageDigest);
       }
+    }
+
+    // Libraries drain here — after every SBOM-bearing carrier — so each
+    // per-identity yield carries the run-wide edge union (T013).
+    for (const [identity, entry] of libraryEntries) {
+      if (context.signal.aborted) return;
+      const lib = buildLibraryAsset(
+        identity,
+        entry,
+        dependsOnRels([...libraryEdges.values()], identity),
+      );
+      if (!validateDiscoveredAsset(lib)) {
+        throw new Error(`Invalid discovered asset for library ${identity}`);
+      }
+      yield lib;
     }
 
     // Infrastructure inventory (spec 065): NETWORK components from
@@ -407,7 +494,7 @@ export class DockerImporter implements Importer {
     const sanitize = (text: string) =>
       maskSecretValues(text, secrets).slice(0, 200);
     try {
-      dockerConfigSchema.partial().parse(config ?? {});
+      dockerConfigBase.partial().parse(config ?? {});
       if (!resolvedTarget) {
         return { ok: false, error: "no resolved target profile" };
       }
