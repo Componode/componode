@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { ENVIRONMENTS, urlSafetyError } from "@componode/core";
 
-export const githubConfigSchema = z.object({
+// Unrefined base — `testSecrets` parses `.partial()` configs, which Zod
+// refuses on object schemas carrying refinements.
+const githubConfigBase = z.object({
   org: z.string().min(1, "Organization is required").describe("Organization login to import"),
   baseUrl: z
     .string()
@@ -59,11 +61,25 @@ export const githubConfigSchema = z.object({
     .boolean()
     .default(false)
     .describe("Import each repository's package inventory into its bill of materials. Uses GitHub's dependency graph, so private repositories need the 'Dependency graph' permission on the token."),
+  importDeclaredEdges: z
+    .boolean()
+    .default(false)
+    .describe("Import declared dependencies as catalog edges. Imported dependencies are added to the catalog without review. You can hide any edge later."),
 
   environmentMapping: z
     .record(z.string(), z.enum(ENVIRONMENTS))
     .optional()
     .describe("Map GitHub environment and branch names to DEV/TEST/STAGING/DEMO/PRODUCTION/OTHER (unmapped names report OTHER)"),
 });
+
+export const githubConfigSchema = githubConfigBase.refine(
+  (c) => !c.importDeclaredEdges || c.includeDependencyGraph,
+  {
+    message: "Declared-edge import requires the dependency-graph package inventory",
+    path: ["importDeclaredEdges"],
+  },
+);
+
+export { githubConfigBase };
 
 export type GithubConfig = z.infer<typeof githubConfigSchema>;

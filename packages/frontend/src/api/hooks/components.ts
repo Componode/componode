@@ -256,3 +256,24 @@ export function usePromoteComponent() {
     },
   });
 }
+
+/** Spec 076 / UX-EDGE-02 — Hide an importer-added edge: records a durable
+ *  pair suppression and removes the junction row in one transaction. */
+export function useSuppressComponentEdge() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      edgeKind: "DEPENDS_ON" | "SOURCES_FROM" | "EXPOSES";
+      fromComponentId: string;
+      toComponentId: string;
+    }) =>
+      api<{ suppressed: true; edgeRemoved: boolean }>(
+        "/component-edge-suppressions",
+        { method: "POST", body: JSON.stringify(vars) },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["component-relationships"] });
+      qc.invalidateQueries({ queryKey: ["components"] });
+    },
+  });
+}

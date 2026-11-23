@@ -1,6 +1,18 @@
 import type { Octokit } from "octokit";
-import { canonicalizeSourceIdentity, qualifyExternalId, type DiscoveredAsset, type DiscoveredBomEntry, type Importer, type ImporterContext } from "@componode/core";
-import { githubConfigSchema, type GithubConfig } from "./config.js";
+import {
+  canonicalizeSourceIdentity,
+  qualifyExternalId,
+  mapEcosystemToProvider,
+  normalizePurlIdentity,
+  SPDX_EDGE_SUBJECT,
+  type DiscoveredAsset,
+  type DiscoveredAssetRelationship,
+  type DiscoveredBomEntry,
+  type Importer,
+  type ImporterContext,
+  type SpdxEdge,
+} from "@componode/core";
+import { githubConfigBase, githubConfigSchema, type GithubConfig } from "./config.js";
 import { buildOctokit } from "./client.js";
 import { fetchOrganizationAsset } from "./github-org.js";
 import { fetchBillingSnapshot, type RepoBilling } from "./github-billing.js";
@@ -156,6 +168,7 @@ function buildDiscoveredAsset(
   instances: DiscoveredAsset["instances"],
   details: Record<string, unknown>,
   bomEntries?: DiscoveredBomEntry[],
+  relationships?: DiscoveredAssetRelationship[],
 ): DiscoveredAsset {
   return {
     category: "REPOSITORY",
@@ -169,7 +182,58 @@ function buildDiscoveredAsset(
     // bomEntries is attached only when collection ran — presence semantics
     // (present incl. [] replaces; absent preserves) live in ADR-131.
     ...(bomEntries !== undefined ? { bomEntries } : {}),
+    ...(relationships !== undefined && relationships.length > 0
+      ? { relationships }
+      : {}),
   };
+}
+
+// ADR-133 / spec 076 — a SPDX package surfaced as a first-class LIBRARY
+// component. `externalId` is the normalized version-free purl identity so
+// the (LIBRARY, provider, externalId) dedup triple merges with Phase-2
+// curated libraries; never GHES-qualified — purls are endpoint-global.
+function purlType(purl: string): string {
+  const body = purl.replace(/^pkg:/, "").split("@")[0]!;
+  return body.split("/")[0] || "generic";
+}
+
+function buildLibraryAsset(
+  identity: string,
+  entry: DiscoveredBomEntry,
+  relationships: DiscoveredAssetRelationship[],
+): DiscoveredAsset {
+  const type = purlType(entry.purl);
+  return {
+    category: "LIBRARY",
+    provider: mapEcosystemToProvider(type, entry.purl),
+    resourceType: type,
+    name: entry.name,
+    externalId: identity,
+    slug: `pkg-${generateComponentSlug(type)}-${generateComponentSlug(entry.name)}`,
+    instances: [],
+    details: {
+      purl: entry.purl,
+      ...(entry.version ? { version: entry.version } : {}),
+    },
+    ...(relationships.length > 0 ? { relationships } : {}),
+  };
+}
+
+/** Flatten the entry tree and index each package by its normalized
+ *  version-free purl identity (dedup target of the edge endpoints). */
+function indexBomEntries(
+  entries: DiscoveredBomEntry[],
+): Map<string, DiscoveredBomEntry> {
+  const out = new Map<string, DiscoveredBomEntry>();
+  const walk = (list: DiscoveredBomEntry[]) => {
+    for (const e of list) {
+      const identity = normalizePurlIdentity(e.purl);
+      if (identity && !out.has(identity)) out.set(identity, e);
+      if (e.children) walk(e.children);
+    }
+  };
+  walk(entries);
+  return out;
 }
 
 const GITHUB_API_BASE = "https://api.github.com";
@@ -422,6 +486,7 @@ export class GithubImporter implements Importer {
       }
 
       let bomEntries: DiscoveredBomEntry[] | undefined;
+      let bomEdges: SpdxEdge[] | undefined;
       if (parsed.includeDependencyGraph) {
         const bom = await fetchRepoBom(
           octokit,
@@ -432,6 +497,8 @@ export class GithubImporter implements Importer {
         );
         repoCaps.bomInventory = bom.marker;
         if (bom.entries) bomEntries = bom.entries;
+        // Lockfile fallback carries no graph — edges only on the dep-graph path.
+        if (parsed.importDeclaredEdges) bomEdges = bom.edges;
       }
 
       let languages: Record<string, number> | undefined;
@@ -476,7 +543,25 @@ export class GithubImporter implements Importer {
         languages,
         capabilities: repoCaps,
       });
-      yield qualifyGhes(buildDiscoveredAsset(repo, instances, details, bomEntries));
+      // ADR-133 — when declared edges are opted in, SUBJECT-endpoint edges
+      // (subject = the repository) attach to the repo asset; library↔
+      // library edges attach to each declaring LIBRARY asset below.
+      const repoRelationships = bomEdges
+        ?.filter((e) => e.from === SPDX_EDGE_SUBJECT)
+        .map((e) => ({ type: "DEPENDS_ON" as const, targetExternalId: e.to }));
+      yield qualifyGhes(buildDiscoveredAsset(repo, instances, details, bomEntries, repoRelationships));
+
+      // LIBRARY assets only when the SPDX graph produced edges data —
+      // the lockfile-fallback path carries no graph.
+      if (parsed.importDeclaredEdges && bomEdges !== undefined && bomEntries) {
+        const byIdentity = indexBomEntries(bomEntries);
+        for (const [identity, entry] of byIdentity) {
+          const relationships = (bomEdges ?? [])
+            .filter((e) => e.from === identity)
+            .map((e) => ({ type: "DEPENDS_ON" as const, targetExternalId: e.to }));
+          yield buildLibraryAsset(identity, entry, relationships);
+        }
+      }
 
       if (parsed.includeWorkflows) {
         for await (const asset of fetchWorkflowAssets(octokit, repo, context.signal)) {
@@ -518,7 +603,7 @@ export class GithubImporter implements Importer {
     secrets: Record<string, string>,
     config?: Record<string, unknown>,
   ) {
-    const parsed = githubConfigSchema.partial().parse(config ?? {});
+    const parsed = githubConfigBase.partial().parse(config ?? {});
     const octokit = buildOctokit(parsed as GithubConfig, secrets);
     try {
       await octokit.rest.rateLimit.get();

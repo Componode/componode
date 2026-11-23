@@ -2,6 +2,7 @@ import type { Octokit } from "octokit";
 import {
   parseSpdxDocument,
   type DiscoveredBomEntry,
+  type SpdxEdge,
 } from "@componode/core";
 import type { CapabilityMarker } from "./capabilities.js";
 
@@ -18,6 +19,10 @@ import type { CapabilityMarker } from "./capabilities.js";
 
 interface BomFetchResult {
   entries?: DiscoveredBomEntry[];
+  /** ADR-133 — dependency edges from the dependency-graph SPDX document
+   *  (version-free purl identities, `SUBJECT` for the repository).
+   *  Absent on the lockfile-fallback path — manifests carry no graph. */
+  edges?: SpdxEdge[];
   marker: CapabilityMarker;
 }
 
@@ -38,17 +43,17 @@ async function fetchDepGraphSbom(
   owner: string,
   repo: string,
   signal: AbortSignal,
-): Promise<DiscoveredBomEntry[]> {
+): Promise<{ entries: DiscoveredBomEntry[]; edges: SpdxEdge[] }> {
   const response = await octokit.request(
     "GET /repos/{owner}/{repo}/dependency-graph/sbom",
     { owner, repo, request: { signal } },
   );
   const doc = (response.data as { sbom?: unknown }).sbom ?? response.data;
-  const { entries } = parseSpdxDocument(
+  const { entries, edges } = parseSpdxDocument(
     doc as Parameters<typeof parseSpdxDocument>[0],
   );
   stampEvidence(entries, "REGISTRY_API");
-  return entries;
+  return { entries, edges };
 }
 
 // ---- lockfile fallback -------------------------------------------------
@@ -214,8 +219,8 @@ export async function fetchRepoBom(
   signal: AbortSignal,
 ): Promise<BomFetchResult> {
   try {
-    const entries = await fetchDepGraphSbom(octokit, owner, repo, signal);
-    return { entries, marker: { status: "OK" } };
+    const { entries, edges } = await fetchDepGraphSbom(octokit, owner, repo, signal);
+    return { entries, edges, marker: { status: "OK" } };
   } catch (err) {
     const status = (err as { status?: number }).status;
     if (signal.aborted) throw err;

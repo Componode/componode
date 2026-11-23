@@ -1,4 +1,5 @@
 import type { BomDependencyScope } from "../constants/bom-entry.js";
+import type { EdgeProvenance } from "../constants/importer-edge.js";
 import type { Paginated } from "../schemas/list-params.js";
 
 // Spec 074 — workspace package rollup. One row per normalized, version-free
@@ -49,4 +50,16 @@ export interface PackageConsumerListItem {
   direct: boolean;
   /** Most recent report across the group. */
   lastReportedAt: string;
+  /**
+   * Spec 076 / ADR-133 — provenance of the `component_depends_on_component`
+   * edge from this consumer to the package's library component, when one
+   * exists. Absent = the component reports the package in its BOM but no
+   * catalog edge links the pair.
+   */
+  edge?: {
+    provenance: EdgeProvenance;
+    importerSourceId: string | null;
+    importerConfigId: string | null;
+    importRunId: string | null;
+  } | null;
 }

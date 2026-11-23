@@ -425,6 +425,19 @@ them into specs when scheduled. G29/G31/G32 shipped as spec
   hidden — menu items, the dependency segment, and the In-catalog
   column/filter are absent, not disabled.
 
+## G39 — Importer-native declared edges — RESOLVED by spec 076
+
+- Importers opted in via `declaredEdgesConfigKey` can yield
+  `relationships[]` (v2 contract, ADR-133) that materialize as
+  provenance-stamped component edges (`IMPORTER` + Source/run links) with
+  source-scoped retirement on completed runs. The flagged surfaces are
+  the edge provenance markers/badges on Relationships rows and the
+  selected-node panel, the Source and Import-run links, the Library
+  Used-by edge badge, and the Editor-only **Hide edge** action backed by
+  `component_edge_suppressions`. The `bomImporterEdges` flag ships ON
+  with the Phase-3 contract; its fallback is hidden — markers, links,
+  badges, and the Hide action are absent, not disabled.
+
 ## G40 — Vulnerability/risk advisories — DEFERRED (no flag, never rendered)
 
 - ASPM-style vulnerability scanning, advisory columns, and risk badges

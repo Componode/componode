@@ -66,6 +66,10 @@ export const flags = {
   /** Phase-2 BOM catalog curation (gap G38, spec 075 — ON with curation
    *  endpoints + dependency queue + library legibility surfaces). */
   bomCuration: flagOverride("bomCuration") ?? true,
+  /** Phase-3 importer-declared edges (gap G39, spec 076 — ON with edge
+   *  provenance on the relationships read + POST /component-edge-suppressions
+   *  + the importer opt-in field). Surfaces hidden, never disabled, when off. */
+  bomImporterEdges: flagOverride("bomImporterEdges") ?? true,
 } as const;
 
 export type GapFlag = keyof typeof flags;

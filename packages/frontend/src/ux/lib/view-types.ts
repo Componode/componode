@@ -395,6 +395,11 @@ export interface RelatedComponentNode {
   provider: Provider;
   resourceType: string;
   lifecycle: Lifecycle;
+  // Spec 076 / ADR-133 — edge provenance for the badge + Source/run links.
+  edgeProvenance?: "CURATED" | "IMPORTER";
+  edgeImporterSourceId?: string | null;
+  edgeImporterConfigId?: string | null;
+  edgeImportRunId?: string | null;
 }
 
 /** Product node that depends on the focused Component (spec 060). */

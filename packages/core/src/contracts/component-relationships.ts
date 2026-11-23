@@ -2,6 +2,7 @@ import type {
   ComponentCategory,
   ComponentLifecycle,
   ComponentProvider,
+  EdgeProvenance,
   ProductType,
 } from "../constants/index.js";
 import type { ComponentInstance } from "./component-instance.js";
@@ -22,6 +23,16 @@ export interface RelatedComponent {
   provider: ComponentProvider;
   resourceType: string;
   lifecycle: ComponentLifecycle;
+  // Spec 076 / ADR-133 — edge provenance, populated on the six
+  // component-edge families only (dependsOn, dependedOnBy, sourcesFrom,
+  // sourcedBy, exposes, exposedBy). CURATED = human-written edge;
+  // IMPORTER = written by an import run, with the reporting Source, its
+  // config (for the /importers/{configId}/runs/{runId} deep-link), and
+  // the run id recorded.
+  edgeProvenance?: EdgeProvenance;
+  edgeImporterSourceId?: string | null;
+  edgeImporterConfigId?: string | null;
+  edgeImportRunId?: string | null;
 }
 
 /** Non-RETIRED product holding a direct DEPENDS_ON edge on the component. */

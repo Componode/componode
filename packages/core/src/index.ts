@@ -31,6 +31,18 @@ export {
   mappingNote,
   packageSlugToken,
 } from "./constants/package-mapping.js";
+export {
+  DISCOVERED_RELATIONSHIP_TYPES,
+  EDGE_PROVENANCES,
+  EDGE_KINDS,
+  EDGE_JUNCTION,
+} from "./constants/importer-edge.js";
+export type {
+  DiscoveredRelationshipType,
+  EdgeProvenance,
+  EdgeKind,
+  EdgeJunctionRef,
+} from "./constants/importer-edge.js";
 export { ENVIRONMENTS, ENVIRONMENT_META } from "./constants/environments.js";
 export type { Environment } from "./constants/environments.js";
 export {
@@ -172,6 +184,7 @@ export type {
   DiscoveredAsset,
   DiscoveredAssetInstance,
   DiscoveredAssetEnvironment,
+  DiscoveredAssetRelationship,
   DiscoveredBomEntry,
 } from "./contracts/discovered-asset.js";
 export type {
@@ -218,8 +231,10 @@ export {
 } from "./utils/purl.js";
 export {
   parseSpdxDocument,
+  SPDX_EDGE_SUBJECT,
   type SpdxDocument,
   type BomParseResult,
+  type SpdxEdge,
 } from "./utils/spdx.js";
 export {
   parseCycloneDxDocument,

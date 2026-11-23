@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, cleanup, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/ux/components/ui/tooltip";
 import { ComponentRelationships } from "@/ux/components/catalog/component-relationships";
 import type {
@@ -117,7 +118,9 @@ const renderView = (view: ComponentRelationshipsView = fullView) =>
   render(
     <MemoryRouter>
       <TooltipProvider>
-        <ComponentRelationships view={view} />
+        <QueryClientProvider client={new QueryClient()}>
+          <ComponentRelationships view={view} />
+        </QueryClientProvider>
       </TooltipProvider>
     </MemoryRouter>,
   );

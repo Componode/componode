@@ -38,6 +38,11 @@ import { runAutoGroupPass } from "./source-group-service.js";
 import { deleteAbsentBomEntries, type BomScope } from "./bom-service.js";
 import { recordRunSourceIdentity } from "./importer-source-service.js";
 import { runActor } from "./import-run-service.js";
+import {
+  collectDeclaredEdges,
+  runImporterEdgePass,
+  type DeclaredEdge,
+} from "./importer-edge-pass.js";
 
 // Remote run dispatch (spec 027, ADR-116): the hub-side owner of remote job
 // state. In-process execution never touches this module — bound configs take
@@ -77,6 +82,9 @@ export interface RemoteJobContext {
   targetResolutionError: string | null;
   /** Manifest `reportsSourceIdentity` — adopting importer contract. */
   reportsSourceIdentity: boolean;
+  /** ADR-133: manifest `declaredEdgesConfigKey` declared AND this config's
+   *  scope set it true — the edge pass collects `relationships[]`. */
+  declaredEdgesEnabled: boolean;
   /** Durable source attribution once the source.identity frame lands. */
   sourceId: string | null;
   /** Canonical externalIdentity of the reported Source — drives
@@ -136,6 +144,9 @@ export interface RemoteRunStore {
   /** ADR-131: source-scoped BOM diff-replace on the completed path only —
    *  deletes this source's rows in reported scopes not stamped this run. */
   pruneBomScopes(job: RemoteJobContext, scopes: BomScope[]): Promise<number>;
+  /** ADR-133: apply the run's collected declared edges — same-run target
+   *  resolution, suppression veto, source-scoped retire. */
+  applyDeclaredEdges(entry: InFlight): Promise<void>;
   touchCredentials(credentialIds: string[]): Promise<void>;
   /** Conditional PENDING→RUNNING transition; false = the run left PENDING
    *  underneath us (a cancel that raced dispatch). */
@@ -192,6 +203,10 @@ interface InFlight {
   // scopes whose `bomEntries` field was present — pruned at completion.
   packages: { created: number; updated: number; unchanged: number };
   bomScopes: Map<string, BomScope>;
+  // ADR-133: declared edges collected while the batch yields, resolved at
+  // completion against the run's own externalId map.
+  declaredEdges: DeclaredEdge[];
+  externalIdToComponentId: Map<string, string>;
 }
 
 // Hub-side outcome vocabulary — broader than the wire `run.complete`
@@ -336,6 +351,8 @@ export class RemoteRunService implements RemoteRunHandler {
         counters: { processed: 0, created: 0, updated: 0, orphaned: 0 },
         packages: { created: 0, updated: 0, unchanged: 0 },
         bomScopes: new Map(),
+        declaredEdges: [],
+        externalIdToComponentId: new Map(),
       };
       entry.ackTimer = setTimeout(() => void this.onAckTimeout(job.runId), this.ackTimeoutMs);
       entry.ackTimer.unref?.();
@@ -650,6 +667,12 @@ export class RemoteRunService implements RemoteRunHandler {
       const asset = raw as DiscoveredAsset;
       const result = await this.store.processAsset(entry.job, asset);
       entry.yieldedComponentIds.add(result.componentId);
+      entry.externalIdToComponentId.set(asset.externalId, result.componentId);
+      if (entry.job.declaredEdgesEnabled) {
+        entry.declaredEdges.push(
+          ...collectDeclaredEdges(asset, result.componentId),
+        );
+      }
       entry.counters.created += result.created ? 1 : 0;
       entry.counters.updated += result.created ? 0 : 1;
       entry.counters.orphaned += result.instancesOrphaned;
@@ -792,6 +815,13 @@ export class RemoteRunService implements RemoteRunHandler {
           await this.store.stageBomMatches([...entry.yieldedComponentIds], runId);
         } catch (err) {
           this.log.warn({ runId, err }, "BOM match pass failed after remote run");
+        }
+        // ADR-133: importer-declared edges — the pass is failure-isolated
+        // internally like the suggestion passes. Only opted-in runs; an
+        // empty declared set still retires the Source's prior importer
+        // edges.
+        if (entry.job.declaredEdgesEnabled) {
+          await this.store.applyDeclaredEdges(entry);
         }
         return true;
       }
@@ -1127,6 +1157,9 @@ export function createDbRemoteRunStore(): RemoteRunStore {
         missingTarget,
         targetResolutionError,
         reportsSourceIdentity: manifest.reportsSourceIdentity === true,
+        declaredEdgesEnabled:
+          manifest.declaredEdgesConfigKey !== undefined &&
+          scope[manifest.declaredEdgesConfigKey] === true,
         sourceId: run.sourceId ?? null,
         sourceIdentity: null,
         cancelRequestedAt: run.cancelRequestedAt,
@@ -1194,6 +1227,21 @@ export function createDbRemoteRunStore(): RemoteRunStore {
       return db.transaction().execute((trx) =>
         deleteAbsentBomEntries(trx, scopes, job.sourceId, job.runId),
       );
+    },
+    async applyDeclaredEdges(entry) {
+      const report = await runImporterEdgePass({
+        edges: entry.declaredEdges,
+        externalIdToComponentId: entry.externalIdToComponentId,
+        sourceId: entry.job.sourceId,
+        runId: entry.job.runId,
+        actor: runActor(entry.job.importerName),
+      });
+      if (report) {
+        appLogger.info(
+          { runId: entry.job.runId, ...report },
+          "importer-declared edges applied after remote run",
+        );
+      }
     },
     async touchCredentials(credentialIds) {
       await db

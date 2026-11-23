@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–075, bugfix 066)
+## Shipped (features 001–076, bugfix 066)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -486,6 +486,21 @@ file tracks shipped and upcoming work — update it when a spec completes.
   Phase-1/1b contract fields (`resolvedComponent`, `pendingSuggestionId`,
   `catalogComponent`, `pendingSuggestionCount`, `catalog` filters) go
   live — `bomCuration` flag ON (gap G38 resolved).
+- `076-bom-importer-native` — importer-native declared edges (Phase 3,
+  ADR-133): the v2 `relationships[]` contract lets an opted-in importer
+  config yield `DEPENDS_ON`/`SOURCES_FROM`/`EXPOSES` declarations that a
+  failure-isolated pass materializes after BOM matching on completed
+  runs — same-run resolution, `IMPORTER` provenance + Source/run ids on
+  the three component junctions (migration 038), `ON CONFLICT` preserve,
+  source-scoped diff retirement, and suppression vetoes;
+  `component_edge_suppressions` + Editor-only `POST
+  /component-edge-suppressions` (`component:edge:remove`) back the
+  **Hide edge** action; provenance rides the bounded relationships read
+  and the Used-by consumers read; `importer-github` is the first carrier
+  (`importDeclaredEdges`, requires `includeDependencyGraph`, SPDX-derived
+  repo→package and package→package edges, importer-native `LIBRARY`
+  assets); wired for both hub and remote-agent runs —
+  `bomImporterEdges` flag ON (gap G39 resolved).
 
 ## Next — post-v1.1
 
@@ -506,9 +521,9 @@ importer branch/release/metadata inventory with bounded component-page
 details (072), BOM inventory with read APIs, exports, and per-component
 surfaces (073), the packages explorer where-used read (074), and Phase-2
 BOM catalog promotion — matching pass, Add-to-catalog/Link curation, the
-dependency suggestion segment, and library legibility (075). Phase 3 of
-the BOM programme — importer-native declared edges (planned ADR-133) —
-remains the deferred follow-up.
+dependency suggestion segment, and library legibility (075), and Phase-3
+importer-native declared edges — opt-in `relationships[]`, IMPORTER
+provenance, suppression, and GitHub as first carrier (076).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new

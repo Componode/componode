@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { XIcon } from "lucide-react"
+import { EyeOffIcon, XIcon } from "lucide-react"
+import { toast } from "sonner"
 import type { ComponentRelationKind } from "@componode/core"
-import { useComponentRelationships } from "@/api/hooks/components"
+import { useSession } from "@/api/hooks/auth"
+import { canAccess } from "@/ux/lib/nav"
+import { useComponentRelationships, useSuppressComponentEdge } from "@/api/hooks/components"
 import { mapComponentRelationships } from "@/api/mappers/catalog"
 import { ErrorState, ForbiddenState, TableSkeleton } from "@/ux/components/patterns/states"
 import { errorMessage, isForbidden, isNotFound } from "@/ux/lib/api-state"
@@ -12,6 +15,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Badge } from "@/ux/components/ui/badge"
 import { Button } from "@/ux/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ux/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/ux/components/ui/dialog"
 import type {
   ComponentDependentNode,
   ComponentRelationshipsView,
@@ -52,6 +63,19 @@ type Edge = { id: string; from: string; to: string; tone: "default" | "error" }
 type DrawnEdge = Edge & { d: string }
 
 const LANE_LIMIT = 4
+
+// Spec 076 / ADR-133 — lane → the component-edge kind + junction direction
+// (from = declaring side per the data-model direction table).
+const LANE_EDGE: Partial<
+  Record<LaneKey, { kind: "DEPENDS_ON" | "SOURCES_FROM" | "EXPOSES"; incoming: boolean }>
+> = {
+  dependsOn: { kind: "DEPENDS_ON", incoming: false },
+  dependedOnBy: { kind: "DEPENDS_ON", incoming: true },
+  sourcesFrom: { kind: "SOURCES_FROM", incoming: false },
+  sourcedBy: { kind: "SOURCES_FROM", incoming: true },
+  exposes: { kind: "EXPOSES", incoming: false },
+  exposedBy: { kind: "EXPOSES", incoming: true },
+}
 
 const LANE_META: Record<LaneKey, { title: string; incoming: boolean; hint: (c: string) => string }> = {
   dependedOnBy: { title: "Depended on by", incoming: true, hint: (c) => `dependents → ${c}` },
@@ -273,7 +297,17 @@ export function ComponentRelationships({
 
   const nodeButton = (n: RelationNode) => {
     const retired = n.data.lifecycle === "RETIRED"
-    const label = `${n.data.name}, ${n.relation}${retired ? ", Retired" : ""}`
+    // Spec 076 / UX-EDGE-01 — every importer-added edge row carries the
+    // provenance marker (flag-off hides it entirely).
+    const importerEdge =
+      flags.bomImporterEdges &&
+      n.kind === "component" &&
+      n.data.edgeProvenance === "IMPORTER"
+    const curatedEdge =
+      flags.bomImporterEdges &&
+      n.kind === "component" &&
+      !importerEdge
+    const label = `${n.data.name}, ${n.relation}${retired ? ", Retired" : ""}${importerEdge ? ", Added by importer" : curatedEdge ? ", Curated" : ""}`
     const isSelected = selected === n.key
     return (
       <button
@@ -304,6 +338,17 @@ export function ComponentRelationships({
             </span>
           )}
           {retired && <span className="text-xs text-muted-foreground">Retired</span>}
+          {importerEdge && (
+            <span
+              data-testid={`edge-provenance-importer-${n.key}`}
+              className="text-xs font-medium text-primary"
+            >
+              Added by importer
+            </span>
+          )}
+          {curatedEdge && (
+            <span className="text-xs text-muted-foreground">Curated</span>
+          )}
         </span>
       </button>
     )
@@ -525,62 +570,193 @@ export function ComponentRelationships({
         )}
 
         {selectedNode && (
-          <div className="flex items-start justify-between gap-4 rounded-lg border bg-muted/30 p-4">
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium">{selectedNode.data.name}</span>
-                {selectedNode.kind === "component" && (
-                  <Badge variant="secondary">
-                    {CATEGORY_LABELS[selectedNode.data.category] ?? selectedNode.data.category}
-                  </Badge>
-                )}
-                {selectedNode.kind !== "component" && <ProductTypeBadge value={selectedNode.data.type} />}
-                {selectedNode.data.lifecycle === "RETIRED" && <LifecycleBadge value="RETIRED" />}
-              </div>
-              <p className="text-sm text-muted-foreground">{selectedNode.relation}</p>
-              {selectedNode.kind === "product" && (
-                <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
-                  {selectedNode.data.direct && (
-                    <div className="flex items-center gap-1.5">
-                      <dt className="text-muted-foreground">Path</dt>
-                      <dd className="font-medium">Direct</dd>
-                    </div>
-                  )}
-                  {selectedNode.data.viaGroup && (
-                    <div className="flex items-center gap-1.5">
-                      <dt className="text-muted-foreground">Via group</dt>
-                      <dd>
-                        <Link
-                          to={ux(`/component-groups/${selectedNode.data.viaGroup.slug}`)}
-                          className="font-medium text-primary hover:underline"
-                        >
-                          {selectedNode.data.viaGroup.name}
-                        </Link>
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-              )}
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <Link
-                  to={
-                    selectedNode.kind === "component"
-                      ? ux(`/components/${selectedNode.data.slug}`)
-                      : ux(`/products/${selectedNode.data.slug}`)
-                  }
-                >
-                  Open {selectedNode.kind === "component" ? "component" : "product"}
-                </Link>
-              </Button>
-              <Button variant="ghost" size="icon" aria-label="Close selection" onClick={clear}>
-                <XIcon data-icon="inline-start" />
-              </Button>
-            </div>
-          </div>
+          <SelectedNodeDetail
+            node={selectedNode}
+            component={component}
+            onClose={clear}
+          />
         )}
       </CardContent>
     </Card>
+  )
+}
+
+/** Spec 076 / UX-EDGE-01,02,04 — provenance badge + Source/run links +
+ *  Editor-only Hide edge on the selected relation. Gated on
+ *  `flags.bomImporterEdges` (hidden, never disabled). */
+function SelectedNodeDetail({
+  node,
+  component,
+  onClose,
+}: {
+  node: RelationNode
+  component: ComponentRelationshipsView["component"]
+  onClose: () => void
+}) {
+  const selectedNode = node
+  const { data: user } = useSession()
+  const suppressEdge = useSuppressComponentEdge()
+  const [confirmHide, setConfirmHide] = useState(false)
+
+  const edge = selectedNode.kind === "component" ? LANE_EDGE[selectedNode.lane] : undefined
+  const provenance =
+    flags.bomImporterEdges && edge
+      ? (selectedNode.data as RelatedComponentNode).edgeProvenance ?? "CURATED"
+      : undefined
+  const related = selectedNode.data as RelatedComponentNode
+  const canHide =
+    flags.bomImporterEdges &&
+    edge !== undefined &&
+    provenance === "IMPORTER" &&
+    canAccess(user?.role ?? "VIEWER", "EDITOR")
+  const pair =
+    edge === undefined
+      ? null
+      : edge.incoming
+        ? { fromComponentId: related.id, toComponentId: component.id }
+        : { fromComponentId: component.id, toComponentId: related.id }
+
+  const runHide = () => {
+    if (!edge || !pair) return
+    suppressEdge.mutate(
+      { edgeKind: edge.kind, ...pair },
+      {
+        onSuccess: () => {
+          toast("Edge hidden", {
+            description: "Future imports won't recreate it.",
+          })
+          setConfirmHide(false)
+          onClose()
+        },
+        onError: (e) => toast.error(errorMessage(e)),
+      },
+    )
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-lg border bg-muted/30 p-4">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium">{selectedNode.data.name}</span>
+          {selectedNode.kind === "component" && (
+            <Badge variant="secondary">
+              {CATEGORY_LABELS[selectedNode.data.category] ?? selectedNode.data.category}
+            </Badge>
+          )}
+          {selectedNode.kind !== "component" && <ProductTypeBadge value={selectedNode.data.type} />}
+          {selectedNode.data.lifecycle === "RETIRED" && <LifecycleBadge value="RETIRED" />}
+          {provenance === "IMPORTER" ? (
+            <Badge variant="default" data-testid="edge-provenance-importer">
+              Added by importer
+            </Badge>
+          ) : provenance === "CURATED" ? (
+            <Badge variant="outline" data-testid="edge-provenance-curated">
+              Curated
+            </Badge>
+          ) : null}
+        </div>
+        <p className="text-sm text-muted-foreground">{selectedNode.relation}</p>
+        {provenance === "IMPORTER" && (
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            {related.edgeImporterSourceId && (
+              <Link
+                to={ux(`/sources/${related.edgeImporterSourceId}`)}
+                className="font-medium text-primary hover:underline"
+              >
+                Source
+              </Link>
+            )}
+            {related.edgeImporterConfigId && related.edgeImportRunId && (
+              <Link
+                to={ux(
+                  `/importers/${related.edgeImporterConfigId}/runs/${related.edgeImportRunId}`,
+                )}
+                className="font-medium text-primary hover:underline"
+              >
+                Import run
+              </Link>
+            )}
+          </div>
+        )}
+        {selectedNode.kind === "product" && (
+          <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
+            {selectedNode.data.direct && (
+              <div className="flex items-center gap-1.5">
+                <dt className="text-muted-foreground">Path</dt>
+                <dd className="font-medium">Direct</dd>
+              </div>
+            )}
+            {selectedNode.data.viaGroup && (
+              <div className="flex items-center gap-1.5">
+                <dt className="text-muted-foreground">Via group</dt>
+                <dd>
+                  <Link
+                    to={ux(`/component-groups/${selectedNode.data.viaGroup.slug}`)}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {selectedNode.data.viaGroup.name}
+                  </Link>
+                </dd>
+              </div>
+            )}
+          </dl>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {canHide && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmHide(true)}
+            data-testid="hide-edge"
+          >
+            <EyeOffIcon data-icon="inline-start" />
+            Hide edge
+          </Button>
+        )}
+        <Button variant="outline" size="sm" asChild>
+          <Link
+            to={
+              selectedNode.kind === "component"
+                ? ux(`/components/${selectedNode.data.slug}`)
+                : ux(`/products/${selectedNode.data.slug}`)
+            }
+          >
+            Open {selectedNode.kind === "component" ? "component" : "product"}
+          </Link>
+        </Button>
+        <Button variant="ghost" size="icon" aria-label="Close selection" onClick={onClose}>
+          <XIcon data-icon="inline-start" />
+        </Button>
+      </div>
+
+      <Dialog open={confirmHide} onOpenChange={setConfirmHide}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hide this edge?</DialogTitle>
+            <DialogDescription>
+              {component.name} and {related.name} will no longer be linked.
+              This edge won't be recreated by future imports.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmHide(false)}
+              disabled={suppressEdge.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={runHide}
+              disabled={suppressEdge.isPending}
+              data-testid="hide-edge-confirm"
+            >
+              Hide edge
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }

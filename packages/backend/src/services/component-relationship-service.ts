@@ -37,6 +37,29 @@ const PRODUCT_DEPENDENT_SELECT = [
   "digital_products.lifecycle",
 ] as const;
 
+// Spec 076 / ADR-133 — provenance columns on the component-edge junctions,
+// projected onto every RelatedComponent row in the six edge families.
+// `boundConfigId` on the reporting Source feeds the
+// /importers/{configId}/runs/{runId} deep-link.
+const DEP_EDGE_SELECT = [
+  "component_depends_on_component.provenance as edgeProvenance",
+  "component_depends_on_component.importerSourceId as edgeImporterSourceId",
+  "component_depends_on_component.importRunId as edgeImportRunId",
+  "importer_sources.boundConfigId as edgeImporterConfigId",
+] as const;
+const SRC_EDGE_SELECT = [
+  "component_sources_from.provenance as edgeProvenance",
+  "component_sources_from.importerSourceId as edgeImporterSourceId",
+  "component_sources_from.importRunId as edgeImportRunId",
+  "importer_sources.boundConfigId as edgeImporterConfigId",
+] as const;
+const EXP_EDGE_SELECT = [
+  "component_exposes.provenance as edgeProvenance",
+  "component_exposes.importerSourceId as edgeImporterSourceId",
+  "component_exposes.importRunId as edgeImportRunId",
+  "importer_sources.boundConfigId as edgeImporterConfigId",
+] as const;
+
 export async function getComponentRelationships(
   componentId: string,
   options: { includeGone?: boolean } = {},
@@ -61,7 +84,15 @@ export async function getComponentRelationships(
     db
       .selectFrom("component_depends_on_component")
       .innerJoin("components", "components.id", "component_depends_on_component.childId")
-      .select(RELATED_COMPONENT_SELECT)
+      .leftJoin(
+        "importer_sources",
+        "importer_sources.id",
+        "component_depends_on_component.importerSourceId",
+      )
+      .select([
+        ...RELATED_COMPONENT_SELECT,
+        ...DEP_EDGE_SELECT,
+      ])
       .where("component_depends_on_component.parentId", "=", componentId)
       // Spec 075: library neighbours collapse into libraryCounts — the
       // lane stays bounded (ADR-128) instead of rendering hundreds of
@@ -77,7 +108,15 @@ export async function getComponentRelationships(
     db
       .selectFrom("component_depends_on_component")
       .innerJoin("components", "components.id", "component_depends_on_component.parentId")
-      .select(RELATED_COMPONENT_SELECT)
+      .leftJoin(
+        "importer_sources",
+        "importer_sources.id",
+        "component_depends_on_component.importerSourceId",
+      )
+      .select([
+        ...RELATED_COMPONENT_SELECT,
+        ...DEP_EDGE_SELECT,
+      ])
       .where("component_depends_on_component.childId", "=", componentId)
       .where("components.category", "!=", "LIBRARY")
       .orderBy("components.name")
@@ -90,7 +129,15 @@ export async function getComponentRelationships(
     db
       .selectFrom("component_sources_from")
       .innerJoin("components", "components.id", "component_sources_from.repositoryId")
-      .select(RELATED_COMPONENT_SELECT)
+      .leftJoin(
+        "importer_sources",
+        "importer_sources.id",
+        "component_sources_from.importerSourceId",
+      )
+      .select([
+        ...RELATED_COMPONENT_SELECT,
+        ...SRC_EDGE_SELECT,
+      ])
       .where("component_sources_from.serviceId", "=", componentId)
       .orderBy("components.name")
       .$castTo<RelatedComponent>()
@@ -102,7 +149,15 @@ export async function getComponentRelationships(
     db
       .selectFrom("component_sources_from")
       .innerJoin("components", "components.id", "component_sources_from.serviceId")
-      .select(RELATED_COMPONENT_SELECT)
+      .leftJoin(
+        "importer_sources",
+        "importer_sources.id",
+        "component_sources_from.importerSourceId",
+      )
+      .select([
+        ...RELATED_COMPONENT_SELECT,
+        ...SRC_EDGE_SELECT,
+      ])
       .where("component_sources_from.repositoryId", "=", componentId)
       .orderBy("components.name")
       .$castTo<RelatedComponent>()
@@ -114,7 +169,15 @@ export async function getComponentRelationships(
     db
       .selectFrom("component_exposes")
       .innerJoin("components", "components.id", "component_exposes.apiId")
-      .select(RELATED_COMPONENT_SELECT)
+      .leftJoin(
+        "importer_sources",
+        "importer_sources.id",
+        "component_exposes.importerSourceId",
+      )
+      .select([
+        ...RELATED_COMPONENT_SELECT,
+        ...EXP_EDGE_SELECT,
+      ])
       .where("component_exposes.serviceId", "=", componentId)
       .orderBy("components.name")
       .$castTo<RelatedComponent>()
@@ -126,7 +189,15 @@ export async function getComponentRelationships(
     db
       .selectFrom("component_exposes")
       .innerJoin("components", "components.id", "component_exposes.serviceId")
-      .select(RELATED_COMPONENT_SELECT)
+      .leftJoin(
+        "importer_sources",
+        "importer_sources.id",
+        "component_exposes.importerSourceId",
+      )
+      .select([
+        ...RELATED_COMPONENT_SELECT,
+        ...EXP_EDGE_SELECT,
+      ])
       .where("component_exposes.apiId", "=", componentId)
       .orderBy("components.name")
       .$castTo<RelatedComponent>()

@@ -233,8 +233,11 @@ flowchart TD
   dispatches the job over the agent's stream, and the streamed assets flow
   through the same validate → upsert → reconcile path — see *Import Agents*
   below.
-- `DiscoveredAsset.relationships` is **not** part of the v1 contract —
-  importer-declared product edges are a v2 feature.
+- `DiscoveredAsset.relationships` is the opt-in v2 contract (ADR-133): an
+  importer whose config enables its `declaredEdgesConfigKey` scope flag
+  may declare **component** edges (`DEPENDS_ON`/`SOURCES_FROM`/`EXPOSES`)
+  resolved against assets the same run yields. Product hierarchy edges
+  remain human-curated — no importer declares them.
 
 ## Import Agents (remote execution)
 
@@ -320,7 +323,7 @@ plus the master key together form the backup unit.
 ## Persistence model
 
 <!-- GENERATED:persistence-tables -->
-PostgreSQL holds **41 tables** (see `DB` in `packages/backend/src/db/types.ts`):
+PostgreSQL holds **42 tables** (see `DB` in `packages/backend/src/db/types.ts`):
 
 | Table | Row interface |
 |---|---|
@@ -343,6 +346,7 @@ PostgreSQL holds **41 tables** (see `DB` in `packages/backend/src/db/types.ts`):
 | `component_depends_on_component` | `JunctionRow` |
 | `component_sources_from` | `JunctionRow` |
 | `component_exposes` | `JunctionRow` |
+| `component_edge_suppressions` | `ComponentEdgeSuppressionRow` |
 | `importer_configs` | `ImporterConfigRow` |
 | `docker_targets` | `DockerTargetRow` |
 | `importer_config_credentials` | `ImporterConfigCredentialRow` |

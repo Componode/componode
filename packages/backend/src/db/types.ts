@@ -377,6 +377,20 @@ export interface JunctionRow {
   serviceId?: string;
   repositoryId?: string;
   apiId?: string;
+  // Spec 076 / ADR-133 — populated only on the three component-edge
+  // junctions (depends_on / sources_from / exposes); absent elsewhere.
+  provenance?: string;
+  importerSourceId?: string | null;
+  importRunId?: string | null;
+  createdAt: Generated<string>;
+}
+
+export interface ComponentEdgeSuppressionRow {
+  id: string;
+  edgeKind: string;
+  fromComponentId: string;
+  toComponentId: string;
+  suppressedBy: string | null;
   createdAt: Generated<string>;
 }
 
@@ -532,6 +546,7 @@ export interface DB {
   component_depends_on_component: JunctionRow;
   component_sources_from: JunctionRow;
   component_exposes: JunctionRow;
+  component_edge_suppressions: ComponentEdgeSuppressionRow;
   importer_configs: ImporterConfigRow;
   docker_targets: DockerTargetRow;
   importer_config_credentials: ImporterConfigCredentialRow;

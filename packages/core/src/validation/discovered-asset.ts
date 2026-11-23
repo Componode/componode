@@ -6,6 +6,7 @@ import {
   BOM_EVIDENCE_SOURCES,
   COMPONENT_CATEGORIES,
   COMPONENT_PROVIDERS,
+  DISCOVERED_RELATIONSHIP_TYPES,
   ENVIRONMENTS,
   INSTANCE_STATUS,
 } from "../constants/index.js";
@@ -46,6 +47,15 @@ const discoveredAssetInstanceSchema = z.object({
   sourceDetails: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
+// ADR-133 — importer-declared component edges. A malformed entry fails the
+// whole asset, like every other contract field.
+const discoveredAssetRelationshipSchema = z
+  .object({
+    type: z.enum(DISCOVERED_RELATIONSHIP_TYPES),
+    targetExternalId: z.string().min(1),
+  })
+  .strict();
+
 const discoveredAssetSchema = z.object({
   category: z.enum(COMPONENT_CATEGORIES),
   provider: z.enum(COMPONENT_PROVIDERS),
@@ -57,6 +67,7 @@ const discoveredAssetSchema = z.object({
   details: z.record(z.string(), z.unknown()).nullable().optional(),
   bomEntries: z.array(discoveredBomEntrySchema).optional(),
   sourceDetails: z.record(z.string(), z.unknown()).nullable().optional(),
+  relationships: z.array(discoveredAssetRelationshipSchema).optional(),
 });
 
 export interface ValidationResult {

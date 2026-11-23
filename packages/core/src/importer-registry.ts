@@ -46,6 +46,12 @@ export interface ImporterManifest {
   // component details. Orthogonal to `autoGroups` — either may be adopted
   // independently. Absent = no app grouping.
   autoAppGroups?: boolean;
+  // ADR-133 (spec 076) — names the config-scope key whose `true` value opts
+  // a config into importer-declared edges (`relationships[]` on yielded
+  // assets). Server-side gate: the edge pass collects relationships only
+  // when this key is declared AND `scope[key] === true` on the run's
+  // config. Absent = the importer cannot declare edges.
+  declaredEdgesConfigKey?: string;
 }
 
 export interface ImporterRegistry {
