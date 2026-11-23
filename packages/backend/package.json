@@ -55,16 +55,16 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@testcontainers/postgresql": "^12.2.1",
-    "@types/node": "^26.6.5",
+    "@testcontainers/postgresql": "^12.2.2",
+    "@types/node": "^26.6.6",
     "@types/pg": "^8.23.1",
     "@types/ws": "^8.18.1",
     "ajv": "^8.20.0",
-    "jose": "^6.2.13",
-    "testcontainers": "^12.2.1",
+    "jose": "^6.2.18",
+    "testcontainers": "^12.2.2",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.5",
+    "vitest": "^5.1.1",
     "ws": "^8.22.0",
     "yaml": "^2.9.1"
   }
