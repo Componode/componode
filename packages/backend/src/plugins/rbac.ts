@@ -50,6 +50,9 @@ const PERMISSIONS: Record<string, Role> = {
   "product:delete": "EDITOR",
   "product:edge:add": "EDITOR",
   "product:edge:remove": "EDITOR",
+  // Phase-2 BOM curation writes (spec 075): add-to-catalog, link, and
+  // dependency-suggestion decisions.
+  "component:edge:add": "EDITOR",
   "lob:create": "EDITOR",
   "lob:update": "EDITOR",
   "lob:delete": "EDITOR",

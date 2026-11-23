@@ -490,6 +490,19 @@ export interface BomEntryRow {
   updatedAt: Generated<string>;
 }
 
+export interface BomComponentSuggestionRow {
+  id: string;
+  bomEntryId: string | null;
+  parentComponentId: string;
+  childComponentId: string;
+  reason: string | null;
+  score: number | null;
+  status: string;
+  createdAt: Generated<string>;
+  decidedAt: string | null;
+  decidedBy: string | null;
+}
+
 export interface KyselyMigrationRow {
   name: string;
   timestamp: number;
@@ -538,6 +551,7 @@ export interface DB {
   url_check_observations: UrlCheckObservationRow;
   source_url_check_memberships: SourceUrlCheckMembershipRow;
   bom_entries: BomEntryRow;
+  bom_component_suggestions: BomComponentSuggestionRow;
   kysely_migration: KyselyMigrationRow;
   kysely_migration_lock: KyselyMigrationLockRow;
 }

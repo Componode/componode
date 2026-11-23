@@ -1,4 +1,4 @@
-import type { DepSource } from "@componode/core";
+import { COMPONENT_PROVIDERS, type DepSource } from "@componode/core";
 import type { InstanceDepRef } from "@/api/types";
 import type {
   ComponentDepRef,
@@ -49,19 +49,9 @@ const ENVIRONMENTS: readonly string[] = [
   "PRODUCTION",
   "OTHER",
 ];
-const PROVIDERS: readonly string[] = [
-  "GITHUB",
-  "AWS",
-  "AZURE",
-  "GOOGLE_CLOUD",
-  "ALIBABA_CLOUD",
-  "KUBERNETES",
-  "DOCKER",
-  "WEB_URL",
-  "API_URL",
-  "MCP_SERVER",
-  "OTHER",
-];
+// Spec 075: the closed provider union comes from core so the 13
+// package-registry providers (Library components) survive narrowing.
+const PROVIDERS: readonly string[] = COMPONENT_PROVIDERS;
 const CRITICALITIES: readonly string[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
 /** Narrows an API string into a closed view union, with a neutral fallback. */
@@ -232,6 +222,8 @@ export function mapComponentRelationships(
       })),
     },
     instances: (rel.instances ?? []).map(mapComponentInstance),
+    // Spec 075 / UX-LIB-05 — bounded library counts, separate from lanes.
+    libraryCounts: rel.libraryCounts ?? { dependsOn: 0, dependedOnBy: 0 },
     unavailableKinds: res.unavailableKinds ?? [],
   };
 }
@@ -259,14 +251,16 @@ export function mapComponentInstance(i: ApiInstance): ComponentInstance {
 }
 
 export function mapComponent(
-  c: ApiComponent | (ApiComponent & { instances?: ApiInstance[]; lastSeenAt?: string | null; details?: Record<string, unknown> | null }),
+  c: ApiComponent | (ApiComponent & { instances?: ApiInstance[]; lastSeenAt?: string | null; details?: Record<string, unknown> | null; externalId?: string | null }),
 ): Component {
-  const detail = c as ApiComponent & { instances?: ApiInstance[]; lastSeenAt?: string | null; details?: Record<string, unknown> | null; totalInstanceCount?: number };
+  const detail = c as ApiComponent & { instances?: ApiInstance[]; lastSeenAt?: string | null; details?: Record<string, unknown> | null; totalInstanceCount?: number; externalId?: string | null };
   return {
     id: c.id,
     name: c.name,
     slug: c.slug,
     category: c.category,
+    // Detail-only identity (spec 075): normalized purl for LIBRARY rows.
+    externalId: detail.externalId ?? null,
     provider: narrow<Provider>(c.provider, PROVIDERS, "OTHER"),
     resourceType: c.resourceType,
     lifecycle: narrow<Lifecycle>(c.lifecycle, LIFECYCLES, "ACTIVE"),

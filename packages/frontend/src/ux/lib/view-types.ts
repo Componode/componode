@@ -84,6 +84,8 @@ export interface Component {
   provider: Provider;
   resourceType: string;
   lifecycle: Lifecycle;
+  /** Detail-read identity (spec 075): normalized purl on LIBRARY rows; null elsewhere. */
+  externalId?: string | null;
   /** Spec 070: all group memberships — human + auto-managed. */
   componentGroups: { id: string; name: string; slug: string; autoSourceId?: string | null; autoGroupKey?: string | null }[];
   teamOwnerId: string | null;
@@ -431,6 +433,8 @@ export interface ComponentRelationshipsView {
     viaGroups: GroupMediatedDependentNode[];
   };
   instances: ComponentInstance[];
+  /** Spec 075 / UX-LIB-05 — LIBRARY neighbours counted, never listed. */
+  libraryCounts: { dependsOn: number; dependedOnBy: number };
   /** Relation groups that failed to read — rendered as a partial warning. */
   unavailableKinds: string[];
 }
@@ -504,6 +508,7 @@ export interface BomEntryView {
   instanceTotal: number;
   resolvedComponent: { id: string; slug: string; name: string } | null;
   pendingSuggestionId: string | null;
+  pendingSuggestionChildId: string | null;
 }
 
 /** `GET /components/:id/bom/summary` — backs the summary strip, instance

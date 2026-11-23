@@ -27,8 +27,10 @@ export const SUGGESTIONS_SORT_KEYS = [
 ] as const;
 export type SuggestionsSortKey = (typeof SUGGESTIONS_SORT_KEYS)[number];
 
-/** URL filter keys managed by the /suggestions list page (useListState). */
-export const SUGGESTIONS_FILTER_KEYS = ["status"] as const;
+/** URL filter keys managed by the /suggestions list page (useListState).
+ *  `kind` is the spec-075 segment (edge|dependency) — page state only,
+ *  never serialized into the edge-queue params. */
+export const SUGGESTIONS_FILTER_KEYS = ["status", "kind"] as const;
 export type SuggestionsFilterKey = (typeof SUGGESTIONS_FILTER_KEYS)[number];
 
 /** API params accepted by `GET /suggestions`. */
@@ -91,11 +93,13 @@ export function suggestionsListParams(
 export function useSuggestions(
   view: SuggestionView = "PENDING",
   options?: SuggestionsListFilters,
+  opts?: { enabled?: boolean },
 ) {
   const filters: SuggestionsListFilters = { status: view, ...options };
 
   return useQuery({
     queryKey: ["suggestions", "list", filters],
+    enabled: opts?.enabled ?? true,
     queryFn: () =>
       api<SuggestionListResult>(
         `/suggestions${buildApiQueryString(filters)}`,

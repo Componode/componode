@@ -13,8 +13,8 @@ import { BOM_DEPENDENCY_SCOPES } from "../constants/bom-entry.js";
  * filters; `.strict()` rejects unknown params (ADR-095).
  *
  * Default sort is `components` desc — "most consumed first" — with `order`
- * overriding the base `asc` default. `catalog` is accepted-and-ignored
- * until Phase 2 (`bomCuration`), mirroring listBomQuerySchema (D6).
+ * overriding the base `asc` default. `catalog` filters at group level
+ * (Phase 2, spec 075): `linked`/`suggested`/`none`, multi-value OR.
  */
 export const listPackagesQuerySchema = listParamsBaseSchema
   .extend({
@@ -28,7 +28,12 @@ export const listPackagesQuerySchema = listParamsBaseSchema
       .transform(splitCsvParam)
       .pipe(z.array(z.enum(BOM_DEPENDENCY_SCOPES)))
       .optional(),
-    catalog: z.enum(["linked", "suggested", "none"]).optional(),
+    // Multi-value OR at the group level (contract): catalog=linked,suggested.
+    catalog: z
+      .union([z.string(), z.array(z.string())])
+      .transform(splitCsvParam)
+      .pipe(z.array(z.enum(["linked", "suggested", "none"])))
+      .optional(),
     sort: z
       .enum(["name", "components", "versions", "ecosystem"])
       .default("components"),

@@ -438,3 +438,12 @@ consumers and it renders as a muted zero state.
   overdue sunsets carry the stewardship-lite load.
 - The sunset-attention item shares the attention feed's cap and ordering
   machinery; no separate hygiene feed is introduced.
+
+## Amendments
+
+- **Spec 075 (UX-LIB-02)**: `LIBRARY`-category components are excluded
+  from the coverage population — `coveragePopulationPredicate` gains
+  `category != 'LIBRARY'` on top of the FR-002 default-visible set
+  (`ACTIVE`, not instances-all-`GONE`). Feeds the components-list
+  Coverage filter and the dashboard coverage denominators, so thousands
+  of promoted libraries never dilute the wired share.

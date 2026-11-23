@@ -8,7 +8,7 @@ description: Shipped features and what is next.
 Development proceeds as sequential spec-kit features under `specs/`. This
 file tracks shipped and upcoming work — update it when a spec completes.
 
-## Shipped (features 001–073, bugfix 066)
+## Shipped (features 001–075, bugfix 066)
 
 - `001-foundation` — core contracts, 24-table schema, auth, RBAC,
   observability.
@@ -466,6 +466,26 @@ file tracks shipped and upcoming work — update it when a spec completes.
   `GET /packages/consumers`; a BOM-row "See where it's used" action and
   a Ctrl+K Packages group; ships behind the `packagesExplorer` flag —
   catalog promotion stays deferred to Phase 2.
+- `075-bom-catalog-promotion` — BOM catalog promotion (Phase 2, ADR-132):
+  a run-completion matching pass resolves exact package identities to
+  catalog components and stages `bom_component_suggestions` (migration
+  035 — the ADR-113 lifecycle cloned for component→library `DEPENDS_ON`
+  candidates, never auto-wired); Editor-only curation endpoints
+  (`GET /packages/add-to-catalog/preview`, `POST /packages/add-to-catalog`,
+  `POST /packages/link`, `component:edge:add`) create one Library
+  component per normalized version-free purl — `externalId` identity,
+  `pkg-{type}-{name}` slugs, 13 package-registry providers (ADR-013
+  Amendment 2, migration 036) — or link to an existing component,
+  atomically wiring all consumer edges or staging suggestions;
+  `/suggestions` gains a `kind=dependency` segment with per-library
+  grouping, exact-only bulk accept and any-reason bulk dismiss; the
+  catalog stays legible — `LIBRARY` hidden behind `libraries=1` +
+  `librariesHidden`, excluded from coverage denominators and the
+  relationship lanes (`libraryCounts`), a grouped provider filter, and a
+  Library detail with Used-by and Versions in use; and the inert
+  Phase-1/1b contract fields (`resolvedComponent`, `pendingSuggestionId`,
+  `catalogComponent`, `pendingSuggestionCount`, `catalog` filters) go
+  live — `bomCuration` flag ON (gap G38 resolved).
 
 ## Next — post-v1.1
 
@@ -484,7 +504,11 @@ app-level auto ComponentGroups with multi-group membership (070),
 human environment overrides on ComponentInstances (071), the GitHub
 importer branch/release/metadata inventory with bounded component-page
 details (072), BOM inventory with read APIs, exports, and per-component
-surfaces (073), and the packages explorer where-used read (074).
+surfaces (073), the packages explorer where-used read (074), and Phase-2
+BOM catalog promotion — matching pass, Add-to-catalog/Link curation, the
+dependency suggestion segment, and library legibility (075). Phase 3 of
+the BOM programme — importer-native declared edges (planned ADR-133) —
+remains the deferred follow-up.
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new

@@ -92,7 +92,8 @@ Administration; Admin hidden below `ADMIN`), slim header with breadcrumbs +
 Notifications, theme toggle, user menu. Help opens the published docs;
 Notifications links to Settings → Notifications (currently a governed G15
 preview, with no unread count). Live nav pills are limited to real counts —
-pending Suggestions and Import Agents needing attention — and are omitted
+pending product-edge Suggestions (the dependency queue has its own segment
+chip) and Import Agents needing attention — and are omitted
 while loading, on error, at zero, or when the nav item is role-hidden. The
 sidebar collapses to icons; the state persists per tab (`sessionStorage`).
 
@@ -105,7 +106,7 @@ sidebar collapses to icons; the state persists per tab (`sessionStorage`).
 | `/components`, `/components/:slug` (+`/promote`,`/history`)                               | Catalog, promotion, detail (includes Relationships tab)                                            | editor for writes                   |
 | `/component-groups`, `…/:slug`                                                            | Groups                                                                                             | —                                   |
 | `/packages`                                                                               | Packages explorer — where-used rollup over the BOM                                                 | —                                   |
-| `/suggestions`                                                                            | Edge-suggestion queue                                                                              | —                                   |
+| `/suggestions`                                                                            | Suggestion queues — product-edge and dependency (`?kind=`) segments                                   | —                                   |
 | `/importers`, `…/new`, `…/:id` (+`/edit`,`/runs/:runId`)                                  | Import operations                                                                                  | —                                   |
 | `/agents`, `/agents/:id`                                                                  | Import Agent fleet                                                                                 | ADMIN                               |
 | `/sources`, `/sources/:id`                                                                | ImporterSource provenance                                                                          | — (retire/reactivate ADMIN via API) |
@@ -215,9 +216,9 @@ shipped routes.
   version + scope); **Bill of materials** names the tab and export;
   **Found in** is the evidence column (lockfile, manifest, SBOM document,
   image layer, registry API, source control). *Add to catalog* and *Link*
-  actions are reserved for Phase-2 curation — never rendered in Phase 1,
-  and no advisory/vulnerability wording of any kind appears on this
-  surface (deferred, gap G40).
+  are the Phase-2 curation entry points (spec 075), rendered under the
+  `bomCuration` flag; and no advisory/vulnerability wording of any kind
+  appears on this surface (deferred, gap G40).
 
 ## 6. Auth surfaces
 
@@ -243,7 +244,7 @@ detailed entry in **`researches/ux-rewrite-gaps.md`**:
 | --------------- | ---------------------------------------------------------------- | -------- | --- |
 | `componentBom`  | Packages tab, Components-list BOM filter, coverage-card BOM line, run Packages tile | Hidden   | G36 |
 | `packagesExplorer` | `/packages` page, sidebar item, Ctrl+K Packages group, BOM row-menu deep link | Hidden | G37 |
-| `bomCuration`   | In-catalog filter + Phase-2 curation surfaces | Hidden | Phase 2 |
+| `bomCuration`   | Add/Link curation dialogs, `/suggestions` dependency segment, In-catalog column + `catalog` filters, library detail + Show-libraries toggle + `libraryCounts` summary | Hidden   | G38 |
 
 ## 8. Scope boundaries
 

@@ -33,9 +33,16 @@ describe("listPackagesQuerySchema", () => {
     ).toBe(false);
   });
 
-  it("accepts the inert catalog filter", () => {
+  it("parses the catalog filter as a multi-value list", () => {
     const q = listPackagesQuerySchema.parse({ catalog: "linked" });
-    expect(q.catalog).toBe("linked");
+    expect(q.catalog).toEqual(["linked"]);
+  });
+
+  it("parses catalog CSV into multiple values", () => {
+    const q = listPackagesQuerySchema.parse({
+      catalog: "linked,suggested",
+    });
+    expect(q.catalog).toEqual(["linked", "suggested"]);
   });
 
   it("rejects unknown params (strict)", () => {

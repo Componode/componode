@@ -21,6 +21,13 @@ import { listParamsBaseSchema, listOrderSchema } from "./list-params.js";
 export const listSuggestionsQuerySchema = listParamsBaseSchema
   .omit({ search: true })
   .extend({
+    // Spec 075: `kind` selects the queue — `edge` (product edges, the
+    // historical default and nav-badge source) or `dependency` (BOM
+    // component-dependency suggestions, ADR-132).
+    kind: z.enum(["edge", "dependency"]).default("edge"),
+    // `childComponentId` scopes `kind=dependency` rows to one library —
+    // per-group expansion fetches stay bounded at any queue depth.
+    childComponentId: z.string().uuid().optional(),
     status: z.enum(["PENDING", "DISMISSED", "DECIDED"]).default("PENDING"),
     sort: z
       .enum(["createdAt", "score", "decidedAt", "status"])
@@ -30,3 +37,34 @@ export const listSuggestionsQuerySchema = listParamsBaseSchema
   .strict();
 
 export type ListSuggestionsQuery = z.infer<typeof listSuggestionsQuerySchema>;
+
+/**
+ * Spec 075 / UX-SUG-03 — query params for
+ * `GET /suggestions/dependencies/groups`: pending dependency suggestions
+ * grouped per library (childComponentId).
+ */
+export const dependencyGroupsQuerySchema = listParamsBaseSchema
+  .omit({ search: true })
+  .extend({
+    sort: z
+      .enum(["score", "components", "name"])
+      .default("score"),
+    order: listOrderSchema.default("desc"),
+    /** Filter the queue to one candidate component (BOM row "Suggested" link). */
+    childComponentId: z.string().uuid().optional(),
+  })
+  .strict();
+
+export type DependencyGroupsQuery = z.infer<
+  typeof dependencyGroupsQuerySchema
+>;
+
+/** Spec 075 — POST /suggestions/dependencies/bulk body. */
+export const dependencyBulkBodySchema = z
+  .object({
+    childComponentId: z.string().uuid(),
+    action: z.enum(["accept", "dismiss"]),
+  })
+  .strict();
+
+export type DependencyBulkBody = z.infer<typeof dependencyBulkBodySchema>;

@@ -86,14 +86,14 @@ const state = (over: Partial<ListQueryState> = {}): ListQueryState => ({
 const EMPTY_PAGINATION = { page: 1, pageSize: 25, total: 0, pageCount: 0, hasNext: false };
 
 it("declares the expected URL filter keys per page", () => {
-  expect(COMPONENTS_FILTER_KEYS).toEqual(["provider", "category", "lifecycle", "wired", "bom", "gone"]);
+  expect(COMPONENTS_FILTER_KEYS).toEqual(["provider", "category", "lifecycle", "wired", "bom", "gone", "libraries"]);
   expect(PRODUCTS_FILTER_KEYS).toEqual(["type", "criticality", "lifecycle", "missing"]);
   expect(COMPONENT_GROUPS_FILTER_KEYS).toEqual(["lifecycle"]);
   expect(AGENTS_FILTER_KEYS).toEqual(["status"]);
   expect(IMPORTER_SOURCES_FILTER_KEYS).toEqual(["status", "importerName"]);
   expect(IMPORTER_CONFIGS_FILTER_KEYS).toEqual(["enabled", "importerName"]);
   expect(IMPORTER_RUNS_FILTER_KEYS).toEqual(["status"]);
-  expect(SUGGESTIONS_FILTER_KEYS).toEqual(["status"]);
+  expect(SUGGESTIONS_FILTER_KEYS).toEqual(["status", "kind"]);
   expect(ACTIVITY_FILTER_KEYS).toEqual(["kind", "entityType", "action", "actor", "from", "to"]);
 });
 
@@ -109,6 +109,16 @@ describe("componentsListParams (spec 068)", () => {
     ).toBe(true);
     // No third domain value exists — the URL filter whitelist is hide|show.
     expect(componentsListParams(state({ filters: {} })).includeGone).toBe(false);
+  });
+
+  it("maps libraries=1 → libraries=true and omits it otherwise (spec 075)", () => {
+    expect(
+      componentsListParams(state({ filters: { libraries: "1" } })).libraries,
+    ).toBe(true);
+    expect(componentsListParams(state({ filters: {} })).libraries).toBeUndefined();
+    expect(
+      componentsListParams(state({ filters: { libraries: "0" } })).libraries,
+    ).toBeUndefined();
   });
 
   it("treats 'all' as unset for facet filters and always sends includeRetired", () => {

@@ -57,6 +57,15 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
     query = query.where("components.category", "in", categories);
   }
 
+  // Spec 075 / UX-LIB-01: LIBRARY components hide behind `libraries=1`
+  // (or an explicit category=LIBRARY filter). `librariesHidden` reports
+  // the excluded ACTIVE count so the toggle can label itself.
+  const librariesRequested =
+    parsed.libraries || (categories?.includes("LIBRARY") ?? false);
+  if (!librariesRequested) {
+    query = query.where("components.category", "!=", "LIBRARY");
+  }
+
   const providers = normalizeValues(parsed.provider);
   if (providers) {
     query = query.where("components.provider", "in", providers);
@@ -261,6 +270,19 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
     components.map((c) => c.id),
   );
 
+  const librariesHidden = librariesRequested
+    ? 0
+    : Number(
+        (
+          await db
+            .selectFrom("components")
+            .select((eb) => eb.fn.countAll().as("n"))
+            .where("category", "=", "LIBRARY")
+            .where("lifecycle", "=", "ACTIVE")
+            .executeTakeFirstOrThrow()
+        ).n,
+      );
+
   return {
     data: components.map((c) => ({
       ...c,
@@ -268,6 +290,7 @@ export async function listComponents(rawQuery: ListComponentsQuery) {
       componentGroups: groupsByComponent.get(c.id) ?? [],
     })),
     pagination,
+    librariesHidden,
   };
 }
 

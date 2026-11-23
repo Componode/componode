@@ -31,6 +31,8 @@ const COMPONENTS_FILTERS: { [K in ComponentsFilterKey]: ListFilterConfig } = {
   bom: { default: "all", values: ["all", "has", "none"] },
   // Spec 068 gone-instances fix: domain is hide|show only — no "all".
   gone: { default: "hide", values: ["hide", "show"] },
+  // Spec 075 / UX-LIB-01: `?libraries=1` reveals LIBRARY rows (default 0).
+  libraries: { default: "0", values: ["0", "1"] },
 };
 
 export function UxComponentsPage() {
@@ -81,6 +83,7 @@ export function UxComponentsPage() {
           data={(data?.data ?? []).map(mapComponent)}
           list={list}
           pagination={data?.pagination}
+          librariesHidden={data?.librariesHidden}
         />
       )}
     </PageContainer>

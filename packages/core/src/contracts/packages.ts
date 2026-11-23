@@ -18,9 +18,9 @@ export interface PackageListItem {
   versions: { version: string; componentCount: number }[];
   /** Distinct ACTIVE components reporting this package. */
   componentCount: number;
-  /** Phase 2 contract placeholder — Library component match. Always null in Phase 1b. */
+  /** Catalog component match (spec 075): the component the row's BOM entries resolved to, else a non-retired component whose externalId equals this purl verbatim, else null. */
   catalogComponent: { id: string; slug: string; name: string } | null;
-  /** Phase 2 contract placeholder — pending curation suggestions. Always 0 in Phase 1b. */
+  /** Pending dependency suggestions targeting that catalog component (spec 075); 0 when none. */
   pendingSuggestionCount: number;
 }
 
