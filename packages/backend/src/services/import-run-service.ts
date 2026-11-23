@@ -1262,6 +1262,11 @@ async function worker(runId: string): Promise<void> {
         true;
     const declaredEdges: DeclaredEdge[] = [];
     const externalIdToComponentId = new Map<string, string>();
+    // `relationships` field presence is the run's edge-completeness signal
+    // (mirroring bomEntries, ADR-057 A1): a run where no asset carried the
+    // field — a degraded yield, a no-graph collection — is NOT
+    // authoritative and must not retire the Source's prior importer edges.
+    let sawEdgeDeclaration = false;
 
     for await (const asset of importer.run(runScope, secrets, context)) {
       if (controller.signal.aborted) {
@@ -1296,6 +1301,7 @@ async function worker(runId: string): Promise<void> {
       yieldedComponentIds.add(result.componentId);
       externalIdToComponentId.set(asset.externalId, result.componentId);
       if (declaredEdgesEnabled) {
+        if (asset.relationships !== undefined) sawEdgeDeclaration = true;
         declaredEdges.push(
           ...collectDeclaredEdges(asset, result.componentId),
         );
@@ -1416,9 +1422,12 @@ async function worker(runId: string): Promise<void> {
     }
 
     // ADR-133: apply importer-declared edges — same-run resolution,
-    // suppression veto, source-scoped retire. Runs on every opted-in
-    // completed run: an empty declared set still retires. Failure-isolated.
-    if (declaredEdgesEnabled) {
+    // suppression veto, source-scoped retire. Runs when at least one
+    // yielded asset declared `relationships` (present, including []):
+    // authoritative-empty still retires, while a run whose assets never
+    // carried the field — degraded or no-graph — is not authoritative
+    // and preserves prior edges (spec 077 FR-007). Failure-isolated.
+    if (declaredEdgesEnabled && sawEdgeDeclaration) {
       const edgeReport = await runImporterEdgePass({
         edges: declaredEdges,
         externalIdToComponentId,

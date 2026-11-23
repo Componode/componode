@@ -313,10 +313,11 @@ describe("import-run declared edges", () => {
       .values({ parentId: repoId, childId: curated, createdAt: now })
       .execute();
 
-    // Second run declares nothing — curated edge survives; the importer
-    // edge on lodash is retired.
+    // Second run declares authoritatively-empty (`relationships: []` —
+    // field presence is the completeness signal): the curated edge
+    // survives; the importer edge on lodash is retired.
     (getImporter as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      makeImporter([repoAsset("repo-a")]),
+      makeImporter([repoAsset("repo-a", [])]),
     );
     const run2 = await trigger(config.id);
     expect(run2.status).toBe("COMPLETED");
@@ -371,6 +372,31 @@ describe("import-run declared edges", () => {
     await new Promise((r) => setTimeout(r, 500));
     expect(await junctionRows()).toHaveLength(0);
     expect(await edgeBetween("repo-a", "pkg:npm/lodash")).toBeNull();
+  });
+
+  it("a non-declaring run (degraded yield — no relationships field) preserves prior edges", async () => {
+    (getImporter as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeImporter([
+        repoAsset("repo-a", [DEP("pkg:npm/lodash")]),
+        libraryAsset("pkg:npm/lodash"),
+      ]),
+    );
+    const config = await createConfig();
+    await trigger(config.id);
+    await waitForJunctionCount(1);
+
+    // Spec 077 FR-007 — a degraded yield carries no `relationships` field,
+    // so the run is not edge-authoritative: the pass is skipped entirely
+    // and the Source's prior importer edge survives (a transient 404 must
+    // never wipe the declared graph).
+    (getImporter as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeImporter([repoAsset("repo-a")]),
+    );
+    const run2 = await trigger(config.id);
+    expect(run2.status).toBe("COMPLETED");
+    await new Promise((r) => setTimeout(r, 500));
+    expect(await junctionRows()).toHaveLength(1);
+    expect(await edgeBetween("repo-a", "pkg:npm/lodash")).not.toBeNull();
   });
 
   it("writes no edges on a FAILED run", async () => {

@@ -42,6 +42,7 @@ export interface SeedResult {
   bomSlug: string;
   bomStaleSlug: string;
   sbomConfigId: string;
+  edgeSlug: string;
 }
 
 export async function seedAppFlows(apiBase: string, pgUrl: string, env: Record<string, string>, ids: { githubBase: string; alibabaEndpoint: string; webFixture: string; apiFixture: string; dockerHost: string; dockerCa: string; dockerCert: string; dockerKey: string }): Promise<SeedResult> {
@@ -166,6 +167,15 @@ export async function seedAppFlows(apiBase: string, pgUrl: string, env: Record<s
     category: 'LIBRARY', provider: 'OTHER', resourceType: 'pw-bom-stale',
   }), 'stale bom component');
 
+  // Spec 077 — a second sbom-file target for the declared-edge e2e. It must
+  // NOT be a LIBRARY: library neighbours collapse into libraryCounts, so an
+  // SBOM target that renders importer-added edges as rows on the libraries'
+  // dependedOnBy lanes has to be a regular component.
+  const edgeComp = await ok(await api.post('/api/v1/components', {
+    name: 'PW Edge Target', slug: `pw-edge-${env.PWP_RUN_ID}`,
+    category: 'COMPUTE', provider: 'OTHER', resourceType: 'pw-edge-target',
+  }), 'sbom edge target component');
+
   // OIDC configuration pointing at Dex.
   await ok(await api.put('/api/v1/settings/oidc', {
     enabled: true, issuer: 'https://dex.componode-pw.test',
@@ -269,6 +279,10 @@ export async function seedAppFlows(apiBase: string, pgUrl: string, env: Record<s
     `UPDATE components SET "externalId" = 'pw:bom-target' WHERE id = $1`,
     [idOf(bomComp)],
   );
+  await pgClient.query(
+    `UPDATE components SET "externalId" = 'pw:edge-target' WHERE id = $1`,
+    [idOf(edgeComp)],
+  );
   await pgClient.end();
   const bomCfg = await ok(await api.post('/api/v1/importer-configs', {
     importerName: 'sbom-file', label: `pw-sbom-${env.PWP_RUN_ID}`,
@@ -296,5 +310,6 @@ export async function seedAppFlows(apiBase: string, pgUrl: string, env: Record<s
     bomSlug: `pw-bom-${env.PWP_RUN_ID}`,
     bomStaleSlug: `pw-bom-stale-${env.PWP_RUN_ID}`,
     sbomConfigId: idOf(bomCfg),
+    edgeSlug: `pw-edge-${env.PWP_RUN_ID}`,
   };
 }

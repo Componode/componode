@@ -53,6 +53,12 @@ per-importer rollout must be opt-in rather than a contract-wide change.
    desired set: an edge still declared but unresolvable this run (its
    target was not yielded) is removed and re-created on a later run that
    yields the target — the deliverable set is authoritative.
+   Authority is signalled by **`relationships` field presence** on a
+   yielded asset (mirroring the `bomEntries` completeness doctrine):
+   the pass runs only when at least one asset carried the field —
+   carriers emit `[]` on declaring positions for an authoritative
+   empty graph and omit the field on degraded/non-graph yields, so a
+   degraded run writes and retires nothing (spec 077).
    Failed/cancelled/interrupted runs neither write nor retire.
 5. **The pass is failure-isolated.** `runImporterEdgePass` runs after
    the BOM matching pass on the completed path, wrapped like the
@@ -71,7 +77,10 @@ per-importer rollout must be opt-in rather than a contract-wide change.
    version-free purl in `externalId`, `pkg-{type}-{name}` slug family,
    ADR-132 dedupe rules unchanged) so `package → package` dependency
    edges have a same-run target. First carrier: `importer-github`
-   (`importDeclaredEdges`, requires `includeDependencyGraph`).
+   (`importDeclaredEdges`, requires `includeDependencyGraph`). Second
+   carrier: `importer-sbom-file` (spec 077 — `importDeclaredEdges`, no
+   precondition; substitutes `SUBJECT` in both edge endpoint positions
+   with the configured component's externalId).
 8. **Reads carry provenance; suppression is RBAC'd.** The six
    component-edge lanes of `GET /components/{id}/relationships` return
    `edgeProvenance`/`edgeImporterSourceId`/`edgeImporterConfigId`/

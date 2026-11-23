@@ -18,6 +18,8 @@ const SCENARIOS = [
 type Scenario = (typeof SCENARIOS)[number];
 const store = makeScenarioStore([...SCENARIOS], 'baseline');
 const log = new RequestLog();
+// Per-?seq fetch counts for the spec-077 retire fixture (below).
+const edgesRetireFetches = new Map<string, number>();
 
 const ORG = 'pw-org';
 const orgObj = {
@@ -276,13 +278,25 @@ const server = startDataServer({
 
     // Spec 073 e2e fixture — a static CycloneDX document for the sbom-file
     // importer. One nested component so tree view has a child row.
-    if (path === '/sbom/cyclonedx.json') {
+    // Spec 077 — bom-refs on every component + a dependencies[] graph so an
+    // opted-in run materializes declared edges: root → express, root →
+    // lodash + jest (disposable hideable pairs), express → accepts. The
+    // -edges path serves the same document under a distinct URL so spec
+    // 077's config gets its own ImporterSource (source-scoped membership
+    // reconciliation keeps the two configs' runs isolated); the -v2 variant
+    // additionally declares root → golang.org/x/sys so the spec can prove a
+    // human-curated edge on a declared pair is never relabelled.
+    if (
+      path === '/sbom/cyclonedx.json' ||
+      path === '/sbom/cyclonedx-edges.json' ||
+      path === '/sbom/cyclonedx-edges-v2.json'
+    ) {
       return json(res, 200, {
         bomFormat: 'CycloneDX',
         specVersion: '1.5',
         serialNumber: 'urn:uuid:00000000-0000-7000-8000-aa11bb22cc33',
         version: 1,
-        metadata: { component: { type: 'application', name: 'pw-bom-app', version: '1.0.0' } },
+        metadata: { component: { type: 'application', name: 'pw-bom-app', version: '1.0.0', 'bom-ref': 'pw-bom-app-root' } },
         components: [
           {
             type: 'library',
@@ -303,9 +317,53 @@ const server = startDataServer({
               },
             ],
           },
-          { type: 'library', purl: 'pkg:npm/lodash@4.17.21', name: 'lodash', version: '4.17.21', scope: 'required', licenses: [{ license: { id: 'MIT' } }] },
-          { type: 'library', purl: 'pkg:npm/jest@29.7.0', name: 'jest', version: '29.7.0', scope: 'excluded' },
-          { type: 'library', purl: 'pkg:golang/golang.org/x/sys@0.15.0', name: 'golang.org/x/sys', version: '0.15.0', scope: 'required' },
+          { type: 'library', 'bom-ref': 'pkg:npm/lodash@4.17.21', purl: 'pkg:npm/lodash@4.17.21', name: 'lodash', version: '4.17.21', scope: 'required', licenses: [{ license: { id: 'MIT' } }] },
+          { type: 'library', 'bom-ref': 'pkg:npm/jest@29.7.0', purl: 'pkg:npm/jest@29.7.0', name: 'jest', version: '29.7.0', scope: 'excluded' },
+          { type: 'library', 'bom-ref': 'pkg:golang/golang.org/x/sys@0.15.0', purl: 'pkg:golang/golang.org/x/sys@0.15.0', name: 'golang.org/x/sys', version: '0.15.0', scope: 'required' },
+        ],
+        dependencies: [
+          {
+            ref: 'pw-bom-app-root',
+            dependsOn: path === '/sbom/cyclonedx-edges-v2.json'
+              ? ['pkg:npm/express@4.18.2', 'pkg:npm/lodash@4.17.21', 'pkg:npm/jest@29.7.0', 'pkg:golang/golang.org/x/sys@0.15.0']
+              : ['pkg:npm/express@4.18.2', 'pkg:npm/lodash@4.17.21', 'pkg:npm/jest@29.7.0'],
+          },
+          { ref: 'pkg:npm/express@4.18.2', dependsOn: ['pkg:npm/accepts@1.3.8'] },
+        ],
+      });
+    }
+
+    // Spec 077 e2e — mutable document proving source-scoped edge
+    // retirement on the SAME ImporterSource: the first fetch per ?seq=
+    // key declares root → debug and debug → ms; later fetches drop the
+    // debug → ms declaration, so the next completed run on the same
+    // config must retire exactly that edge while root → debug survives.
+    // Each Playwright project passes its own seq so the two runs get
+    // independent v1→v2 sequences (and distinct Source identities).
+    if (path === '/sbom/cyclonedx-edges-retire.json') {
+      const seq = (url.searchParams.get('seq') ?? 'default').replace(/[^a-z0-9-]/g, '');
+      const seen = edgesRetireFetches.get(seq) ?? 0;
+      edgesRetireFetches.set(seq, seen + 1);
+      // seq-suffixed purls keep every declared pair project-unique — edge
+      // rows are pair-global, so unprefixed packages would couple the two
+      // projects' source-scoped retirement.
+      const dbg = `debug-${seq}`;
+      const ms = `ms-${seq}`;
+      return json(res, 200, {
+        bomFormat: 'CycloneDX',
+        specVersion: '1.5',
+        serialNumber: 'urn:uuid:00000000-0000-7000-8000-aa11bb22cc44',
+        version: 1,
+        metadata: { component: { type: 'application', name: 'pw-bom-retire-app', version: '1.0.0', 'bom-ref': 'pw-retire-root' } },
+        components: [
+          { type: 'library', 'bom-ref': `pkg:npm/${dbg}@4.3.4`, purl: `pkg:npm/${dbg}@4.3.4`, name: dbg, version: '4.3.4', scope: 'required' },
+          { type: 'library', 'bom-ref': `pkg:npm/${ms}@2.1.3`, purl: `pkg:npm/${ms}@2.1.3`, name: ms, version: '2.1.3', scope: 'required' },
+        ],
+        dependencies: [
+          { ref: 'pw-retire-root', dependsOn: [`pkg:npm/${dbg}@4.3.4`] },
+          ...(seen === 0
+            ? [{ ref: `pkg:npm/${dbg}@4.3.4`, dependsOn: [`pkg:npm/${ms}@2.1.3`] }]
+            : []),
         ],
       });
     }

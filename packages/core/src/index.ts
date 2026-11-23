@@ -241,6 +241,13 @@ export {
   type CycloneDxDocument,
 } from "./utils/cyclonedx.js";
 export {
+  generateComponentSlug,
+  purlType,
+  buildLibraryAsset,
+  indexBomEntries,
+  dependsOnRels,
+} from "./utils/bom-library.js";
+export {
   fetchImageBom,
   fetchReferrersBom,
   makeRegistryClient,

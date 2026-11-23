@@ -231,10 +231,11 @@ _Avoid_: package name alone as identity
 
 **Library component**:
 A first-class Component (category `LIBRARY`) created via *Add to
-catalog* from a version-free purl — one per package across all versions.
-Same lifecycle, source membership, and graph participation as any
-Component; hidden from the default Components list and excluded from
-coverage denominators.
+catalog* or yielded importer-natively by a declared-edge carrier's
+opted-in run (spec 076/077) — one per package across all versions,
+keyed on the version-free purl. Same lifecycle, source membership, and
+graph participation as any Component; hidden from the default
+Components list and excluded from coverage denominators.
 _Avoid_: package component, dependency record
 
 **Component dependency**:
@@ -282,9 +283,11 @@ shared infrastructure — an owner, named consumers, a lifecycle.
 **BOM entry or Library component?**
 Observed by an importer as package inventory → **BOM entry** (factual,
 read-only, lives and dies with source reports). Elevated to a curated
-catalog entity the graph can depend on → **Library component**, created
-only through *Add to catalog*. The same package exists as both: the entry
-is the fact, the component is the curation.
+catalog entity the graph can depend on → **Library component** — created
+through *Add to catalog* or yielded importer-natively by a declared-edge
+carrier's opted-in run (spec 076/077), merging on the normalized
+version-free purl. The same package exists as both: the entry is the
+fact, the component is the curation.
 
 **Edge provenance** (`CURATED` | `IMPORTER`):
 Recorded on each component-edge junction row — whether a human wired the

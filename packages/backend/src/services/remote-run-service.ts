@@ -206,6 +206,10 @@ interface InFlight {
   // ADR-133: declared edges collected while the batch yields, resolved at
   // completion against the run's own externalId map.
   declaredEdges: DeclaredEdge[];
+  // `relationships` field presence on any yielded asset marks the run
+  // edge-authoritative (spec 077 FR-007) — a batch whose assets never
+  // carried the field (degraded/no-graph) skips the pass entirely.
+  sawEdgeDeclaration: boolean;
   externalIdToComponentId: Map<string, string>;
 }
 
@@ -352,6 +356,7 @@ export class RemoteRunService implements RemoteRunHandler {
         packages: { created: 0, updated: 0, unchanged: 0 },
         bomScopes: new Map(),
         declaredEdges: [],
+        sawEdgeDeclaration: false,
         externalIdToComponentId: new Map(),
       };
       entry.ackTimer = setTimeout(() => void this.onAckTimeout(job.runId), this.ackTimeoutMs);
@@ -669,6 +674,7 @@ export class RemoteRunService implements RemoteRunHandler {
       entry.yieldedComponentIds.add(result.componentId);
       entry.externalIdToComponentId.set(asset.externalId, result.componentId);
       if (entry.job.declaredEdgesEnabled) {
+        if (asset.relationships !== undefined) entry.sawEdgeDeclaration = true;
         entry.declaredEdges.push(
           ...collectDeclaredEdges(asset, result.componentId),
         );
@@ -820,7 +826,7 @@ export class RemoteRunService implements RemoteRunHandler {
         // internally like the suggestion passes. Only opted-in runs; an
         // empty declared set still retires the Source's prior importer
         // edges.
-        if (entry.job.declaredEdgesEnabled) {
+        if (entry.job.declaredEdgesEnabled && entry.sawEdgeDeclaration) {
           await this.store.applyDeclaredEdges(entry);
         }
         return true;
