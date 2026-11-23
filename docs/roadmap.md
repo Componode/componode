@@ -522,6 +522,17 @@ file tracks shipped and upcoming work — update it when a spec completes.
   `includePodImageSbom`; package→subject edges resolve to
   `docker-image:{digestRef}` and drop unresolved since the importer
   emits no image component; zero backend/frontend changes.
+- `080-product-package-rollup` — the deferred Q7 answered: a Packages tab
+  on product detail aggregates `bom_entries` across the product's
+  reachable component set (direct `DEPENDS_ON`, group-expanded edges,
+  `COMPOSES`-inherited dependencies) into one row per version-free purl —
+  version chips + skew filter, ecosystem filter, the declared-dependency
+  signal attributed to its reachability (direct / group / inherited),
+  a coverage line (Library components excluded from the denominator),
+  per-row freshness, and expand-to-consumers with DepSource attribution
+  and BOM-tab deep links — `GET /products/:slug/packages` +
+  `/packages/consumers`, `productPackageRollup` flag ON (gap G41
+  resolved).
 
 ## Next — post-v1.1
 
@@ -546,7 +557,9 @@ dependency suggestion segment, and library legibility (075), and Phase-3
 importer-native declared edges — opt-in `relationships[]`, IMPORTER
 provenance, suppression, and GitHub as first carrier (076), plus the
 SBOM-file (077), Docker (078), and Kubernetes (079) declared-edge
-carriers.
+carriers, and the product-level package roll-up — per-product
+aggregated package inventory with declared-signal attribution and
+coverage (080).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new

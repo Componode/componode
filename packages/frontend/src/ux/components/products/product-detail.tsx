@@ -13,6 +13,7 @@ import { ActivityFeed } from "@/ux/components/patterns/activity-feed"
 import { ListPagination, type ListPaginationProps } from "@/ux/components/patterns/list-pagination"
 import { EdgeAuthoring, type EdgeAuthoringProps } from "@/ux/components/products/edge-authoring"
 import { ProductMap } from "@/ux/components/products/product-map"
+import { ProductPackagesPanel } from "@/ux/components/products/product-packages"
 import { Alert, AlertDescription, AlertTitle } from "@/ux/components/ui/alert"
 import { Badge } from "@/ux/components/ui/badge"
 import { Button } from "@/ux/components/ui/button"
@@ -28,11 +29,13 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ux/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ux/components/ui/tabs"
 import { CATEGORY_LABELS, type Criticality } from "@/ux/lib/domain"
+import { flags } from "@/ux/lib/flags"
 import { ux } from "@/ux/lib/paths"
 import { useValidatedTab } from "@/ux/lib/use-validated-tab"
 import type { AuditEvent, Product, ProductComponentRow, ProductTopology, Suggestion } from "@/ux/lib/view-types"
 
-const TABS = ["overview", "map", "components", "dependencies", "activity"] as const
+const TABS = ["overview", "map", "components", "packages", "dependencies", "activity"] as const
+const TABS_NO_PACKAGES = ["overview", "map", "components", "dependencies", "activity"] as const
 
 export interface ProductDetailProps {
   product: Product
@@ -52,7 +55,7 @@ export interface ProductDetailProps {
 
 export function ProductDetail({ product, components, consumers, parents, topology, edges, suggestions, activity, activityPagination }: ProductDetailProps) {
   const navigate = useNavigate()
-  const [tab, setTab] = useValidatedTab(TABS)
+  const [tab, setTab] = useValidatedTab(flags.productPackageRollup ? TABS : TABS_NO_PACKAGES)
   const updateProduct = useUpdateProduct()
   const deleteProduct = useDeleteProduct()
   const acceptSuggestion = useAcceptSuggestion()
@@ -165,6 +168,9 @@ export function ProductDetail({ product, components, consumers, parents, topolog
           <TabsTrigger value="components">
             Components <span className="tabular text-muted-foreground">{components.length}</span>
           </TabsTrigger>
+          {flags.productPackageRollup && (
+            <TabsTrigger value="packages">Packages</TabsTrigger>
+          )}
           <TabsTrigger value="dependencies">Dependencies</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
@@ -255,6 +261,12 @@ export function ProductDetail({ product, components, consumers, parents, topolog
         <TabsContent value="map">
           <ProductMap product={product} topology={topology} />
         </TabsContent>
+
+        {flags.productPackageRollup && (
+          <TabsContent value="packages">
+            <ProductPackagesPanel slug={product.slug} />
+          </TabsContent>
+        )}
 
         <TabsContent value="dependencies" className="grid gap-6 lg:grid-cols-2">
           {edges && (

@@ -14,6 +14,10 @@ import { logger as appLogger } from "../plugins/logging.js";
 import { writeEntityChange, writeEdgeChange, type Actor } from "./audit-service.js";
 import { computeHealthForProducts } from "./product-health-service.js";
 import {
+  productComponentScope,
+  type ScopedComponent,
+} from "./product-dep-scope.js";
+import {
   computeDependencySurfaces,
   productCompleteness,
 } from "./catalog-coverage-service.js";
@@ -424,94 +428,9 @@ export async function getProductDetail(slug: string) {
     computeDependencySurfaces(),
   ]);
 
-  // Descendant products reachable via COMPOSES (inherited dependency scope).
-  const descendants = await db
-    .withRecursive("descendants(id)", (qb) =>
-      qb
-        .selectFrom("product_composes")
-        .select("childId as id")
-        .where("parentId", "=", product.id)
-        .unionAll((eb) =>
-          eb
-            .selectFrom("product_composes")
-            .innerJoin("descendants", "product_composes.parentId", "descendants.id")
-            .select("product_composes.childId as id"),
-        ),
-    )
-    .selectFrom("descendants")
-    .select("id")
-    .execute();
-
-  const descendantIds = descendants.map((d) => d.id);
-  const allProductIds = [product.id, ...descendantIds];
-
-  const depRows = allProductIds.length
-    ? await db
-        .selectFrom("product_depends_on_component")
-        .innerJoin(
-          "components",
-          "product_depends_on_component.componentId",
-          "components.id",
-        )
-        .innerJoin(
-          "digital_products",
-          "product_depends_on_component.productId",
-          "digital_products.id",
-        )
-        .select([
-          "components.id",
-          "components.name",
-          "components.slug",
-          "components.category",
-          "components.lifecycle",
-          "digital_products.id as viaId",
-          "digital_products.name as viaName",
-          "digital_products.slug as viaSlug",
-        ])
-        .where("product_depends_on_component.productId", "in", allProductIds)
-        .execute()
-    : [];
-
-  // Group edges expand to current members at read time (ADR-110 §2).
-  const groupDepRows = allProductIds.length
-    ? await db
-        .selectFrom("product_depends_on_component_group")
-        .innerJoin(
-          "component_groups",
-          "product_depends_on_component_group.componentGroupId",
-          "component_groups.id",
-        )
-        .innerJoin(
-          "component_group_members",
-          "component_group_members.groupId",
-          "component_groups.id",
-        )
-        .innerJoin(
-          "components",
-          "components.id",
-          "component_group_members.componentId",
-        )
-        .innerJoin(
-          "digital_products",
-          "product_depends_on_component_group.productId",
-          "digital_products.id",
-        )
-        .select([
-          "components.id",
-          "components.name",
-          "components.slug",
-          "components.category",
-          "components.lifecycle",
-          "component_groups.id as groupId",
-          "component_groups.name as groupName",
-          "component_groups.slug as groupSlug",
-          "digital_products.id as viaId",
-          "digital_products.name as viaName",
-          "digital_products.slug as viaSlug",
-        ])
-        .where("product_depends_on_component_group.productId", "in", allProductIds)
-        .execute()
-    : [];
+  // Spec 080: the reachable component set is shared with the product
+  // package roll-up — same DIRECT/GROUP/INHERITED attribution.
+  const depMap = await productComponentScope(product.id);
 
   // Raw group edges of this product — surfaces empty groups too (spec 019).
   const dependsOnGroups = await family(
@@ -538,63 +457,7 @@ export async function getProductDetail(slug: string) {
       .execute(),
   );
 
-  type DepEntry = {
-    id: string;
-    name: string;
-    slug: string;
-    category: string;
-    lifecycle: string;
-    sources: DepSource[];
-  };
-  const depMap = new Map<string, DepEntry>();
-
-  const sourceKey = (s: DepSource) =>
-    s.kind === "DIRECT"
-      ? "DIRECT"
-      : s.kind === "GROUP"
-        ? `GROUP:${s.group.id}`
-        : `INHERITED:${s.product.id}`;
-
-  function addDep(
-    c: { id: string; name: string; slug: string; category: string; lifecycle: string },
-    source: DepSource,
-  ) {
-    const entry =
-      depMap.get(c.id) ??
-      depMap
-        .set(c.id, { ...c, sources: [] })
-        .get(c.id)!;
-    const key = sourceKey(source);
-    if (!entry.sources.some((s) => sourceKey(s) === key)) {
-      entry.sources.push(source);
-    }
-  }
-
-  for (const r of depRows) {
-    addDep(
-      r,
-      r.viaId === product.id
-        ? { kind: "DIRECT" }
-        : {
-            kind: "INHERITED",
-            product: { id: r.viaId, name: r.viaName, slug: r.viaSlug },
-          },
-    );
-  }
-  for (const r of groupDepRows) {
-    addDep(
-      r,
-      r.viaId === product.id
-        ? {
-            kind: "GROUP",
-            group: { id: r.groupId, name: r.groupName, slug: r.groupSlug },
-          }
-        : {
-            kind: "INHERITED",
-            product: { id: r.viaId, name: r.viaName, slug: r.viaSlug },
-          },
-    );
-  }
+  type DepEntry = ScopedComponent;
 
   // declared = reachable via the product's own edges (direct or group);
   // inherited = only reachable through COMPOSES descendants.

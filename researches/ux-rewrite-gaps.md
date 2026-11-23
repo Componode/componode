@@ -446,6 +446,21 @@ them into specs when scheduled. G29/G31/G32 shipped as spec
   warning/destructive tones, and copy contains no security-scan wording
   (spec 073 FR-025).
 
+## G41 — Product package roll-up — RESOLVED by spec 080
+
+- A **Packages** tab on product detail aggregates `bom_entries` across the
+  product's reachable component set (direct `DEPENDS_ON`, group-expanded
+  edges, and `COMPOSES`-inherited dependencies), one row per version-free
+  purl, with the declared-dependency signal attributed to its reachability
+  (direct / group / inherited), a coverage line ("N of M components
+  reporting", Library components excluded from the denominator), per-row
+  freshness, and expand-to-consumers with DepSource attribution. The
+  `productPackageRollup` flag ships ON with the read-only contract
+  (`GET /products/:slug/packages` + `/packages/consumers`); its fallback
+  is hidden — the tab is absent, not disabled. Inventory-only posture: no
+  vulnerability or risk wording anywhere on the surface (G40 stays
+  deferred).
+
 ## Conditional gaps — VERIFIED during implementation
 
 - **Product bulk-import** — RESOLVED: `POST /products/bootstrap`

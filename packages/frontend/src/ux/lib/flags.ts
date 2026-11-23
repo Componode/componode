@@ -70,6 +70,10 @@ export const flags = {
    *  provenance on the relationships read + POST /component-edge-suppressions
    *  + the importer opt-in field). Surfaces hidden, never disabled, when off. */
   bomImporterEdges: flagOverride("bomImporterEdges") ?? true,
+  /** Product-level package roll-up (gap G41, spec 080 — ON with
+   *  /products/:slug/packages + consumers). Surfaces hidden, never
+   *  disabled, when off. */
+  productPackageRollup: flagOverride("productPackageRollup") ?? true,
 } as const;
 
 export type GapFlag = keyof typeof flags;
