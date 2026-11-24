@@ -1,4 +1,4 @@
-import { qualifyExternalId, type ComponentCategory, type InstanceStatus } from "@componode/core";
+import { qualifyExternalId, slugify, type ComponentCategory, type InstanceStatus } from "@componode/core";
 
 // ACS::<Service>::<Type> → ComponentCategory. Codes are the provider-native
 // resource types returned by Resource Center SearchResources. Anything not
@@ -99,21 +99,12 @@ export function mapResourceType(resourceType: string): ComponentCategory | null 
   return CATEGORY_MAP[resourceType] ?? null;
 }
 
-export function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 // DiscoveredAsset caps slug at 100 chars; reserve 9 for "-"+8-char id suffix.
 const SLUG_BASE_MAX = 91;
 
 export function componentSlug(name: string, resourceId: string): string {
-  const base = (slugify(name) || "resource").slice(0, SLUG_BASE_MAX).replace(/-+$/g, "");
-  const suffix =
-    resourceId.slice(-8).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") ||
-    "id";
+  const base = slugify(name, SLUG_BASE_MAX) || "resource";
+  const suffix = slugify(resourceId.slice(-8)) || "id";
   return `${base}-${suffix}`;
 }
 

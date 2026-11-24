@@ -16,18 +16,9 @@ import { Input } from "@/ux/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ux/components/ui/select";
 import { Textarea } from "@/ux/components/ui/textarea";
 import type { OrgEntity } from "@/api/types";
+import { SLUG_RE, deriveSlug } from "@/ux/lib/slug";
 
 const NONE = "__none__";
-
-const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-function deriveSlug(name: string) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 interface OrgFormDialogProps {
   noun: "team" | "line of business";

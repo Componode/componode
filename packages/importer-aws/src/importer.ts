@@ -1,12 +1,5 @@
-import { canonicalizeSourceIdentity, qualifyExternalId, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
+import { canonicalizeSourceIdentity, qualifyExternalId, slugify, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
 import { awsConfigSchema } from "./config.js";
-
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 function buildAsset(resourceType: string, region: string, endpoint: string | undefined, identity: string): DiscoveredAsset {
   const name = `${resourceType}:${region}`;

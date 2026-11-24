@@ -1,11 +1,6 @@
-export function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-");
-}
+import { slugify } from "@componode/core";
+
+export { slugify };
 
 export async function generateUniqueSlug(
   base: string,

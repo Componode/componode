@@ -23,6 +23,9 @@ const USER_SORT_COLUMNS: Record<UserSortKey, OrderTarget> = {
   createdAt: "persons.createdAt",
 };
 
+// Username slug semantics differ deliberately from @componode/core slugify
+// (spec 081, research D3): '_' is preserved and replacement is character-wise
+// (no run collapsing, no edge trim). Do not migrate.
 function slugify(username: string): string {
   return username.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
 }

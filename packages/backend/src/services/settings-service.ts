@@ -180,6 +180,51 @@ export async function getOidcConfig() {
   return config;
 }
 
+// OIDC discovery hardening (spec 081): plain http is permitted only for
+// loopback development IdPs; discovery documents are capped before parsing.
+const OIDC_LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+const OIDC_DISCOVERY_MAX_BYTES = 64 * 1024;
+
+async function readBoundedJson(response: Response, maxBytes: number): Promise<unknown> {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    throw Object.assign(new Error("OIDC discovery document exceeded maximum size"), {
+      statusCode: 422,
+      code: "OIDC_DISCOVERY_FAILED",
+    });
+  }
+  const body = response.body;
+  if (!body) {
+    return response.json();
+  }
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        throw Object.assign(new Error("OIDC discovery document exceeded maximum size"), {
+          statusCode: 422,
+          code: "OIDC_DISCOVERY_FAILED",
+        });
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder().decode(merged));
+}
+
 export async function updateOidcConfig(input: UpdateOidcConfigInput, actor: Actor) {
   const now = new Date().toISOString();
 
@@ -190,19 +235,72 @@ export async function updateOidcConfig(input: UpdateOidcConfigInput, actor: Acto
         code: "OIDC_DISCOVERY_FAILED",
       });
     }
-    input.issuer = input.issuer.replace(/\/+$/, "");
+    // Issuer validation (spec 081): the discovery fetch below is a
+    // server-side request on an admin-supplied URL. Confine it to real
+    // HTTP(S) IdPs — https everywhere, http only for loopback development
+    // IdPs, never embedded credentials/query/fragment.
+    let issuerUrl: URL;
     try {
-      const discoveryUrl = input.issuer.replace(/\/$/, "") + "/.well-known/openid-configuration";
-      const response = await fetch(discoveryUrl, { signal: AbortSignal.timeout(5000) });
+      issuerUrl = new URL(input.issuer);
+    } catch {
+      throw Object.assign(new Error("OIDC issuer is not a valid URL"), {
+        statusCode: 422,
+        code: "OIDC_DISCOVERY_FAILED",
+      });
+    }
+    const schemeOk =
+      issuerUrl.protocol === "https:" ||
+      (issuerUrl.protocol === "http:" && OIDC_LOOPBACK_HOSTS.has(issuerUrl.hostname));
+    if (!schemeOk) {
+      throw Object.assign(
+        new Error("OIDC issuer must use https (http is only allowed for loopback hosts)"),
+        { statusCode: 422, code: "OIDC_DISCOVERY_FAILED" },
+      );
+    }
+    if (issuerUrl.username || issuerUrl.password) {
+      throw Object.assign(new Error("OIDC issuer must not contain credentials"), {
+        statusCode: 422,
+        code: "OIDC_DISCOVERY_FAILED",
+      });
+    }
+    if (issuerUrl.search || issuerUrl.hash) {
+      throw Object.assign(new Error("OIDC issuer must not contain a query or fragment"), {
+        statusCode: 422,
+        code: "OIDC_DISCOVERY_FAILED",
+      });
+    }
+    // Normalize: drop trailing slashes via index scan (no '+'-anchored regex
+    // — code-scanning flagged pattern) and persist the canonical form.
+    let pathEnd = issuerUrl.pathname.length;
+    while (pathEnd > 0 && issuerUrl.pathname.charCodeAt(pathEnd - 1) === 47) pathEnd--;
+    input.issuer = issuerUrl.origin + issuerUrl.pathname.slice(0, pathEnd);
+
+    try {
+      const discoveryUrl = `${input.issuer}/.well-known/openid-configuration`;
+      // manual redirects: following a 302 would re-open the SSRF hole this
+      // validation exists to close — a redirect is a discovery failure.
+      const response = await fetch(discoveryUrl, {
+        signal: AbortSignal.timeout(5000),
+        redirect: "manual",
+      });
       if (!response.ok) {
         throw Object.assign(new Error("OIDC discovery endpoint returned non-200 status"), {
           statusCode: 422,
           code: "OIDC_DISCOVERY_FAILED",
         });
       }
-      const discovery = await response.json() as { issuer?: string };
-      if (discovery.issuer !== input.issuer.replace(/\/$/, "")) {
-        // Issuer mismatch — some IdPs redirect, allow if the response is valid OIDC config
+      const discovery = (await readBoundedJson(response, OIDC_DISCOVERY_MAX_BYTES)) as {
+        issuer?: string;
+      };
+      // OIDC spec: discovered issuer MUST match the issuer used for
+      // discovery — this is the standard SSRF countermeasure.
+      let repEnd = (discovery.issuer ?? "").length;
+      while (repEnd > 0 && discovery.issuer!.charCodeAt(repEnd - 1) === 47) repEnd--;
+      if ((discovery.issuer ?? "").slice(0, repEnd) !== input.issuer) {
+        throw Object.assign(new Error("OIDC discovery document issuer does not match the configured issuer"), {
+          statusCode: 422,
+          code: "OIDC_DISCOVERY_FAILED",
+        });
       }
     } catch (err) {
       if (err instanceof Error && (err as { code?: string }).code === "OIDC_DISCOVERY_FAILED") throw err;

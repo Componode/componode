@@ -1,5 +1,5 @@
 import type { Octokit } from "octokit";
-import type { DiscoveredAsset } from "@componode/core";
+import { slugify, type DiscoveredAsset } from "@componode/core";
 import {
   capabilityMarker,
   withCapability,
@@ -53,7 +53,7 @@ export async function* fetchWorkflowAssets(
         resourceType: "github:workflow",
         name: `${repo.full_name} / ${workflow.name}`,
         externalId: `${repo.id}:${workflow.id}`,
-        slug: `${repo.name}-${workflow.id}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
+        slug: slugify(`${repo.name}-${workflow.id}`),
         details: {
           path: workflow.path,
           state: workflow.state,
@@ -143,7 +143,7 @@ export async function* fetchPackageAssets(
           resourceType: "github:package",
           name: `${pkg.package_type}:${pkg.name}`,
           externalId: String(pkg.id),
-          slug: `${packageType}-${pkg.id}`.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          slug: slugify(`${packageType}-${pkg.id}`),
           details: {
             packageType: pkg.package_type,
             visibility: pkg.visibility ?? null,

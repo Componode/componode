@@ -20,7 +20,10 @@ project constitution; this page summarizes what the code actually does.
 - **Local auth** — Argon2id password hashing (`@node-rs/argon2`), server-side
   sessions with cryptographically random session IDs (not UUIDs — ADR-099).
 - **OIDC SSO** — optional single sign-on with full ID-token verification
-  (signature, issuer, audience, expiry, nonce, PKCE).
+  (signature, issuer, audience, expiry, nonce, PKCE). Issuer URLs are
+  restricted to `https:` (or `http:` loopback for development IdPs), may not
+  carry credentials/query/fragment, and discovery responses are bounded —
+  the discovery fetch cannot be steered at arbitrary internal targets.
 - **CSRF** — state-changing requests require the `componode_csrf` cookie plus
   a matching `x-csrf-token` header, in addition to the session cookie.
 - **RBAC** — route-level `requireRole` enforcement; permissions are declared

@@ -1,13 +1,6 @@
-import { buildLibraryAsset, canonicalizeSourceIdentity, dependsOnRels, indexBomEntries, qualifyExternalId, SPDX_EDGE_SUBJECT, validateDiscoveredAsset, type DiscoveredAsset, type DiscoveredBomEntry, type Importer, type ImporterContext, type SpdxEdge } from "@componode/core";
+import { buildLibraryAsset, canonicalizeSourceIdentity, dependsOnRels, indexBomEntries, qualifyExternalId, slugify, SPDX_EDGE_SUBJECT, validateDiscoveredAsset, type DiscoveredAsset, type DiscoveredBomEntry, type Importer, type ImporterContext, type SpdxEdge } from "@componode/core";
 import { kubernetesConfigSchema } from "./config.js";
 import { collectPodImageBoms, type PodImageBom } from "./k8s-pods.js";
-
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 function buildAsset(resourceType: string, namespace: string, endpoint: string | undefined, identity: string): DiscoveredAsset {
   const name = `${resourceType}:${namespace}`;
