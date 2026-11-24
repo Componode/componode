@@ -27,7 +27,7 @@ flowchart LR
 
     subgraph Host["Docker host"]
         subgraph Compose["docker-compose.yml"]
-            subgraph AppC["app container (node:24-alpine, non-root uid 10001)"]
+            subgraph AppC["app container (node:26-alpine, non-root uid 10001)"]
                 FE["Frontend static assets<br/>(React 18 + Vite build)"]
                 API["Fastify backend<br/>API under /api/v1<br/>GET /metrics"]
             end
@@ -72,7 +72,7 @@ flowchart LR
 
 Key infrastructure facts:
 
-- The `app` image is a single-stage `node:24-alpine` build that runs
+- The `app` image is a single-stage `node:26-alpine` build that runs
   `packages/backend/dist/server.js` as a non-root user and exposes port `3000`.
 - PostgreSQL 16 is bundled (`postgres_data` volume); **PostgreSQL 14+** is the
   floor for external databases, and `pgcrypto` is required — both verified at
