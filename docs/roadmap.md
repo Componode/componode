@@ -573,23 +573,31 @@ closed with `039`/`040`, and the three feature-spec gaps shipped as the
 catalog-authoring spec (042) — what remains are the deferred entries (see
 `researches/ux-rewrite-gaps.md` spec-queue block):
 
-Deferred unscheduled — kept here as the standing reference so future
-planning/discussion can surface them directly (full entries in
+Next steps, in order (full gap entries in
 `researches/ux-rewrite-gaps.md`):
 
-- **Security/auth batch** — G16 TOTP (settings/security toggle, no
-  backend; needs ADR), G17 session-concurrency + IP-binding controls,
-  G27 auth hardening (allowed email domains, password policy,
-  register work-email), G30 "keep me signed in" per-session TTL on login
+1. **Security/auth batch** — G16 TOTP (settings/security toggle, no
+   backend; needs ADR), G17 session-concurrency + IP-binding controls,
+   G27 auth hardening (allowed email domains, password policy,
+   register work-email), G30 "keep me signed in" per-session TTL on
+   login. Cohesive grouped spec; needs an ADR for 2FA.
+2. **G26** — `includeGone` opt-in on component detail. Small
+   standalone, quick win.
+3. **Importer-source program (ADR-119, spec 043)** — the ratified
+   staged program per
+   `researches/docker-importer-implementation-tracking.md`; next wave:
+   Docker Engine workload inventory, then Docker observations +
+   Source UI, then Swarm inventory.
+
+Further deferred entries — kept here as the standing reference so
+future planning/discussion can surface them directly:
+
 - **Org/settings batch** — G15 notification delivery + prefs matrix
   (needs SMTP + per-user prefs endpoint), G18 workspace profile fields
   (AppSettings lacks org-level config), G19 retention/export/destructive
   ops, G28 LOB owner field
-- **Standalone** — G26 `includeGone` opt-in on component detail
 
-Beyond the gap queue, the ratified importer-source program (ADR-119,
-spec 043) is queued in staged waves per
-`researches/docker-importer-implementation-tracking.md`: the generic
+The importer-source program's full wave list: the generic
 ImporterSource core, staged migration of existing importers, Docker
 Engine workload inventory, Docker observations + Source UI, then Swarm
 inventory. Alongside:
