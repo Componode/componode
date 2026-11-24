@@ -8,7 +8,7 @@ RUN apk add --no-cache wget && \
     addgroup -g 10001 componode && \
     adduser -u 10001 -G componode -D componode
 
-RUN corepack enable pnpm
+RUN npm install -g pnpm@9.15.2
 
 WORKDIR /app
 

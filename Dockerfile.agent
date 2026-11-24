@@ -17,7 +17,7 @@ FROM node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43dd
 RUN addgroup -g 10001 componode && \
     adduser -u 10001 -G componode -D componode
 
-RUN corepack enable pnpm
+RUN npm install -g pnpm@9.15.2
 
 WORKDIR /app
 
