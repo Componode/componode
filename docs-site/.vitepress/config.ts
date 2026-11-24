@@ -9,6 +9,11 @@ export default withMermaid(
   srcDir: "../docs",
   srcExclude: ["**/.vitepress/**"],
   outDir: "./.vitepress/dist",
+  vite: {
+    ssr: {
+      noExternal: ["vitepress-openapi"],
+    },
+  },
   cleanUrls: true,
   base: "/componode/",
   lastUpdated: true,

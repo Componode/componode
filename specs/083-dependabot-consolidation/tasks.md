@@ -112,6 +112,16 @@ Dockerfiles show digest-pinned node 26.
 
 ---
 
+## Phase 7: Review Findings
+
+**Purpose**: Fixes from the two-axis code review (vs `main`) — run after Phase 6.
+
+- [x] T027 Pin `lucide-react` and `vitepress-openapi` resolution to the assessed versions (1.64.0 / 0.2.16): `^`-ranges floated the lockfile to 1.78.0 / 0.2.19, both published <24 h ago — violates the ≥7-day supply-chain preference and escaped the per-PR assessment. Manifest `^` ranges preserved; re-verified frozen install, frontend typecheck + 572 tests, frontend build.
+- [x] T028 Fix `pnpm docs:build` failure from vitepress-openapi ≥0.2.6 packaging (client bundle now externalizes `vitepress`; SSR resolves the server entry which lacks `useData`) — added `vite.ssr.noExternal: ["vitepress-openapi"]` to `docs-site/.vitepress/config.ts`; build completes and all docs checks still pass.
+- [ ] T029 Disclose in the PR body: the two version pins, the `noExternal` fix, the `corepack`→npm fix, the `.nvmrc`/`@types/node`-26 divergence, the bundled-majors deviation (sanctioned per plan.md Constraints), and the 9 pre-existing e2e failures (identical on `main`, incl. `bom_component_suggestions` registry drift)
+
+---
+
 ## Dependencies & Execution Order
 
 - **Phase 1 → 2 → verification phases**: strictly sequential — lockfile
