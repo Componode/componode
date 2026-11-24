@@ -277,7 +277,12 @@ export async function updateOidcConfig(input: UpdateOidcConfigInput, actor: Acto
 
     try {
       const discoveryUrl = `${input.issuer}/.well-known/openid-configuration`;
-      const response = await fetch(discoveryUrl, { signal: AbortSignal.timeout(5000) });
+      // manual redirects: following a 302 would re-open the SSRF hole this
+      // validation exists to close — a redirect is a discovery failure.
+      const response = await fetch(discoveryUrl, {
+        signal: AbortSignal.timeout(5000),
+        redirect: "manual",
+      });
       if (!response.ok) {
         throw Object.assign(new Error("OIDC discovery endpoint returned non-200 status"), {
           statusCode: 422,
@@ -287,8 +292,15 @@ export async function updateOidcConfig(input: UpdateOidcConfigInput, actor: Acto
       const discovery = (await readBoundedJson(response, OIDC_DISCOVERY_MAX_BYTES)) as {
         issuer?: string;
       };
-      if (discovery.issuer !== input.issuer) {
-        // Issuer mismatch — some IdPs redirect, allow if the response is valid OIDC config
+      // OIDC spec: discovered issuer MUST match the issuer used for
+      // discovery — this is the standard SSRF countermeasure.
+      let repEnd = (discovery.issuer ?? "").length;
+      while (repEnd > 0 && discovery.issuer!.charCodeAt(repEnd - 1) === 47) repEnd--;
+      if ((discovery.issuer ?? "").slice(0, repEnd) !== input.issuer) {
+        throw Object.assign(new Error("OIDC discovery document issuer does not match the configured issuer"), {
+          statusCode: 422,
+          code: "OIDC_DISCOVERY_FAILED",
+        });
       }
     } catch (err) {
       if (err instanceof Error && (err as { code?: string }).code === "OIDC_DISCOVERY_FAILED") throw err;
