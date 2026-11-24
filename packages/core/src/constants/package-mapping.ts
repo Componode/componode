@@ -1,6 +1,7 @@
 import type { ComponentCategory } from "./component-categories.js";
 import type { ComponentProvider } from "./component-providers.js";
 import { parsePurl } from "../utils/purl.js";
+import { slugify } from "../utils/slug.js";
 
 // Spec 075 / ADR-013 Amendment 2 — the promotion mapping tables used when a
 // BOM entry becomes a Library component. Single-sourced here so the preview
@@ -115,10 +116,5 @@ export function mappingNote(
 
 /** Slug token for a package name — `@scope/name` → `scope-name` (ADR-046). */
 export function packageSlugToken(name: string): string {
-  return name
-    .replace(/^@/, "")
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/-{2,}/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase();
+  return slugify(name);
 }

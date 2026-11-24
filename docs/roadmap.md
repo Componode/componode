@@ -533,6 +533,13 @@ file tracks shipped and upcoming work — update it when a spec completes.
   and BOM-tab deep links — `GET /products/:slug/packages` +
   `/packages/consumers`, `productPackageRollup` flag ON (gap G41
   resolved).
+- `081-security-code-fixes` — CodeQL remediations: a canonical `slugify()`
+  in `packages/core` (collapse-regex + index-based edge trim, no
+  `+`-quantified trim regex) replaces ~10 duplicated slug chains across
+  backend services, six importers, and the frontend; OIDC issuer
+  validation hardens `PUT /settings/oidc` — `https:` required except
+  loopback `http:`, credentials/query/fragment rejected, discovery
+  response bounded to 64 KiB — closing the admin-gated SSRF shape.
 
 ## Next — post-v1.1
 
@@ -559,7 +566,8 @@ provenance, suppression, and GitHub as first carrier (076), plus the
 SBOM-file (077), Docker (078), and Kubernetes (079) declared-edge
 carriers, and the product-level package roll-up — per-product
 aggregated package inventory with declared-signal attribution and
-coverage (080).
+coverage (080), and CodeQL remediations — shared `slugify`, OIDC issuer
+SSRF hardening (081).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new

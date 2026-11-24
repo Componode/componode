@@ -230,6 +230,7 @@ export {
   isQualifiedExternalId,
   unqualifyExternalId,
 } from "./utils/source-identity.js";
+export { slugify } from "./utils/slug.js";
 export {
   parsePurl,
   isValidPurl,

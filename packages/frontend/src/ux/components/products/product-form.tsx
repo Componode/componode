@@ -21,16 +21,10 @@ import type { OrgEntity, TeamEntity } from "@/api/types"
 import { groupTeams } from "@/ux/lib/org-grouping"
 import { useCreateProduct, useUpdateProduct } from "@/api/hooks/products"
 import { ux } from "@/ux/lib/paths"
+import { deriveSlug } from "@/ux/lib/slug"
 import type { Link, Product } from "@/ux/lib/view-types"
 
 const NONE = "__none__"
-
-const slugify = (s: string) =>
-  s
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
 
 interface Errors {
   name?: string
@@ -97,7 +91,7 @@ export function ProductForm({ product, lobs, teams }: { product?: Product; lobs:
       )
     } else {
       createProduct.mutate(
-        { ...input, slug: slug || slugify(name) },
+        { ...input, slug: slug || deriveSlug(name) },
         {
           onSuccess: () => {
             toast.success(`Created ${name}`)
@@ -136,7 +130,7 @@ export function ProductForm({ product, lobs, teams }: { product?: Product; lobs:
                 aria-invalid={errors.name ? true : undefined}
                 onChange={(e) => {
                   setName(e.target.value)
-                  if (!slugTouched) setSlug(slugify(e.target.value))
+                  if (!slugTouched) setSlug(deriveSlug(e.target.value))
                 }}
                 placeholder="Checkout"
               />

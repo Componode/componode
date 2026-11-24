@@ -1,6 +1,7 @@
 import { uuidv7 } from "uuidv7";
 import type { Kysely, Selectable } from "kysely";
 import {
+  slugify,
   type CreateOrgEntityInput,
   type UpdateOrgEntityInput,
   type CreateTeamInput,
@@ -44,12 +45,7 @@ const ENTITY_TYPE: Record<OrgTable, string> = {
 };
 
 function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 100);
+  return slugify(name, 100);
 }
 
 async function assertUniqueSlug(table: OrgTable, slug: string, excludeId?: string) {

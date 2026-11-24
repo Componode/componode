@@ -1,12 +1,5 @@
-import { canonicalizeSourceIdentity, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
+import { canonicalizeSourceIdentity, slugify, validateDiscoveredAsset, type DiscoveredAsset, type Importer, type ImporterContext } from "@componode/core";
 import { azureConfigSchema } from "./config.js";
-
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 function buildAsset(resourceType: string, subscriptionId: string | undefined, endpoint: string | undefined, identity: string): DiscoveredAsset {
   const identityPrefix = canonicalizeSourceIdentity(identity);

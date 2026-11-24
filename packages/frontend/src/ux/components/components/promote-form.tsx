@@ -12,14 +12,8 @@ import { Textarea } from "@/ux/components/ui/textarea"
 import { usePromoteComponent } from "@/api/hooks/components"
 import type { ComponentDependent } from "@/api/types"
 import { ux } from "@/ux/lib/paths"
+import { deriveSlug } from "@/ux/lib/slug"
 import type { Component } from "@/ux/lib/view-types"
-
-const slugify = (s: string) =>
-  s
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
 
 /**
  * Promote a component to a platform product and reroute consumers.
@@ -56,7 +50,7 @@ export function PromoteForm({ component, consumers }: { component: Component; co
         id: component.id,
         input: {
           name: name.trim(),
-          slug: slug || slugify(name),
+          slug: slug || deriveSlug(name),
           description: description.trim() || null,
           consumerIds: [...checked],
         },
@@ -102,7 +96,7 @@ export function PromoteForm({ component, consumers }: { component: Component; co
                 id="pr-slug"
                 value={slug}
                 className="font-mono"
-                placeholder={slugify(name)}
+                placeholder={deriveSlug(name)}
                 onChange={(e) => setSlug(e.target.value)}
                 aria-invalid={errors.slug ? true : undefined}
               />
