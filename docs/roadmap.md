@@ -533,6 +533,15 @@ file tracks shipped and upcoming work — update it when a spec completes.
   and BOM-tab deep links — `GET /products/:slug/packages` +
   `/packages/consumers`, `productPackageRollup` flag ON (gap G41
   resolved).
+- `082-supply-chain-hardening` — OpenSSF Scorecard remediations with no
+  application-code surface: every GitHub Actions `uses:` pinned to a full
+  commit SHA with `# vX.Y.Z` comments across `ci`, `release`, `scorecard`,
+  and `docs` workflows (at the Dependabot-proposed newer versions),
+  top-level `permissions: contents: read` added where missing, all
+  Dockerfile `FROM` and compose `image:` references digest-pinned to
+  multi-arch index SHAs, and the repo-root `LICENSE` (Apache-2.0, ADR-002)
+  and `SECURITY.md` added — closing the Pinned-Dependencies,
+  Token-Permissions, License, and Security-Policy checks.
 
 ## Next — post-v1.1
 
@@ -559,7 +568,9 @@ provenance, suppression, and GitHub as first carrier (076), plus the
 SBOM-file (077), Docker (078), and Kubernetes (079) declared-edge
 carriers, and the product-level package roll-up — per-product
 aggregated package inventory with declared-signal attribution and
-coverage (080).
+coverage (080), and supply-chain hardening — SHA-pinned actions,
+least-privilege workflow permissions, digest-pinned images, LICENSE +
+SECURITY.md (082).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new
