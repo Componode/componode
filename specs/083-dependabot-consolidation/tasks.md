@@ -106,9 +106,9 @@ Dockerfiles show digest-pinned node 26.
 - [x] T021 Run the full workspace gate in CI order: `pnpm lint` → `pnpm typecheck` → `pnpm test` → `pnpm build`
 - [x] T022 Run the generated-docs checks: `pnpm --filter @componode/backend docs:api:check`, `docs:importers:check`, `docs:schema:check`, `docs:sidebar:check`, `docs:oracle:check`; if `vitepress-openapi` 0.2.16 changed rendering, regenerate the affected `<!-- GENERATED -->` regions with the owning `docs:*` script
 - [x] T023 Run the Playwright workload: `cd playwright && pnpm e2e` (requires Docker; if Docker is unavailable locally, document that and rely on a targeted frontend smoke instead) — ran full suite: 379 passed / 9 failed / 2 skipped; re-ran the 5 failing specs against a `main`-built stack and reproduced the identical 9 failures ⇒ all pre-existing workload drift (missing `bom_component_suggestions` registry entry, seed-count drift in pagination, component-bom timeouts, product-map narrow overflow, packages row expansion), zero new failures from this batch. Node 26 fallout found + fixed: `corepack` removed from Node ≥25 images → `npm install -g pnpm@9.15.2` in both Dockerfiles.
-- [ ] T024 Commit all remaining work (message file + `git commit -F`), `git push -u origin 083-dependabot-consolidation`
-- [ ] T025 Open the PR with `gh pr create --body-file` — body enumerates every absorbed bump (plan.md table), the Node 26 `.nvmrc` divergence, post-merge verification run, and "closes after merge" notes for #221 #261 #281 #282 #283 #284 #285 #286
-- [ ] T026 Close PR #262 as superseded by #282 with a pointer comment to the consolidation PR
+- [x] T024 Commit all remaining work (message file + `git commit -F`), `git push -u origin 083-dependabot-consolidation`
+- [x] T025 Open the PR with `gh pr create --body-file` — body enumerates every absorbed bump (plan.md table), the Node 26 `.nvmrc` divergence, post-merge verification run, and "closes after merge" notes for #221 #261 #281 #282 #283 #284 #285 #286
+- [x] T026 Close PR #262 as superseded by #282 with a pointer comment to the consolidation PR
 
 ---
 
@@ -118,7 +118,7 @@ Dockerfiles show digest-pinned node 26.
 
 - [x] T027 Pin `lucide-react` and `vitepress-openapi` resolution to the assessed versions (1.64.0 / 0.2.16): `^`-ranges floated the lockfile to 1.78.0 / 0.2.19, both published <24 h ago — violates the ≥7-day supply-chain preference and escaped the per-PR assessment. Manifest `^` ranges preserved; re-verified frozen install, frontend typecheck + 572 tests, frontend build.
 - [x] T028 Fix `pnpm docs:build` failure from vitepress-openapi ≥0.2.6 packaging (client bundle now externalizes `vitepress`; SSR resolves the server entry which lacks `useData`) — added `vite.ssr.noExternal: ["vitepress-openapi"]` to `docs-site/.vitepress/config.ts`; build completes and all docs checks still pass.
-- [ ] T029 Disclose in the PR body: the two version pins, the `noExternal` fix, the `corepack`→npm fix, the `.nvmrc`/`@types/node`-26 divergence, the bundled-majors deviation (sanctioned per plan.md Constraints), and the 9 pre-existing e2e failures (identical on `main`, incl. `bom_component_suggestions` registry drift)
+- [x] T029 Disclose in the PR body: the two version pins, the `noExternal` fix, the `corepack`→npm fix, the `.nvmrc`/`@types/node`-26 divergence, the bundled-majors deviation (sanctioned per plan.md Constraints), and the 9 pre-existing e2e failures (identical on `main`, incl. `bom_component_suggestions` registry drift)
 
 ---
 
