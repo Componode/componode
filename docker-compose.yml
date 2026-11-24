@@ -2,7 +2,7 @@ services:
   postgres:
     # Pinned to a tested minor release — the supported range is PostgreSQL
     # >=14, with 16 recommended (enforced by a startup preflight check).
-    image: postgres:16.11-alpine
+    image: postgres:16.11-alpine@sha256:4327b9fd295502f326f44153a1045a7170ddbfffed1c3829798328556cfd09e2
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -45,7 +45,7 @@ services:
   # root CA lives in the caddy_data volume; the agent service mounts it as
   # CA_BUNDLE, and clients must trust it or accept the browser warning.
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
     ports:

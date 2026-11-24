@@ -2,13 +2,15 @@
 # version as @playwright/test in package.json, plus the workload's baked
 # test sources and dependencies.
 
-FROM mcr.microsoft.com/playwright:v1.64.1-noble
+FROM mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
 
 # NSS tooling lets the entrypoint install the workload CA into the shared
 # NSS database read by Chromium (and by Firefox enterprise_roots).
 RUN apt-get update && apt-get install -y --no-install-recommends libnss3-tools p11-kit \
     && rm -rf /var/lib/apt/lists/*
 
+# The Playwright base image ships an apt-packaged Node without a corepack
+# shim, so pnpm is installed via npm here (other images use corepack).
 RUN npm install -g pnpm@9.15.2
 
 WORKDIR /work
