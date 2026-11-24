@@ -35,4 +35,25 @@ test.describe('OIDC journeys (local Dex)', () => {
     const status = await admin('GET', '/api/v1/auth/oidc/status');
     expect(status.status).toBe(200);
   });
+
+  test('issuer validation rejects SSRF shapes before any discovery fetch', async ({ request }) => {
+    // Spec 081 — rejected issuers must 422 with OIDC_DISCOVERY_FAILED and
+    // never persist. No cleanup needed: rejections write nothing.
+    const admin = await apiLogin(request, BASE, 'ADMIN');
+    for (const issuer of [
+      'http://10.0.0.1:8080',
+      'ftp://dex.componode-pw.test',
+      'https://user:pw@dex.componode-pw.test',
+      'https://dex.componode-pw.test?x=1',
+    ]) {
+      const res = await admin('PUT', '/api/v1/settings/oidc', {
+        enabled: true,
+        issuer,
+        clientId: 'pw-issuer-guard',
+        clientSecretRef: null,
+      });
+      expect(res.status, `issuer ${issuer}`).toBe(422);
+      expect(res.body.code).toBe('OIDC_DISCOVERY_FAILED');
+    }
+  });
 });

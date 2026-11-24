@@ -185,6 +185,11 @@ ADR-107). Register `https://<your-host>/api/v1/auth/oidc/callback` as the
 redirect URI at your IdP. When the app runs behind a reverse proxy, set
 `PUBLIC_URL` so the generated callback URL uses the external origin.
 
+Issuer URLs must be `https:` — `http:` is accepted only for loopback hosts
+(`localhost`, `127.0.0.1`, `[::1]`, e.g. a local Keycloak for development) —
+and must not contain credentials, a query, or a fragment. The discovery
+fetch is bounded to a 64 KiB document.
+
 ## Upgrading
 
 To upgrade to a new release:

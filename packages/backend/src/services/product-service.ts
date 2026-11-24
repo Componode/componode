@@ -3,6 +3,7 @@ import { uuidv7 } from "uuidv7";
 import {
   createProductSchema,
   updateProductSchema,
+  slugify,
   type CreateProductInput,
   type UpdateProductInput,
   type ListProductsQuery,
@@ -70,12 +71,7 @@ function productQuery() {
 }
 
 export function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 100);
+  return slugify(name, 100);
 }
 
 async function assertUniqueSlug(slug: string, excludeId?: string) {

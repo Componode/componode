@@ -1,5 +1,6 @@
 import { uuidv7 } from "uuidv7";
 import { sql, type Selectable } from "kysely";
+import { slugify } from "@componode/core";
 import type {
   CreateCredentialInput,
   Credential,
@@ -47,11 +48,7 @@ import { refSource } from "@componode/core/secrets";
 // appear in any return value, log, or audit payload.
 
 export function deriveCredentialSlug(label: string): string {
-  const slug = label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || "credential";
+  return slugify(label) || "credential";
 }
 
 // Hints reveal the last 4 characters only when the value is long enough that
