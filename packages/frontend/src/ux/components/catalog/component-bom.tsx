@@ -33,6 +33,7 @@ import { errorMessage, isForbidden } from "@/ux/lib/api-state"
 import { flags } from "@/ux/lib/flags"
 import { BOM_EVIDENCE_META, BOM_SCOPE_META, type BomEvidenceSource, type BomScope } from "@/ux/lib/domain"
 import { formatDate, formatNumber } from "@/ux/lib/format"
+import { isStale } from "@/ux/lib/stale"
 import { ux } from "@/ux/lib/paths"
 import { cn } from "@/ux/lib/utils"
 import type { BomEntryView } from "@/ux/lib/view-types"
@@ -57,11 +58,6 @@ const EVIDENCE_OPTIONS = (Object.keys(BOM_EVIDENCE_META) as BomEvidenceSource[])
   value: v,
   label: BOM_EVIDENCE_META[v].label,
 }))
-
-function isStale(iso: string | null, thresholdDays: number): boolean {
-  if (!iso) return false
-  return Date.now() - new Date(iso).getTime() > thresholdDays * 86_400_000
-}
 
 function capabilityMarker(details: Component["details"]): { status: string; message?: string } | null {
   const caps = (details as Record<string, unknown> | null)?.capabilities as

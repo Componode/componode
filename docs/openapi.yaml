@@ -918,6 +918,156 @@ paths:
               schema: { type: object }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /products/{slug}/packages:
+    get:
+      tags: [Products]
+      summary: Product package roll-up — one row per version-free purl (spec 080)
+      description: >-
+        Groups `bom_entries` by stored normalized `purlIdentity` across the
+        product's reachable component set — direct `DEPENDS_ON` edges,
+        `DEPENDS_ON` on component groups expanded to members, and
+        dependencies inherited through `COMPOSES` descendants (ADR-110
+        DepSource semantics; RETIRED components excluded). Each row carries
+        the declared-dependency signal: when the row's matched catalog
+        component (resolved entry, else `externalId` = identity) is itself
+        reachable, `declared` is its DepSource attribution; otherwise null.
+        `coverage` counts reporting vs reachable components (Library
+        components excluded — they are declared dependencies, not monitored
+        workloads). `staleThresholdDays` echoes the workspace setting.
+        Side-effect-free; readable by every role.
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+          description: Substring match on entry name and the normalized purl identity
+        - name: sort
+          in: query
+          schema: { type: string, enum: [name, components, versions, ecosystem], default: components }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - name: ecosystem
+          in: query
+          schema: { type: string, description: "CSV of ecosystems (purl types)" }
+        - name: skew
+          in: query
+          schema: { type: string, enum: ["true"], description: "When 'true', only packages reported at more than one distinct version" }
+        - name: declared
+          in: query
+          schema: { type: string, enum: [declared, undeclared], description: "Filter on the declared-dependency signal" }
+      responses:
+        "200":
+          description: Product-scoped package roll-up with coverage and facets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination, coverage, staleThresholdDays, facets]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ProductPackageListItem" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+                  coverage:
+                    type: object
+                    required: [reporting, total, reachable]
+                    properties:
+                      reporting: { type: integer, minimum: 0, description: Reachable non-Library components reporting ≥1 BOM entry }
+                      total: { type: integer, minimum: 0, description: Reachable non-Library components }
+                      reachable: { type: integer, minimum: 0, description: Whole non-retired reachable set including libraries }
+                  staleThresholdDays: { type: integer, minimum: 1 }
+                  facets:
+                    type: object
+                    required: [ecosystems]
+                    properties:
+                      ecosystems:
+                        type: array
+                        items: { type: string }
+                        description: Distinct ecosystems across the contributing set — the filter domain.
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /products/{slug}/packages/consumers:
+    get:
+      tags: [Products]
+      summary: Product components consuming one package (spec 080)
+      description: >-
+        One row per (component, version, scope) reporting the package,
+        scoped to the product's reachable component set (same semantics as
+        `/products/{slug}/packages`). `depSource` attributes how the
+        component is reachable: DIRECT, GROUP (with the group), or
+        INHERITED (with the composing product); multi-path components show
+        their preferred declared source. `purl` is normalized to its
+        version-free identity before matching. Unknown purls return an
+        empty page, not 404.
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+        - in: query
+          name: purl
+          required: true
+          schema: { type: string, maxLength: 500 }
+          description: Package URL — normalized before matching
+        - in: query
+          name: version
+          schema: { type: string, maxLength: 200 }
+          description: Restrict to consumers reporting this version
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [name, version, scope, lastReportedAt], default: name }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: asc }
+      responses:
+        "200":
+          description: Standardized list envelope (ADR-130) of product consumer rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ProductPackageConsumerListItem" }
+                  pagination:
+                    type: object
+                    required: [page, pageSize, total, pageCount, hasNext]
+                    properties:
+                      page: { type: integer, minimum: 1 }
+                      pageSize: { type: integer, minimum: 1, maximum: 100 }
+                      total: { type: integer, minimum: 0 }
+                      pageCount: { type: integer, minimum: 0 }
+                      hasNext: { type: boolean }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /products/{id}:
     patch:
       tags: [Products]
@@ -7340,6 +7490,86 @@ components:
             importerConfigId: { type: string, format: uuid, nullable: true }
             importRunId: { type: string, format: uuid, nullable: true }
       required: [component, version, scope, direct, lastReportedAt]
+    ProductDepSource:
+      description: >-
+        How a component is reachable from a product (ADR-110): DIRECT via a
+        product→component `DEPENDS_ON` edge, GROUP via a product→group edge
+        expanded to members, or INHERITED through a `COMPOSES` descendant.
+      oneOf:
+        - type: object
+          required: [kind]
+          properties:
+            kind: { type: string, enum: [DIRECT] }
+        - type: object
+          required: [kind, group]
+          properties:
+            kind: { type: string, enum: [GROUP] }
+            group:
+              type: object
+              required: [id, slug, name]
+              properties:
+                id: { type: string, format: uuid }
+                slug: { type: string }
+                name: { type: string }
+        - type: object
+          required: [kind, product]
+          properties:
+            kind: { type: string, enum: [INHERITED] }
+            product:
+              type: object
+              required: [id, slug, name]
+              properties:
+                id: { type: string, format: uuid }
+                slug: { type: string }
+                name: { type: string }
+    ProductPackageListItem:
+      type: object
+      description: >-
+        One row in the product package roll-up (spec 080) — a normalized,
+        version-free purl aggregated over the product's reachable
+        components. `declared` is the DepSource attribution of the matched
+        catalog component when it is itself reachable, else null.
+      properties:
+        purl: { type: string, description: Normalized version-free purl identity }
+        name: { type: string, description: Most recently reported entry name }
+        ecosystem: { type: string, description: "PURL type (npm, maven, deb, …)" }
+        versionCount: { type: integer, minimum: 0 }
+        versions:
+          type: array
+          items: { $ref: "#/components/schemas/PackageVersionCount" }
+          description: Top 5 versions by component count
+        componentCount: { type: integer, minimum: 0 }
+        catalogComponent: { $ref: "#/components/schemas/PackageCatalogRef" }
+        declared:
+          allOf:
+            - { $ref: "#/components/schemas/ProductDepSource" }
+          nullable: true
+        lastReportedAt: { type: string, format: date-time, description: Newest report across the contributing components }
+      required: [purl, name, ecosystem, versionCount, versions, componentCount, catalogComponent, declared, lastReportedAt]
+    ProductPackageConsumerListItem:
+      type: object
+      description: >-
+        One (component, version, scope) row consuming a package inside a
+        product's reachable set (spec 080). `depSource` attributes the
+        component's reachability; `direct` is OR-ed across the component's
+        reports.
+      properties:
+        component:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            slug: { type: string }
+            name: { type: string }
+            category: { type: string }
+          required: [id, slug, name, category]
+        depSource: { $ref: "#/components/schemas/ProductDepSource" }
+        version: { type: string, nullable: true }
+        scope:
+          type: string
+          enum: [RUNTIME, DEV, BUILD, TEST, SYSTEM, OPTIONAL, BUNDLED, TRANSITIVE]
+        direct: { type: boolean }
+        lastReportedAt: { type: string, format: date-time }
+      required: [component, depSource, version, scope, direct, lastReportedAt]
   securitySchemes:
     sessionCookie:
       type: apiKey

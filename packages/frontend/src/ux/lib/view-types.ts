@@ -4,6 +4,7 @@
  * independently so `mock-data.ts` can be deleted at cutover while routes
  * keep importing these types. Mappers in `src/api/mappers/` produce them.
  */
+import type { DepSource } from "@componode/core";
 import type {
   AgentCredentialState,
   AgentStatus,
@@ -668,6 +669,26 @@ export interface PackageView {
   componentCount: number;
   catalogComponent: { id: string; slug: string; name: string } | null;
   pendingSuggestionCount: number;
+  /** Derived display: versions beyond the top-5 chips. */
+  versionsOverflow: number;
+}
+
+// --- Product package roll-up (spec 080) ---------------------------------------
+
+/** One row in the product Packages tab — mirrors `ProductPackageListItem` in core. */
+export interface ProductPackageView {
+  purl: string;
+  name: string;
+  ecosystem: string;
+  versionCount: number;
+  /** Top-5 versions by contributing-component count. */
+  versions: { version: string; componentCount: number }[];
+  componentCount: number;
+  lastReportedAt: string;
+  catalogComponent: { id: string; slug: string; name: string } | null;
+  /** Declared-dependency signal — non-null when the matched Library
+   *  component is reachable from the product (DepSource attribution). */
+  declared: DepSource | null;
   /** Derived display: versions beyond the top-5 chips. */
   versionsOverflow: number;
 }

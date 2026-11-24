@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   listOrderSchema,
   listParamsBaseSchema,
+  optionalBooleanParam,
   splitCsvParam,
 } from "./list-params.js";
 import { BOM_DEPENDENCY_SCOPES } from "../constants/bom-entry.js";
@@ -62,4 +63,52 @@ export const listPackageConsumersQuerySchema = listParamsBaseSchema
 
 export type ListPackageConsumersQuery = z.infer<
   typeof listPackageConsumersQuerySchema
+>;
+
+/**
+ * Spec 080: query params for `GET /products/:slug/packages` — the per-product
+ * package roll-up. Same standardized list contract as `GET /packages`
+ * (ADR-130) with the product-scoped filters: `skew` keeps only
+ * multi-version identities; `declared` filters on the declared-dependency
+ * signal (the matched Library component is — or is not — in the product's
+ * reachable set).
+ */
+export const listProductPackagesQuerySchema = listParamsBaseSchema
+  .extend({
+    ecosystem: z
+      .union([z.string(), z.array(z.string())])
+      .transform(splitCsvParam)
+      .pipe(z.array(z.string()))
+      .optional(),
+    skew: optionalBooleanParam,
+    declared: z.enum(["declared", "undeclared"]).optional(),
+    sort: z
+      .enum(["name", "components", "versions", "ecosystem"])
+      .default("components"),
+    order: listOrderSchema.default("desc"),
+  })
+  .strict();
+
+export type ListProductPackagesQuery = z.infer<
+  typeof listProductPackagesQuerySchema
+>;
+
+/**
+ * Query params for `GET /products/:slug/packages/consumers` — paginated
+ * consumers of one package scoped to the product's reachable set. `purl`
+ * stays a query parameter (never a path segment).
+ */
+export const listProductPackageConsumersQuerySchema = listParamsBaseSchema
+  .omit({ search: true })
+  .extend({
+    purl: z.string().min(1).max(500),
+    version: z.string().min(1).max(200).optional(),
+    sort: z
+      .enum(["name", "version", "scope", "lastReportedAt"])
+      .default("name"),
+  })
+  .strict();
+
+export type ListProductPackageConsumersQuery = z.infer<
+  typeof listProductPackageConsumersQuerySchema
 >;

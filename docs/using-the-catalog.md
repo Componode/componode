@@ -62,6 +62,17 @@ labeled lane with `+N` expansion and an inspect panel. Components reached
 through a group stay inside the group node. The **Dependencies** tab keeps
 list-form edge authoring, consumers, and suggested relationships.
 
+The **Packages** tab aggregates the bill of materials across every component
+the product depends on — direct edges, group members, and components inherited
+through composed products — into one inventory: one row per package
+(version-free purl) with ecosystem, versions in use, and how many of the
+product's components report it. A **declared** marker shows packages the
+product already `DEPENDS_ON` as a library; expand a row for the attributed
+consumers (direct, via group, or inherited through a named child product) and
+a deep link to each component's BOM. A coverage line shows how many reachable
+components report package data at all. Inventory only — Componode does not
+scan packages for vulnerabilities.
+
 ![The product Map tab: one-hop topology lanes around a product](./assets/product-map.png)
 
 New to the model? Start with [Digital Products in depth](./digital-products).

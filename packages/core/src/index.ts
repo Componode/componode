@@ -199,6 +199,13 @@ export type {
   PackagesResponse,
 } from "./contracts/packages.js";
 export type {
+  DeclaredDependency,
+  ProductPackageConsumerListItem,
+  ProductPackageCoverage,
+  ProductPackageListItem,
+  ProductPackagesResponse,
+} from "./contracts/product-packages.js";
+export type {
   DependencySuggestion,
   DependencySuggestionQueueItem,
   DependencySuggestionListResult,
@@ -273,8 +280,12 @@ export {
 export {
   listPackagesQuerySchema,
   listPackageConsumersQuerySchema,
+  listProductPackagesQuerySchema,
+  listProductPackageConsumersQuerySchema,
   type ListPackagesQuery,
   type ListPackageConsumersQuery,
+  type ListProductPackagesQuery,
+  type ListProductPackageConsumersQuery,
 } from "./schemas/packages.js";
 
 // Standardized list contract (spec 068 / ADR-130): shared page/pageSize/

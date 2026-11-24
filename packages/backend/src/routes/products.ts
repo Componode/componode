@@ -4,6 +4,8 @@ import {
   createProductSchema,
   updateProductSchema,
   listProductsQuerySchema,
+  listProductPackagesQuerySchema,
+  listProductPackageConsumersQuerySchema,
 } from "@componode/core";
 import type { AuthenticatedRequest } from "../plugins/session.js";
 import { requireRole } from "../plugins/rbac.js";
@@ -14,6 +16,10 @@ import {
   updateProduct,
   deleteProduct,
 } from "../services/product-service.js";
+import {
+  listProductPackages,
+  listProductPackageConsumers,
+} from "../services/product-packages-service.js";
 import {
   addComposesEdge,
   removeComposesEdge,
@@ -120,6 +126,47 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
           .send({ code: "NOT_FOUND", message: "Product not found" });
       }
       return reply.status(200).send(detail);
+    },
+  );
+
+  // Spec 080 — per-product package roll-up. Authenticated reads (no role
+  // gate: inventory is catalog-visible), strict Zod schemas reject unknown
+  // params (ADR-095), side-effect-free (ADR-094).
+  app.get(
+    "/products/:slug/packages",
+    { preHandler: [app.verifySession] },
+    async (req: FastifyRequest, reply: FastifyReply) => {
+      const { slug } = req.params as { slug: string };
+      const query = listProductPackagesQuerySchema.safeParse(req.query);
+      if (!query.success) {
+        return validationFailed(reply, query.error.issues);
+      }
+      const result = await listProductPackages(slug, query.data);
+      if (!result) {
+        return reply
+          .status(404)
+          .send({ code: "NOT_FOUND", message: "Product not found" });
+      }
+      return reply.status(200).send(result);
+    },
+  );
+
+  app.get(
+    "/products/:slug/packages/consumers",
+    { preHandler: [app.verifySession] },
+    async (req: FastifyRequest, reply: FastifyReply) => {
+      const { slug } = req.params as { slug: string };
+      const query = listProductPackageConsumersQuerySchema.safeParse(req.query);
+      if (!query.success) {
+        return validationFailed(reply, query.error.issues);
+      }
+      const result = await listProductPackageConsumers(slug, query.data);
+      if (!result) {
+        return reply
+          .status(404)
+          .send({ code: "NOT_FOUND", message: "Product not found" });
+      }
+      return reply.status(200).send(result);
     },
   );
 

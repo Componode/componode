@@ -811,7 +811,7 @@ applied in place where the affected design appears.
 | Q4 | `TRANSITIVE` scope vs `direct` | `direct` is authoritative for directness (filter and badges); `TRANSITIVE` is kept for CycloneDX/SPDX round-trip, rendered with its label, not offered as a separate scope filter when `direct` is populated; `direct` wins when an importer reports a contradictory pair. |
 | Q5 | `importer-sbom-file` matching rule | Explicit `componentSlug` on the importer config — validated at save, resolved to `(category, provider, externalId)` at dispatch; an unresolvable slug fails the run. Helper text names the rule. |
 | Q6 | Licence filtering / licence page | Out of scope for Phase 1; licences are displayed and searchable (`q`) only. |
-| Q7 | Product-level package roll-up | Evaluate after Phase 2 on existing product–component edges; no Phase 1–3 commitment. |
+| Q7 | Product-level package roll-up | **RESOLVED by spec 080** — a Packages tab on product detail aggregates `bom_entries` across the product's reachable component set (direct, group-expanded, `COMPOSES`-inherited) with the declared-dependency signal, coverage, freshness, and attributed consumers. |
 | Q8 | Dependency suggestions surface | Segment in `/suggestions` (UX-SUG-01); revisit only if volume breaks performance targets. |
 
 ### Design Principles (UX)
@@ -1455,7 +1455,6 @@ Complements the per-phase checks in the Verification section below.
 - Vulnerability/advisory display, licence-risk analysis, SBOM diffing between
   runs or instances, and a package detail drawer.
 - SBOM file upload from the browser (D3).
-- Product-level package roll-up (Q7).
 - Editing or deleting BOM entries by hand (D7).
 - Filtered export (Q3).
 

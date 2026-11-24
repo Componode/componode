@@ -91,3 +91,21 @@ matches stage suggestions instead, never resolve), and the
 every entry of the identity — Link re-points deliberately when a different
 component is chosen. BOM rows stay factual: the link is a pointer to
 curated catalog data, never a graph edge on the row itself.
+
+---
+
+### Amendment 4 — product-level package roll-up reads (spec 080)
+
+The Packages tab on product detail is a **derived projection, never a
+persisted roll-up entity**: `GET /products/:slug/packages` groups
+`bom_entries` on `purlIdentity` across the product's full reachable
+component set — direct `DEPENDS_ON` component edges, component-group
+member expansion, and `COMPOSES`-descendant inheritance — and
+`GET /products/:slug/packages/consumers` attributes each contributing
+component with its reachability source (direct / group / inherited).
+Consistent with Amendment 2, the aggregation joins ACTIVE components
+only: retired contributing components keep their rows but neither
+inflate the roll-up nor produce a declared marker; the declared signal
+itself is reachability of the matched Library component through the
+same edge set. Both routes are `verifySession` reads — inventory-only
+posture, no mutation surface.
