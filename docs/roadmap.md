@@ -549,6 +549,15 @@ file tracks shipped and upcoming work — update it when a spec completes.
   multi-arch index SHAs, and the repo-root `LICENSE` (Apache-2.0, ADR-002)
   and `SECURITY.md` added — closing the Pinned-Dependencies,
   Token-Permissions, License, and Security-Policy checks.
+- `083-dependabot-consolidation` — the Dependabot queue landed as one
+  reviewed change: the prod-patch group (Fastify plugins, Kysely,
+  react-router-dom, tailwind-merge, Alibaba SDK core), the dev-dependencies
+  group (vitest 5.1, ESLint 10.15, typescript-eslint 8.73, Prettier 3.10,
+  turbo, Tailwind 4.3.5, testcontainers, jose, vitepress-openapi,
+  @types/node), the coupled Vite 8 toolchain majors (vite, plugin-react 6,
+  jsdom 31, jest-dom 8), lucide-react 1.64, and digest-pinned
+  `node:26.13.1-alpine` container images — one regenerated
+  `pnpm-lock.yaml`, no code fallout required.
 
 ## Next — post-v1.1
 
@@ -578,7 +587,9 @@ aggregated package inventory with declared-signal attribution and
 coverage (080), and CodeQL remediations — shared `slugify`, OIDC issuer
 SSRF hardening (081), and supply-chain hardening — SHA-pinned actions,
 least-privilege workflow permissions, digest-pinned images, LICENSE +
-SECURITY.md (082).
+SECURITY.md (082), and the consolidated Dependabot batch — prod patches,
+the dev-dependencies group, the Vite 8 toolchain majors, lucide-react 1,
+and Node 26 container images on one lockfile (083).
 See
 `researches/` and the deferred queues below for the next initiative (for
 example importer-source migrations, UX gap follow-through, or a new
