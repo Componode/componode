@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/Componode/componode/actions/workflows/ci.yml/badge.svg)](https://github.com/Componode/componode/actions/workflows/ci.yml)
 [![Docs](https://github.com/Componode/componode/actions/workflows/docs.yml/badge.svg)](https://componode.github.io/componode/)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Componode/componode/badge)](https://scorecard.dev/viewer/?uri=github.com/Componode/componode)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 **Open-source, self-hosted Digital Product Asset Management (DPAM).**
