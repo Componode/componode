@@ -20,8 +20,8 @@ regression net is the existing suite (`pnpm test`), the Playwright workload
 **Purpose**: Materialize the eight dependabot branches locally and record
 each one's exact manifest diff before touching anything.
 
-- [ ] T001 Fetch all eight dependabot head branches and record each tip SHA plus its non-lockfile file list: `dependabot/npm_and_yarn/prod-patch-23c82059ba` (#281), `dependabot/npm_and_yarn/dev-dependencies-4682077e46` (#282), `dependabot/npm_and_yarn/vitejs/plugin-react-6.3.0` (#283), `dependabot/npm_and_yarn/testing-library/jest-dom-8.0.0` (#284), `dependabot/npm_and_yarn/vite-8.3.8` (#285), `dependabot/npm_and_yarn/jsdom-31.0.1` (#286), `dependabot/npm_and_yarn/lucide-react-1.64.0` (#221), `dependabot/docker/node-26.13.1-alpine` (#261) — `git fetch origin <branch>` then `git diff --stat main...FETCH_HEAD` per ref
-- [ ] T002 Capture the exact `FROM` lines (including `@sha256:` digests) from PR #261's diff of `Dockerfile` and `Dockerfile.agent` for reuse in T009
+- [x] T001 Fetch all eight dependabot head branches and record each tip SHA plus its non-lockfile file list: `dependabot/npm_and_yarn/prod-patch-23c82059ba` (#281), `dependabot/npm_and_yarn/dev-dependencies-4682077e46` (#282), `dependabot/npm_and_yarn/vitejs/plugin-react-6.3.0` (#283), `dependabot/npm_and_yarn/testing-library/jest-dom-8.0.0` (#284), `dependabot/npm_and_yarn/vite-8.3.8` (#285), `dependabot/npm_and_yarn/jsdom-31.0.1` (#286), `dependabot/npm_and_yarn/lucide-react-1.64.0` (#221), `dependabot/docker/node-26.13.1-alpine` (#261) — `git fetch origin <branch>` then `git diff --stat main...FETCH_HEAD` per ref
+- [x] T002 Capture the exact `FROM` lines (including `@sha256:` digests) from PR #261's diff of `Dockerfile` and `Dockerfile.agent` for reuse in T009
 
 ---
 
@@ -36,16 +36,16 @@ resolve by keeping the branch version (`git checkout --ours pnpm-lock.yaml`);
 the file is regenerated in T010 anyway. For conflicts on `package.json`
 manifests, resolve by hand so all pending bumps coexist.
 
-- [ ] T003 Cherry-pick the tip commit of `origin/dependabot/npm_and_yarn/prod-patch-23c82059ba` (#281, prod-patch group — 9 prod bumps)
-- [ ] T004 Cherry-pick the tip commit of `origin/dependabot/npm_and_yarn/vite-8.3.8` (#285, vite 7.3.7→8.3.8 in `package.json` and `packages/frontend/package.json`)
-- [ ] T005 Cherry-pick the tip commit of `origin/dependabot/npm_and_yarn/vitejs/plugin-react-6.3.0` (#283, @vitejs/plugin-react 5.2.0→6.3.0 in `packages/frontend/package.json`)
-- [ ] T006 [P] Cherry-pick the tip commits of `origin/dependabot/npm_and_yarn/testing-library/jest-dom-8.0.0` (#284) and `origin/dependabot/npm_and_yarn/jsdom-31.0.1` (#286) — different manifest lines, low conflict odds; resolve per the lockfile rule
-- [ ] T007 Cherry-pick the tip commit of `origin/dependabot/npm_and_yarn/dev-dependencies-4682077e46` (#282, dev-deps group — 13 bumps across 15 manifests); resolve manifest conflicts so all bumps coexist
-- [ ] T008 Apply the lucide-react 0.468.0→1.64.0 version change to `packages/frontend/package.json` (PR #221 is stale — edit the version directly rather than cherry-picking its old-base commit)
-- [ ] T009 Update the `FROM` lines in `Dockerfile` and `Dockerfile.agent` to the node:26.13.1-alpine lines captured in T002, preserving `@sha256:` digest pins
-- [ ] T010 Regenerate `pnpm-lock.yaml` coherently: `pnpm install` at repo root, then verify `pnpm install --frozen-lockfile` exits clean
-- [ ] T011 [US3] Conditional lucide fix — run `pnpm --filter @componode/frontend typecheck`; for every "has no exported member" error against `lucide-react`, rename the import to its v1 name (e.g. `Loader2Icon`→`LoaderCircleIcon`, `CheckCircle2Icon`→`CircleCheckIcon`, `EllipsisIcon`→`MoreHorizontalIcon` — confirm each target exists in the installed package); if fallout is larger than mechanical renames, revert the #221 bump and leave its PR open
-- [ ] T012 [US3] Conditional timeout fix — run `pnpm --filter @componode/core test`; if `test/schemas/bootstrap.test.ts` "accepts large wellformed documents — size limits are the API's, not the schema's" hits the 5000 ms timeout under vitest 5.1.1, raise that test's timeout to 15000 in the `it(...)` options
+- [x] T003 Cherry-pick the tip commit of `origin/dependabot/npm_and_yarn/prod-patch-23c82059ba` (#281, prod-patch group — 9 prod bumps)
+- [x] T004 Cherry-pick the tip commit of `origin/dependabot/npm_and_yarn/vite-8.3.8` (#285, vite 7.3.7→8.3.8 in `package.json` and `packages/frontend/package.json`)
+- [x] T005 Cherry-pick the tip commit of `origin/dependabot/npm_and_yarn/vitejs/plugin-react-6.3.0` (#283, @vitejs/plugin-react 5.2.0→6.3.0 in `packages/frontend/package.json`)
+- [x] T006 [P] Cherry-pick the tip commits of `origin/dependabot/npm_and_yarn/testing-library/jest-dom-8.0.0` (#284) and `origin/dependabot/npm_and_yarn/jsdom-31.0.1` (#286) — different manifest lines, low conflict odds; resolve per the lockfile rule
+- [x] T007 Cherry-pick the tip commit of `origin/dependabot/npm_and_yarn/dev-dependencies-4682077e46` (#282, dev-deps group — 13 bumps across 15 manifests); resolve manifest conflicts so all bumps coexist
+- [x] T008 Apply the lucide-react 0.468.0→1.64.0 version change to `packages/frontend/package.json` (PR #221 is stale — edit the version directly rather than cherry-picking its old-base commit)
+- [x] T009 Update the `FROM` lines in `Dockerfile` and `Dockerfile.agent` to the node:26.13.1-alpine lines captured in T002, preserving `@sha256:` digest pins
+- [x] T010 Regenerate `pnpm-lock.yaml` coherently: `pnpm install` at repo root, then verify `pnpm install --frozen-lockfile` exits clean
+- [x] T011 [US3] Conditional lucide fix — run `pnpm --filter @componode/frontend typecheck`; for every "has no exported member" error against `lucide-react`, rename the import to its v1 name (e.g. `Loader2Icon`→`LoaderCircleIcon`, `CheckCircle2Icon`→`CircleCheckIcon`, `EllipsisIcon`→`MoreHorizontalIcon` — confirm each target exists in the installed package); if fallout is larger than mechanical renames, revert the #221 bump and leave its PR open
+- [x] T012 [US3] Conditional timeout fix — run `pnpm --filter @componode/core test`; if `test/schemas/bootstrap.test.ts` "accepts large wellformed documents — size limits are the API's, not the schema's" hits the 5000 ms timeout under vitest 5.1.1, raise that test's timeout to 15000 in the `it(...)` options
 
 **Checkpoint**: All eight PRs' changes on branch, lockfile coherent,
 typecheck/tests locally green or fallout catalogued.
@@ -60,9 +60,9 @@ installs reproducibly.
 **Independent Test**: `git diff main...HEAD` covers all eight PRs' manifest
 changes; `pnpm install --frozen-lockfile` succeeds.
 
-- [ ] T013 [US1] Audit the consolidated diff: for each of the eight PRs, confirm its manifest bump is present via `git diff main...HEAD -- '**/package.json'` and `git diff main...HEAD -- Dockerfile Dockerfile.agent`; list any missing bump explicitly
-- [ ] T014 [US1] Verify `pnpm install --frozen-lockfile` passes from a clean state and `git status` shows no lockfile churn after it
-- [ ] T015 [US1] Run `pnpm audit --prod --audit-level=high`; result must be zero findings
+- [x] T013 [US1] Audit the consolidated diff: for each of the eight PRs, confirm its manifest bump is present via `git diff main...HEAD -- '**/package.json'` and `git diff main...HEAD -- Dockerfile Dockerfile.agent`; list any missing bump explicitly
+- [x] T014 [US1] Verify `pnpm install --frozen-lockfile` passes from a clean state and `git status` shows no lockfile churn after it
+- [x] T015 [US1] Run `pnpm audit --prod --audit-level=high`; result must be zero findings
 
 **Checkpoint**: US1 verified — the branch IS the batch.
 
@@ -76,9 +76,9 @@ work together.
 **Independent Test**: `pnpm build` and `pnpm test` pass in
 `packages/frontend` with the new toolchain.
 
-- [ ] T016 [US2] Run `pnpm --filter @componode/frontend build` — must complete with no `ERR_PACKAGE_PATH_NOT_EXPORTED` (the #283 standalone failure mode)
-- [ ] T017 [US2] Run `pnpm --filter @componode/frontend test` — all unit tests pass under vitest 5.1.1 + jsdom 31 + jest-dom 8
-- [ ] T018 [US2] Run `pnpm --filter @componode/frontend lint` and `pnpm --filter @componode/frontend typecheck` — clean (prettier 3.10 / eslint 10.15 drift fixed mechanically if it appears)
+- [x] T016 [US2] Run `pnpm --filter @componode/frontend build` — must complete with no `ERR_PACKAGE_PATH_NOT_EXPORTED` (the #283 standalone failure mode)
+- [x] T017 [US2] Run `pnpm --filter @componode/frontend test` — all unit tests pass under vitest 5.1.1 + jsdom 31 + jest-dom 8
+- [x] T018 [US2] Run `pnpm --filter @componode/frontend lint` and `pnpm --filter @componode/frontend typecheck` — clean (prettier 3.10 / eslint 10.15 drift fixed mechanically if it appears)
 
 **Checkpoint**: The coupled toolchain majors are proven together.
 
@@ -92,8 +92,8 @@ divergence.
 **Independent Test**: frontend typecheck has no lucide errors; both
 Dockerfiles show digest-pinned node 26.
 
-- [ ] T019 [US3] Confirm T011 and T012 outcomes: if either conditional fix was needed it is committed; if #221 fallout exceeded mechanical renames the bump is reverted and documented
-- [ ] T020 [US3] Verify `Dockerfile` and `Dockerfile.agent` both read `FROM node:26.13.1-alpine@sha256:...` and note the `.nvmrc`/`engines` (Node 24) divergence for the PR body
+- [x] T019 [US3] Confirm T011 and T012 outcomes: if either conditional fix was needed it is committed; if #221 fallout exceeded mechanical renames the bump is reverted and documented
+- [x] T020 [US3] Verify `Dockerfile` and `Dockerfile.agent` both read `FROM node:26.13.1-alpine@sha256:...` and note the `.nvmrc`/`engines` (Node 24) divergence for the PR body
 
 **Checkpoint**: All three stories' work is on the branch.
 
