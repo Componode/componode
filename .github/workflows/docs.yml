@@ -1,8 +1,16 @@
 name: Docs
 
+# Dual-track publishing on the single GitHub Pages site:
+#   /componode/      — production documentation, always built from main
+#   /componode/dev/  — development documentation, always built from develop
+#
+# A push to either branch rebuilds BOTH halves from their own branches and
+# deploys them as one combined artifact, because Pages deployments are
+# immutable whole-site artifacts — partial updates are impossible.
+
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 permissions:
@@ -11,16 +19,37 @@ permissions:
   id-token: write
 
 concurrency:
-  group: docs-${{ github.ref }}
+  # Single shared group: simultaneous pushes to main and develop must
+  # serialize, not race-deploy conflicting combined artifacts.
+  group: docs-deploy
   cancel-in-progress: true
 
 jobs:
   build:
-    name: Build docs site
+    name: Build combined docs site
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout main (production docs)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: prod-src
+
+      - name: Resolve development docs ref
+        id: devref
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/${{ github.repository }} develop >/dev/null 2>&1; then
+            echo "ref=develop" >> "$GITHUB_OUTPUT"
+          else
+            echo "develop branch does not exist yet (pre-cutover) — falling back to main for the dev build"
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout develop (development docs)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.devref.outputs.ref }}
+          path: dev-src
 
       - name: Install pnpm
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
@@ -28,19 +57,42 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version-file: .nvmrc
+          node-version-file: prod-src/.nvmrc
           cache: pnpm
+          cache-dependency-path: |
+            prod-src/pnpm-lock.yaml
+            dev-src/pnpm-lock.yaml
 
-      - name: Install dependencies
+      - name: Install dependencies (production)
+        working-directory: prod-src
         run: pnpm install --frozen-lockfile
 
-      - name: Build docs
+      - name: Build production docs
+        working-directory: prod-src
         run: pnpm docs:build
+
+      - name: Install dependencies (development)
+        working-directory: dev-src
+        run: pnpm install --frozen-lockfile
+
+      - name: Build development docs
+        working-directory: dev-src
+        env:
+          DOCS_BASE: /componode/dev/
+          DOCS_DEV: "1"
+        run: pnpm docs:build
+
+      - name: Compose combined artifact
+        run: |
+          mkdir -p combined/dev
+          cp -r prod-src/docs-site/.vitepress/dist/. combined/
+          cp -r dev-src/docs-site/.vitepress/dist/. combined/dev/
+          echo "Combined artifact: production at root, development under /dev/"
 
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: docs-site/.vitepress/dist
+          path: combined
 
   deploy:
     name: Deploy to GitHub Pages

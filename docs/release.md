@@ -27,14 +27,19 @@ the code change.
 
 ## Cutting a release
 
-A maintainer triggers the release workflow from the GitHub Actions tab on the
-`main` branch. The workflow:
+Releases follow the two-branch model — see
+[Branching & releasing](branching-and-releasing.md) for the full picture.
+In short, a maintainer triggers the release workflow from the GitHub Actions
+tab. The workflow:
 
-1. Consumes all unreleased changesets.
-2. Bumps `package.json` and updates `CHANGELOG.md`.
-3. Opens a release pull request for review.
-4. After the release PR is merged, a tagged container image and source archive
-   are published as GitHub Release artifacts.
+1. Verifies `develop`'s quality gates are green — refusing to start otherwise.
+2. Consumes all unreleased changesets and derives the version bump from them.
+3. Bumps `package.json` and updates `CHANGELOG.md` in a version PR to
+   `develop`, which auto-merges through the normal protected gates.
+4. A promotion PR from `develop` to `main` opens automatically; a human
+   merging it (merge commit) **is** the release approval.
+5. The version tag is created automatically and a tagged container image and
+   source archive are published as GitHub Release artifacts.
 
 ## Release artifacts
 
@@ -52,7 +57,9 @@ managed in the root `package.json`.
 
 ## Edge cases
 
-- **Missing changeset for a user-facing change**: The maintainer-supplied `bump` input is used as a fallback to create a release-bump changeset. If no changesets and no `bump` input are provided, the workflow fails with a clear message.
-- **Release workflow runs while a feature branch is still open**: The release workflow only versions from `main`, so open feature branches do not interfere. The release PR should be reviewed and merged independently.
-- **CI checks fail on the release PR**: The PR is opened but marked as failing; it must be fixed and the workflow re-run before merge.
-- **Container build fails**: The release is not published until the build is fixed and the workflow is re-run.
+- **Missing changeset for a user-facing change**: The maintainer-supplied `bump` input is used as a fallback to create a release-bump changeset when no unreleased changesets exist.
+- **`develop` gates are not green**: The release workflow refuses to start — fix develop first; that is the point of the integration branch.
+- **New work merges to `develop` while a promotion PR is open**: The promotion PR tracks `develop` automatically. The maintainer judges whether the additions belong in this release — merging is the approval.
+- **A merge to `main` without a version bump**: The tagging workflow fails loudly. Every merge to `main` must be a release; investigate what merged without one.
+- **Publish workflow fails partway**: It is idempotent — re-run the failed run. See the recovery procedure in [Branching & releasing](branching-and-releasing.md#publish-failure-recovery).
+- **Emergency fix that cannot wait for develop**: Use the hotfix flow — branch `hotfix/*` off `main`, carry the fix + changeset + version bump in one PR. See [Branching & releasing](branching-and-releasing.md#hotfixes).
