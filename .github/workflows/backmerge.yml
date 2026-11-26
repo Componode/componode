@@ -18,13 +18,16 @@ jobs:
     name: Open back-merge PR to develop
     if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'hotfix/')
     runs-on: ubuntu-latest
+    env:
+      GH_REPO: ${{ github.repository }}
     steps:
       - name: Open back-merge PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOTFIX: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -e
-          HOTFIX="${{ github.event.pull_request.head.ref }}"
           EXISTING=$(gh pr list --base develop --head main --state open --json number --jq '.[0].number // empty')
           if [ -n "$EXISTING" ]; then
             echo "Back-merge PR #${EXISTING} already open — nothing to do."
@@ -34,7 +37,7 @@ jobs:
           {
             echo "## Back-merge ${HOTFIX} into develop"
             echo
-            echo "Hotfix \`${HOTFIX}\` merged to main in #${{ github.event.pull_request.number }}."
+            echo "Hotfix \`${HOTFIX}\` merged to main in #${PR_NUMBER}."
             echo "This PR carries the fix and its version bookkeeping back into develop so the"
             echo "branches stay genealogically linked and the next promotion derives correctly."
             echo

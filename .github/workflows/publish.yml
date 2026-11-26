@@ -39,16 +39,20 @@ jobs:
     steps:
       - name: Resolve tag and version
         id: version
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
+          set -e
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag }}"
+            TAG="$INPUT_TAG"
           else
             TAG="${GITHUB_REF#refs/tags/}"
           fi
-          case "$TAG" in
-            v*) ;;
-            *) echo "::error::Tag '$TAG' does not look like a version tag (expected v*)"; exit 1 ;;
-          esac
+          # Strict semver shape — the tag flows into shell commands below.
+          if ! echo "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::Tag '${TAG}' is not a strict semver version tag (expected vX.Y.Z)"
+            exit 1
+          fi
           VERSION="${TAG#v}"
           echo "TAG=${TAG}" >> "$GITHUB_OUTPUT"
           echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
@@ -95,15 +99,37 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Decide whether this publish is the latest release
+        id: latest
+        run: |
+          # Only the highest existing version tag may move :latest — a manual
+          # dispatch re-publishing an old patch must never regress it.
+          git fetch --tags --force >/dev/null 2>&1 || true
+          HIGHEST=$(git tag -l "v*" --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+          if [ -z "$HIGHEST" ] || [ "$HIGHEST" = "${{ steps.version.outputs.TAG }}" ]; then
+            {
+              echo "tags<<EOF"
+              echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}"
+              echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "This is the highest version tag — :latest will be updated."
+          else
+            {
+              echo "tags<<EOF"
+              echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "Higher tag ${HIGHEST} exists — publishing without moving :latest."
+          fi
+
       - name: Build and push container image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          tags: ${{ steps.latest.outputs.tags }}
 
       - name: Save image tarball
         run: |

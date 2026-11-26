@@ -1,4 +1,4 @@
-import { defineConfig } from "vitepress";
+import { defineConfig, type HeadConfig } from "vitepress";
 import { withMermaid } from "vitepress-plugin-mermaid";
 
 // Dual-track publishing: production docs build with the default base; the
@@ -8,7 +8,7 @@ import { withMermaid } from "vitepress-plugin-mermaid";
 const docsBase = process.env.DOCS_BASE || "/componode/";
 const isDev = process.env.DOCS_DEV === "1";
 
-const devBannerHead: [string, Record<string, string>][] = isDev
+const devBannerHead: HeadConfig[] = isDev
   ? [
       [
         "style",

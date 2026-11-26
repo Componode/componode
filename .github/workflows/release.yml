@@ -1,5 +1,14 @@
 name: Release
 
+# Release preparation, chained in one workflow run. Pushes and merges made
+# with GITHUB_TOKEN do not trigger other workflows, so the version-PR merge
+# and the promotion-PR creation must happen HERE, in a single token context
+# — never rely on downstream events firing from bot actions.
+#
+# Flow: validate develop green -> version PR to develop -> wait for its
+# checks -> merge it -> open/refresh the promotion PR develop -> main.
+# The human merge of the promotion PR is the release approval.
+
 on:
   workflow_dispatch:
     inputs:
@@ -22,11 +31,14 @@ concurrency:
 
 jobs:
   version:
-    name: Prepare version PR to develop
+    name: Prepare version and promotion PRs
     runs-on: ubuntu-latest
+    timeout-minutes: 75
     permissions:
       contents: write
       pull-requests: write
+    env:
+      GH_REPO: ${{ github.repository }}
     steps:
       - name: Checkout develop
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -39,22 +51,36 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          echo "Checking check runs for develop HEAD..."
-          gh api "repos/${{ github.repository }}/commits/develop/check-runs" \
+          echo "Checking required check runs on develop HEAD..."
+          gh api "repos/${GH_REPO}/commits/develop/check-runs" \
             --jq '.check_runs[] | "\(.name)\t\(.status)\t\(.conclusion // "pending")"' | tee check-runs.txt
           if [ ! -s check-runs.txt ]; then
             echo "::error::No check runs found on develop HEAD — cannot verify gates. Refusing to start a release."
             exit 1
           fi
+          FAILED=0
+          # Every named required gate must be present with conclusion success.
+          for REQUIRED in "check" "e2e" "Analyze (javascript-typescript)" "Analyze (actions)"; do
+            CONCLUSION=$(awk -F'\t' -v r="$REQUIRED" '$1 == r { print $3; exit }' check-runs.txt)
+            if [ -z "$CONCLUSION" ]; then
+              echo "::error::Required check '${REQUIRED}' has not run on develop HEAD — refuse to promote."
+              FAILED=1
+            elif [ "$CONCLUSION" != "success" ]; then
+              echo "::error::Required check '${REQUIRED}' conclusion is '${CONCLUSION}', not success — refuse to promote."
+              FAILED=1
+            fi
+          done
+          # Any other failing or incomplete check also blocks promotion.
           if awk -F'\t' '$3 == "failure" || $3 == "cancelled" || $3 == "timed_out" || $3 == "action_required" { bad=1 } END { exit bad ? 0 : 1 }' check-runs.txt; then
-            echo "::error::develop has failing check runs — resolve them before promoting. See above."
-            exit 1
+            echo "::error::develop has failing check runs — resolve them before promoting."
+            FAILED=1
           fi
           if awk -F'\t' '$2 != "completed" { bad=1 } END { exit bad ? 0 : 1 }' check-runs.txt; then
-            echo "::error::develop has check runs still in progress — wait for them to complete before promoting."
-            exit 1
+            echo "::error::develop has check runs still in progress — wait for completion before promoting."
+            FAILED=1
           fi
-          echo "All develop check runs completed without failures."
+          [ "$FAILED" = "0" ] || exit 1
+          echo "All required gates green on develop."
 
       - name: Install pnpm
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
@@ -67,18 +93,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Test
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
 
       - name: Verify changesets exist or add release-bump fallback
         run: |
@@ -100,6 +114,7 @@ jobs:
         run: pnpm changeset version
 
       - name: Create version pull request to develop
+        id: versionpr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -107,17 +122,100 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
           BRANCH="chore/version-v${VERSION}"
           git checkout -b "$BRANCH"
           git add -A
-          git commit -m "chore: version v${VERSION}" || { echo "No version changes produced — nothing to do."; exit 0; }
+          if git commit -m "chore: version v${VERSION}"; then
+            echo "Version commit created."
+          else
+            echo "No version changes produced — nothing to do."
+            echo "SKIP=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           git push origin "$BRANCH"
           PR_URL=$(gh pr create \
             --title "chore: version v${VERSION}" \
-            --body "Automated version preparation for v${VERSION}. Auto-merges when gates are green; the promotion PR to main opens after this lands." \
+            --body "Automated version preparation for v${VERSION}. The release workflow merges this once green and then opens the promotion PR to main." \
             --base develop \
             --head "$BRANCH")
           echo "Version PR: $PR_URL"
-          gh pr merge --auto --squash "$PR_URL" || {
-            echo "::warning::Could not enable auto-merge — is auto-merge enabled on the repository? Merge the PR manually when green."
-          }
+          echo "PR_URL=${PR_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for version PR checks and merge it
+        if: steps.versionpr.outputs.SKIP != '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          PR_URL="${{ steps.versionpr.outputs.PR_URL }}"
+          echo "Waiting for checks on ${PR_URL} (bounded to ~60 minutes)..."
+          DEADLINE=$(( $(date +%s) + 3600 ))
+          while true; do
+            STATE=$(gh pr checks "$PR_URL" --json name,bucket 2>/dev/null || echo "[]")
+            REPORT=$(echo "$STATE" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const a=JSON.parse(d);console.log(a.length+' '+a.filter(c=>c.bucket==='pending').length+' '+a.filter(c=>['fail','cancel'].includes(c.bucket||'')).length)})")
+            COUNT=$(echo "$REPORT" | cut -d' ' -f1)
+            PENDING=$(echo "$REPORT" | cut -d' ' -f2)
+            FAILED=$(echo "$REPORT" | cut -d' ' -f3)
+            echo "checks: total=${COUNT} pending=${PENDING} failed=${FAILED}"
+            if [ "$FAILED" != "0" ]; then
+              echo "::error::Version PR checks failed — inspect ${PR_URL}, fix forward, re-run the release workflow."
+              exit 1
+            fi
+            if [ "$COUNT" != "0" ] && [ "$PENDING" = "0" ]; then
+              echo "All checks completed without failures."
+              break
+            fi
+            if [ "$(date +%s)" -gt "$DEADLINE" ]; then
+              echo "::error::Timed out waiting for version PR checks. Merge ${PR_URL} manually when green, then re-run the release workflow — or investigate the stall."
+              exit 1
+            fi
+            sleep 60
+          done
+          gh pr merge "$PR_URL" --squash --delete-branch
+          echo "Version PR merged to develop."
+
+      - name: Open or refresh promotion PR to main
+        if: steps.versionpr.outputs.SKIP != '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          VERSION="${{ steps.versionpr.outputs.VERSION }}"
+          TAG="v${VERSION}"
+          git fetch origin develop
+          OWNER="${{ github.repository_owner }}"
+          EXISTING=$(gh api "repos/${GH_REPO}/pulls?base=main&head=${OWNER}:develop&state=open" --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -n "$EXISTING" ]; then
+            echo "Promotion PR #${EXISTING} already open — it tracks develop automatically."
+            exit 0
+          fi
+          LATEST_TAG=$(git tag -l "v*" --sort=-v:refname | head -1 || true)
+          if [ -n "$LATEST_TAG" ]; then
+            CHANGES=$(git log --no-merges --oneline "${LATEST_TAG}..origin/develop" | head -50 || echo "(unable to enumerate)")
+          else
+            CHANGES="(first release — no prior tag)"
+          fi
+          BODY_FILE=$(mktemp)
+          {
+            echo "## Promotion to release v${VERSION}"
+            echo
+            echo "Merging this PR is the **release approval** for v${VERSION}."
+            echo
+            echo "- Merge with a **merge commit** (never squash) so develop and main stay genealogically linked."
+            echo "- On merge, the tag \`${TAG}\` is created automatically and the publish pipeline produces the container image and GitHub Release."
+            echo "- Closing this PR unmerged cancels the release decision; it re-opens automatically on the next push to develop."
+            echo
+            echo "### Changes since ${LATEST_TAG:-(first release)}"
+            echo
+            echo '```'
+            echo "${CHANGES}"
+            echo '```'
+          } > "$BODY_FILE"
+          PR_URL=$(gh pr create \
+            --title "release: v${VERSION}" \
+            --body-file "$BODY_FILE" \
+            --base main \
+            --head develop)
+          rm -f "$BODY_FILE"
+          echo "Opened promotion PR: $PR_URL"

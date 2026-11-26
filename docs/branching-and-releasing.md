@@ -131,7 +131,17 @@ The branching model depends on these settings (applied at cutover by
   squash and merge-commit allowed, auto-merge allowed, zero required
   approvals — the gates are the enforcement.
 - Branch ruleset for `main`: no direct pushes, pull request required, same
-  required checks plus `main-guard`, **merge commits only**, no auto-merge.
+  required checks plus `main-guard`.
+
+Two controls are **procedural, not settings-enforced**, because GitHub
+rulesets cannot restrict merge types per branch (merge-type settings are
+repository-wide) and auto-merge is likewise repository-wide:
+
+- Promotion/hotfix/back-merge PRs must be merged with **merge commits** —
+  the human clicking merge on `main` chooses the merge type and is the
+  trusted control.
+- Auto-merge must never be enabled on PRs to `main` — the manual merge act
+  is the release approval.
 - CodeQL runs from the in-repo advanced workflow (`.github/workflows/codeql.yml`);
   the repository-level default setup must stay **disabled** or the two
   configurations conflict.

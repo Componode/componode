@@ -13,6 +13,10 @@ permissions:
   contents: read
   pull-requests: write
 
+concurrency:
+  group: promote-develop
+  cancel-in-progress: true
+
 jobs:
   promote:
     name: Open or refresh promotion PR
@@ -35,7 +39,8 @@ jobs:
             echo "Version ${TAG} is already released — nothing to promote."
             exit 0
           fi
-          EXISTING=$(gh pr list --base main --head develop --state open --json number --jq '.[0].number // empty')
+          OWNER="${{ github.repository_owner }}"
+          EXISTING=$(gh api "repos/${{ github.repository }}/pulls?base=main&head=${OWNER}:develop&state=open" --jq '.[0].number // empty')
           if [ -n "$EXISTING" ]; then
             echo "Promotion PR #${EXISTING} already open — it tracks develop automatically. Nothing to do."
             exit 0
