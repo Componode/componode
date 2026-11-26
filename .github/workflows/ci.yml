@@ -95,9 +95,20 @@ jobs:
         working-directory: playwright
         run: pnpm install --frozen-lockfile
 
+      # e2e:debug retains the stack on failure so the log-dump step below
+      # can capture container output; the always() teardown cleans up.
       - name: Run Playwright e2e suite
         working-directory: playwright
-        run: pnpm e2e
+        run: pnpm e2e:debug
+
+      - name: Dump workload container logs on failure
+        if: failure()
+        working-directory: playwright
+        run: |
+          if [ -f .env-private/env ]; then
+            set -a; . ./.env-private/env; set +a
+            docker compose -f compose.test.yml --project-name componode-pw logs --no-color --tail=100 2>&1 | tail -500 || true
+          fi
 
       - name: Tear down e2e stack
         if: always()
@@ -118,6 +129,14 @@ jobs:
         env:
           HEAD_BRANCH: ${{ github.head_ref }}
         run: |
+          # Bootstrap exemption: the provenance rule only applies once the
+          # two-branch model exists. Until `develop` is created (cutover),
+          # PRs to main are unrestricted — otherwise the cutover PR itself
+          # could never pass its own guard.
+          if ! git ls-remote --exit-code origin develop >/dev/null 2>&1; then
+            echo "develop does not exist yet — pre-cutover state, provenance rule inactive."
+            exit 0
+          fi
           if [ "$HEAD_BRANCH" = "develop" ]; then
             echo "Promotion PR from develop — allowed."
           elif [[ "$HEAD_BRANCH" == hotfix/* ]]; then

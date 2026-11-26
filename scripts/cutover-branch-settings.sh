@@ -144,8 +144,15 @@ gh api "repos/${REPO}" -X PATCH -F allow_auto_merge=true --jq '.allow_auto_merge
 echo "==> 4. Disabling CodeQL default setup"
 STATE=$(gh api "repos/${REPO}/code-scanning/default-setup" --jq '.state' 2>/dev/null || echo "not-configured")
 if [ "$STATE" = "configured" ]; then
-  gh api "repos/${REPO}/code-scanning/default-setup" -X PATCH -f state=not-configured --jq '.state'
-  echo "    default setup disabled"
+  if gh api "repos/${REPO}/code-scanning/default-setup" -X PATCH -f state=not-configured --jq '.state' 2>/dev/null; then
+    echo "    default setup disabled"
+  else
+    echo "    WARNING: repo-level disable failed — the default setup is controlled by an"
+    echo "    ORGANIZATION security configuration. An org admin must remove this repo from"
+    echo "    the configuration (or detach the config) at:"
+    echo "    https://github.com/organizations/Componode/settings/security_products"
+    echo "    Until then, advanced-codeql SARIF uploads are REJECTED and CodeQL checks fail."
+  fi
 else
   echo "    default setup already in state '${STATE}' — nothing to do"
 fi
