@@ -49,8 +49,13 @@ jobs:
           ref: ${{ steps.devref.outputs.ref }}
           path: dev-src
 
+      # Both checkouts land in subdirectories, so no package.json exists at
+      # the workspace root — the action cannot infer the version from
+      # packageManager and must be pinned explicitly (matches package.json).
       - name: Install pnpm
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: 9.15.2
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
