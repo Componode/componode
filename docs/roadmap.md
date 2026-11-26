@@ -558,6 +558,14 @@ file tracks shipped and upcoming work — update it when a spec completes.
   jsdom 31, jest-dom 8), lucide-react 1.64, and digest-pinned
   `node:26.13.1-alpine` container images — one regenerated
   `pnpm-lock.yaml`, no code fallout required.
+- `084-branch-release-strategy` — the two-branch release model: `develop`
+  as the default integration branch with full CI, end-to-end, and scan
+  parity (new in-repo advanced CodeQL, required Playwright e2e gate),
+  `main` as the release-only line where every merge is a release,
+  changesets-derived versioning at promotion time with automated version
+  and promotion PRs, auto-tagging with loud invariant enforcement,
+  idempotent publishing, dual-track docs (`/` from main, `/dev/` from
+  develop), and the hotfix flow with automatic back-merge.
 
 ## Next — post-v1.1
 

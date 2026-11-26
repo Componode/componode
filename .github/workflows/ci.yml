@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 permissions:
   contents: read
@@ -75,3 +75,108 @@ jobs:
         with:
           fail-on-severity: high
           deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install Playwright workload dependencies
+        working-directory: playwright
+        run: pnpm install --frozen-lockfile
+
+      # e2e:debug retains the stack on failure so the log-dump step below
+      # can capture container output; the always() teardown cleans up.
+      - name: Run Playwright e2e suite
+        working-directory: playwright
+        run: pnpm e2e:debug
+
+      - name: Dump workload container logs on failure
+        if: failure()
+        working-directory: playwright
+        run: |
+          if [ -f .env-private/env ]; then
+            set -a; . ./.env-private/env; set +a
+            docker compose -f compose.test.yml --project-name componode-pw logs --no-color --tail=100 2>&1 | tail -500 || true
+          fi
+
+      - name: Tear down e2e stack
+        if: always()
+        working-directory: playwright
+        run: pnpm e2e:down
+
+  main-guard:
+    # PRs to main may only come from develop (promotion) or hotfix/* branches.
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Verify head branch is develop or hotfix/*
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          # Bootstrap exemption: the provenance rule only applies once the
+          # two-branch model exists. Until `develop` is created (cutover),
+          # PRs to main are unrestricted — otherwise the cutover PR itself
+          # could never pass its own guard.
+          if ! git ls-remote --exit-code origin develop >/dev/null 2>&1; then
+            echo "develop does not exist yet — pre-cutover state, provenance rule inactive."
+            exit 0
+          fi
+          if [ "$HEAD_BRANCH" = "develop" ]; then
+            echo "Promotion PR from develop — allowed."
+          elif [[ "$HEAD_BRANCH" == hotfix/* ]]; then
+            echo "Hotfix-shaped branch name — ancestry verification follows in the next step."
+          else
+            echo "::error::PRs to main must come from 'develop' or a 'hotfix/*' branch (got '$HEAD_BRANCH')."
+            exit 1
+          fi
+
+      - name: Verify hotfix ancestry descends from main
+        if: github.head_ref != 'develop'
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          set -e
+          case "$HEAD_BRANCH" in
+            hotfix/*) ;;
+            *) echo "Not a hotfix branch — skipping ancestry check."; exit 0 ;;
+          esac
+          git fetch --depth=50 origin main
+          git fetch --depth=50 origin "+refs/heads/${HEAD_BRANCH}:refs/remotes/verify/${HEAD_BRANCH}" 2>/dev/null || \
+            git fetch --depth=50 origin "${HEAD_SHA}"
+          if ! git merge-base --is-ancestor origin/main "${HEAD_SHA}" 2>/dev/null; then
+            echo "::error::hotfix branches must descend from main — rebase onto main."
+            exit 1
+          fi
+          # Descending from main is necessary but not sufficient: after the
+          # first back-merge, develop also contains main, so a branch cut
+          # from develop would pass the test above while smuggling unreleased
+          # feature work into main. The hotfix must not contain develop-only
+          # commits — its merge-base with develop must not sit ahead of its
+          # merge-base with main.
+          git fetch --depth=200 origin develop 2>/dev/null || true
+          if git rev-parse -q --verify origin/develop >/dev/null 2>&1; then
+            MB_MAIN=$(git merge-base origin/main "${HEAD_SHA}")
+            MB_DEV=$(git merge-base origin/develop "${HEAD_SHA}")
+            if [ "$MB_MAIN" != "$MB_DEV" ] && ! git merge-base --is-ancestor "$MB_DEV" "$MB_MAIN" 2>/dev/null; then
+              echo "::error::This hotfix contains develop-only commits (unreleased work). Hotfixes must be cut from main, not develop."
+              exit 1
+            fi
+          fi
+          echo "Hotfix branch descends cleanly from main — allowed."

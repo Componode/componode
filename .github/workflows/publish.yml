@@ -1,0 +1,163 @@
+name: Publish
+
+# Publishes release artifacts for a version tag. Two entry points:
+#   1. push of a v* tag (e.g. a human-pushed tag — kept for compatibility)
+#   2. workflow_dispatch with a tag input — used by tag.yml, because pushes
+#      made with GITHUB_TOKEN do not trigger other workflows.
+#
+# The job is idempotent: re-running it for the same tag after a partial
+# failure converges instead of erroring on existing artifacts.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (e.g. v1.2.3)"
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.event.inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
+    steps:
+      - name: Resolve tag and version
+        id: version
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -e
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="$INPUT_TAG"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          # Strict semver shape — the tag flows into shell commands below.
+          if ! echo "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::Tag '${TAG}' is not a strict semver version tag (expected vX.Y.Z)"
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          echo "TAG=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Publishing tag ${TAG} (version ${VERSION})"
+
+      - name: Checkout the tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.version.outputs.TAG }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Verify declared version matches tag
+        run: |
+          DECLARED=$(node -p "require('./package.json').version")
+          if [ "$DECLARED" != "${{ steps.version.outputs.VERSION }}" ]; then
+            echo "::error::Declared version ${DECLARED} does not match tag version ${{ steps.version.outputs.VERSION }} — refusing to publish."
+            exit 1
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Decide whether this publish is the latest release
+        id: latest
+        run: |
+          # Only the highest existing version tag may move :latest — a manual
+          # dispatch re-publishing an old patch must never regress it.
+          git fetch --tags --force >/dev/null 2>&1 || true
+          HIGHEST=$(git tag -l "v*" --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+          if [ -z "$HIGHEST" ] || [ "$HIGHEST" = "${{ steps.version.outputs.TAG }}" ]; then
+            {
+              echo "tags<<EOF"
+              echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}"
+              echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "This is the highest version tag — :latest will be updated."
+          else
+            {
+              echo "tags<<EOF"
+              echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "Higher tag ${HIGHEST} exists — publishing without moving :latest."
+          fi
+
+      - name: Build and push container image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.latest.outputs.tags }}
+
+      - name: Save image tarball
+        run: |
+          docker pull "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}"
+          docker save "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}" | gzip > "componode-${{ steps.version.outputs.VERSION }}-image.tar.gz"
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          TAG="${{ steps.version.outputs.TAG }}"
+          if [ -f CHANGELOG.md ]; then
+            # Extract the section for this version
+            awk "/^## ${VERSION}/{flag=1; next} /^## [0-9]+\\./{flag=0} flag" CHANGELOG.md > "release-notes-${VERSION}.md" || true
+          fi
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists — uploading assets only (idempotent re-run)."
+            gh release upload "${TAG}" "componode-${VERSION}-image.tar.gz" --clobber
+          elif [ -s "release-notes-${VERSION}.md" ]; then
+            gh release create "${TAG}" \
+              --title "Componode v${VERSION}" \
+              --notes-file "release-notes-${VERSION}.md" \
+              "componode-${VERSION}-image.tar.gz"
+          else
+            gh release create "${TAG}" \
+              --title "Componode v${VERSION}" \
+              --generate-notes \
+              "componode-${VERSION}-image.tar.gz"
+          fi

@@ -1,10 +1,19 @@
 name: Release
 
+# Release preparation, chained in one workflow run. Pushes and merges made
+# with GITHUB_TOKEN do not trigger other workflows, so the version-PR merge
+# and the promotion-PR creation must happen HERE, in a single token context
+# — never rely on downstream events firing from bot actions.
+#
+# Flow: validate develop green -> version PR to develop -> wait for its
+# checks -> merge it -> open/refresh the promotion PR develop -> main.
+# The human merge of the promotion PR is the release approval.
+
 on:
   workflow_dispatch:
     inputs:
       bump:
-        description: "Version bump type"
+        description: "Version bump type (fallback only — used when no unreleased changesets exist)"
         required: true
         default: "patch"
         type: choice
@@ -12,56 +21,119 @@ on:
           - major
           - minor
           - patch
-  push:
-    tags:
-      - "v*"
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: true
+  group: release-version
+  cancel-in-progress: false
 
 jobs:
   version:
-    name: Version release PR
-    if: github.event_name == 'workflow_dispatch'
+    name: Prepare version and promotion PRs
     runs-on: ubuntu-latest
+    timeout-minutes: 75
     permissions:
       contents: write
       pull-requests: write
+    env:
+      GH_REPO: ${{ github.repository }}
     steps:
-      - name: Checkout
+      - name: Checkout develop
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: develop
           fetch-depth: 0
 
+      - name: Verify develop quality gates are green
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          echo "Checking required check runs on develop HEAD..."
+          gh api "repos/${GH_REPO}/commits/develop/check-runs?per_page=100" \
+            --jq '.check_runs[] | "\(.name)\t\(.status)\t\(.conclusion // "pending")"' | tee check-runs.txt
+          if [ ! -s check-runs.txt ]; then
+            echo "::error::No check runs found on develop HEAD — cannot verify gates. Refusing to start a release."
+            exit 1
+          fi
+          FAILED=0
+          # Every named required gate must be present with conclusion success.
+          for REQUIRED in "check" "e2e" "Analyze (javascript-typescript)" "Analyze (actions)"; do
+            CONCLUSION=$(awk -F'\t' -v r="$REQUIRED" '$1 == r { print $3; exit }' check-runs.txt)
+            if [ -z "$CONCLUSION" ]; then
+              echo "::error::Required check '${REQUIRED}' has not run on develop HEAD — refuse to promote."
+              FAILED=1
+            elif [ "$CONCLUSION" != "success" ]; then
+              echo "::error::Required check '${REQUIRED}' conclusion is '${CONCLUSION}', not success — refuse to promote."
+              FAILED=1
+            fi
+          done
+          # Any other failing or incomplete check also blocks promotion.
+          if awk -F'\t' '$3 == "failure" || $3 == "cancelled" || $3 == "timed_out" || $3 == "action_required" { bad=1 } END { exit bad ? 0 : 1 }' check-runs.txt; then
+            echo "::error::develop has failing check runs — resolve them before promoting."
+            FAILED=1
+          fi
+          if awk -F'\t' '$2 != "completed" { bad=1 } END { exit bad ? 0 : 1 }' check-runs.txt; then
+            echo "::error::develop has check runs still in progress — wait for completion before promoting."
+            FAILED=1
+          fi
+          [ "$FAILED" = "0" ] || exit 1
+          echo "All required gates green on develop."
+
+      - name: Detect release state for idempotent re-runs
+        id: state
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          # Re-run safety: this workflow can be re-invoked after partial
+          # completion. Detect how far a previous run got.
+          VERSION=$(node -p "require('./package.json').version")
+          echo "current_version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Declared version on develop: ${VERSION}"
+          HIGHEST_TAG=$(git tag -l "v*" --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+          echo "Highest existing tag: ${HIGHEST_TAG:-none}"
+          HAS_CHANGESETS=0
+          if find .changeset -maxdepth 1 -type f -name '*.md' ! -name 'README.md' -print -quit | grep -q .; then
+            HAS_CHANGESETS=1
+          fi
+          # Normal start: version == latest tag, changesets pending -> full flow.
+          # Already versioned: version ahead of latest tag, no changesets ->
+          #   a previous run completed version preparation; skip to promotion.
+          # Fresh, no changesets: version == latest tag -> fallback bump, full flow.
+          if [ -n "$HIGHEST_TAG" ] && [ "v${VERSION}" != "$HIGHEST_TAG" ] && [ "$HAS_CHANGESETS" = "0" ]; then
+            echo "Version ${VERSION} is already ahead of ${HIGHEST_TAG} with changesets consumed — version preparation completed in a prior run. Skipping straight to promotion."
+            echo "skip_to_promotion=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Case 2: an open version PR already exists (re-run while a prior
+          # version PR is still in flight) — reuse it instead of recreating.
+          OWNER="${{ github.repository_owner }}"
+          EXISTING_VPR=$(gh api "repos/${GH_REPO}/pulls?base=develop&head=${OWNER}:chore/version-v${VERSION}&state=open" --jq '.[0].html_url // empty' 2>/dev/null || true)
+          if [ -n "$EXISTING_VPR" ]; then
+            echo "Open version PR already exists: ${EXISTING_VPR} — reusing it."
+            echo "existing_pr_url=${EXISTING_VPR}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install pnpm
+        if: steps.state.outputs.skip_to_promotion != '1' && steps.state.outputs.existing_pr_url == ''
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Setup Node.js
+        if: steps.state.outputs.skip_to_promotion != '1' && steps.state.outputs.existing_pr_url == ''
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.state.outputs.skip_to_promotion != '1' && steps.state.outputs.existing_pr_url == ''
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Test
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
-
       - name: Verify changesets exist or add release-bump fallback
+        if: steps.state.outputs.skip_to_promotion != '1' && steps.state.outputs.existing_pr_url == ''
         run: |
           set -e
           if find .changeset -maxdepth 1 -type f -name '*.md' ! -name 'README.md' -print -quit | grep -q .; then
@@ -78,108 +150,116 @@ jobs:
           fi
 
       - name: Version with changesets
+        if: steps.state.outputs.skip_to_promotion != '1' && steps.state.outputs.existing_pr_url == ''
         run: pnpm changeset version
 
-      - name: Create release pull request
+      - name: Create version pull request to develop
+        if: steps.state.outputs.skip_to_promotion != '1' && steps.state.outputs.existing_pr_url == ''
+        id: versionpr
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           VERSION=$(node -p "require('./package.json').version")
-          BRANCH="release/v${VERSION}"
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
+          BRANCH="chore/version-v${VERSION}"
           git checkout -b "$BRANCH"
           git add -A
-          git commit -m "chore: release v${VERSION}" || exit 0
-          git push origin "$BRANCH"
-          gh pr create \
-            --title "chore: release v${VERSION}" \
-            --body "Release PR for v${VERSION}." \
-            --base main \
-            --head "$BRANCH" || true
-
-  publish:
-    name: Publish release
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-    env:
-      REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build
-        run: pnpm build
-
-      - name: Set version
-        id: version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/" package.json
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-
-      - name: Log in to GHCR
-        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push container image
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-      - name: Save image tarball
-        run: |
-          docker pull "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}"
-          docker save "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}" | gzip > "componode-${{ steps.version.outputs.VERSION }}-image.tar.gz"
-
-      - name: Create GitHub Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          if [ -f CHANGELOG.md ]; then
-            # Extract the section for this version
-            awk "/^## ${VERSION}/{flag=1; next} /^## [0-9]+\\./{flag=0} flag" CHANGELOG.md > "release-notes-${VERSION}.md" || true
-          fi
-          if [ -s "release-notes-${VERSION}.md" ]; then
-            gh release create "v${VERSION}" \
-              --title "Componode v${VERSION}" \
-              --notes-file "release-notes-${VERSION}.md" \
-              "componode-${VERSION}-image.tar.gz"
+          if git commit -m "chore: version v${VERSION}"; then
+            echo "Version commit created."
           else
-            gh release create "v${VERSION}" \
-              --title "Componode v${VERSION}" \
-              --generate-notes \
-              "componode-${VERSION}-image.tar.gz"
+            echo "No version changes produced — nothing to do."
+            echo "SKIP=1" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          git push origin "$BRANCH"
+          PR_URL=$(gh pr create \
+            --title "chore: version v${VERSION}" \
+            --body "Automated version preparation for v${VERSION}. The release workflow merges this once green and then opens the promotion PR to main." \
+            --base develop \
+            --head "$BRANCH")
+          echo "Version PR: $PR_URL"
+          echo "PR_URL=${PR_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for version PR checks and merge it
+        if: steps.state.outputs.skip_to_promotion != '1'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          PR_URL="${{ steps.versionpr.outputs.PR_URL || steps.state.outputs.existing_pr_url }}"
+          echo "Waiting for checks on ${PR_URL} (bounded to ~60 minutes)..."
+          DEADLINE=$(( $(date +%s) + 3600 ))
+          while true; do
+            # gh pr checks exits non-zero while checks are pending or failed
+            # but still emits valid JSON — never append a fallback document,
+            # substitute only when stdout is empty.
+            STATE=$(gh pr checks "$PR_URL" --json name,bucket 2>/dev/null) || true
+            if [ -z "$STATE" ]; then STATE="[]"; fi
+            REPORT=$(echo "$STATE" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const a=JSON.parse(d);console.log(a.length+' '+a.filter(c=>c.bucket==='pending').length+' '+a.filter(c=>['fail','cancel'].includes(c.bucket||'')).length)})")
+            COUNT=$(echo "$REPORT" | cut -d' ' -f1)
+            PENDING=$(echo "$REPORT" | cut -d' ' -f2)
+            FAILED=$(echo "$REPORT" | cut -d' ' -f3)
+            echo "checks: total=${COUNT} pending=${PENDING} failed=${FAILED}"
+            if [ "$FAILED" != "0" ]; then
+              echo "::error::Version PR checks failed — inspect ${PR_URL}, fix forward, re-run the release workflow."
+              exit 1
+            fi
+            if [ "$COUNT" != "0" ] && [ "$PENDING" = "0" ]; then
+              echo "All checks completed without failures."
+              break
+            fi
+            if [ "$(date +%s)" -gt "$DEADLINE" ]; then
+              echo "::error::Timed out waiting for version PR checks. Merge ${PR_URL} manually when green, then re-run the release workflow — or investigate the stall."
+              exit 1
+            fi
+            sleep 60
+          done
+          gh pr merge "$PR_URL" --squash --delete-branch
+          echo "Version PR merged to develop."
+
+      - name: Open or refresh promotion PR to main
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          VERSION="${{ steps.versionpr.outputs.VERSION || steps.state.outputs.current_version }}"
+          TAG="v${VERSION}"
+          git fetch origin develop
+          OWNER="${{ github.repository_owner }}"
+          EXISTING=$(gh api "repos/${GH_REPO}/pulls?base=main&head=${OWNER}:develop&state=open" --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -n "$EXISTING" ]; then
+            echo "Promotion PR #${EXISTING} already open — it tracks develop automatically."
+            exit 0
+          fi
+          LATEST_TAG=$(git tag -l "v*" --sort=-v:refname | head -1 || true)
+          if [ -n "$LATEST_TAG" ]; then
+            CHANGES=$(git log --no-merges --oneline "${LATEST_TAG}..origin/develop" | head -50 || echo "(unable to enumerate)")
+          else
+            CHANGES="(first release — no prior tag)"
+          fi
+          BODY_FILE=$(mktemp)
+          {
+            echo "## Promotion to release v${VERSION}"
+            echo
+            echo "Merging this PR is the **release approval** for v${VERSION}."
+            echo
+            echo "- Merge with a **merge commit** (never squash) so develop and main stay genealogically linked."
+            echo "- On merge, the tag \`${TAG}\` is created automatically and the publish pipeline produces the container image and GitHub Release."
+            echo "- Closing this PR unmerged cancels the release decision; it re-opens automatically on the next push to develop."
+            echo
+            echo "### Changes since ${LATEST_TAG:-(first release)}"
+            echo
+            echo '```'
+            echo "${CHANGES}"
+            echo '```'
+          } > "$BODY_FILE"
+          PR_URL=$(gh pr create \
+            --title "release: v${VERSION}" \
+            --body-file "$BODY_FILE" \
+            --base main \
+            --head develop)
+          rm -f "$BODY_FILE"
+          echo "Opened promotion PR: $PR_URL"

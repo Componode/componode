@@ -1,0 +1,53 @@
+name: Back-merge
+
+# After a hotfix merges to main, the fix and its version bookkeeping must
+# flow back into develop. This opens the back-merge PR automatically;
+# humans resolve any conflicts. Merge it with a merge commit.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  backmerge:
+    name: Open back-merge PR to develop
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'hotfix/')
+    runs-on: ubuntu-latest
+    env:
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Open back-merge PR
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          HOTFIX: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -e
+          EXISTING=$(gh pr list --base develop --head main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "Back-merge PR #${EXISTING} already open — nothing to do."
+            exit 0
+          fi
+          BODY_FILE=$(mktemp)
+          {
+            echo "## Back-merge ${HOTFIX} into develop"
+            echo
+            echo "Hotfix \`${HOTFIX}\` merged to main in #${PR_NUMBER}."
+            echo "This PR carries the fix and its version bookkeeping back into develop so the"
+            echo "branches stay genealogically linked and the next promotion derives correctly."
+            echo
+            echo "- Merge with a **merge commit** (never squash)."
+            echo "- Resolve any conflicts manually — develop's pending changesets must survive unconsumed."
+          } > "$BODY_FILE"
+          PR_URL=$(gh pr create \
+            --title "chore: back-merge ${HOTFIX} into develop" \
+            --body-file "$BODY_FILE" \
+            --base develop \
+            --head main)
+          rm -f "$BODY_FILE"
+          echo "Opened back-merge PR: $PR_URL"

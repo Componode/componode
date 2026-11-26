@@ -1,6 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: "npm"
+    target-branch: "develop"
     # Single root entry only. pnpm workspaces keep one lockfile at the repo
     # root, and the "/" job already updates every package manifest plus the
     # lockfile. Per-package "/packages/*" entries produced PRs that modified
@@ -27,6 +28,7 @@ updates:
           - "patch"
 
   - package-ecosystem: "github-actions"
+    target-branch: "develop"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -39,6 +41,7 @@ updates:
   # patch-pinned node:24.x.y-alpine base image tracking the latest Node 24
   # patch release.
   - package-ecosystem: "docker"
+    target-branch: "develop"
     directory: "/"
     schedule:
       interval: "weekly"

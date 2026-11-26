@@ -1,0 +1,50 @@
+name: Tag
+
+# Creates the version tag when main moves. Every merge to main must be a
+# release: if the declared version is already tagged, that means a merge
+# landed without a version bump — the workflow fails loudly to surface the
+# invariant violation instead of silently skipping.
+#
+# After tagging, the publish workflow is dispatched explicitly, because
+# pushes made with GITHUB_TOKEN do not trigger other workflows.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: tag-main
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    name: Create version tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Create and push tag, then dispatch publish
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null 2>&1 || \
+             git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::error::Tag ${TAG} already exists but main just moved. Every merge to main must carry a version bump (promotion or hotfix). Investigate what merged without one."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+          echo "Tagged ${TAG}; dispatching publish workflow."
+          gh workflow run publish.yml --ref main -f "tag=${TAG}"

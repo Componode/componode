@@ -55,6 +55,19 @@ pnpm --filter @componode/backend dev     # API on :3000
 pnpm --filter @componode/frontend dev    # UI on :5173, proxies to :3000
 ```
 
+## Branches and pull requests
+
+Componode uses a two-branch model — full detail in
+[Branching & releasing](branching-and-releasing.md):
+
+- **`develop`** is the default branch. **All pull requests target
+  `develop`** — features, bugfixes, dependency updates, everything.
+- **`main`** is release-only. Nobody opens PRs to `main` by hand except
+  `hotfix/*` branches; promotions from `develop` are automated.
+- PRs to `develop` merge once the quality gates are green — there are no
+  mandatory human approvals, the gates are the enforcement. Squash merge
+  is fine for feature branches.
+
 ## Quality gates
 
 Run before opening a PR:

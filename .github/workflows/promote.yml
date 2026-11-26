@@ -1,0 +1,76 @@
+name: Promote
+
+# Opens the promotion PR develop → main when develop carries a version that
+# has not been released yet. Self-healing: fires on every push to develop,
+# no-ops when the version is already tagged or the PR already exists (the
+# PR's head is develop itself, so it self-updates as develop moves).
+
+on:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: promote-develop
+  cancel-in-progress: true
+
+jobs:
+  promote:
+    name: Open or refresh promotion PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Open promotion PR if version is unreleased
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Version ${TAG} is already released — nothing to promote."
+            exit 0
+          fi
+          OWNER="${{ github.repository_owner }}"
+          EXISTING=$(gh api "repos/${{ github.repository }}/pulls?base=main&head=${OWNER}:develop&state=open" --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "Promotion PR #${EXISTING} already open — it tracks develop automatically. Nothing to do."
+            exit 0
+          fi
+          LATEST_TAG=$(git tag -l "v*" --sort=-v:refname | head -1 || true)
+          if [ -n "$LATEST_TAG" ]; then
+            CHANGES=$(git log --no-merges --oneline "${LATEST_TAG}..HEAD" | head -50 || echo "(unable to enumerate)")
+          else
+            CHANGES="(first release — no prior tag)"
+          fi
+          BODY_FILE=$(mktemp)
+          {
+            echo "## Promotion to release v${VERSION}"
+            echo
+            echo "Merging this PR is the **release approval** for v${VERSION}."
+            echo
+            echo "- Merge with a **merge commit** (never squash) so develop and main stay genealogically linked."
+            echo "- On merge, the tag \`${TAG}\` is created automatically and the publish pipeline produces the container image and GitHub Release."
+            echo "- Closing this PR unmerged cancels the release decision; it re-opens automatically on the next push to develop."
+            echo
+            echo "### Changes since ${LATEST_TAG:-(first release)}"
+            echo
+            echo '```'
+            echo "${CHANGES}"
+            echo '```'
+          } > "$BODY_FILE"
+          PR_URL=$(gh pr create \
+            --title "release: v${VERSION}" \
+            --body-file "$BODY_FILE" \
+            --base main \
+            --head develop)
+          rm -f "$BODY_FILE"
+          echo "Opened promotion PR: $PR_URL"

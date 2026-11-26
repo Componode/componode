@@ -285,6 +285,33 @@ Delete the temporary file after the command succeeds.
 
 ---
 
+## Branching & Release Model
+
+Two long-lived branches — full detail in `docs/branching-and-releasing.md`:
+
+- **`develop`** is the repository default branch and the integration line.
+  **All PRs target `develop`** — features, bugfixes, dependabot, everything.
+  Never open a PR to `main` unless it is a `hotfix/*` branch.
+- **`main`** is release-only. It receives automated promotion PRs from
+  `develop` and `hotfix/*` PRs — nothing else. Every merge to `main` is a
+  release: version bumps happen only at promotion time or inside a hotfix
+  PR, never ad-hoc.
+- Promotion and back-merge PRs (`develop`↔`main`) MUST merge with merge
+  commits, never squash — squash diverges the histories. Feature PRs into
+  `develop` may squash.
+- Hotfixes: branch `hotfix/*` off `main`, carry fix + changeset + the output
+  of `pnpm changeset version` in the same PR, merge to `main` (merge
+  commit). A bot opens the back-merge PR to `develop` automatically.
+- Releases: a maintainer runs the Release workflow manually; automation
+  validates gates, derives the version from changesets, opens the version
+  PR and the promotion PR. The human merge of the promotion PR is the
+  release approval — never enable auto-merge on PRs to `main`.
+- Scan results (code scanning, Dependabot) on `develop` are the
+  pre-release monitoring surface — agents should check and act on them
+  before suggesting a promotion.
+
+---
+
 ## Spec-Kit Workflow
 
 All feature work MUST follow the spec-kit workflow. The authoritative commands
@@ -302,8 +329,8 @@ Required sequence for a feature:
 
 Branch naming is determined by `.specify/init-options.json`
 (`feature_numbering: sequential`). When a valid `speckit-specify` command is
-issued, the agent MUST work on the designated feature branch and never on `main`
-or an unrelated branch.
+issued, the agent MUST work on the designated feature branch and never on `main`,
+`develop`, or an unrelated branch. PRs are opened against `develop`.
 
 `.specify/feature.json` is the machine-local pointer to the **current** feature
 directory — `speckit-specify` rewrites it, and `speckit-plan`/`tasks`/etc.
@@ -371,9 +398,9 @@ Required sequence for a bugfix:
 6. `speckit-analyze` / `speckit-converge` — before merge.
 
 Branch naming for bugfixes: `bugfix/{NNN}-{short-name}` (or the feature branch
-if the fix belongs to an in-flight feature). Never commit a bugfix to `main`
-without a spec, a regression test, and an updated ADR where the fix touches an
-architecture decision.
+if the fix belongs to an in-flight feature). Never commit a bugfix directly to
+`develop` or `main` without a spec, a regression test, and an updated ADR where
+the fix touches an architecture decision.
 
 ---
 

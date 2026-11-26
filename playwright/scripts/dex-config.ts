@@ -32,6 +32,6 @@ staticPasswords:
 `;
   mkdirSync(dir, { recursive: true });
   const path = join(dir, 'dex.yaml');
-  writeFileSync(path, yaml, { mode: 0o600 });
+  writeFileSync(path, yaml, { mode: 0o644 });
   return path;
 }

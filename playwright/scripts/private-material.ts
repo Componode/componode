@@ -111,13 +111,16 @@ export async function generatePrivateMaterial(dir = PRIVATE_DIR): Promise<Privat
   mkdirSync(certDir, { recursive: true });
 
   const ca = await makeCA('Componode Playwright Workload CA');
-  writeFileSync(join(dir, 'ca.crt'), ca.cert.toString('pem'), { mode: 0o600 });
+  writeFileSync(join(dir, 'ca.crt'), ca.cert.toString('pem'), { mode: 0o644 });
   writeFileSync(join(dir, 'ca.key'), await keyToPem(ca.keys.privateKey), { mode: 0o600 });
 
   for (const [name, plan] of Object.entries(CERT_PLAN)) {
     const leaf = await issueLeaf({ cn: plan.cn, sans: plan.sans, ca, client: plan.client });
-    writeFileSync(join(certDir, `${name}.crt`), leaf.certPem, { mode: 0o600 });
-    writeFileSync(join(certDir, `${name}.key`), leaf.keyPem, { mode: 0o600 });
+    // Container-readable: mock services run as the image's `node` user and
+    // mount these files — 0o600 would be unreadable on Linux hosts (Windows
+    // Docker masks permissions, which is why this only breaks in CI).
+    writeFileSync(join(certDir, `${name}.crt`), leaf.certPem, { mode: 0o644 });
+    writeFileSync(join(certDir, `${name}.key`), leaf.keyPem, { mode: 0o644 });
   }
 
   const runId = randomBytes(4).toString('hex');

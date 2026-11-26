@@ -1,9 +1,31 @@
-import { defineConfig } from "vitepress";
+import { defineConfig, type HeadConfig } from "vitepress";
 import { withMermaid } from "vitepress-plugin-mermaid";
+
+// Dual-track publishing: production docs build with the default base; the
+// development track (built from the develop branch) sets DOCS_BASE and
+// DOCS_DEV so it lives under /dev/ and carries a visible non-production
+// banner. See docs/branching-and-releasing.md.
+const docsBase = process.env.DOCS_BASE || "/componode/";
+const isDev = process.env.DOCS_DEV === "1";
+
+const devBannerHead: HeadConfig[] = isDev
+  ? [
+      [
+        "style",
+        {},
+        ".dev-docs-banner{position:fixed;top:0;left:0;right:0;z-index:100;background:#b45309;color:#fff;text-align:center;padding:4px 8px;font-size:13px;font-weight:600}.VPNav{top:28px!important}body{padding-top:28px}",
+      ],
+      [
+        "script",
+        {},
+        'document.addEventListener("DOMContentLoaded",function(){var b=document.createElement("div");b.className="dev-docs-banner";b.textContent="DEVELOPMENT DOCUMENTATION — built from the develop branch, not the production release";document.body.prepend(b)})',
+      ],
+    ]
+  : [];
 
 export default withMermaid(
   defineConfig({
-  title: "Componode",
+  title: isDev ? "Componode (dev)" : "Componode",
   description:
     "Open-source, self-hosted Digital Product Asset Management — a personal learning project in AI-assisted development",
   srcDir: "../docs",
@@ -15,7 +37,8 @@ export default withMermaid(
     },
   },
   cleanUrls: true,
-  base: "/componode/",
+  base: docsBase,
+  head: devBannerHead,
   lastUpdated: true,
   themeConfig: {
     nav: [
@@ -77,6 +100,7 @@ export default withMermaid(
           { text: "Architecture overview", link: "/architecture" },
           { text: "Importer development", link: "/importer-development" },
           { text: "UX/UI reference", link: "/ux" },
+          { text: "Branching & releasing", link: "/branching-and-releasing" },
           { text: "Release process", link: "/release" },
           { text: "Roadmap", link: "/roadmap" },
         ],
@@ -85,7 +109,7 @@ export default withMermaid(
     outline: { level: [2, 3], label: "On this page" },
     search: { provider: "local" },
     editLink: {
-      pattern: "https://github.com/Componode/componode/edit/main/docs/:path",
+      pattern: "https://github.com/Componode/componode/edit/develop/docs/:path",
       text: "Edit this page on GitHub",
     },
     socialLinks: [
