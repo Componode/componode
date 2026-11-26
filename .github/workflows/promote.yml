@@ -30,7 +30,7 @@ jobs:
 
       - name: Open promotion PR if version is unreleased
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -e
           VERSION=$(node -p "require('./package.json').version")

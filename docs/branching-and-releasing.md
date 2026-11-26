@@ -41,12 +41,15 @@ hotfix/* ──PR with version bump (merge commit)──────────
    are green.
 3. It derives the version bump from the accumulated changesets (the
    `major/minor/patch` input is only a fallback for when no changesets
-   exist) and opens a `chore/version-x.y.z` PR **to develop** with
-   auto-merge — the bump passes through the same protected gates as
-   everything else.
-4. Once that lands, the **Promote** workflow automatically opens the
-   promotion PR `develop → main` (or leaves the existing one to track
-   develop — it self-updates).
+   exist) and opens a `chore/version-x.y.z` PR **to develop**. The release
+   workflow then waits for that PR's gates to go green, merges it, and
+   opens the promotion PR itself — all in one workflow run, because
+   pushes and merges made with the default automation token do not
+   trigger further workflows.
+4. The workflow then opens the promotion PR `develop → main`
+   automatically (the independent **Promote** workflow acts as a safety
+   net for the same job on human pushes to develop — an open promotion
+   PR tracks develop, so it self-updates).
 5. A human merges the promotion PR with a **merge commit** (never squash —
    squash would diverge the histories and make every future promotion diff
    meaningless). This merge **is** the release approval.
@@ -142,6 +145,12 @@ repository-wide) and auto-merge is likewise repository-wide:
   trusted control.
 - Auto-merge must never be enabled on PRs to `main` — the manual merge act
   is the release approval.
+- **Secret `RELEASE_TOKEN`**: a fine-grained personal access token scoped
+  to this repository with contents:write and pull-requests:write. The
+  release automation uses it for PR creation and merges because
+  PRs created by the default workflow token do not reliably trigger CI.
+  Without it the automation degrades: version PRs need a manual
+  close/reopen to start their checks. Rotate before expiry (max 1 year).
 - CodeQL runs from the in-repo advanced workflow (`.github/workflows/codeql.yml`);
   the repository-level default setup must stay **disabled** or the two
   configurations conflict.

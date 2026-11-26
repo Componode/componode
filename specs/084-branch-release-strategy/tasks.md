@@ -158,3 +158,13 @@ Findings from code-review round 1 (both axes), ordered CRITICAL/HIGH first:
 - [x] T035 [MED] [code-review: spec] publish.yml `latest` safety: only update the `:latest` image tag when the version being published is the highest existing `v*` tag — prevents manual dispatch of an old tag from regressing latest
 - [x] T036 [LOW] [code-review: spec] promote.yml: filter the existing-PR lookup to same-repository head (avoid fork matches) and add a concurrency group; ci.yml main-guard: for `hotfix/*` heads, verify the branch ancestry actually descends from main (fetch + merge-base check)
 - [x] T037 [LOW] [code-review: standards] docs.yml: scope `pages: write`/`id-token: write` to the deploy job rather than workflow-top where the build job also receives them
+
+## Phase 11: Review round 2
+
+- [x] T038 [CRITICAL] [code-review: spec+standards] RELEASE_TOKEN fallback (`secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN`) across release/promote/tag/backmerge workflows — token-created PRs do not reliably trigger CI, so unattended automation requires a fine-grained PAT; documented in docs/branching-and-releasing.md and scripts/cutover-branch-settings.sh
+- [x] T039 [HIGH] [code-review: standards] Fix `gh pr checks` JSON corruption in release.yml — non-zero exit while pending still emits valid JSON; substitute `[]` only when stdout empty
+- [x] T040 [MED] [code-review: spec] Idempotent re-run detection in release.yml: skip-to-promotion when version already consumed, reuse existing open version PR, step conditions wired through the flow
+- [x] T041 [MED] [code-review: standards] Hotfix ancestry strictness in ci.yml main-guard — merge-base comparison against develop prevents smuggling unreleased develop work under a hotfix/* name
+- [x] T042 [MED] [code-review: standards] docs.yml build job least-privilege — pages/id-token write scoped to deploy job only (plus CRLF normalization of all workflow files)
+- [x] T043 [MED] [code-review: spec] Docs accuracy — branching-and-releasing.md flow description updated to the chained synchronous implementation (no auto-merge claims)
+- [x] T044 [LOW] [code-review: spec] tag.yml publish dispatch pinned `--ref main`; check-runs query paginated (per_page=100)

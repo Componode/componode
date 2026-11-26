@@ -48,11 +48,11 @@ jobs:
 
       - name: Verify develop quality gates are green
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -e
           echo "Checking required check runs on develop HEAD..."
-          gh api "repos/${GH_REPO}/commits/develop/check-runs" \
+          gh api "repos/${GH_REPO}/commits/develop/check-runs?per_page=100" \
             --jq '.check_runs[] | "\(.name)\t\(.status)\t\(.conclusion // "pending")"' | tee check-runs.txt
           if [ ! -s check-runs.txt ]; then
             echo "::error::No check runs found on develop HEAD — cannot verify gates. Refusing to start a release."
@@ -82,19 +82,58 @@ jobs:
           [ "$FAILED" = "0" ] || exit 1
           echo "All required gates green on develop."
 
+      - name: Detect release state for idempotent re-runs
+        id: state
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          # Re-run safety: this workflow can be re-invoked after partial
+          # completion. Detect how far a previous run got.
+          VERSION=$(node -p "require('./package.json').version")
+          echo "current_version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Declared version on develop: ${VERSION}"
+          HIGHEST_TAG=$(git tag -l "v*" --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+          echo "Highest existing tag: ${HIGHEST_TAG:-none}"
+          HAS_CHANGESETS=0
+          if find .changeset -maxdepth 1 -type f -name '*.md' ! -name 'README.md' -print -quit | grep -q .; then
+            HAS_CHANGESETS=1
+          fi
+          # Normal start: version == latest tag, changesets pending -> full flow.
+          # Already versioned: version ahead of latest tag, no changesets ->
+          #   a previous run completed version preparation; skip to promotion.
+          # Fresh, no changesets: version == latest tag -> fallback bump, full flow.
+          if [ -n "$HIGHEST_TAG" ] && [ "v${VERSION}" != "$HIGHEST_TAG" ] && [ "$HAS_CHANGESETS" = "0" ]; then
+            echo "Version ${VERSION} is already ahead of ${HIGHEST_TAG} with changesets consumed — version preparation completed in a prior run. Skipping straight to promotion."
+            echo "skip_to_promotion=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Case 2: an open version PR already exists (re-run while a prior
+          # version PR is still in flight) — reuse it instead of recreating.
+          OWNER="${{ github.repository_owner }}"
+          EXISTING_VPR=$(gh api "repos/${GH_REPO}/pulls?base=develop&head=${OWNER}:chore/version-v${VERSION}&state=open" --jq '.[0].html_url // empty' 2>/dev/null || true)
+          if [ -n "$EXISTING_VPR" ]; then
+            echo "Open version PR already exists: ${EXISTING_VPR} — reusing it."
+            echo "existing_pr_url=${EXISTING_VPR}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install pnpm
+        if: steps.state.outputs.skip_to_promotion != '1' && steps.state.outputs.existing_pr_url == ''
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Setup Node.js
+        if: steps.state.outputs.skip_to_promotion != '1' && steps.state.outputs.existing_pr_url == ''
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.state.outputs.skip_to_promotion != '1' && steps.state.outputs.existing_pr_url == ''
         run: pnpm install --frozen-lockfile
 
       - name: Verify changesets exist or add release-bump fallback
+        if: steps.state.outputs.skip_to_promotion != '1' && steps.state.outputs.existing_pr_url == ''
         run: |
           set -e
           if find .changeset -maxdepth 1 -type f -name '*.md' ! -name 'README.md' -print -quit | grep -q .; then
@@ -111,12 +150,14 @@ jobs:
           fi
 
       - name: Version with changesets
+        if: steps.state.outputs.skip_to_promotion != '1' && steps.state.outputs.existing_pr_url == ''
         run: pnpm changeset version
 
       - name: Create version pull request to develop
+        if: steps.state.outputs.skip_to_promotion != '1' && steps.state.outputs.existing_pr_url == ''
         id: versionpr
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -e
           git config user.name "github-actions[bot]"
@@ -143,16 +184,20 @@ jobs:
           echo "PR_URL=${PR_URL}" >> "$GITHUB_OUTPUT"
 
       - name: Wait for version PR checks and merge it
-        if: steps.versionpr.outputs.SKIP != '1'
+        if: steps.state.outputs.skip_to_promotion != '1'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          PR_URL="${{ steps.versionpr.outputs.PR_URL }}"
+          PR_URL="${{ steps.versionpr.outputs.PR_URL || steps.state.outputs.existing_pr_url }}"
           echo "Waiting for checks on ${PR_URL} (bounded to ~60 minutes)..."
           DEADLINE=$(( $(date +%s) + 3600 ))
           while true; do
-            STATE=$(gh pr checks "$PR_URL" --json name,bucket 2>/dev/null || echo "[]")
+            # gh pr checks exits non-zero while checks are pending or failed
+            # but still emits valid JSON — never append a fallback document,
+            # substitute only when stdout is empty.
+            STATE=$(gh pr checks "$PR_URL" --json name,bucket 2>/dev/null) || true
+            if [ -z "$STATE" ]; then STATE="[]"; fi
             REPORT=$(echo "$STATE" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const a=JSON.parse(d);console.log(a.length+' '+a.filter(c=>c.bucket==='pending').length+' '+a.filter(c=>['fail','cancel'].includes(c.bucket||'')).length)})")
             COUNT=$(echo "$REPORT" | cut -d' ' -f1)
             PENDING=$(echo "$REPORT" | cut -d' ' -f2)
@@ -176,12 +221,11 @@ jobs:
           echo "Version PR merged to develop."
 
       - name: Open or refresh promotion PR to main
-        if: steps.versionpr.outputs.SKIP != '1'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          VERSION="${{ steps.versionpr.outputs.VERSION }}"
+          VERSION="${{ steps.versionpr.outputs.VERSION || steps.state.outputs.current_version }}"
           TAG="v${VERSION}"
           git fetch origin develop
           OWNER="${{ github.repository_owner }}"

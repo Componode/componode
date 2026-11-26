@@ -15,7 +15,12 @@ set -euo pipefail
 
 REPO="${1:-Componode/componode}"
 
-echo "This script will modify repository settings for ${REPO}:"
+echo "BEFORE RUNNING: create a fine-grained PAT secret named RELEASE_TOKEN on the"
+ echo "repository (contents:write + pull-requests:write on this repo only). The release"
+ echo "automation falls back to GITHUB_TOKEN without it, but token-created PRs may not"
+ echo "trigger CI — unattended releases REQUIRE this secret."
+ echo ""
+ echo "This script will modify repository settings for ${REPO}:"
 echo "  1. Set the default branch to 'develop' (the branch must already exist)"
 echo "  2. Create/update branch rulesets for 'develop' and 'main'"
 echo "  3. Enable auto-merge"

@@ -141,11 +141,23 @@ jobs:
           git fetch --depth=50 origin main
           git fetch --depth=50 origin "+refs/heads/${HEAD_BRANCH}:refs/remotes/verify/${HEAD_BRANCH}" 2>/dev/null || \
             git fetch --depth=50 origin "${HEAD_SHA}"
-          if git merge-base --is-ancestor origin/main "${HEAD_SHA}" 2>/dev/null; then
-            echo "Hotfix branch descends from main — allowed."
-          elif git merge-base --is-ancestor origin/main "refs/remotes/verify/${HEAD_BRANCH}" 2>/dev/null; then
-            echo "Hotfix branch descends from main — allowed."
-          else
-            echo "::error::hotfix branches must descend from main — this one appears to be cut from develop or elsewhere. Rebase it onto main."
+          if ! git merge-base --is-ancestor origin/main "${HEAD_SHA}" 2>/dev/null; then
+            echo "::error::hotfix branches must descend from main — rebase onto main."
             exit 1
           fi
+          # Descending from main is necessary but not sufficient: after the
+          # first back-merge, develop also contains main, so a branch cut
+          # from develop would pass the test above while smuggling unreleased
+          # feature work into main. The hotfix must not contain develop-only
+          # commits — its merge-base with develop must not sit ahead of its
+          # merge-base with main.
+          git fetch --depth=200 origin develop 2>/dev/null || true
+          if git rev-parse -q --verify origin/develop >/dev/null 2>&1; then
+            MB_MAIN=$(git merge-base origin/main "${HEAD_SHA}")
+            MB_DEV=$(git merge-base origin/develop "${HEAD_SHA}")
+            if [ "$MB_MAIN" != "$MB_DEV" ] && ! git merge-base --is-ancestor "$MB_DEV" "$MB_MAIN" 2>/dev/null; then
+              echo "::error::This hotfix contains develop-only commits (unreleased work). Hotfixes must be cut from main, not develop."
+              exit 1
+            fi
+          fi
+          echo "Hotfix branch descends cleanly from main — allowed."
