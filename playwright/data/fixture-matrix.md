@@ -1,6 +1,6 @@
 # Synthetic Fixture and Table Matrix
 
-This matrix covers all 38 application-owned persistent tables. The two migration bookkeeping tables are excluded. Use the database only for deterministic bulk baseline data where direct seeding preserves constraints; use application flows for encrypted values and lifecycle-generated history.
+This matrix covers all 40 application-owned persistent tables. The two migration bookkeeping tables are excluded. Use the database only for deterministic bulk baseline data where direct seeding preserves constraints; use application flows for encrypted values and lifecycle-generated history.
 
 | Table | Fixture/lifecycle source | Coverage |
 | --- | --- | --- |
@@ -42,6 +42,8 @@ This matrix covers all 38 application-owned persistent tables. The two migration
 | `url_check_observations` | Real Hub/Agent probes | Success, status failure, timeout/error, missed, observation reads |
 | `app_settings` | Admin settings flows | Registration switch, default role, session/security settings |
 | `bom_entries` | Real importer runs (GitHub dependency graph, SBOM file) plus deterministic seeded rows | Source-scoped diff-replace, freshness/stale, multi-source attribution, empty state |
+| `bom_component_suggestions` | Server-generated BOM promotion candidates and curation decisions | Pending generation, accept/dismiss flows, terminal states |
+| `component_edge_suppressions` | Dismissed BOM-derived edge candidates | Suppression on dismiss, reappearance guard |
 | `kysely_migration` | Migration runner only | Excluded from user fixture coverage |
 | `kysely_migration_lock` | Migration runner only | Excluded from user fixture coverage |
 

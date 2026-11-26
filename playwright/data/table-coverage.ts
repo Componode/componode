@@ -43,6 +43,8 @@ export const TABLE_COVERAGE: Record<string, { source: CoverageSource; note: stri
   url_check_observations: { source: 'runtime', note: 'real Hub/Agent probes' },
   app_settings: { source: 'flow', note: 'admin settings toggles' },
   bom_entries: { source: 'runtime', note: 'github dep-graph + sbom-file runs + seeded stale/multi-source rows' },
+  bom_component_suggestions: { source: 'flow', note: 'server-generated BOM promotion candidates + curation decisions (spec 075)' },
+  component_edge_suppressions: { source: 'flow', note: 'dismissed BOM-derived edge candidates (spec 075/078)' },
   kysely_migration: { source: 'excluded', note: 'migration bookkeeping' },
   kysely_migration_lock: { source: 'excluded', note: 'migration bookkeeping' },
 };
