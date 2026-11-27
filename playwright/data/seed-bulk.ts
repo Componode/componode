@@ -2,7 +2,11 @@ import pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import { COMPONENT_COUNT, RUN_PREFIX } from './pagination-fixtures.js';
 
-const CATEGORIES = ['COMPUTE', 'DATABASE', 'STORAGE', 'NETWORK', 'API', 'REPOSITORY', 'JOB', 'LIBRARY'];
+// LIBRARY deliberately excluded: spec 075 hides LIBRARY components from
+// default list queries (libraries=1 opt-in), so bulk filler rows in that
+// category would be invisible to the pagination contract expectations.
+// BOM/SBOM flows produce real LIBRARY rows where library behavior matters.
+const CATEGORIES = ['COMPUTE', 'DATABASE', 'STORAGE', 'NETWORK', 'API', 'REPOSITORY', 'JOB'];
 const PROVIDERS = ['OTHER', 'DOCKER', 'GITHUB', 'AWS'];
 const ENVS = ['DEV', 'TEST', 'PRODUCTION'];
 
