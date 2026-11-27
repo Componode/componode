@@ -137,11 +137,13 @@ test.describe('component bill of materials', () => {
   test('components list BOM filter narrows by inventory presence', async ({ page }) => {
     await loginPage(page, 'VIEWER');
 
-    await page.goto('/components?bom=has&q=PW%20BOM');
+    // libraries=1: the BOM fixtures are LIBRARY-category components, hidden
+    // from the default list by spec 075's library hiding.
+    await page.goto('/components?bom=has&q=PW%20BOM&libraries=1');
     await expect(page.getByRole('link', { name: 'PW BOM Target' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('link', { name: 'PW BOM Stale' })).toBeVisible();
 
-    await page.goto('/components?bom=none&q=PW%20BOM');
+    await page.goto('/components?bom=none&q=PW%20BOM&libraries=1');
     await expect(page.getByRole('link', { name: 'PW BOM Target' })).not.toBeVisible();
     await expect(page.getByRole('link', { name: 'PW BOM Stale' })).not.toBeVisible();
   });

@@ -81,7 +81,11 @@ test.describe('packages explorer', () => {
     const { bomSlug, bomStaleSlug } = seed();
     await loginPage(page, 'VIEWER');
     await page.goto('/packages?q=pw-shared');
-    await page.getByTestId('package-row-pkg:npm/pw-shared-lib').click();
+    // Click the chevron cell, not the row center: the versions cell with its
+    // filter chips sits near the row's horizontal center at desktop widths,
+    // and a bare row click lands on a chip — which expands AND applies a
+    // version filter, hiding the other version's consumers.
+    await page.getByTestId('package-row-pkg:npm/pw-shared-lib').locator('td').first().click();
 
     const panel = page.getByTestId('consumers-pkg:npm/pw-shared-lib');
     await expect(panel).toBeVisible({ timeout: 30_000 });

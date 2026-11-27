@@ -269,7 +269,10 @@ export async function seedAppFlows(apiBase: string, pgUrl: string, env: Record<s
   // /packages merges them into one row (versionCount 2, componentCount 2)
   // and version chips filter the expanded consumers panel.
   const sharedId = idOf(bomComp);
-  await bomRow(staleId, srcIds[0]!, 'pkg:npm/pw-shared-lib@2.0.0', 'pw-shared-lib', '2.0.0', 'RUNTIME', true, 'npm', 2);
+  // WARNING: rows on the stale component must stay OLD — component-level
+  // staleness derives from max(lastReportedAt), so any fresh row on
+  // bomStaleComp silently defeats the spec-073 stale-inventory fixture.
+  await bomRow(staleId, srcIds[0]!, 'pkg:npm/pw-shared-lib@2.0.0', 'pw-shared-lib', '2.0.0', 'RUNTIME', true, 'npm', 10);
   await bomRow(sharedId, srcIds[1]!, 'pkg:npm/pw-shared-lib@1.9.0', 'pw-shared-lib', '1.9.0', 'RUNTIME', false, 'npm', 3);
 
   // sbom-file targeting requires an externalId on the component — the
